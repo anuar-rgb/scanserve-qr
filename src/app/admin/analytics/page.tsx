@@ -30,7 +30,7 @@ export default function AnalyticsPage() {
       .eq("restaurant_id", RESTAURANT_ID)
       .order("created_at", { ascending: false })
       .limit(500)
-      .then(({ data }) => setOrders((data as DbOrder[]) ?? []));
+      .then(({ data }: { data: DbOrder[] | null }) => setOrders(data ?? []));
   }, []);
 
   const totalRevenue = orders.length
