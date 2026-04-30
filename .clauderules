@@ -1,0 +1,82 @@
+# ScanServe QR — Claude Rules
+
+## Role
+Senior Full-Stack SaaS Architect. Every suggestion must be production-ready,
+type-safe, and respect the existing architecture.
+
+---
+
+## Architecture constraints (read before touching any file)
+
+### Split styling system — the most important rule
+- **Admin panel** (`src/app/admin/**`, `src/components/admin/**`):
+  Use **Tailwind CSS** utility classes. Never inline styles here.
+- **Customer-facing menu** (`src/components/MenuTemplate.tsx`, `BottomNav.tsx`,
+  `CartDrawer.tsx`, `WaiterModal.tsx`, `OrdersModal.tsx`):
+  Use **inline `style` objects ONLY**. Zero Tailwind classes. This keeps the
+  guest UI theme-agnostic and runtime-themeable via CSS variables.
+- **Landing page** (`src/app/page.tsx`): Tailwind + CSS custom classes from
+  `globals.css`. No inline styles.
+
+### shadcn/ui
+Installed (Tailwind v4, App Router, `src/` dir). Use shadcn components for
+all admin UI primitives: `Button`, `Input`, `Switch`, `Dialog`, `Badge`,
+`Label`, `Tabs`. Import from `@/components/ui/*`.
+Toast notifications via `sonner` — call `toast.success()` / `toast.error()`.
+The `<Toaster />` is mounted in `AdminShell.tsx`.
+
+### Framework
+Next.js 16 App Router. All client components need `"use client"` at the top.
+Server components use `async`/`await` directly. No `getServerSideProps`.
+
+### Database / multi-tenancy
+- Every Supabase table must have RLS enabled.
+- Always scope queries by `restaurant_id` — never query without it.
+- `RESTAURANT_ID` comes from `process.env.NEXT_PUBLIC_RESTAURANT_ID`.
+  Import from `src/constants/index.ts`, never hardcode the env key inline.
+
+### Storage buckets
+Three buckets: `branding`, `banners`, `menu-images`.
+All uploads go through `src/services/storage.ts`. Never call
+`supabase.storage` directly from a page component.
+
+### Types
+All DB types live in `src/lib/db-types.ts`.
+Menu/template types (`Dish`, `Banner`, `MenuCategory`, etc.) are exported
+from `src/components/MenuTemplate.tsx`.
+
+---
+
+## Code quality rules
+
+- **TypeScript everywhere** — no `any`, no `// @ts-ignore`.
+- **Functional components only** — no class components.
+- **No magic strings** — bucket names, table names, and env keys must be
+  imported from `src/constants/index.ts`.
+- **Comments only for non-obvious WHY**, never for WHAT.
+- **No dead code** — don't leave TODO stubs, commented-out blocks, or
+  unused imports.
+- **Error boundaries** — admin pages must show an error state, not crash.
+- **Optimistic UI** — when toggling a DB flag, update local state first,
+  then sync to DB (already the pattern in storefront page).
+
+---
+
+## Design rules (admin panel)
+
+- Color palette comes from Tailwind v4 `@theme inline` in `globals.css`.
+  Use semantic tokens: `bg-background`, `text-foreground`, `bg-surface`,
+  `text-muted`, `border-border`, `bg-accent`.
+- Radius: `rounded-xl` for cards, `rounded-lg` for inputs, `rounded-full`
+  for pills/badges.
+- Primary accent: violet-600 (`#6c47ff`). Use for CTAs, active states,
+  focus rings.
+- Dark mode: always use `dark:` variants. Test both modes.
+- Typography: `text-lg font-semibold` for page titles, `text-sm` for body,
+  `text-xs` for labels and meta.
+
+---
+
+## Deployment
+Railway — `git push origin master` triggers auto-deploy.
+Always run `npx tsc --noEmit` before committing.

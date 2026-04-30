@@ -1,0 +1,63 @@
+export interface LS { en: string; ru: string; kz: string; }
+
+export interface DbRestaurant {
+  id: string;
+  slug: string | null;
+  name: string;
+  logo: string | null;
+  cover_url: string | null;
+  wa_number: string | null;
+}
+
+export interface DbCategory {
+  id: string;
+  restaurant_id: string;
+  name: LS;
+  icon: string | null;
+  image_url: string | null;
+  order_index: number;
+}
+
+export interface DbProduct {
+  id: string;
+  category_id: string;
+  restaurant_id: string;
+  name: LS;
+  description: LS | null;
+  price: number;
+  image_url: string | null;
+  emoji: string | null;
+  badge: string | null;
+  is_new: boolean;
+  is_popular: boolean;
+  is_spicy: boolean;
+  is_available: boolean;
+  is_archived: boolean;
+  is_promo: boolean;
+  is_recommended: boolean;
+  order_index: number;
+  discount_label: string | null;
+}
+
+export interface DbBanner {
+  id: string;
+  restaurant_id: string;
+  image_url: string | null;
+  title: LS;
+  subtitle: LS | null;
+  link_url: string | null;
+  is_active: boolean;
+  order_index: number;
+  created_at: string;
+}
+
+export interface DbOrder {
+  id: string;
+  restaurant_id: string;
+  table_number: string | null;
+  items_json: unknown;
+  total_price: number;
+  status: string;
+  type: string;
+  created_at: string;
+}
