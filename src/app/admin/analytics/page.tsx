@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, ShoppingBag, CreditCard, Star } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 
@@ -24,6 +24,7 @@ export default function AnalyticsPage() {
   const [orders, setOrders] = useState<DbOrder[]>([]);
 
   useEffect(() => {
+    if (!isConfigured) return;
     supabase
       .from("orders")
       .select("*")

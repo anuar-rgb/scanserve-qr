@@ -5,7 +5,7 @@ import {
   CheckCircle2, XCircle, Tag, Pencil, Trash2, Archive,
   ArchiveRestore, Plus, Flame, Star, Sparkles,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbProduct } from "@/lib/db-types";
 import { useTranslations, getName } from "@/lib/i18n";
 import ProductModal from "@/components/admin/ProductModal";
@@ -34,6 +34,7 @@ export default function CatalogPage() {
   const [deleting, setDeleting]           = useState(false);
 
   const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
     const [catsRes, prodsRes] = await Promise.all([
       supabase.from("categories").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
       supabase.from("products").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
@@ -55,6 +56,7 @@ export default function CatalogPage() {
 
   /* ── Availability toggle ── */
   async function toggleAvailable(p: DbProduct) {
+    if (!isConfigured) return;
     setSaving(p.id);
     await supabase.from("products").update({ is_available: !p.is_available }).eq("id", p.id);
     setProducts((prev) => prev.map((x) => x.id === p.id ? { ...x, is_available: !p.is_available } : x));
@@ -63,6 +65,7 @@ export default function CatalogPage() {
 
   /* ── Archive toggle ── */
   async function toggleArchive(p: DbProduct) {
+    if (!isConfigured) return;
     setSaving(p.id);
     await supabase.from("products").update({ is_archived: !p.is_archived }).eq("id", p.id);
     setProducts((prev) => prev.map((x) => x.id === p.id ? { ...x, is_archived: !p.is_archived } : x));
@@ -71,7 +74,7 @@ export default function CatalogPage() {
 
   /* ── Inline price edit ── */
   async function commitPrice(id: string) {
-    if (!editPrice || editPrice.id !== id) { setEditPrice(null); return; }
+    if (!isConfigured || !editPrice || editPrice.id !== id) { setEditPrice(null); return; }
     const price = parseInt(editPrice.val, 10);
     if (!isNaN(price) && price >= 0) {
       setSaving(id);
@@ -84,7 +87,7 @@ export default function CatalogPage() {
 
   /* ── Delete (product or category) ── */
   async function confirmDelete() {
-    if (!deleteState) return;
+    if (!isConfigured || !deleteState) return;
     setDeleting(true);
     if (deleteState.type === "product") {
       await supabase.from("products").delete().eq("id", deleteState.id);

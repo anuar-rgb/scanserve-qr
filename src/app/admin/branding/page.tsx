@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, Loader2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbRestaurant } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 import { uploadImage } from "@/services/storage";
@@ -30,6 +30,7 @@ export default function BrandingPage() {
   const [saving, setSaving]             = useState(false);
 
   const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
     const { data } = await supabase
       .from("restaurants")
       .select("id, name, logo, cover_url, wa_number")
@@ -61,6 +62,7 @@ export default function BrandingPage() {
   }
 
   async function handleSave() {
+    if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
       const updates: Partial<DbRestaurant> = {};

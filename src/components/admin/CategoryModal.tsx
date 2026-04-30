@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 
@@ -26,6 +26,7 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
   const [error, setError]   = useState<string | null>(null);
 
   async function handleSave() {
+    if (!isConfigured) { setError("Database not configured. Set Supabase env vars in Railway."); return; }
     if (!nameEn.trim() || !nameRu.trim()) {
       setError("Name (EN) and Name (RU) are required.");
       return;

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { X, Upload, Loader2, ImageIcon, Flame, Star, Sparkles } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbProduct, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 
@@ -20,6 +20,7 @@ interface Props {
 function emptyLS(): LS { return { en: "", ru: "", kz: "" }; }
 
 async function uploadToStorage(file: File, bucket: string): Promise<string> {
+  if (!isConfigured) throw new Error("Database not configured");
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { data, error } = await supabase.storage
@@ -60,6 +61,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   }
 
   async function handleSave() {
+    if (!isConfigured) { setError("Database not configured. Set Supabase env vars in Railway."); return; }
     if (!nameEn.trim() || !nameRu.trim()) { setError("Name (EN) and Name (RU) are required."); return; }
     const priceNum = parseInt(price, 10);
     if (isNaN(priceNum) || priceNum < 0) { setError("Enter a valid price."); return; }

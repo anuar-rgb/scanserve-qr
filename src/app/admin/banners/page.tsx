@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, Loader2, ImageIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbBanner } from "@/lib/db-types";
 import { uploadImage } from "@/services/storage";
@@ -50,6 +50,7 @@ export default function BannersPage() {
   const [deleting, setDeleting]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
     const { data } = await supabase
       .from("banners")
@@ -95,6 +96,7 @@ export default function BannersPage() {
   }
 
   async function handleSave() {
+    if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
       let imageUrl: string | null = null;
@@ -128,6 +130,7 @@ export default function BannersPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!isConfigured) return;
     setDeleting(id);
     const { error } = await supabase.from("banners").delete().eq("id", id);
     if (error) {
@@ -140,6 +143,7 @@ export default function BannersPage() {
   }
 
   async function move(id: string, direction: "up" | "down") {
+    if (!isConfigured) return;
     const idx = banners.findIndex(b => b.id === id);
     if (direction === "up" && idx === 0) return;
     if (direction === "down" && idx === banners.length - 1) return;

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import { RESTAURANT_ID } from "@/constants";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,6 +50,7 @@ export default function StorefrontPage() {
   const [labelDrafts, setLabelDrafts] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
     const [{ data: cats }, { data: prods }] = await Promise.all([
       supabase
@@ -78,6 +79,7 @@ export default function StorefrontPage() {
   useEffect(() => { load(); }, [load]);
 
   async function toggle(productId: string, flag: Flag, current: boolean) {
+    if (!isConfigured) return;
     setToggling(productId + flag);
     setProducts(prev =>
       prev.map(p => p.id === productId ? { ...p, [flag]: !current } : p)
@@ -98,6 +100,7 @@ export default function StorefrontPage() {
   }
 
   async function saveLabel(productId: string) {
+    if (!isConfigured) return;
     const draft = (labelDrafts[productId] ?? "").trim();
     const product = products.find(p => p.id === productId);
     if (!product) return;
