@@ -1,26 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
+import { supabase, isConfigured } from "@/lib/supabase";
+import type { DbReview } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 
-const REVIEWS = [
-  { id: 1, name: "Айгерим С.",    rating: 5, date: "2025-04-27", dish: "Beshbarmak",  text: "Очень вкусный бешбармак! Обязательно вернёмся. Порция огромная, всё свежее." },
-  { id: 2, name: "Amir T.",       rating: 5, date: "2025-04-26", dish: "Kuyrdak",     text: "Amazing food and atmosphere. The Kuyrdak was perfectly cooked. Will recommend to friends." },
-  { id: 3, name: "Дина М.",       rating: 4, date: "2025-04-25", dish: "Naryn",        text: "Вкусно, но пришлось немного подождать. Нарын порадовал, бульон насыщенный." },
-  { id: 4, name: "Bekzhan A.",    rating: 5, date: "2025-04-24", dish: "Kazy",         text: "Best kazakh food in the city. The Kazy is authentic and the service was great." },
-  { id: 5, name: "Алия Н.",      rating: 5, date: "2025-04-23", dish: "Beshbarmak",  text: "Заказывали на семейный ужин — все в восторге. Атмосфера уютная, персонал приветливый." },
-  { id: 6, name: "Sergei K.",     rating: 4, date: "2025-04-22", dish: "Zhent",        text: "Good place overall. The desserts were a nice surprise, especially Zhent. A bit pricey." },
-  { id: 7, name: "Мариям Е.",    rating: 5, date: "2025-04-21", dish: "Kymyz",        text: "Настоящий кымыз — редкость в городе! Пришли из-за него и не пожалели." },
-  { id: 8, name: "David L.",      rating: 3, date: "2025-04-20", dish: "Baursak",      text: "The food is okay, but baursak could be fresher. Location is convenient." },
-];
-
-const RATING_DIST = [
-  { stars: 5, count: 24, pct: 63 },
-  { stars: 4, count: 9,  pct: 24 },
-  { stars: 3, count: 3,  pct: 8  },
-  { stars: 2, count: 1,  pct: 3  },
-  { stars: 1, count: 1,  pct: 2  },
-];
+const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
 function StarRow({ rating }: { rating: number }) {
   return (
@@ -38,10 +24,37 @@ function StarRow({ rating }: { rating: number }) {
 
 export default function ReviewsPage() {
   const { t } = useTranslations();
-  const totalReviews = RATING_DIST.reduce((s, r) => s + r.count, 0);
-  const avgRating = (
-    RATING_DIST.reduce((s, r) => s + r.stars * r.count, 0) / totalReviews
-  ).toFixed(1);
+  const [reviews, setReviews] = useState<DbReview[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isConfigured) { setLoading(false); return; }
+    supabase
+      .from("reviews")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: { data: DbReview[] | null; error: unknown }) => {
+        if (!error && data) setReviews(data);
+        setLoading(false);
+      });
+  }, []);
+
+  const totalReviews = reviews.length;
+  const avgRating = totalReviews > 0
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / totalReviews).toFixed(1)
+    : null;
+
+  const ratingDist = [5, 4, 3, 2, 1].map((stars) => {
+    const count = reviews.filter((r) => r.rating === stars).length;
+    const pct   = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+    return { stars, count, pct };
+  });
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("ru-RU", {
+      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    });
 
   return (
     <div className="flex flex-col h-full">
@@ -57,17 +70,31 @@ export default function ReviewsPage() {
 
           {/* Average rating */}
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6 flex flex-col items-center justify-center gap-2">
-            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">{t.admin.avgRating}</p>
-            <p className="text-5xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">{avgRating}</p>
-            <StarRow rating={Math.round(parseFloat(avgRating))} />
-            <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">{totalReviews} {t.admin.totalReviews}</p>
+            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+              {t.admin.avgRating}
+            </p>
+            {loading ? (
+              <p className="text-4xl font-black text-zinc-300 dark:text-zinc-700">…</p>
+            ) : avgRating ? (
+              <>
+                <p className="text-5xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">{avgRating}</p>
+                <StarRow rating={Math.round(parseFloat(avgRating))} />
+              </>
+            ) : (
+              <p className="text-4xl font-black text-zinc-300 dark:text-zinc-700">—</p>
+            )}
+            <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">
+              {loading ? "…" : `${totalReviews} ${t.admin.totalReviews}`}
+            </p>
           </div>
 
           {/* Rating distribution */}
           <div className="col-span-2 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
-            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4">{t.admin.ratingDist}</p>
+            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4">
+              {t.admin.ratingDist}
+            </p>
             <div className="space-y-2.5">
-              {RATING_DIST.map(({ stars, count, pct }) => (
+              {ratingDist.map(({ stars, count, pct }) => (
                 <div key={stars} className="flex items-center gap-3">
                   <div className="flex items-center gap-1 w-16 shrink-0">
                     <Star size={11} className="text-amber-400 fill-amber-400" />
@@ -89,31 +116,49 @@ export default function ReviewsPage() {
         {/* Review list */}
         <div>
           <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3">{t.admin.recentReviews}</h2>
-          <div className="space-y-3">
-            {REVIEWS.map((r) => (
-              <div
-                key={r.id}
-                className="rounded-xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-4 flex gap-4"
-              >
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0 text-sm font-bold text-violet-600 dark:text-violet-400">
-                  {r.name.charAt(0)}
-                </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{r.name}</span>
-                    <StarRow rating={r.rating} />
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-600 ml-auto shrink-0">{r.date}</span>
+          {loading ? (
+            <div className="text-center py-12 text-zinc-400 dark:text-zinc-600 text-sm">Загрузка…</div>
+          ) : reviews.length === 0 ? (
+            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-10 text-center">
+              <p className="text-3xl mb-3">⭐</p>
+              <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Отзывов пока нет</p>
+              <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">
+                Отзывы появятся здесь после того, как гости оценят свои заказы.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reviews.map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-4 flex gap-4"
+                >
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                    <Star size={16} className="text-amber-500 fill-amber-500" />
                   </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                    Ordered: <span className="font-medium text-zinc-700 dark:text-zinc-300">{r.dish}</span>
-                  </p>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">{r.text}</p>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 font-mono">
+                        {r.order_id ?? "—"}
+                      </span>
+                      <StarRow rating={r.rating} />
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600 ml-auto shrink-0">
+                        {formatDate(r.created_at)}
+                      </span>
+                    </div>
+                    {r.comment ? (
+                      <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">{r.comment}</p>
+                    ) : (
+                      <p className="text-xs text-zinc-400 dark:text-zinc-600 italic">Без комментария</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

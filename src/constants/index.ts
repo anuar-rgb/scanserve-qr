@@ -14,6 +14,7 @@ export const DB_TABLES = {
   products: "products",
   banners: "banners",
   orders: "orders",
+  reviews: "reviews",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

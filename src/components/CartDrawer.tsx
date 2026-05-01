@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2 } from "lucide-react";
+import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2, Star } from "lucide-react";
 import { resolve, type Lang, type Dish, type PaymentInfo } from "./MenuTemplate";
+import { supabase, isConfigured } from "@/lib/supabase";
+import { RESTAURANT_ID } from "@/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -175,6 +177,10 @@ const T: Record<string, Record<Lang, string>> = {
   kaspiBank:            { en: "Kaspi.kz",                                ru: "Kaspi.kz",                                    kz: "Kaspi.kz"                              },
   halykBank:            { en: "Halyk Bank",                              ru: "Halyk Bank",                                  kz: "Halyk Bank"                            },
   bankLabel:            { en: "Bank",                                     ru: "Банк",                                        kz: "Банк"                                  },
+  rateOrder:            { en: "Rate Your Order",                          ru: "Оцените ваш заказ",                           kz: "Тапсырысыңызды бағалаңыз"              },
+  reviewSend:           { en: "Submit Review",                            ru: "Отправить отзыв",                             kz: "Пікір жіберу"                          },
+  reviewThanks:         { en: "Thank you for your review!",               ru: "Спасибо за ваш отзыв!",                      kz: "Пікіріңізге рахмет!"                   },
+  reviewHint:           { en: "Your comment (optional)",                  ru: "Комментарий (необязательно)",                 kz: "Түсініктеме (міндетті емес)"           },
 };
 
 const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? key;
@@ -350,6 +356,11 @@ export function CartDrawer({
   const [citySearch, setCitySearch]           = useState("");
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [phoneNumber, setPhoneNumber]         = useState("");
+  const [placedOrderId, setPlacedOrderId]     = useState<string | null>(null);
+  const [reviewRating, setReviewRating]       = useState(0);
+  const [reviewComment, setReviewComment]     = useState("");
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [reviewLoading, setReviewLoading]     = useState(false);
 
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -433,6 +444,10 @@ export function CartDrawer({
     setRemoteBank(null);
     setInvoicePhone("");
     setPaymentComment("");
+    setPlacedOrderId(null);
+    setReviewRating(0);
+    setReviewComment("");
+    setReviewSubmitted(false);
   };
 
   const handleClose = () => {
@@ -487,6 +502,7 @@ export function CartDrawer({
       deliveryFee: deliveryFee || undefined,
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+    setPlacedOrderId(orderId);
     const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
     if (isMobile) {
       window.location.href = url;
@@ -509,6 +525,24 @@ export function CartDrawer({
       currency,
       status: "pending",
     });
+  };
+
+  const handleSubmitReview = async () => {
+    if (reviewRating === 0 || reviewLoading) return;
+    setReviewLoading(true);
+    try {
+      if (isConfigured) {
+        await supabase.from("reviews").insert({
+          restaurant_id: RESTAURANT_ID,
+          order_id: placedOrderId,
+          rating: reviewRating,
+          comment: reviewComment.trim() || null,
+        });
+      }
+    } finally {
+      setReviewSubmitted(true);
+      setReviewLoading(false);
+    }
   };
 
   const filteredCities = KZ_CITIES.filter((c) => {
@@ -1242,6 +1276,68 @@ export function CartDrawer({
                   <span>{tn("total", lang)}</span>
                   <span>{placedOrder.total.toLocaleString()} {placedOrder.currency}</span>
                 </div>
+              </div>
+
+              {/* ── Review block ── */}
+              <div style={{ width: "100%", marginTop: SP.md }}>
+                {reviewSubmitted ? (
+                  <div style={{ textAlign: "center", padding: `${SP.sm}px 0 ${SP.md}px` }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: isDark ? "#6DB86D" : "#2E7D32", margin: 0 }}>
+                      {tn("reviewThanks", lang)}
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ padding: SP.md, background: surface, borderRadius: R.lg, border: `1px solid ${border}` }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, textAlign: "center", margin: `0 0 ${SP.sm}px`, color: textClr }}>
+                      {tn("rateOrder", lang)}
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: SP.md }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setReviewRating(s)}
+                          style={{ background: "none", border: "none", cursor: "pointer", padding: 2, lineHeight: 1 }}
+                        >
+                          <Star
+                            size={28}
+                            fill={s <= reviewRating ? "#FBBF24" : "none"}
+                            style={{ color: s <= reviewRating ? "#FBBF24" : (isDark ? "#3A3A3A" : "#D1D5DB"), transition: "color 0.15s, fill 0.15s" }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder={tn("reviewHint", lang)}
+                      rows={2}
+                      style={{
+                        display: "block", width: "100%",
+                        padding: "10px 12px", marginBottom: SP.sm,
+                        background: isDark ? "#252525" : "#E6E8EC",
+                        border: `1.5px solid ${reviewComment.trim() ? textClr : border}`,
+                        borderRadius: R.md, color: textClr, fontSize: 14,
+                        outline: "none", boxSizing: "border-box",
+                        resize: "none", fontFamily: "inherit",
+                        transition: "border-color 0.15s",
+                      } as React.CSSProperties}
+                    />
+                    <button
+                      onClick={handleSubmitReview}
+                      disabled={reviewRating === 0 || reviewLoading}
+                      style={{
+                        width: "100%", padding: "11px 0", borderRadius: R.full, border: "none",
+                        fontSize: 14, fontWeight: 700,
+                        cursor: reviewRating === 0 ? "not-allowed" : "pointer",
+                        background: reviewRating === 0 ? border : (isDark ? "#FBBF24" : "#D97706"),
+                        color: reviewRating === 0 ? muted : "#FFF",
+                        transition: "background 0.2s",
+                      }}
+                    >
+                      {reviewLoading ? "…" : tn("reviewSend", lang)}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

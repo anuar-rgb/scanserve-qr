@@ -61,3 +61,12 @@ export interface DbOrder {
   type: string;
   created_at: string;
 }
+
+export interface DbReview {
+  id: string;
+  restaurant_id: string;
+  order_id: string | null;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}

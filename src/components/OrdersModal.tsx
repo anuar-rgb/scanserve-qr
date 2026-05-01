@@ -10,6 +10,9 @@ import { downloadOrderPDF, shareOrderPDF } from "@/lib/receipt-pdf";
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 6, md: 12, lg: 16, full: 999 } as const;
 
+const REFUND_WINDOW_MS = 24 * 60 * 60 * 1000;
+const canRefund = (timestamp: number) => Date.now() - timestamp < REFUND_WINDOW_MS;
+
 export interface OrdersModalProps {
   open: boolean;
   onClose: () => void;
@@ -78,6 +81,7 @@ export function OrdersModal({
     closeBtn:        lang === "kz" ? "Жабу"                                     : lang === "ru" ? "Закрыть"                                  : "Close",
     backBtn:         lang === "kz" ? "Тапсырыстарға оралу"                      : lang === "ru" ? "Вернуться к заказам"                       : "Back to Orders",
     refundConfirmed: lang === "kz" ? "Өтінім расталды ✓"                        : lang === "ru" ? "Возврат подтверждён ✓"                     : "Refund Confirmed ✓",
+    refundExpired:   lang === "kz" ? "⏱ Қайтару мерзімі аяқталды"               : lang === "ru" ? "⏱ Время возврата истекло"                   : "⏱ Refund window expired",
   };
 
   const WA: Record<string, Record<Lang, string>> = {
@@ -112,6 +116,7 @@ export function OrdersModal({
 
   const openRefundForm = (order: StoredOrder, itemIndex?: number) => {
     if (order.status === "refund-requested") return;
+    if (!canRefund(order.timestamp)) return;
     setRefundReason("");
     setRefundContact("");
     setShowFieldError(false);
@@ -132,6 +137,11 @@ export function OrdersModal({
   const handlePartialConfirm = () => {
     if (!partialDialog) return;
     const { order, itemIndex, qty } = partialDialog;
+    if (!canRefund(order.timestamp)) {
+      toast.error(t.refundExpired);
+      closePartialDialog();
+      return;
+    }
     const item = order.items[itemIndex];
     if (!item) { setPartialDialog(null); return; }
 
@@ -170,6 +180,10 @@ export function OrdersModal({
 
   // ── Full / legacy partial refund form submit ───────────────────────────────
   const handleSendRefund = (order: StoredOrder) => {
+    if (!canRefund(order.timestamp)) {
+      toast.error(t.refundExpired);
+      return;
+    }
     if (!refundReason.trim() || !refundContact.trim()) {
       setShowFieldError(true);
       return;
@@ -409,6 +423,7 @@ export function OrdersModal({
               <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                 {sorted.map((order) => {
                   const isRequested = order.status === "refund-requested";
+                  const isExpired   = !isRequested && !canRefund(order.timestamp);
                   return (
                     <div key={order.id} style={{ background: card, borderRadius: R.md, border: `1px solid ${border}`, overflow: "hidden" }}>
                       {/* Order meta */}
@@ -480,7 +495,7 @@ export function OrdersModal({
                             <span style={{ fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
                               {(item.price * item.qty).toLocaleString()} {item.currency}
                             </span>
-                            {!isRequested && (
+                            {!isRequested && !isExpired && (
                               <button
                                 onClick={() => setPartialDialog({ order, itemIndex: i, qty: 1 })}
                                 style={{
@@ -509,18 +524,18 @@ export function OrdersModal({
                       <div style={{ padding: "6px 14px 12px" }}>
                         <button
                           onClick={() => openRefundForm(order)}
-                          disabled={isRequested}
+                          disabled={isRequested || isExpired}
                           style={{
                             width: "100%", padding: "8px 0", borderRadius: R.full,
-                            border: `1px solid ${isRequested ? border : "#E05555"}`,
+                            border: `1px solid ${(isRequested || isExpired) ? border : "#E05555"}`,
                             background: "transparent",
-                            color: isRequested ? muted : "#E05555",
+                            color: (isRequested || isExpired) ? muted : "#E05555",
                             fontSize: 12, fontWeight: 700,
-                            cursor: isRequested ? "default" : "pointer",
+                            cursor: (isRequested || isExpired) ? "default" : "pointer",
                             letterSpacing: "0.02em",
                           }}
                         >
-                          {isRequested ? `✓ ${t.requested}` : t.refundAll}
+                          {isRequested ? `✓ ${t.requested}` : isExpired ? t.refundExpired : t.refundAll}
                         </button>
                       </div>
                     </div>
