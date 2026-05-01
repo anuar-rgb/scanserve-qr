@@ -223,8 +223,9 @@
     "slideActive": "Active",
     "uploadVideo": "Click to upload image or video",
     "changeMedia": "Change file",
-    "slideTagLabel": "Tag (optional)",
-    "slideTagColorLabel": "Tag color"
+    "slideTagLabel": "Tags",
+    "slideTagColorLabel": "Tag color",
+    "addTag": "Add tag"
   },
   "receipt": {
     "title": "RECEIPT",

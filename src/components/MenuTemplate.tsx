@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { SlideTag } from "@/lib/db-types";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sun, Moon, ChevronDown, Heart, Search, X, Clock } from "lucide-react";
 import { BottomNav } from "./BottomNav";
@@ -85,8 +86,7 @@ export interface HeroSlide {
   url: string;
   title?: string | null;
   description?: string | null;
-  tag?: string | null;
-  tag_color?: "white" | "yellow" | null;
+  tags?: SlideTag[] | null;
 }
 
 export interface FeaturedItem {
@@ -1326,6 +1326,16 @@ function CatalogDishCard({
 
 // ── Hero Slider ───────────────────────────────────────────────────────────────
 
+const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
+  white:  { bg: "rgba(255,255,255,0.88)", fg: "#111" },
+  yellow: { bg: "#F9D94A",               fg: "#111" },
+  green:  { bg: "#4ADE80",               fg: "#111" },
+  red:    { bg: "#F87171",               fg: "#111" },
+  blue:   { bg: "#60A5FA",               fg: "#111" },
+  orange: { bg: "#FB923C",               fg: "#111" },
+  purple: { bg: "#A78BFA",               fg: "#111" },
+};
+
 const SLIDE_DURATION = 5000;
 const SLIDE_TICK     = 50;
 
@@ -1356,8 +1366,6 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
 
   const slide = slides[idx];
   if (!slide) return null;
-
-  const tagBg = slide.tag_color === "yellow" ? "#F9D94A" : "rgba(255,255,255,0.88)";
 
   return (
     <div
@@ -1416,21 +1424,27 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
           display: "flex", flexDirection: "column", gap: 0,
         }}
       >
-        {/* Tag badge */}
-        {slide.tag && (
-          <div style={{ marginBottom: 6 }}>
-            <span
-              style={{
-                display: "inline-block",
-                backgroundColor: tagBg,
-                color: "#111",
-                fontSize: 11, fontWeight: 700,
-                padding: "3px 10px", borderRadius: 99,
-                letterSpacing: "0.01em", lineHeight: 1.5,
-              }}
-            >
-              {slide.tag}
-            </span>
+        {/* Tag badges */}
+        {slide.tags && slide.tags.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+            {slide.tags.map((tag, i) => {
+              const palette = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.white;
+              return (
+                <span
+                  key={i}
+                  style={{
+                    display: "inline-block",
+                    backgroundColor: palette.bg,
+                    color: palette.fg,
+                    fontSize: 11, fontWeight: 700,
+                    padding: "3px 10px", borderRadius: 99,
+                    letterSpacing: "0.01em", lineHeight: 1.5,
+                  }}
+                >
+                  {tag.text}
+                </span>
+              );
+            })}
           </div>
         )}
 

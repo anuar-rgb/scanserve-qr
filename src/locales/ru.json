@@ -223,8 +223,9 @@
     "slideActive": "Активен",
     "uploadVideo": "Нажмите, чтобы загрузить фото или видео",
     "changeMedia": "Сменить файл",
-    "slideTagLabel": "Тег (необязательно)",
-    "slideTagColorLabel": "Цвет тега"
+    "slideTagLabel": "Теги",
+    "slideTagColorLabel": "Цвет тега",
+    "addTag": "Добавить тег"
   },
   "receipt": {
     "title": "ЧЕК",

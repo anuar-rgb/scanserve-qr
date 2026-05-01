@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, ImageIcon, Film, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ImageIcon, Film, ChevronUp, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
-import type { DbHeroSlide } from "@/lib/db-types";
+import type { DbHeroSlide, SlideTag, TagColor } from "@/lib/db-types";
 import { uploadMedia } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+const TAG_PALETTE: { key: TagColor; bg: string; label: string }[] = [
+  { key: "white",  bg: "#ffffff", label: "Белый"     },
+  { key: "yellow", bg: "#F9D94A", label: "Жёлтый"   },
+  { key: "green",  bg: "#4ADE80", label: "Зелёный"  },
+  { key: "red",    bg: "#F87171", label: "Красный"   },
+  { key: "blue",   bg: "#60A5FA", label: "Синий"     },
+  { key: "orange", bg: "#FB923C", label: "Оранжевый" },
+  { key: "purple", bg: "#A78BFA", label: "Фиолетовый"},
+];
+
 type SlideForm = {
   title: string;
   description: string;
-  tag: string;
-  tag_color: "white" | "yellow";
+  tags: SlideTag[];
   is_active: boolean;
   mediaFile: File | null;
   mediaPreview: string | null;
@@ -33,7 +42,7 @@ type SlideForm = {
 };
 
 const EMPTY_FORM: SlideForm = {
-  title: "", description: "", tag: "", tag_color: "white", is_active: true,
+  title: "", description: "", tags: [], is_active: true,
   mediaFile: null, mediaPreview: null, mediaType: "image",
 };
 
@@ -74,8 +83,7 @@ export default function HeroSliderPage() {
     setForm({
       title: s.title ?? "",
       description: s.description ?? "",
-      tag: s.tag ?? "",
-      tag_color: s.tag_color ?? "white",
+      tags: s.tags ?? [],
       is_active: s.is_active,
       mediaFile: null,
       mediaPreview: s.url,
@@ -102,6 +110,22 @@ export default function HeroSliderPage() {
     }));
   }
 
+  function addTag() {
+    setForm(prev => ({ ...prev, tags: [...prev.tags, { text: "", color: "white" as TagColor }] }));
+  }
+
+  function removeTag(i: number) {
+    setForm(prev => ({ ...prev, tags: prev.tags.filter((_, j) => j !== i) }));
+  }
+
+  function updateTagText(i: number, text: string) {
+    setForm(prev => ({ ...prev, tags: prev.tags.map((t, j) => j === i ? { ...t, text } : t) }));
+  }
+
+  function updateTagColor(i: number, color: TagColor) {
+    setForm(prev => ({ ...prev, tags: prev.tags.map((t, j) => j === i ? { ...t, color } : t) }));
+  }
+
   async function handleSave() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
@@ -122,14 +146,15 @@ export default function HeroSliderPage() {
         return;
       }
 
+      const cleanTags = form.tags.filter(t => t.text.trim());
+
       const payload = {
         restaurant_id: RESTAURANT_ID,
         type,
         url,
         title: form.title.trim() || null,
         description: form.description.trim() || null,
-        tag: form.tag.trim() || null,
-        tag_color: form.tag.trim() ? form.tag_color : null,
+        tags: cleanTags.length > 0 ? cleanTags : null,
         is_active: form.is_active,
       };
 
@@ -242,9 +267,20 @@ export default function HeroSliderPage() {
                   {s.description && (
                     <p className="text-xs text-zinc-400 truncate">{s.description}</p>
                   )}
-                  <Badge className="mt-1 text-[10px] px-1.5 py-0 border-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-                    {s.type}
-                  </Badge>
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <Badge className="text-[10px] px-1.5 py-0 border-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                      {s.type}
+                    </Badge>
+                    {s.tags?.slice(0, 3).map((tag, i) => (
+                      <span
+                        key={i}
+                        className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full text-zinc-900"
+                        style={{ background: TAG_PALETTE.find(p => p.key === tag.color)?.bg ?? "#fff" }}
+                      >
+                        {tag.text}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 <button
@@ -352,40 +388,58 @@ export default function HeroSliderPage() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>{t.admin.slideTagLabel}</Label>
-              <Input
-                value={form.tag}
-                onChange={e => setForm(prev => ({ ...prev, tag: e.target.value }))}
-                placeholder="Вкусно!"
-              />
-            </div>
-
-            {form.tag && (
-              <div className="space-y-1.5">
-                <Label>{t.admin.slideTagColorLabel}</Label>
-                <div className="flex gap-2">
-                  {(["white", "yellow"] as const).map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setForm(prev => ({ ...prev, tag_color: color }))}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                        form.tag_color === color
-                          ? "border-violet-500 ring-1 ring-violet-500"
-                          : "border-zinc-200 dark:border-zinc-700"
-                      }`}
-                    >
-                      <span
-                        className="w-4 h-4 rounded-full border border-zinc-300 dark:border-zinc-600"
-                        style={{ background: color === "yellow" ? "#F9D94A" : "#fff" }}
-                      />
-                      {color === "yellow" ? "Жёлтый" : "Белый"}
-                    </button>
-                  ))}
-                </div>
+            {/* Multi-tag editor */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t.admin.slideTagLabel}</Label>
+                <button
+                  type="button"
+                  onClick={addTag}
+                  className="flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+                >
+                  <Plus size={12} />
+                  {t.admin.addTag}
+                </button>
               </div>
-            )}
+
+              {form.tags.length === 0 && (
+                <p className="text-xs text-zinc-400 dark:text-zinc-600 italic">Нет тегов</p>
+              )}
+
+              {form.tags.map((tag, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    value={tag.text}
+                    onChange={e => updateTagText(i, e.target.value)}
+                    placeholder="Вкусно!"
+                    className="flex-1 h-8 text-sm"
+                  />
+                  <div className="flex gap-1 shrink-0">
+                    {TAG_PALETTE.map(({ key, bg }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        title={TAG_PALETTE.find(p => p.key === key)?.label}
+                        onClick={() => updateTagColor(i, key)}
+                        style={{ background: bg }}
+                        className={`w-5 h-5 rounded-full transition-all border-2 ${
+                          tag.color === key
+                            ? "border-violet-600 scale-110 shadow-sm"
+                            : "border-transparent hover:border-zinc-400 dark:hover:border-zinc-500"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeTag(i)}
+                    className="shrink-0 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
 
             <div className="flex items-center justify-between py-1">
               <Label>{t.admin.slideActive}</Label>

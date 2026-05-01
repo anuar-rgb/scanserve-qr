@@ -223,8 +223,9 @@
     "slideActive": "Белсенді",
     "uploadVideo": "Сурет немесе бейне жүктеу үшін басыңыз",
     "changeMedia": "Файлды ауыстыру",
-    "slideTagLabel": "Тег (міндетті емес)",
-    "slideTagColorLabel": "Тег түсі"
+    "slideTagLabel": "Тегтер",
+    "slideTagColorLabel": "Тег түсі",
+    "addTag": "Тег қосу"
   },
   "receipt": {
     "title": "ТҮБІРТЕК",

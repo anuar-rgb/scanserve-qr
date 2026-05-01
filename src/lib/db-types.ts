@@ -71,6 +71,9 @@ export interface DbReview {
   created_at: string;
 }
 
+export type TagColor = "white" | "yellow" | "green" | "red" | "blue" | "orange" | "purple";
+export type SlideTag = { text: string; color: TagColor };
+
 export interface DbHeroSlide {
   id: string;
   restaurant_id: string;
@@ -78,8 +81,7 @@ export interface DbHeroSlide {
   url: string;
   title: string | null;
   description: string | null;
-  tag: string | null;
-  tag_color: "white" | "yellow" | null;
+  tags: SlideTag[] | null;
   order_index: number;
   is_active: boolean;
   created_at: string;
