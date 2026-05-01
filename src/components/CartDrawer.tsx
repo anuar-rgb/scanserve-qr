@@ -493,6 +493,7 @@ export function CartDrawer({
     } else {
       window.open(url, "_blank", "noopener,noreferrer");
     }
+    onClearCart();
     setPlacedOrder(order);
     setStep("success");
     setLoading(false);
