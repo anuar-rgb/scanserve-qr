@@ -65,31 +65,33 @@ export default function BrandingPage() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
-      const updates: Partial<DbRestaurant> = {};
+      const payload: Partial<DbRestaurant> & { id: string } = {
+        id: RESTAURANT_ID,
+        name: name.trim(),
+        wa_number: waNumber.trim() || null,
+      };
 
-      if (restaurant && name.trim() !== restaurant.name) updates.name = name.trim();
-      if (restaurant && waNumber.trim() !== (restaurant.wa_number ?? "")) {
-        updates.wa_number = waNumber.trim() || null;
-      }
       if (logoFile) {
-        updates.logo = await uploadImage(logoFile, "branding", "logo");
-        setLogoPreview(updates.logo ?? null);
+        payload.logo = await uploadImage(logoFile, "branding", "logo");
+        setLogoPreview(payload.logo ?? null);
         setLogoFile(null);
       }
       if (coverFile) {
-        updates.cover_url = await uploadImage(coverFile, "branding", "cover");
-        setCoverPreview(updates.cover_url ?? null);
+        payload.cover_url = await uploadImage(coverFile, "branding", "cover");
+        setCoverPreview(payload.cover_url ?? null);
         setCoverFile(null);
       }
 
-      if (Object.keys(updates).length > 0) {
-        const { error: dbErr } = await supabase
-          .from("restaurants")
-          .update(updates)
-          .eq("id", RESTAURANT_ID);
-        if (dbErr) throw dbErr;
-        setRestaurant((prev) => prev ? { ...prev, ...updates } : prev);
-      }
+      const { error: dbErr } = await supabase
+        .from("restaurants")
+        .upsert(payload);
+      if (dbErr) throw dbErr;
+
+      setRestaurant((prev) =>
+        prev
+          ? { ...prev, ...payload }
+          : ({ slug: null, logo: null, cover_url: null, ...payload } as DbRestaurant),
+      );
 
       toast.success(t.admin.brandingSaved);
     } catch (e) {
@@ -98,15 +100,6 @@ export default function BrandingPage() {
       setSaving(false);
     }
   }
-
-  const hasChanges = !!(
-    logoFile ||
-    coverFile ||
-    (restaurant && (
-      name.trim() !== restaurant.name ||
-      waNumber.trim() !== (restaurant.wa_number ?? "")
-    ))
-  );
 
   if (loading) {
     return (
@@ -124,12 +117,10 @@ export default function BrandingPage() {
           <h1 className="text-lg font-semibold">{t.admin.navBranding}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{t.admin.descBranding}</p>
         </div>
-        {hasChanges && (
-          <Button onClick={handleSave} disabled={saving} size="sm">
-            {saving ? <Loader2 className="animate-spin" /> : <Upload />}
-            {saving ? t.admin.saving : t.admin.save}
-          </Button>
-        )}
+        <Button onClick={handleSave} disabled={saving} size="sm">
+          {saving ? <Loader2 className="animate-spin" /> : <Upload />}
+          {saving ? t.admin.saving : t.admin.save}
+        </Button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6 max-w-2xl">
