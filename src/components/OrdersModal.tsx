@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, ChevronLeft, Download, Share2, Minus, Plus } from "lucide-react";
+import { toast } from "sonner";
 import type { Lang } from "./MenuTemplate";
 import type { StoredOrder } from "./MenuTemplate";
 import { downloadOrderPDF, shareOrderPDF } from "@/lib/receipt-pdf";
@@ -140,7 +141,11 @@ export function OrdersModal({
         `• ${wm("newTotal")}: ${newTotal.toLocaleString()} ${order.currency}`,
       ];
       const clean = whatsappPhone.replace(/\D/g, "");
+      console.log("Отправка уведомления на номер:", clean);
       window.open(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+    } else {
+      console.warn("whatsappPhone не задан — уведомление не отправлено");
+      toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
     }
 
     // Update order in state + localStorage via parent callback
@@ -177,7 +182,11 @@ export function OrdersModal({
       }
 
       const clean = whatsappPhone.replace(/\D/g, "");
+      console.log("Отправка уведомления на номер:", clean);
       window.open(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+    } else {
+      console.warn("whatsappPhone не задан — уведомление не отправлено");
+      toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
     }
 
     if (!isPartial) onRefundRequest(order.id);

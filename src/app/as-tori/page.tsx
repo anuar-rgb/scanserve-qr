@@ -38,7 +38,11 @@ export default async function AsToriPage() {
 
   return (
     <MenuTemplate
-      restaurant={restaurant}
+      restaurant={{
+        ...restaurant,
+        // Prefer wa_number from Supabase so Branding page changes take effect
+        whatsappPhone: dbRestaurant?.wa_number ?? restaurant.whatsappPhone,
+      }}
       categories={categories}
       lang="kz"
       heroBanner={heroBanner}
