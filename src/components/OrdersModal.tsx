@@ -37,8 +37,8 @@ export function OrdersModal({
     itemIndex: number;
     qty: number;
   } | null>(null);
-  const [partialWaUrl, setPartialWaUrl] = useState<string | null>(null);
-  const [fullWaUrl,    setFullWaUrl]    = useState<string | null>(null);
+  const [partialConfirmed, setPartialConfirmed] = useState(false);
+  const [refundSent,       setRefundSent]       = useState(false);
 
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -125,7 +125,7 @@ export function OrdersModal({
     setRefundReason("");
     setRefundContact("");
     setShowFieldError(false);
-    setFullWaUrl(null);
+    setRefundSent(false);
   };
 
   // ── Partial qty-picker confirm ─────────────────────────────────────────────
@@ -149,21 +149,23 @@ export function OrdersModal({
         `• ${wm("newTotal")}: ${newTotal.toLocaleString()} ${order.currency}`,
       ];
       const clean = whatsappPhone.replace(/\D/g, "");
-      console.log("Отправка уведомления на номер:", clean);
-      setPartialWaUrl(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`);
+      const url = `https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`;
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
     } else {
-      console.warn("whatsappPhone не задан — уведомление не отправлено");
       toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
     }
 
-    // Update order in state + localStorage via parent callback
     onPartialRefund(order.id, itemIndex, qty);
-    // Dialog stays open to show the "Send to WhatsApp" button
+    setPartialConfirmed(true);
   };
 
   const closePartialDialog = () => {
     setPartialDialog(null);
-    setPartialWaUrl(null);
+    setPartialConfirmed(false);
   };
 
   // ── Full / legacy partial refund form submit ───────────────────────────────
@@ -195,16 +197,18 @@ export function OrdersModal({
       }
 
       const clean = whatsappPhone.replace(/\D/g, "");
-      console.log("Отправка уведомления на номер:", clean);
-      setFullWaUrl(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`);
+      const url = `https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`;
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
     } else {
-      console.warn("whatsappPhone не задан — уведомление не отправлено");
       toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
     }
 
-    // Mark as refund-requested immediately so orders list reflects it
     if (!isPartial) onRefundRequest(order.id);
-    // Modal stays open — user closes manually after sending via WA
+    setRefundSent(true);
   };
 
   const handleDownload = async (order: StoredOrder) => {
@@ -364,25 +368,11 @@ export function OrdersModal({
                 </p>
               )}
 
-              {fullWaUrl ? (
+              {refundSent ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#6DB86D" : "#2E7D32", textAlign: "center", margin: `0 0 ${SP.xs}px` }}>
                     {t.refundConfirmed}
                   </p>
-                  <a
-                    href={fullWaUrl}
-                    target={isMobile ? undefined : "_blank"}
-                    rel={isMobile ? undefined : "noopener noreferrer"}
-                    style={{
-                      display: "block", padding: "14px 0", borderRadius: R.full,
-                      background: "#25D366", color: "#fff",
-                      fontSize: 15, fontWeight: 700,
-                      textAlign: "center", textDecoration: "none",
-                      letterSpacing: "0.02em",
-                    }}
-                  >
-                    📲 {t.sendRefund}
-                  </a>
                   <button
                     onClick={handleBack}
                     style={{
@@ -391,7 +381,7 @@ export function OrdersModal({
                       color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
                     }}
                   >
-                    {t.backBtn}
+                    {t.closeBtn}
                   </button>
                 </div>
               ) : (
@@ -552,7 +542,7 @@ export function OrdersModal({
 
         return (
           <div
-            onClick={() => setPartialDialog(null)}
+            onClick={closePartialDialog}
             style={{
               position: "fixed", inset: 0, zIndex: 110,
               background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
@@ -628,24 +618,11 @@ export function OrdersModal({
               </p>
 
               {/* Buttons */}
-              {partialWaUrl ? (
+              {partialConfirmed ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#6DB86D" : "#2E7D32", textAlign: "center", margin: `0 0 ${SP.xs}px` }}>
                     {t.refundConfirmed}
                   </p>
-                  <a
-                    href={partialWaUrl}
-                    target={isMobile ? undefined : "_blank"}
-                    rel={isMobile ? undefined : "noopener noreferrer"}
-                    style={{
-                      display: "block", padding: "13px 0", borderRadius: R.full,
-                      background: "#25D366", color: "#fff",
-                      fontSize: 14, fontWeight: 700, cursor: "pointer",
-                      textAlign: "center", textDecoration: "none",
-                    }}
-                  >
-                    📲 {t.sendRefund}
-                  </a>
                   <button
                     onClick={closePartialDialog}
                     style={{

@@ -150,7 +150,6 @@ const T: Record<string, Record<Lang, string>> = {
   orderTypeLabel:    { en: "Order type",                              ru: "Тип заказа",                                  kz: "Тапсырыс түрі"                         },
   summary:           { en: "Order Summary",                          ru: "Состав заказа",                               kz: "Тапсырыс мазмұны"                      },
   backToMenu:        { en: "Back to Menu",                            ru: "Вернуться в меню",                            kz: "Мәзірге оралу"                         },
-  sendViaWa:         { en: "📲 Send order via WhatsApp",               ru: "📲 Отправить заказ в WhatsApp",               kz: "📲 WhatsApp-қа жіберу"                  },
   notesLabel:        { en: "Notes",                                   ru: "Пожелания",                                   kz: "Ескертулер"                            },
   recipient:         { en: "Recipient",                               ru: "Получатель",                                  kz: "Алушы"                                 },
   clearCart:         { en: "Clear Cart",                              ru: "Очистить корзину",                            kz: "Себетті тазарту"                       },
@@ -343,7 +342,6 @@ export function CartDrawer({
   const [payment, setPayment]                 = useState<PaymentMethod | null>(null);
   const [cardBankIdx, setCardBankIdx]         = useState<number | null>(null);
   const [placedOrder, setPlacedOrder]         = useState<PlacedOrder | null>(null);
-  const [waUrl, setWaUrl]                     = useState<string | null>(null);
   const [loading, setLoading]                 = useState(false);
   const [remoteBank, setRemoteBank]           = useState<"kaspi" | "halyk" | null>(null);
   const [invoicePhone, setInvoicePhone]       = useState("");
@@ -428,7 +426,6 @@ export function CartDrawer({
     setPayment(null);
     setCardBankIdx(null);
     setPlacedOrder(null);
-    setWaUrl(null);
     setCity("");
     setCitySearch("");
     setCityDropdownOpen(false);
@@ -491,7 +488,11 @@ export function CartDrawer({
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
-    setWaUrl(url);
+    if (isMobile) {
+      window.location.href = url;
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
     setPlacedOrder(order);
     setStep("success");
     setLoading(false);
@@ -1243,23 +1244,7 @@ export function CartDrawer({
               </div>
             </div>
 
-            <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: SP.sm }}>
-              {waUrl && (
-                <a
-                  href={waUrl}
-                  target={isMobile ? undefined : "_blank"}
-                  rel={isMobile ? undefined : "noopener noreferrer"}
-                  style={{
-                    display: "block", padding: "14px 0", borderRadius: 999,
-                    background: "#25D366", color: "#fff",
-                    fontSize: 15, fontWeight: 700,
-                    textAlign: "center", textDecoration: "none",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {tn("sendViaWa", lang)}
-                </a>
-              )}
+            <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0 }}>
               <button onClick={handleClose} style={primaryBtn()}>{tn("backToMenu", lang)}</button>
             </div>
           </>
