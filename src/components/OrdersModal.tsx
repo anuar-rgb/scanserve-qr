@@ -37,6 +37,7 @@ export function OrdersModal({
     itemIndex: number;
     qty: number;
   } | null>(null);
+  const [partialWaUrl, setPartialWaUrl] = useState<string | null>(null);
 
   const isDark  = theme === "dark";
   const bg      = isDark ? "#121212" : "#F8F9FA";
@@ -71,6 +72,8 @@ export function OrdersModal({
     confirmBtn:   lang === "kz" ? "Растау"                                      : lang === "ru" ? "Подтвердить"                              : "Confirm",
     cancelBtn:    lang === "kz" ? "Бас тарту"                                   : lang === "ru" ? "Отмена"                                   : "Cancel",
     pcs:          lang === "kz" ? "дана"                                        : lang === "ru" ? "шт."                                      : "pcs.",
+    closeBtn:        lang === "kz" ? "Жабу"                                     : lang === "ru" ? "Закрыть"                                  : "Close",
+    refundConfirmed: lang === "kz" ? "Өтінім расталды ✓"                        : lang === "ru" ? "Возврат подтверждён ✓"                     : "Refund Confirmed ✓",
   };
 
   const WA: Record<string, Record<Lang, string>> = {
@@ -142,7 +145,7 @@ export function OrdersModal({
       ];
       const clean = whatsappPhone.replace(/\D/g, "");
       console.log("Отправка уведомления на номер:", clean);
-      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+      setPartialWaUrl(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`);
     } else {
       console.warn("whatsappPhone не задан — уведомление не отправлено");
       toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
@@ -150,7 +153,12 @@ export function OrdersModal({
 
     // Update order in state + localStorage via parent callback
     onPartialRefund(order.id, itemIndex, qty);
+    // Dialog stays open to show the "Send to WhatsApp" button
+  };
+
+  const closePartialDialog = () => {
     setPartialDialog(null);
+    setPartialWaUrl(null);
   };
 
   // ── Full / legacy partial refund form submit ───────────────────────────────
@@ -183,17 +191,21 @@ export function OrdersModal({
 
       const clean = whatsappPhone.replace(/\D/g, "");
       console.log("Отправка уведомления на номер:", clean);
-      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+      // Use location.href so mobile browsers open the WhatsApp app without popup blocking
+      window.location.href = `https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`;
     } else {
       console.warn("whatsappPhone не задан — уведомление не отправлено");
       toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
     }
 
-    if (!isPartial) onRefundRequest(order.id);
-    setRefundingOrderId(null);
-    setRefundItemIndex(null);
-    setRefundReason("");
-    setRefundContact("");
+    // Delay state reset so the browser can process the WA redirect before React unmounts the view
+    setTimeout(() => {
+      if (!isPartial) onRefundRequest(order.id);
+      setRefundingOrderId(null);
+      setRefundItemIndex(null);
+      setRefundReason("");
+      setRefundContact("");
+    }, 400);
   };
 
   const handleDownload = async (order: StoredOrder) => {
@@ -585,28 +597,58 @@ export function OrdersModal({
               </p>
 
               {/* Buttons */}
-              <div style={{ display: "flex", gap: SP.sm }}>
-                <button
-                  onClick={() => setPartialDialog(null)}
-                  style={{
-                    flex: 1, padding: "11px 0", borderRadius: R.full,
-                    border: `1.5px solid ${border}`, background: "transparent",
-                    color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                  }}
-                >
-                  {t.cancelBtn}
-                </button>
-                <button
-                  onClick={handlePartialConfirm}
-                  style={{
-                    flex: 1, padding: "11px 0", borderRadius: R.full,
-                    border: "none", background: textClr,
-                    color: bg, fontSize: 14, fontWeight: 700, cursor: "pointer",
-                  }}
-                >
-                  {t.confirmBtn}
-                </button>
-              </div>
+              {partialWaUrl ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#6DB86D" : "#2E7D32", textAlign: "center", margin: `0 0 ${SP.xs}px` }}>
+                    {t.refundConfirmed}
+                  </p>
+                  <a
+                    href={partialWaUrl}
+                    onClick={() => setTimeout(closePartialDialog, 400)}
+                    style={{
+                      display: "block", padding: "13px 0", borderRadius: R.full,
+                      background: "#25D366", color: "#fff",
+                      fontSize: 14, fontWeight: 700, cursor: "pointer",
+                      textAlign: "center", textDecoration: "none",
+                    }}
+                  >
+                    📲 {t.sendRefund}
+                  </a>
+                  <button
+                    onClick={closePartialDialog}
+                    style={{
+                      padding: "11px 0", borderRadius: R.full,
+                      border: `1.5px solid ${border}`, background: "transparent",
+                      color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    }}
+                  >
+                    {t.closeBtn}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: SP.sm }}>
+                  <button
+                    onClick={closePartialDialog}
+                    style={{
+                      flex: 1, padding: "11px 0", borderRadius: R.full,
+                      border: `1.5px solid ${border}`, background: "transparent",
+                      color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    }}
+                  >
+                    {t.cancelBtn}
+                  </button>
+                  <button
+                    onClick={handlePartialConfirm}
+                    style={{
+                      flex: 1, padding: "11px 0", borderRadius: R.full,
+                      border: "none", background: textClr,
+                      color: bg, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    {t.confirmBtn}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
