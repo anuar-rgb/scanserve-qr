@@ -78,6 +78,8 @@ export interface DbHeroSlide {
   url: string;
   title: string | null;
   description: string | null;
+  tag: string | null;
+  tag_color: "white" | "yellow" | null;
   order_index: number;
   is_active: boolean;
   created_at: string;

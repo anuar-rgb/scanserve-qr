@@ -85,6 +85,8 @@ export interface HeroSlide {
   url: string;
   title?: string | null;
   description?: string | null;
+  tag?: string | null;
+  tag_color?: "white" | "yellow" | null;
 }
 
 export interface FeaturedItem {
@@ -1355,6 +1357,8 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
   const slide = slides[idx];
   if (!slide) return null;
 
+  const tagBg = slide.tag_color === "yellow" ? "#F9D94A" : "rgba(255,255,255,0.88)";
+
   return (
     <div
       style={{
@@ -1362,31 +1366,6 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
         borderRadius: "0 0 20px 20px", backgroundColor: "#000",
       }}
     >
-      {/* Progress bars */}
-      <div
-        style={{
-          position: "absolute", top: 10, left: 12, right: 12,
-          zIndex: 10, display: "flex", gap: 4,
-        }}
-      >
-        {slides.map((_, i) => (
-          <div
-            key={i}
-            style={{
-              flex: 1, height: 2.5, borderRadius: 99,
-              backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                height: "100%", borderRadius: 99, backgroundColor: "#fff",
-                width: i < idx ? "100%" : i === idx ? `${progress}%` : "0%",
-              }}
-            />
-          </div>
-        ))}
-      </div>
-
       {/* Slide media */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -1427,28 +1406,70 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
         <div style={{ flex: 6 }} onClick={() => go(idx + 1)} />
       </div>
 
-      {/* Text overlay */}
-      {(slide.title || slide.description) && (
-        <div
-          style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
-            padding: "48px 16px 16px",
-            background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)",
-            pointerEvents: "none",
-          }}
-        >
-          {slide.title && (
-            <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 2px", textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-              {slide.title}
-            </p>
-          )}
-          {slide.description && (
-            <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, margin: 0 }}>
-              {slide.description}
-            </p>
-          )}
-        </div>
-      )}
+      {/* Bottom overlay: tag + title + description + progress bars */}
+      <div
+        style={{
+          position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
+          padding: "56px 16px 12px",
+          background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 100%)",
+          pointerEvents: "none",
+          display: "flex", flexDirection: "column", gap: 0,
+        }}
+      >
+        {/* Tag badge */}
+        {slide.tag && (
+          <div style={{ marginBottom: 6 }}>
+            <span
+              style={{
+                display: "inline-block",
+                backgroundColor: tagBg,
+                color: "#111",
+                fontSize: 11, fontWeight: 700,
+                padding: "3px 10px", borderRadius: 99,
+                letterSpacing: "0.01em", lineHeight: 1.5,
+              }}
+            >
+              {slide.tag}
+            </span>
+          </div>
+        )}
+
+        {/* Title */}
+        {slide.title && (
+          <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 3px", textShadow: "0 1px 8px rgba(0,0,0,0.5)", lineHeight: 1.2 }}>
+            {slide.title}
+          </p>
+        )}
+
+        {/* Description / categories */}
+        {slide.description && (
+          <p style={{ color: "rgba(255,255,255,0.78)", fontSize: 13, margin: "0 0 10px", lineHeight: 1.4 }}>
+            {slide.description}
+          </p>
+        )}
+
+        {/* Progress bars at very bottom */}
+        {slides.length > 1 && (
+          <div style={{ display: "flex", gap: 4 }}>
+            {slides.map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  flex: 1, height: 2.5, borderRadius: 99,
+                  backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%", borderRadius: 99, backgroundColor: "#fff",
+                    width: i < idx ? "100%" : i === idx ? `${progress}%` : "0%",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

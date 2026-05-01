@@ -24,6 +24,8 @@ import {
 type SlideForm = {
   title: string;
   description: string;
+  tag: string;
+  tag_color: "white" | "yellow";
   is_active: boolean;
   mediaFile: File | null;
   mediaPreview: string | null;
@@ -31,7 +33,7 @@ type SlideForm = {
 };
 
 const EMPTY_FORM: SlideForm = {
-  title: "", description: "", is_active: true,
+  title: "", description: "", tag: "", tag_color: "white", is_active: true,
   mediaFile: null, mediaPreview: null, mediaType: "image",
 };
 
@@ -72,6 +74,8 @@ export default function HeroSliderPage() {
     setForm({
       title: s.title ?? "",
       description: s.description ?? "",
+      tag: s.tag ?? "",
+      tag_color: s.tag_color ?? "white",
       is_active: s.is_active,
       mediaFile: null,
       mediaPreview: s.url,
@@ -124,6 +128,8 @@ export default function HeroSliderPage() {
         url,
         title: form.title.trim() || null,
         description: form.description.trim() || null,
+        tag: form.tag.trim() || null,
+        tag_color: form.tag.trim() ? form.tag_color : null,
         is_active: form.is_active,
       };
 
@@ -342,9 +348,44 @@ export default function HeroSliderPage() {
               <Input
                 value={form.description}
                 onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Настоящая казахская кухня"
+                placeholder="Завтраки | Пицца | Бургеры"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <Label>{t.admin.slideTagLabel}</Label>
+              <Input
+                value={form.tag}
+                onChange={e => setForm(prev => ({ ...prev, tag: e.target.value }))}
+                placeholder="Вкусно!"
+              />
+            </div>
+
+            {form.tag && (
+              <div className="space-y-1.5">
+                <Label>{t.admin.slideTagColorLabel}</Label>
+                <div className="flex gap-2">
+                  {(["white", "yellow"] as const).map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, tag_color: color }))}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                        form.tag_color === color
+                          ? "border-violet-500 ring-1 ring-violet-500"
+                          : "border-zinc-200 dark:border-zinc-700"
+                      }`}
+                    >
+                      <span
+                        className="w-4 h-4 rounded-full border border-zinc-300 dark:border-zinc-600"
+                        style={{ background: color === "yellow" ? "#F9D94A" : "#fff" }}
+                      />
+                      {color === "yellow" ? "Жёлтый" : "Белый"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-between py-1">
               <Label>{t.admin.slideActive}</Label>

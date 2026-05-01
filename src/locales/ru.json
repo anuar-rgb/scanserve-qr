@@ -222,7 +222,9 @@
     "slideDescLabel": "Подпись (необязательно)",
     "slideActive": "Активен",
     "uploadVideo": "Нажмите, чтобы загрузить фото или видео",
-    "changeMedia": "Сменить файл"
+    "changeMedia": "Сменить файл",
+    "slideTagLabel": "Тег (необязательно)",
+    "slideTagColorLabel": "Цвет тега"
   },
   "receipt": {
     "title": "ЧЕК",

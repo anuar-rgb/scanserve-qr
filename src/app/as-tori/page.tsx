@@ -43,6 +43,8 @@ export default async function AsToriPage() {
     url: s.url,
     title: s.title,
     description: s.description,
+    tag: s.tag,
+    tag_color: s.tag_color,
   }));
 
   return (
