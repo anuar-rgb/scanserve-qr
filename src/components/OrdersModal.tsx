@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronLeft } from "lucide-react";
+import { X, ChevronLeft, Download, Share2 } from "lucide-react";
 import type { Lang } from "./MenuTemplate";
 import type { StoredOrder } from "./MenuTemplate";
+import { downloadOrderPDF, shareOrderPDF } from "@/lib/receipt-pdf";
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 6, md: 12, lg: 16, full: 999 } as const;
@@ -21,6 +22,7 @@ export interface OrdersModalProps {
 export function OrdersModal({
   open, onClose, orders, lang, theme, whatsappPhone, onRefundRequest,
 }: OrdersModalProps) {
+  const [pdfLoading, setPdfLoading]             = useState<string | null>(null);
   const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
   const [refundItemIndex, setRefundItemIndex]   = useState<number | null>(null);
   const [refundReason, setRefundReason]         = useState("");
@@ -136,6 +138,16 @@ export function OrdersModal({
     setRefundItemIndex(null);
     setRefundReason("");
     setRefundContact("");
+  };
+
+  const handleDownload = async (order: StoredOrder) => {
+    setPdfLoading(order.id + "_dl");
+    try { await downloadOrderPDF(order); } finally { setPdfLoading(null); }
+  };
+
+  const handleShare = async (order: StoredOrder) => {
+    setPdfLoading(order.id + "_sh");
+    try { await shareOrderPDF(order); } finally { setPdfLoading(null); }
   };
 
   const iconBtn: React.CSSProperties = {
@@ -319,16 +331,56 @@ export function OrdersModal({
                           <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 2px" }}>{order.id}</p>
                           <p style={{ fontSize: 11, color: muted, margin: 0 }}>{formatDate(order.timestamp)}</p>
                         </div>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: "3px 8px",
-                          borderRadius: R.full, letterSpacing: "0.04em",
-                          backgroundColor: isRequested
-                            ? "rgba(224,85,85,0.15)" : (isDark ? "rgba(109,184,109,0.15)" : "rgba(46,125,50,0.10)"),
-                          color: isRequested ? "#E05555" : (isDark ? "#6DB86D" : "#2E7D32"),
-                          border: `1px solid ${isRequested ? "#E05555" : (isDark ? "#6DB86D" : "#2E7D32")}`,
-                        }}>
-                          {isRequested ? `✓ ${t.requested}` : typeLabel(order.orderType)}
-                        </span>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {/* Download PDF */}
+                          <button
+                            onClick={() => handleDownload(order)}
+                            disabled={pdfLoading !== null}
+                            title="Download receipt"
+                            style={{
+                              width: 28, height: 28, borderRadius: R.full,
+                              border: `1px solid ${border}`, background: surface,
+                              color: pdfLoading === order.id + "_dl" ? muted : textClr,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              cursor: pdfLoading !== null ? "wait" : "pointer",
+                              flexShrink: 0, opacity: pdfLoading === order.id + "_dl" ? 0.5 : 1,
+                              transition: "opacity 0.15s",
+                            }}
+                          >
+                            <Download size={13} />
+                          </button>
+
+                          {/* Share PDF */}
+                          <button
+                            onClick={() => handleShare(order)}
+                            disabled={pdfLoading !== null}
+                            title="Share receipt"
+                            style={{
+                              width: 28, height: 28, borderRadius: R.full,
+                              border: `1px solid ${border}`, background: surface,
+                              color: pdfLoading === order.id + "_sh" ? muted : textClr,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              cursor: pdfLoading !== null ? "wait" : "pointer",
+                              flexShrink: 0, opacity: pdfLoading === order.id + "_sh" ? 0.5 : 1,
+                              transition: "opacity 0.15s",
+                            }}
+                          >
+                            <Share2 size={13} />
+                          </button>
+
+                          {/* Type / status badge */}
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "3px 8px",
+                            borderRadius: R.full, letterSpacing: "0.04em",
+                            backgroundColor: isRequested
+                              ? "rgba(224,85,85,0.15)" : (isDark ? "rgba(109,184,109,0.15)" : "rgba(46,125,50,0.10)"),
+                            color: isRequested ? "#E05555" : (isDark ? "#6DB86D" : "#2E7D32"),
+                            border: `1px solid ${isRequested ? "#E05555" : (isDark ? "#6DB86D" : "#2E7D32")}`,
+                          }}>
+                            {isRequested ? `✓ ${t.requested}` : typeLabel(order.orderType)}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Items — each with a per-item refund button */}
