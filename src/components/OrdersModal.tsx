@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronLeft, Download, Share2 } from "lucide-react";
+import { X, ChevronLeft, Download, Share2, Minus, Plus } from "lucide-react";
 import type { Lang } from "./MenuTemplate";
 import type { StoredOrder } from "./MenuTemplate";
 import { downloadOrderPDF, shareOrderPDF } from "@/lib/receipt-pdf";
@@ -17,10 +17,11 @@ export interface OrdersModalProps {
   theme: "dark" | "light";
   whatsappPhone?: string;
   onRefundRequest: (orderId: string) => void;
+  onPartialRefund: (orderId: string, itemIndex: number, qtyReturned: number) => void;
 }
 
 export function OrdersModal({
-  open, onClose, orders, lang, theme, whatsappPhone, onRefundRequest,
+  open, onClose, orders, lang, theme, whatsappPhone, onRefundRequest, onPartialRefund,
 }: OrdersModalProps) {
   const [pdfLoading, setPdfLoading]             = useState<string | null>(null);
   const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
@@ -28,6 +29,13 @@ export function OrdersModal({
   const [refundReason, setRefundReason]         = useState("");
   const [refundContact, setRefundContact]       = useState("");
   const [showFieldError, setShowFieldError]     = useState(false);
+
+  // Partial refund qty-picker dialog
+  const [partialDialog, setPartialDialog] = useState<{
+    order: StoredOrder;
+    itemIndex: number;
+    qty: number;
+  } | null>(null);
 
   const isDark  = theme === "dark";
   const bg      = isDark ? "#121212" : "#F8F9FA";
@@ -56,17 +64,26 @@ export function OrdersModal({
     warning:      lang === "kz" ? "Банк деректемелерін мұқият тексеріңіз — қайтарымның сәтті болуы соған байланысты." : lang === "ru" ? "Внимательно проверьте реквизиты — от этого зависит успешность возврата." : "Please double-check your bank details carefully to ensure a successful refund.",
     sendRefund:   lang === "kz" ? "WhatsApp арқылы жіберу"                      : lang === "ru" ? "Отправить в WhatsApp"                     : "Send via WhatsApp",
     fillAll:      lang === "kz" ? "Барлық өрістерді толтырыңыз"                 : lang === "ru" ? "Заполните все поля"                       : "Please fill in all fields",
+    // Qty picker
+    qtyTitle:     lang === "kz" ? "Қанша қайтару?"                              : lang === "ru" ? "Сколько вернуть?"                         : "How many to return?",
+    maxLbl:       lang === "kz" ? "Макс."                                       : lang === "ru" ? "Макс."                                    : "Max",
+    confirmBtn:   lang === "kz" ? "Растау"                                      : lang === "ru" ? "Подтвердить"                              : "Confirm",
+    cancelBtn:    lang === "kz" ? "Бас тарту"                                   : lang === "ru" ? "Отмена"                                   : "Cancel",
+    pcs:          lang === "kz" ? "дана"                                        : lang === "ru" ? "шт."                                      : "pcs.",
   };
 
   const WA: Record<string, Record<Lang, string>> = {
-    fullHeader:    { en: "FULL ORDER CANCELLATION",  ru: "ПОЛНЫЙ ВОЗВРАТ ЗАКАЗА",        kz: "ТОЛЫҚ ТАПСЫРЫСТЫ ҚАЙТАРУ"  },
-    partialHeader: { en: "PARTIAL REFUND REQUEST",   ru: "ЧАСТИЧНЫЙ ВОЗВРАТ",             kz: "ЖАРТЫЛАЙ ҚАЙТАРУ"          },
-    orderLbl:      { en: "Order",                    ru: "Заказ",                         kz: "Тапсырыс"                  },
-    dateLbl:       { en: "Date",                     ru: "Дата",                          kz: "Күн"                       },
-    totalLbl:      { en: "Total",                    ru: "Итого",                         kz: "Барлығы"                   },
-    itemLbl:       { en: "Item",                     ru: "Позиция",                       kz: "Тауар"                     },
-    reason:        { en: "Reason",                   ru: "Причина",                       kz: "Себебі"                    },
-    returnTo:      { en: "Return to",                ru: "Возврат на",                    kz: "Қайтару реквизиті"         },
+    fullHeader:    { en: "FULL ORDER CANCELLATION",  ru: "ПОЛНЫЙ ВОЗВРАТ ЗАКАЗА",        kz: "ТОЛЫҚ ТАПСЫРЫСТЫ ҚАЙТАРУ"   },
+    partialHeader: { en: "PARTIAL REFUND",           ru: "ЧАСТИЧНЫЙ ВОЗВРАТ",             kz: "ЖАРТЫЛАЙ ҚАЙТАРУ"           },
+    orderLbl:      { en: "Order",                    ru: "Заказ",                         kz: "Тапсырыс"                   },
+    dateLbl:       { en: "Date",                     ru: "Дата",                          kz: "Күн"                        },
+    totalLbl:      { en: "Total",                    ru: "Итого",                         kz: "Барлығы"                    },
+    itemLbl:       { en: "Item",                     ru: "Позиция",                       kz: "Тауар"                      },
+    reason:        { en: "Reason",                   ru: "Причина",                       kz: "Себебі"                     },
+    returnTo:      { en: "Return to",                ru: "Возврат на",                    kz: "Қайтару реквизиті"          },
+    refundedQty:   { en: "Returned",                 ru: "Возвращено",                    kz: "Қайтарылды"                 },
+    refundAmt:     { en: "Refund amount",            ru: "Сумма возврата",                kz: "Қайтарылатын сома"          },
+    newTotal:      { en: "New total",                ru: "Новый итог",                    kz: "Жаңа жиыны"                 },
   };
   const wm = (key: string): string => WA[key]?.[lang] ?? WA[key]?.en ?? key;
 
@@ -102,6 +119,36 @@ export function OrdersModal({
     setShowFieldError(false);
   };
 
+  // ── Partial qty-picker confirm ─────────────────────────────────────────────
+  const handlePartialConfirm = () => {
+    if (!partialDialog) return;
+    const { order, itemIndex, qty } = partialDialog;
+    const item = order.items[itemIndex];
+    if (!item) { setPartialDialog(null); return; }
+
+    const refundAmountVal = item.price * qty;
+    const newTotal = Math.max(0, order.total - refundAmountVal);
+
+    if (whatsappPhone) {
+      const lines = [
+        `*${wm("partialHeader")} — ${order.restaurantName}*`,
+        `• ${wm("orderLbl")}: ${order.id}`,
+        `• ${wm("dateLbl")}: ${formatDate(order.timestamp)}`,
+        `• ${wm("itemLbl")}: ${item.name}`,
+        `• ${wm("refundedQty")}: ${qty} ${t.pcs}`,
+        `• ${wm("refundAmt")}: ${refundAmountVal.toLocaleString()} ${item.currency}`,
+        `• ${wm("newTotal")}: ${newTotal.toLocaleString()} ${order.currency}`,
+      ];
+      const clean = whatsappPhone.replace(/\D/g, "");
+      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+    }
+
+    // Update order in state + localStorage via parent callback
+    onPartialRefund(order.id, itemIndex, qty);
+    setPartialDialog(null);
+  };
+
+  // ── Full / legacy partial refund form submit ───────────────────────────────
   const handleSendRefund = (order: StoredOrder) => {
     if (!refundReason.trim() || !refundContact.trim()) {
       setShowFieldError(true);
@@ -115,7 +162,7 @@ export function OrdersModal({
         lines.push(`*${wm("partialHeader")} — ${order.restaurantName}*`);
         lines.push(`• ${wm("orderLbl")}: ${order.id}`);
         lines.push(`• ${wm("dateLbl")}: ${formatDate(order.timestamp)}`);
-        lines.push(`• ${wm("itemLbl")}: ${refundingItem.name} × ${refundingItem.qty} — ${(refundingItem.price * refundingItem.qty).toLocaleString()} ${refundingItem.currency}`);
+        lines.push(`• ${wm("itemLbl")}: ${refundingItem.name} × ${refundingItem.qty}`);
         lines.push(``);
         lines.push(`• ${wm("reason")}: ${refundReason.trim()}`);
         lines.push(`• ${wm("returnTo")}: ${refundContact.trim()}`);
@@ -231,10 +278,10 @@ export function OrdersModal({
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: `0 ${SP.md}px ${SP.xl}px` }}>
           {refundingOrder ? (
-            /* ── Refund Form ── */
+            /* ── Full-order Refund Form ── */
             <div style={{ paddingTop: SP.sm }}>
 
-              {/* Item chip — shown only for partial refund */}
+              {/* Item chip — shown only for legacy partial refund via form */}
               {refundingItem && (
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
@@ -383,7 +430,7 @@ export function OrdersModal({
                         </div>
                       </div>
 
-                      {/* Items — each with a per-item refund button */}
+                      {/* Items — each with a per-item partial refund button */}
                       <div style={{ padding: "10px 14px 6px" }}>
                         {order.items.map((item, i) => (
                           <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: SP.xs }}>
@@ -393,7 +440,7 @@ export function OrdersModal({
                             </span>
                             {!isRequested && (
                               <button
-                                onClick={() => openRefundForm(order, i)}
+                                onClick={() => setPartialDialog({ order, itemIndex: i, qty: 1 })}
                                 style={{
                                   flexShrink: 0,
                                   padding: "2px 8px",
@@ -442,6 +489,119 @@ export function OrdersModal({
           )}
         </div>
       </div>
+
+      {/* ── Partial Refund Qty-Picker Dialog ────────────────────────────────── */}
+      {partialDialog && (() => {
+        const item = partialDialog.order.items[partialDialog.itemIndex];
+        if (!item) return null;
+        const maxQty = item.qty;
+        const currentQty = partialDialog.qty;
+        const refundPreview = item.price * currentQty;
+
+        return (
+          <div
+            onClick={() => setPartialDialog(null)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 110,
+              background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: SP.md,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(320px, 92vw)",
+                background: card, borderRadius: R.lg,
+                padding: SP.lg, boxShadow: "0 12px 48px rgba(0,0,0,0.45)",
+                border: `1px solid ${border}`,
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                color: textClr,
+              }}
+            >
+              {/* Item name */}
+              <p style={{ fontSize: 15, fontWeight: 700, margin: `0 0 ${SP.xs}px`, textAlign: "center" }}>
+                {item.name}
+              </p>
+              <p style={{ fontSize: 12, color: muted, textAlign: "center", margin: `0 0 ${SP.lg}px` }}>
+                {t.qtyTitle}
+              </p>
+
+              {/* Counter */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                gap: SP.md, marginBottom: SP.sm,
+              }}>
+                <button
+                  onClick={() => setPartialDialog((d) => d ? { ...d, qty: Math.max(1, d.qty - 1) } : d)}
+                  style={{
+                    width: 40, height: 40, borderRadius: R.full,
+                    border: `1.5px solid ${border}`, background: surface,
+                    color: textClr, fontSize: 20, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: currentQty <= 1 ? "default" : "pointer",
+                    opacity: currentQty <= 1 ? 0.35 : 1,
+                    transition: "opacity 0.15s",
+                  }}
+                >
+                  <Minus size={16} />
+                </button>
+
+                <span style={{ fontSize: 28, fontWeight: 800, minWidth: 48, textAlign: "center" }}>
+                  {currentQty}
+                </span>
+
+                <button
+                  onClick={() => setPartialDialog((d) => d ? { ...d, qty: Math.min(maxQty, d.qty + 1) } : d)}
+                  style={{
+                    width: 40, height: 40, borderRadius: R.full,
+                    border: `1.5px solid ${border}`, background: surface,
+                    color: textClr, fontSize: 20, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: currentQty >= maxQty ? "default" : "pointer",
+                    opacity: currentQty >= maxQty ? 0.35 : 1,
+                    transition: "opacity 0.15s",
+                  }}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              {/* Max hint + price preview */}
+              <p style={{ fontSize: 11, color: muted, textAlign: "center", margin: `0 0 ${SP.sm}px` }}>
+                {t.maxLbl}: {maxQty} {t.pcs}
+              </p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#FCD34D" : "#B45309", textAlign: "center", margin: `0 0 ${SP.lg}px` }}>
+                −{refundPreview.toLocaleString()} {item.currency}
+              </p>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: SP.sm }}>
+                <button
+                  onClick={() => setPartialDialog(null)}
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: R.full,
+                    border: `1.5px solid ${border}`, background: "transparent",
+                    color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  }}
+                >
+                  {t.cancelBtn}
+                </button>
+                <button
+                  onClick={handlePartialConfirm}
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: R.full,
+                    border: "none", background: textClr,
+                    color: bg, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  {t.confirmBtn}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

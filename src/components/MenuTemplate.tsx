@@ -1400,6 +1400,26 @@ export function MenuTemplate({
     });
   };
 
+  const handlePartialRefund = (orderId: string, itemIndex: number, qtyReturned: number) => {
+    setOrders((prev) => {
+      const next = prev.map((order) => {
+        if (order.id !== orderId) return order;
+        const newItems = order.items
+          .map((item, i) => i === itemIndex ? { ...item, qty: item.qty - qtyReturned } : item)
+          .filter((item) => item.qty > 0);
+        const newTotal = newItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+        return {
+          ...order,
+          items: newItems,
+          total: newTotal,
+          status: newItems.length === 0 ? "refund-requested" as const : order.status,
+        };
+      });
+      localStorage.setItem("menu-orders", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const toggleTheme = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
@@ -2193,6 +2213,7 @@ export function MenuTemplate({
         theme={theme}
         whatsappPhone={restaurant.whatsappPhone}
         onRefundRequest={handleRefundRequest}
+        onPartialRefund={handlePartialRefund}
       />
 
       {/* ── Call Waiter modal ─────────────────────────────────────────────── */}
