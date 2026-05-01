@@ -210,7 +210,19 @@
     "searchPlaceholder": "Тағамдарды іздеу…",
     "allCategories": "Барлығы",
     "noSearchResults": "Іздеуге сәйкес тағам табылмады.",
-    "discountLabelPlaceholder": "Акция белгісі, мыс. -15%"
+    "discountLabelPlaceholder": "Акция белгісі, мыс. -15%",
+    "navHeroSlider": "Слайдер",
+    "descHeroSlider": "Негізгі экрандағы Instagram-слайдері.",
+    "heroSliderTitle": "Слайдерді басқару",
+    "addSlide": "Слайд қосу",
+    "editSlide": "Слайдты өңдеу",
+    "noSlides": "Слайдтар әлі жоқ",
+    "slideSaved": "Слайд сақталды!",
+    "slideTitleLabel": "Тақырып (міндетті емес)",
+    "slideDescLabel": "Түсіндірме (міндетті емес)",
+    "slideActive": "Белсенді",
+    "uploadVideo": "Сурет немесе бейне жүктеу үшін басыңыз",
+    "changeMedia": "Файлды ауыстыру"
   },
   "receipt": {
     "title": "ТҮБІРТЕК",

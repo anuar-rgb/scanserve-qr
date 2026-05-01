@@ -210,7 +210,19 @@
     "searchPlaceholder": "Поиск блюд…",
     "allCategories": "Все",
     "noSearchResults": "Нет блюд, соответствующих поиску.",
-    "discountLabelPlaceholder": "Метка акции, напр. -15%"
+    "discountLabelPlaceholder": "Метка акции, напр. -15%",
+    "navHeroSlider": "Слайдер",
+    "descHeroSlider": "Instagram-слайдер на главном экране.",
+    "heroSliderTitle": "Управление слайдером",
+    "addSlide": "Добавить слайд",
+    "editSlide": "Редактировать слайд",
+    "noSlides": "Слайдов пока нет",
+    "slideSaved": "Слайд сохранён!",
+    "slideTitleLabel": "Заголовок (необязательно)",
+    "slideDescLabel": "Подпись (необязательно)",
+    "slideActive": "Активен",
+    "uploadVideo": "Нажмите, чтобы загрузить фото или видео",
+    "changeMedia": "Сменить файл"
   },
   "receipt": {
     "title": "ЧЕК",

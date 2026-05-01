@@ -210,7 +210,19 @@
     "searchPlaceholder": "Search dishes…",
     "allCategories": "All",
     "noSearchResults": "No dishes match your search.",
-    "discountLabelPlaceholder": "Promo label, e.g. -15%"
+    "discountLabelPlaceholder": "Promo label, e.g. -15%",
+    "navHeroSlider": "Hero Slider",
+    "descHeroSlider": "Instagram-style stories slider on the main screen.",
+    "heroSliderTitle": "Hero Slider",
+    "addSlide": "Add Slide",
+    "editSlide": "Edit Slide",
+    "noSlides": "No slides yet",
+    "slideSaved": "Slide saved!",
+    "slideTitleLabel": "Title (optional)",
+    "slideDescLabel": "Description (optional)",
+    "slideActive": "Active",
+    "uploadVideo": "Click to upload image or video",
+    "changeMedia": "Change file"
   },
   "receipt": {
     "title": "RECEIPT",

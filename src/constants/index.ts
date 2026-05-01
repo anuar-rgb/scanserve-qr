@@ -6,6 +6,7 @@ export const STORAGE_BUCKETS = {
   branding: "branding",
   banners: "banners",
   menuImages: "menu-images",
+  heroSlides: "hero-slides",
 } as const;
 
 export const DB_TABLES = {
@@ -15,6 +16,7 @@ export const DB_TABLES = {
   banners: "banners",
   orders: "orders",
   reviews: "reviews",
+  heroSlides: "hero_slides",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

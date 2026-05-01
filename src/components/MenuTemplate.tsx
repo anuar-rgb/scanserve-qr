@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Sun, Moon, ChevronDown, Heart, Search, X, Clock } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { CartDrawer, type CartMap, type StoredOrder } from "./CartDrawer";
@@ -78,6 +79,14 @@ export interface HeroBanner {
   subtitle?: string | LS;
 }
 
+export interface HeroSlide {
+  id: string;
+  type: "image" | "video";
+  url: string;
+  title?: string | null;
+  description?: string | null;
+}
+
 export interface FeaturedItem {
   id: string;
   emoji: string;
@@ -93,6 +102,7 @@ export interface MenuTemplateProps {
   categories: MenuCategory[];
   lang?: Lang;
   heroBanner?: HeroBanner;
+  heroSlides?: HeroSlide[];
   banners?: Banner[];
   featuredItems?: FeaturedItem[];
   featuredTitle?: string | LS;
@@ -1312,6 +1322,182 @@ function CatalogDishCard({
   );
 }
 
+// ── Hero Slider ───────────────────────────────────────────────────────────────
+
+const SLIDE_DURATION = 5000;
+const SLIDE_TICK     = 50;
+
+function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
+  const [idx, setIdx]           = useState(0);
+  const [progress, setProgress] = useState(0);
+  const timerRef                = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const go = useCallback((next: number) => {
+    const n = ((next % slides.length) + slides.length) % slides.length;
+    setIdx(n);
+    setProgress(0);
+  }, [slides.length]);
+
+  useEffect(() => {
+    setProgress(0);
+    if (slides[idx]?.type === "video") return;
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setProgress(prev => {
+        const next = prev + (SLIDE_TICK / SLIDE_DURATION) * 100;
+        if (next >= 100) { go(idx + 1); return 0; }
+        return next;
+      });
+    }, SLIDE_TICK);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [idx, go, slides]);
+
+  const slide = slides[idx];
+  if (!slide) return null;
+
+  return (
+    <div
+      style={{
+        position: "relative", width: "100%", height: 280, overflow: "hidden",
+        borderRadius: "0 0 20px 20px", backgroundColor: "#000",
+      }}
+    >
+      {/* Progress bars */}
+      <div
+        style={{
+          position: "absolute", top: 10, left: 12, right: 12,
+          zIndex: 10, display: "flex", gap: 4,
+        }}
+      >
+        {slides.map((_, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1, height: 2.5, borderRadius: 99,
+              backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%", borderRadius: 99, backgroundColor: "#fff",
+                width: i < idx ? "100%" : i === idx ? `${progress}%` : "0%",
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Slide media */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={slide.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35 }}
+          style={{ position: "absolute", inset: 0 }}
+        >
+          {slide.type === "video" ? (
+            <video
+              key={slide.url}
+              src={slide.url}
+              autoPlay muted playsInline loop={false}
+              onEnded={() => go(idx + 1)}
+              onTimeUpdate={(e) => {
+                const v = e.currentTarget;
+                if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%", height: "100%",
+                backgroundImage: `url(${slide.url})`,
+                backgroundSize: "cover", backgroundPosition: "center",
+              }}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Tap zones: left 40% = prev, right 60% = next */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex" }}>
+        <div style={{ flex: 4 }} onClick={() => go(idx - 1)} />
+        <div style={{ flex: 6 }} onClick={() => go(idx + 1)} />
+      </div>
+
+      {/* Text overlay */}
+      {(slide.title || slide.description) && (
+        <div
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
+            padding: "48px 16px 16px",
+            background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)",
+            pointerEvents: "none",
+          }}
+        >
+          {slide.title && (
+            <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 2px", textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
+              {slide.title}
+            </p>
+          )}
+          {slide.description && (
+            <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, margin: 0 }}>
+              {slide.description}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HeroSlider({
+  slides,
+  fallback,
+  lang,
+}: {
+  slides: HeroSlide[];
+  fallback?: HeroBanner;
+  lang: Lang;
+}) {
+  if (slides.length > 0) {
+    return <HeroSliderInner slides={slides} />;
+  }
+
+  if (!fallback?.imageUrl) return null;
+  return (
+    <div
+      style={{
+        position: "relative", width: "100%", height: 280, overflow: "hidden",
+        backgroundImage: `url(${fallback.imageUrl})`,
+        backgroundSize: "cover", backgroundPosition: "center",
+        borderRadius: "0 0 20px 20px",
+      } as React.CSSProperties}
+    >
+      {(fallback.title || fallback.subtitle) && (
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: "40px 16px 16px",
+          background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)",
+        }}>
+          {fallback.title && (
+            <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 2px", textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
+              {resolve(fallback.title, lang)}
+            </p>
+          )}
+          {fallback.subtitle && (
+            <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, margin: 0 }}>
+              {resolve(fallback.subtitle, lang)}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function MenuTemplate({
@@ -1319,6 +1505,7 @@ export function MenuTemplate({
   categories,
   lang: initLang = "en",
   heroBanner,
+  heroSlides = [],
   banners = [],
   featuredItems,
   featuredTitle,
@@ -1847,35 +2034,9 @@ export function MenuTemplate({
 
       </div>
 
-      {/* ── Banner photo (no overlaid controls) ───────────────────────── */}
-      {onImage && view === "home" && (
-        <div
-          style={{
-            position: "relative", width: "100%", height: 280, overflow: "hidden",
-            backgroundImage: `url(${heroBanner!.imageUrl})`,
-            backgroundSize: "cover", backgroundPosition: "center",
-            borderRadius: "0 0 20px 20px",
-          } as React.CSSProperties}
-        >
-          {(heroBanner?.title || heroBanner?.subtitle) && (
-            <div style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "40px 16px 16px",
-              background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)",
-            }}>
-              {heroBanner?.title && (
-                <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 2px", textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-                  {resolve(heroBanner.title, lang)}
-                </p>
-              )}
-              {heroBanner?.subtitle && (
-                <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, margin: 0 }}>
-                  {resolve(heroBanner.subtitle, lang)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+      {/* ── Hero Slider ────────────────────────────────────────────────── */}
+      {view === "home" && (
+        <HeroSlider slides={heroSlides} fallback={heroBanner} lang={lang} />
       )}
 
       {/* ── Page content ──────────────────────────────────────────────────── */}

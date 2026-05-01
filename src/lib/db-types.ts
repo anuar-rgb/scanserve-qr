@@ -70,3 +70,15 @@ export interface DbReview {
   comment: string | null;
   created_at: string;
 }
+
+export interface DbHeroSlide {
+  id: string;
+  restaurant_id: string;
+  type: "image" | "video";
+  url: string;
+  title: string | null;
+  description: string | null;
+  order_index: number;
+  is_active: boolean;
+  created_at: string;
+}
