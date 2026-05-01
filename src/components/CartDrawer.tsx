@@ -150,6 +150,7 @@ const T: Record<string, Record<Lang, string>> = {
   orderTypeLabel:    { en: "Order type",                              ru: "Тип заказа",                                  kz: "Тапсырыс түрі"                         },
   summary:           { en: "Order Summary",                          ru: "Состав заказа",                               kz: "Тапсырыс мазмұны"                      },
   backToMenu:        { en: "Back to Menu",                            ru: "Вернуться в меню",                            kz: "Мәзірге оралу"                         },
+  sendViaWa:         { en: "📲 Send order via WhatsApp",               ru: "📲 Отправить заказ в WhatsApp",               kz: "📲 WhatsApp-қа жіберу"                  },
   notesLabel:        { en: "Notes",                                   ru: "Пожелания",                                   kz: "Ескертулер"                            },
   recipient:         { en: "Recipient",                               ru: "Получатель",                                  kz: "Алушы"                                 },
   clearCart:         { en: "Clear Cart",                              ru: "Очистить корзину",                            kz: "Себетті тазарту"                       },
@@ -181,14 +182,14 @@ const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? 
 
 // ── WhatsApp order ────────────────────────────────────────────────────────────
 
-function openWhatsApp(
+function buildWhatsAppUrl(
   order: PlacedOrder,
   phone: string,
   lang: Lang,
   kaspiPhone?: string,
   cardTransferOptions?: PaymentInfo[],
   orderId?: string,
-): void {
+): string {
   // Message-only translations (not shown in the UI, only in the WA message)
   const MSG: Record<string, Record<Lang, string>> = {
     newOrder:     { en: "NEW ORDER",               ru: "НОВЫЙ ЗАКАЗ",              kz: "ЖАНА ТАПСЫРЫС"           },
@@ -295,15 +296,7 @@ function openWhatsApp(
   // encodeURIComponent correctly percent-encodes Kazakh/Cyrillic characters (UTF-8)
   const text = encodeURIComponent(lines.join("\n"));
   const cleanPhone = phone.replace(/\D/g, "");
-  const url = `https://wa.me/${cleanPhone}?text=${text}`;
-  // On mobile the OS intercepts wa.me links and opens the WA app directly when
-  // we navigate the current tab. window.open(_blank) creates a background tab
-  // that gets dismissed on mobile before the user can tap "Open app".
-  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-    window.location.href = url;
-  } else {
-    window.open(url, "_blank");
-  }
+  return `https://wa.me/${cleanPhone}?text=${text}`;
 }
 
 // ── CartDrawer component ──────────────────────────────────────────────────────
@@ -350,6 +343,7 @@ export function CartDrawer({
   const [payment, setPayment]                 = useState<PaymentMethod | null>(null);
   const [cardBankIdx, setCardBankIdx]         = useState<number | null>(null);
   const [placedOrder, setPlacedOrder]         = useState<PlacedOrder | null>(null);
+  const [waUrl, setWaUrl]                     = useState<string | null>(null);
   const [loading, setLoading]                 = useState(false);
   const [remoteBank, setRemoteBank]           = useState<"kaspi" | "halyk" | null>(null);
   const [invoicePhone, setInvoicePhone]       = useState("");
@@ -358,6 +352,8 @@ export function CartDrawer({
   const [citySearch, setCitySearch]           = useState("");
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [phoneNumber, setPhoneNumber]         = useState("");
+
+  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const isDark  = theme === "dark";
   const bg      = isDark ? "#121212" : "#F8F9FA";
@@ -432,6 +428,7 @@ export function CartDrawer({
     setPayment(null);
     setCardBankIdx(null);
     setPlacedOrder(null);
+    setWaUrl(null);
     setCity("");
     setCitySearch("");
     setCityDropdownOpen(false);
@@ -493,7 +490,8 @@ export function CartDrawer({
       deliveryFee: deliveryFee || undefined,
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
-    openWhatsApp(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
+    const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
+    setWaUrl(url);
     setPlacedOrder(order);
     setStep("success");
     setLoading(false);
@@ -1245,7 +1243,23 @@ export function CartDrawer({
               </div>
             </div>
 
-            <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0 }}>
+            <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: SP.sm }}>
+              {waUrl && (
+                <a
+                  href={waUrl}
+                  target={isMobile ? undefined : "_blank"}
+                  rel={isMobile ? undefined : "noopener noreferrer"}
+                  style={{
+                    display: "block", padding: "14px 0", borderRadius: 999,
+                    background: "#25D366", color: "#fff",
+                    fontSize: 15, fontWeight: 700,
+                    textAlign: "center", textDecoration: "none",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {tn("sendViaWa", lang)}
+                </a>
+              )}
               <button onClick={handleClose} style={primaryBtn()}>{tn("backToMenu", lang)}</button>
             </div>
           </>
