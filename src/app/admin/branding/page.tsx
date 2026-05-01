@@ -82,10 +82,17 @@ export default function BrandingPage() {
         setCoverFile(null);
       }
 
+      console.log("Saving for ID:", RESTAURANT_ID);
+      console.log("Payload:", payload);
+
       const { error: dbErr } = await supabase
         .from("restaurants")
         .upsert(payload);
-      if (dbErr) throw dbErr;
+
+      if (dbErr) {
+        console.error("Full Supabase Error:", dbErr);
+        throw new Error(`${dbErr.code}: ${dbErr.message} — ${dbErr.details ?? dbErr.hint ?? ""}`);
+      }
 
       setRestaurant((prev) =>
         prev
@@ -95,7 +102,9 @@ export default function BrandingPage() {
 
       toast.success(t.admin.brandingSaved);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed. Check Supabase policies.");
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("handleSave caught:", e);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
