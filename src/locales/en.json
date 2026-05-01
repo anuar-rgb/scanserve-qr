@@ -211,5 +211,17 @@
     "allCategories": "All",
     "noSearchResults": "No dishes match your search.",
     "discountLabelPlaceholder": "Promo label, e.g. -15%"
+  },
+  "receipt": {
+    "title": "RECEIPT",
+    "order": "ORDER",
+    "date": "DATE",
+    "type": "TYPE",
+    "table": "TABLE",
+    "total": "TOTAL",
+    "thanks": "Thank you for your visit!",
+    "dineIn": "Dine-in",
+    "pickup": "Pickup",
+    "delivery": "Delivery"
   }
 }

@@ -211,5 +211,17 @@
     "allCategories": "Барлығы",
     "noSearchResults": "Іздеуге сәйкес тағам табылмады.",
     "discountLabelPlaceholder": "Акция белгісі, мыс. -15%"
+  },
+  "receipt": {
+    "title": "ТҮБІРТЕК",
+    "order": "ТАПСЫРЫС",
+    "date": "КҮНІ",
+    "type": "ТҮРІ",
+    "table": "ҮСТЕЛ",
+    "total": "ЖИЫНЫ",
+    "thanks": "Келгеніңізге рахмет!",
+    "dineIn": "Мекемеде",
+    "pickup": "Өзіңіз алу",
+    "delivery": "Жеткізу"
   }
 }

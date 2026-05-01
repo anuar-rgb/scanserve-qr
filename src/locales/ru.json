@@ -211,5 +211,17 @@
     "allCategories": "Все",
     "noSearchResults": "Нет блюд, соответствующих поиску.",
     "discountLabelPlaceholder": "Метка акции, напр. -15%"
+  },
+  "receipt": {
+    "title": "ЧЕК",
+    "order": "ЗАКАЗ",
+    "date": "ДАТА",
+    "type": "ТИП",
+    "table": "СТОЛ",
+    "total": "ИТОГО",
+    "thanks": "Спасибо за ваш визит!",
+    "dineIn": "В заведении",
+    "pickup": "Самовывоз",
+    "delivery": "Доставка"
   }
 }

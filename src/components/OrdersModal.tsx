@@ -142,12 +142,12 @@ export function OrdersModal({
 
   const handleDownload = async (order: StoredOrder) => {
     setPdfLoading(order.id + "_dl");
-    try { await downloadOrderPDF(order); } finally { setPdfLoading(null); }
+    try { await downloadOrderPDF(order, lang); } finally { setPdfLoading(null); }
   };
 
   const handleShare = async (order: StoredOrder) => {
     setPdfLoading(order.id + "_sh");
-    try { await shareOrderPDF(order); } finally { setPdfLoading(null); }
+    try { await shareOrderPDF(order, lang); } finally { setPdfLoading(null); }
   };
 
   const iconBtn: React.CSSProperties = {
