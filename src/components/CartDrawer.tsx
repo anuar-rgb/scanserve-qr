@@ -295,7 +295,15 @@ function openWhatsApp(
   // encodeURIComponent correctly percent-encodes Kazakh/Cyrillic characters (UTF-8)
   const text = encodeURIComponent(lines.join("\n"));
   const cleanPhone = phone.replace(/\D/g, "");
-  window.open(`https://wa.me/${cleanPhone}?text=${text}`, "_blank");
+  const url = `https://wa.me/${cleanPhone}?text=${text}`;
+  // On mobile the OS intercepts wa.me links and opens the WA app directly when
+  // we navigate the current tab. window.open(_blank) creates a background tab
+  // that gets dismissed on mobile before the user can tap "Open app".
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    window.location.href = url;
+  } else {
+    window.open(url, "_blank");
+  }
 }
 
 // ── CartDrawer component ──────────────────────────────────────────────────────

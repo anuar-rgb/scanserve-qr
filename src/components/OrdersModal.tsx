@@ -40,6 +40,8 @@ export function OrdersModal({
   const [partialWaUrl, setPartialWaUrl] = useState<string | null>(null);
   const [fullWaUrl,    setFullWaUrl]    = useState<string | null>(null);
 
+  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const isDark  = theme === "dark";
   const bg      = isDark ? "#121212" : "#F8F9FA";
   const surface = isDark ? "#1C1C1C" : "#ECEEF0";
@@ -369,6 +371,8 @@ export function OrdersModal({
                   </p>
                   <a
                     href={fullWaUrl}
+                    target={isMobile ? undefined : "_blank"}
+                    rel={isMobile ? undefined : "noopener noreferrer"}
                     style={{
                       display: "block", padding: "14px 0", borderRadius: R.full,
                       background: "#25D366", color: "#fff",
@@ -631,6 +635,8 @@ export function OrdersModal({
                   </p>
                   <a
                     href={partialWaUrl}
+                    target={isMobile ? undefined : "_blank"}
+                    rel={isMobile ? undefined : "noopener noreferrer"}
                     style={{
                       display: "block", padding: "13px 0", borderRadius: R.full,
                       background: "#25D366", color: "#fff",
