@@ -159,6 +159,18 @@ Section headings (e.g., "Популярные блюда", "Акции и спе
 
 ---
 
+## Platform Footer
+
+A "Powered by scanserve.qr" footer is rendered at the bottom of every view (home, catalog, menu) inside `<main>`, above the bottom nav clearance padding.
+
+- Font: Montserrat, 12px, `fontWeight: 500`
+- Color: `var(--text-muted)` — automatically adapts to dark/light theme
+- "scanserve.qr" is an `<a>` linking to `https://scanserve.qr` (target `_blank`, rel `noopener noreferrer`)
+- No horizontal overflow — centered with `textAlign: "center"`
+- Clearance from BottomNav is provided by the existing `paddingBottom` on `<main>` (140px home/catalog, 190px menu)
+
+---
+
 ## Git workflow
 
 ```bash

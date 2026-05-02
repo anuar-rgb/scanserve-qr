@@ -2124,6 +2124,28 @@ export function MenuTemplate({
             ))}
           </>
         )}
+        {/* ── Platform footer ──────────────────────────────────────────── */}
+        <div style={{ textAlign: "center", paddingTop: SP.lg }}>
+          <span
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+              fontWeight: 500,
+              letterSpacing: "0.02em",
+            }}
+          >
+            Powered by{" "}
+            <a
+              href="https://scanserve.qr"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--text-muted)", textDecoration: "none", fontWeight: 600 }}
+            >
+              scanserve.qr
+            </a>
+          </span>
+        </div>
       </main>
 
       </div>
