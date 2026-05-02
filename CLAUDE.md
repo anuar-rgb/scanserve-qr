@@ -69,11 +69,21 @@
 - **Dark**: `0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.15)`
 
 ### Glassmorphism
-Use on: floating navigation panels (header on scroll, bottom nav, category pill strip).  
+Use on: floating navigation panels (fixed header, bottom nav, category pill strip).  
 **Do NOT use large backdrop-blur panels inside sliders.** Slider text sits directly on the image with a subtle vignette + `textShadow` for readability.
 
+#### Fixed header — Minimalist Glass (always on)
 ```css
-/* Navigation / floating panels */
+/* Header: always-on, softer blur for minimal feel */
+backdrop-filter: blur(14px) saturate(160%);
+-webkit-backdrop-filter: blur(14px) saturate(160%);
+background: rgba(11, 11, 17, 0.72);  /* dark mode  — 72% opacity */
+background: rgba(245, 245, 247, 0.70); /* light mode — 70% opacity */
+border-bottom: 1px solid var(--border-color);
+```
+
+#### Bottom nav / pill strip — Full Glass
+```css
 backdrop-filter: blur(20px) saturate(180%);
 -webkit-backdrop-filter: blur(20px) saturate(180%);
 background: rgba(11, 11, 17, 0.82); /* dark mode */

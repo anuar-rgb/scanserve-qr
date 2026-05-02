@@ -1580,7 +1580,6 @@ export function MenuTemplate({
   const [orders, setOrders]             = useState<StoredOrder[]>([]);
   const [clientId, setClientId]         = useState("anon");
   const [hasUnseenOrder, setHasUnseenOrder] = useState(false);
-  const [headerScrolled, setHeaderScrolled] = useState(false);
   const [contentX, setContentX]             = useState(0);
   const [contentTrans, setContentTrans]     = useState("none");
 
@@ -1674,13 +1673,6 @@ export function MenuTemplate({
     return () => { document.body.style.backgroundColor = ""; };
   }, [theme]);
 
-  // Track whether user has scrolled past the hero banner
-  useEffect(() => {
-    const BANNER_H = 240;
-    const onScroll = () => setHeaderScrolled(window.scrollY > BANNER_H);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   const switchLang = (l: Lang) => {
     setLang(l);
@@ -1878,7 +1870,6 @@ export function MenuTemplate({
   const themeVars = (theme === "dark" ? DARK_VARS : LIGHT_VARS) as React.CSSProperties;
 
   const onImage  = !!heroBanner?.imageUrl;
-  const overImage = onImage && !searchOpen && view === "home" && !headerScrolled;
 
   return (
     <div
@@ -1911,13 +1902,10 @@ export function MenuTemplate({
           left: "max(calc(50vw - 240px), 0px)",
           width: "min(100vw, 480px)",
           zIndex: 100,
-          backgroundColor: headerScrolled
-            ? (theme === "dark" ? "rgba(11,11,17,0.82)" : "rgba(245,245,247,0.82)")
-            : "transparent",
-          backdropFilter: headerScrolled ? "blur(20px) saturate(180%)" : "none",
-          WebkitBackdropFilter: headerScrolled ? "blur(20px) saturate(180%)" : "none",
-          borderBottom: headerScrolled ? "1px solid var(--border-color)" : "none",
-          transition: "background-color 0.3s, border-color 0.3s",
+          backgroundColor: theme === "dark" ? "rgba(11,11,17,0.72)" : "rgba(245,245,247,0.70)",
+          backdropFilter: "blur(14px) saturate(160%)",
+          WebkitBackdropFilter: "blur(14px) saturate(160%)",
+          borderBottom: "1px solid var(--border-color)",
         } as React.CSSProperties}
       >
         {/* Single row: logo + controls  ↔  search mode */}
@@ -1974,7 +1962,7 @@ export function MenuTemplate({
               {/* Logo + Name — no box around the icon */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
-                  stroke={overImage ? "rgba(255,255,255,0.95)" : "var(--text-color)"}
+                  stroke="var(--text-color)"
                   strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
                   style={{ flexShrink: 0 } as React.CSSProperties}>
                   <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
@@ -1984,8 +1972,7 @@ export function MenuTemplate({
                 <h1 style={{
                   fontSize: 17, fontWeight: 700, margin: 0, letterSpacing: "0.01em",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  color: overImage ? "rgba(255,255,255,0.95)" : "var(--text-color)",
-                  textShadow: overImage ? "0 1px 6px rgba(0,0,0,0.4)" : "none",
+                  color: "var(--text-color)",
                 }}>
                   {restaurant.name}
                 </h1>
@@ -2000,7 +1987,7 @@ export function MenuTemplate({
                   style={{
                     width: 36, height: 36, borderRadius: R.full,
                     border: "none", background: "none",
-                    color: overImage ? "rgba(255,255,255,0.8)" : "var(--text-muted)", cursor: "pointer",
+                    color: "var(--text-muted)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
@@ -2014,7 +2001,7 @@ export function MenuTemplate({
                   style={{
                     width: 36, height: 36, borderRadius: R.full,
                     border: "none", background: "none",
-                    color: overImage ? "rgba(255,255,255,0.8)" : "var(--text-muted)", cursor: "pointer",
+                    color: "var(--text-muted)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     position: "relative",
                   }}
@@ -2037,7 +2024,7 @@ export function MenuTemplate({
                       display: "flex", alignItems: "center", gap: 3,
                       padding: "6px 8px", borderRadius: R.full,
                       border: "none", background: "none",
-                      color: overImage ? "rgba(255,255,255,0.95)" : "var(--text-color)",
+                      color: "var(--text-color)",
                       fontSize: 12, fontWeight: 700,
                       cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
                     } as React.CSSProperties}
@@ -2077,7 +2064,7 @@ export function MenuTemplate({
                   style={{
                     width: 36, height: 36, borderRadius: R.full,
                     border: "none", background: "none",
-                    color: overImage ? "rgba(255,255,255,0.8)" : "var(--text-muted)", cursor: "pointer",
+                    color: "var(--text-muted)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
