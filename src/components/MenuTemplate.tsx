@@ -1900,7 +1900,6 @@ export function MenuTemplate({
         boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 8px 48px rgba(0,0,0,0.18)",
         transition: "background-color 0.2s",
         paddingTop: (onImage && view === "home") ? 0 : HEADER_H,
-        paddingBottom: 120,
         overflowX: "hidden",
       }}
     >
@@ -2320,18 +2319,6 @@ export function MenuTemplate({
         )}
       </main>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer
-        style={{
-          borderTop: "1px solid var(--border-color)",
-          padding: SP.md + 4,
-          textAlign: "center",
-          fontSize: 12,
-          color: "var(--text-muted)",
-        }}
-      >
-        Powered by ScanServe.qr
-      </footer>
       </div>
 
       {/* ── Bottom category pills bar (menu view only) ───────────────────── */}
