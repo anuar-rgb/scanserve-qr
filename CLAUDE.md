@@ -64,7 +64,7 @@
 - `R = { sm: 10, md: 20, lg: 24, full: 999 }` — defined in every component
 - Standard card radius: **24px** (R.lg) for bento-style panels, **20px** (R.md) for inner cards/thumbnails
 - Hero slider bottom corners: `borderRadius: "0 0 24px 24px"`
-- **Hero slider height**: `SLIDER_H = "min(520px, 133vw)"` — ~520px on all phones. Defined as a constant in MenuTemplate.tsx and applied to both the main slider and the fallback. Do not change without updating both.
+- **Hero slider height**: `SLIDER_H = "min(485px, 133vw)"` — ~485px on all phones. Defined as a constant in MenuTemplate.tsx and applied to both the main slider and the fallback. Do not change without updating both.
 
 ### Color Palette
 - **Light bg**: `#F5F5F7` (Apple-style soft gray)
@@ -134,7 +134,22 @@ Saturation ≥ 80%, full pill radius (`borderRadius: 99`). Font: Montserrat Bold
 ### Bento Grid
 - `gap: 12px` between cards
 - Category grid: `repeat(auto-fill, minmax(160px, 1fr))`
-- No `borderBottom` row separators — every item must live inside a card with radius + shadow
+- No `borderBottom` row separators — every item must live inside a card with radius + border
+
+### Banners / Cards — flat style rule
+**Banners and cards must be flat: no `linear-gradient` backgrounds, no `box-shadow`.**
+- Background: solid `#FFFFFF` (light) or `var(--bg-card)` (dark)
+- Separation: `border: 1px solid rgba(0,0,0,0.10)` (light) or `1px solid var(--border-color)` (dark)
+- For text on photo banners: use a small `rgba(0,0,0,0.52)` solid-background pill — never a full-width gradient overlay
+
+### Quick Actions Row
+A horizontal scrolling row of 3 pill buttons ("Доставка", "Предзаказ", "Забронировать стол") placed at the top of the home view, above `BannerSlider`. Each pill opens a pre-filled WhatsApp message.
+- Component: `QuickActionsRow` — accepts `lang`, `theme`, `whatsappPhone`
+- Style: `borderRadius: R.full`, solid white bg (light) / card bg (dark), 1px border, Montserrat 13px Bold, no shadow
+
+### Layout — no overflow
+- `html` and `body` both have `overflow-x: hidden` in `globals.css` — never remove
+- Horizontal scrollers (BannerSlider, QuickActionsRow) use negative margin bleed: `marginLeft/Right: -SP.md` + `paddingLeft/Right: SP.md` — keeps content flush without causing page overflow
 
 ---
 

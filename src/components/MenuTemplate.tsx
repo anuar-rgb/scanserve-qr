@@ -116,7 +116,7 @@ export interface MenuTemplateProps {
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const HEADER_H  = 80;                     // 64px height + 8px top margin + 8px gap below
-const SLIDER_H  = "min(520px, 133vw)";   // hero slider height — ~520px on any phone
+const SLIDER_H  = "min(485px, 133vw)";   // hero slider height — ~485px on any phone
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -332,7 +332,8 @@ function BannerSlider({ banners, lang }: { banners: Banner[]; lang: Lang }) {
             style={{
               flexShrink: 0, width: 280, height: 140,
               borderRadius: 16, overflow: "hidden",
-              background: "var(--bg-surface)",
+              background: "#FFFFFF",
+              border: "1px solid rgba(0,0,0,0.10)",
               cursor: banner.linkUrl ? "pointer" : "default",
               position: "relative",
             }}
@@ -350,17 +351,18 @@ function BannerSlider({ banners, lang }: { banners: Banner[]; lang: Lang }) {
             )}
             {(banner.title || banner.subtitle) && (
               <div style={{
-                position: "absolute", bottom: 0, left: 0, right: 0,
-                padding: "28px 12px 10px",
-                background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                position: "absolute", bottom: 8, left: 8, right: 8,
+                background: "rgba(0,0,0,0.52)",
+                borderRadius: 10,
+                padding: "6px 10px",
               }}>
                 {banner.title && (
-                  <p style={{ color: "#fff", fontWeight: 700, fontSize: 14, margin: "0 0 2px", lineHeight: 1.2 }}>
+                  <p style={{ color: "#fff", fontWeight: 700, fontSize: 13, margin: "0 0 1px", lineHeight: 1.2 }}>
                     {resolve(banner.title, lang)}
                   </p>
                 )}
                 {banner.subtitle && (
-                  <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, margin: 0 }}>
+                  <p style={{ color: "rgba(255,255,255,0.82)", fontSize: 11, margin: 0 }}>
                     {resolve(banner.subtitle, lang)}
                   </p>
                 )}
@@ -798,6 +800,86 @@ function InfoCards({
         </div>
       </div>
     </section>
+  );
+}
+
+// ── Quick Actions Row ─────────────────────────────────────────────────────────
+
+function QuickActionsRow({
+  lang,
+  theme,
+  whatsappPhone,
+}: {
+  lang: Lang;
+  theme: "dark" | "light";
+  whatsappPhone?: string;
+}) {
+  const isDark = theme === "dark";
+
+  const items = [
+    {
+      label: lang === "kz" ? "Жеткізу" : lang === "ru" ? "Доставка" : "Delivery",
+      msg:   lang === "kz" ? "Сәлем! Мен жеткізу тапсырысы берген болатынмын."
+           : lang === "ru" ? "Здравствуйте! Я хочу заказать доставку."
+           : "Hello! I would like to order delivery.",
+    },
+    {
+      label: lang === "kz" ? "Алдын ала тапсырыс" : lang === "ru" ? "Предзаказ" : "Pre-order",
+      msg:   lang === "kz" ? "Сәлем! Мен алдын ала тапсырыс жасағым келеді."
+           : lang === "ru" ? "Здравствуйте! Я хочу сделать предзаказ."
+           : "Hello! I would like to make a pre-order.",
+    },
+    {
+      label: lang === "kz" ? "Үстел брондау" : lang === "ru" ? "Забронировать стол" : "Reserve a Table",
+      msg:   lang === "kz" ? "Сәлем! Мен сіздің мейрамханаңызда үстел броньдағым келеді. Бос орындарды айтып беріңіз."
+           : lang === "ru" ? "Здравствуйте! Я хотел бы забронировать столик в вашем ресторане. Подскажите, пожалуйста, свободные места."
+           : "Hello! I would like to book a table at your restaurant. Please provide availability.",
+    },
+  ];
+
+  const openWA = (msg: string) => {
+    if (!whatsappPhone) return;
+    window.open(`https://wa.me/${whatsappPhone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        marginBottom: SP.lg,
+        overflowX: "auto",
+        scrollbarWidth: "none",
+        marginLeft: -SP.md,
+        marginRight: -SP.md,
+        paddingLeft: SP.md,
+        paddingRight: SP.md,
+        paddingBottom: 2,
+      } as React.CSSProperties}
+    >
+      {items.map(({ label, msg }) => (
+        <button
+          key={label}
+          onClick={() => openWA(msg)}
+          style={{
+            flexShrink: 0,
+            padding: "8px 16px",
+            borderRadius: R.full,
+            border: isDark ? "1px solid var(--border-color)" : "1px solid rgba(0,0,0,0.10)",
+            background: isDark ? "var(--bg-card)" : "#FFFFFF",
+            color: "var(--text-color)",
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: "'Montserrat', system-ui, sans-serif",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            boxShadow: "none",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -1960,6 +2042,13 @@ export function MenuTemplate({
         {/* ── HOME VIEW ──────────────────────────────────────────────────── */}
         {!isSearching && view === "home" && (
           <>
+            {/* 0. Quick action pills — Доставка / Предзаказ / Забронировать стол */}
+            <QuickActionsRow
+              lang={lang}
+              theme={theme}
+              whatsappPhone={restaurant.whatsappPhone}
+            />
+
             {/* 1. DB promotional banners */}
             <BannerSlider banners={banners} lang={lang} />
 
