@@ -114,7 +114,7 @@ export interface MenuTemplateProps {
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
-const R  = { sm: 6, md: 12, lg: 16, full: 999 } as const;
+const R  = { sm: 8, md: 16, lg: 20, full: 999 } as const;
 const HEADER_H = 64; // slim single-row fixed header
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ const DARK_VARS = {
   "--pill-text":      "#9A9A9A",
   "--cta-bg":         "#E0E0E0",
   "--cta-fg":         "#111111",
-  "--card-shadow":    "0 1px 4px rgba(0,0,0,0.6)",
+  "--card-shadow":    "0 1px 2px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.18)",
 };
 
 const LIGHT_VARS = {
@@ -152,7 +152,7 @@ const LIGHT_VARS = {
   "--pill-text":      "#5C6370",
   "--cta-bg":         "#111111",
   "--cta-fg":         "#FFFFFF",
-  "--card-shadow":    "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06)",
+  "--card-shadow":    "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
 };
 
 // ── Featured / Promotions section ─────────────────────────────────────────────
@@ -488,7 +488,7 @@ function PromoSlider({
         zIndex: 90, padding: "20px 20px 36px",
         transform: selectedDish ? "translateY(0)" : "translateY(100%)",
         transition: "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: "'Montserrat', system-ui, sans-serif",
         color: "var(--text-color)",
       } as React.CSSProperties}>
         {displayDish && (
@@ -1882,7 +1882,7 @@ export function MenuTemplate({
         minHeight: "100vh",
         backgroundColor: "var(--bg-shell)",
         color: "var(--text-color)",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif",
+        fontFamily: "'Montserrat', system-ui, sans-serif",
         transition: "background-color 0.2s, color 0.2s",
       }}
     >

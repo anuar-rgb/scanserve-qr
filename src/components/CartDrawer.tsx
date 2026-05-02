@@ -49,7 +49,7 @@ export interface StoredOrder {
 // ── Design tokens (mirrors MenuTemplate) ──────────────────────────────────────
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
-const R  = { sm: 6, md: 12, lg: 16, full: 999 } as const;
+const R  = { sm: 8, md: 16, lg: 20, full: 999 } as const;
 const DELIVERY_FEE = 600;
 
 // ── Kazakhstan cities ─────────────────────────────────────────────────────────
@@ -365,7 +365,7 @@ export function CartDrawer({
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const isDark  = theme === "dark";
-  const bg      = isDark ? "#121212" : "#F8F9FA";
+  const bg      = isDark ? "#121212" : "#F5F5F7";
   const surface = isDark ? "#1C1C1C" : "#ECEEF0";
   const card    = isDark ? "#1E1E1E" : "#FFFFFF";
   const textClr = isDark ? "#E0E0E0" : "#121212";
@@ -634,7 +634,7 @@ export function CartDrawer({
           flexDirection: "column",
           transform: open ? "translateY(0)" : "translateY(100%)",
           transition: "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          fontFamily: "'Montserrat', system-ui, sans-serif",
           color: textClr,
           overflow: "hidden",
         } as React.CSSProperties}
