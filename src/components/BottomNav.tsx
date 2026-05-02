@@ -39,7 +39,7 @@ export function BottomNav({ lang = "en", theme = "dark", cartCount, activeTab, o
   const active = activeTab ?? internalActive;
 
   const isDark = theme === "dark";
-  const glassBg   = isDark ? "rgba(14,14,14,0.92)" : "rgba(248,249,250,0.94)";
+  const glassBg   = isDark ? "rgba(11,11,17,0.88)" : "rgba(245,245,247,0.88)";
   const borderTop = isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.10)";
   const mutedClr  = isDark ? "rgba(224,224,224,0.35)" : "rgba(18,18,18,0.30)";
   // Strict B&W pill: dark bg in light mode, light bg in dark mode

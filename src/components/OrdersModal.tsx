@@ -46,7 +46,7 @@ export function OrdersModal({
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const isDark  = theme === "dark";
-  const bg      = isDark ? "#121212" : "#F8F9FA";
+  const bg      = isDark ? "#121212" : "#F5F5F7";
   const surface = isDark ? "#1C1C1C" : "#ECEEF0";
   const card    = isDark ? "#1E1E1E" : "#FFFFFF";
   const textClr = isDark ? "#E0E0E0" : "#121212";
@@ -275,7 +275,7 @@ export function OrdersModal({
         position: "fixed", bottom: 0,
         left: "max(calc(50vw - 240px), 0px)", width: "min(100vw, 480px)",
         maxHeight: "88vh", background: bg,
-        borderRadius: "20px 20px 0 0",
+        borderRadius: "24px 24px 0 0",
         boxShadow: "0 -4px 40px rgba(0,0,0,0.4)",
         zIndex: 90, display: "flex", flexDirection: "column",
         transform: open ? "translateY(0)" : "translateY(100%)",

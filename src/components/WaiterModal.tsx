@@ -55,7 +55,7 @@ export function WaiterModal({
   const [showError, setShowError]     = useState(false);
 
   const isDark  = theme === "dark";
-  const bg      = isDark ? "#121212" : "#F8F9FA";
+  const bg      = isDark ? "#121212" : "#F5F5F7";
   const surface = isDark ? "#1C1C1C" : "#ECEEF0";
   const textClr = isDark ? "#E0E0E0" : "#121212";
   const muted   = isDark ? "#9A9A9A" : "#6B7280";
@@ -140,7 +140,7 @@ export function WaiterModal({
           width: "min(100vw, 480px)",
           maxHeight: "82vh",
           background: bg,
-          borderRadius: "20px 20px 0 0",
+          borderRadius: "24px 24px 0 0",
           boxShadow: "0 -4px 40px rgba(0,0,0,0.4)",
           zIndex: 90,
           display: "flex",

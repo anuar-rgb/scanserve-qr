@@ -230,6 +230,7 @@ function FeaturedSection({
               overflow: "hidden",
               border: "1px solid var(--border-color)",
               backgroundColor: "var(--bg-card)",
+              boxShadow: "var(--card-shadow)",
             }}
           >
             <div
@@ -586,6 +587,7 @@ function ChefRecommendsSection({
               display: "flex", alignItems: "center", gap: 14,
               background: "var(--bg-card)", borderRadius: R.md,
               border: "1px solid var(--border-color)", padding: "12px 14px",
+              boxShadow: "var(--card-shadow)",
             }}>
               {/* Photo or emoji square */}
               <div style={{
@@ -683,10 +685,11 @@ function InfoCards({
   const cardBase: React.CSSProperties = {
     height: 72, borderRadius: R.lg,
     border: "1px solid var(--border-color)",
-    background: isDark ? "var(--bg-card)" : "var(--bg-surface)",
+    background: isDark ? "var(--bg-card)" : "#FFFFFF",
     display: "flex", flexDirection: "column",
     alignItems: "center", justifyContent: "center",
     gap: 4, cursor: "pointer",
+    boxShadow: "var(--card-shadow)",
     transition: "background 0.15s",
   };
 
@@ -735,9 +738,10 @@ function InfoCards({
           marginTop: 10,
           borderRadius: R.lg,
           border: "1px solid var(--border-color)",
-          background: isDark ? "var(--bg-card)" : "var(--bg-surface)",
+          background: isDark ? "var(--bg-card)" : "#FFFFFF",
           padding: "14px 16px",
           display: "flex", flexDirection: "column", gap: 14,
+          boxShadow: "var(--card-shadow)",
         }}>
           {igHandle && instagramUrl && (
             <a href={instagramUrl} target="_blank" rel="noopener noreferrer"
@@ -1003,6 +1007,7 @@ function HorizontalDishSection({
                 overflow: "hidden",
                 border: "1px solid var(--border-color)",
                 backgroundColor: "var(--bg-card)",
+                boxShadow: "var(--card-shadow)",
               }}
             >
               <div
@@ -1934,10 +1939,13 @@ export function MenuTemplate({
           left: "max(calc(50vw - 240px), 0px)",
           width: "min(100vw, 480px)",
           zIndex: 100,
-          backgroundColor: "transparent",
-          backdropFilter: "none",
-          WebkitBackdropFilter: "none",
-          borderBottom: "none",
+          backgroundColor: headerScrolled
+            ? (theme === "dark" ? "rgba(11,11,17,0.82)" : "rgba(245,245,247,0.82)")
+            : "transparent",
+          backdropFilter: headerScrolled ? "blur(20px) saturate(180%)" : "none",
+          WebkitBackdropFilter: headerScrolled ? "blur(20px) saturate(180%)" : "none",
+          borderBottom: headerScrolled ? "1px solid var(--border-color)" : "none",
+          transition: "background-color 0.3s, border-color 0.3s",
         } as React.CSSProperties}
       >
         {/* Single row: logo + controls  ↔  search mode */}
@@ -2279,7 +2287,7 @@ export function MenuTemplate({
                 {/* Section header */}
                 <div style={{ display: "flex", alignItems: "center", gap: SP.sm + 2, marginBottom: SP.sm, paddingBottom: SP.sm, borderBottom: "1px solid var(--border-color)" }}>
                   <span style={{ fontSize: 22 }}>{cat.icon}</span>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--text-color)" }}>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "0.01em", color: "var(--text-color)" }}>
                     {resolve(cat.name, lang)}
                   </h2>
                   <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
@@ -2362,10 +2370,10 @@ export function MenuTemplate({
             left: "max(calc(50vw - 240px), 0px)",
             right: "max(calc(50vw - 240px), 0px)",
             zIndex: 65,
-            backgroundColor: "var(--bg-color)",
+            backgroundColor: theme === "dark" ? "rgba(11,11,17,0.82)" : "rgba(245,245,247,0.82)",
             borderTop: "1px solid var(--border-color)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
+            backdropFilter: "blur(20px) saturate(180%)",
+            WebkitBackdropFilter: "blur(20px) saturate(180%)",
           } as React.CSSProperties}
         >
           <div

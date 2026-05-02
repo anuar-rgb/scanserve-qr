@@ -627,7 +627,7 @@ export function CartDrawer({
           width: "min(100vw, 480px)",
           maxHeight: "88vh",
           background: bg,
-          borderRadius: "20px 20px 0 0",
+          borderRadius: "24px 24px 0 0",
           boxShadow: "0 -4px 40px rgba(0,0,0,0.4)",
           zIndex: 90,
           display: "flex",
