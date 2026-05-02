@@ -1332,14 +1332,14 @@ function CatalogDishCard({
 
 // ── Hero Slider ───────────────────────────────────────────────────────────────
 
-const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
-  white:  { bg: "rgba(255,255,255,0.15)", fg: "#fff" },
-  yellow: { bg: "rgba(245,158,11,0.80)",  fg: "#fff" },
-  green:  { bg: "rgba(16,185,129,0.80)",  fg: "#fff" },
-  red:    { bg: "rgba(239,68,68,0.80)",   fg: "#fff" },
-  blue:   { bg: "rgba(14,165,233,0.80)",  fg: "#fff" },
-  orange: { bg: "rgba(249,115,22,0.80)",  fg: "#fff" },
-  purple: { bg: "rgba(139,92,246,0.80)",  fg: "#fff" },
+const TAG_COLOR_MAP: Record<string, { bg: string; fg: string; glow: string }> = {
+  white:  { bg: "rgba(255,255,255,0.22)", fg: "#fff",    glow: "rgba(255,255,255,0.25)" },
+  yellow: { bg: "#F59E0B",               fg: "#1C0F00", glow: "rgba(245,158,11,0.55)"  },
+  green:  { bg: "#00C882",               fg: "#001A0F", glow: "rgba(0,200,130,0.55)"   },
+  red:    { bg: "#FF4D6D",               fg: "#fff",    glow: "rgba(255,77,109,0.55)"  },
+  blue:   { bg: "#00AAFF",               fg: "#fff",    glow: "rgba(0,170,255,0.55)"   },
+  orange: { bg: "#FF6B2B",               fg: "#fff",    glow: "rgba(255,107,43,0.55)"  },
+  purple: { bg: "#A855F7",               fg: "#fff",    glow: "rgba(168,85,247,0.55)"  },
 };
 
 const SLIDE_DURATION = 5000;
@@ -1446,8 +1446,9 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
                         color: palette.fg,
                         fontSize: 10, fontWeight: 800,
                         padding: "3px 10px", borderRadius: 99,
-                        letterSpacing: "0.06em", lineHeight: 1.5,
-                        textTransform: "uppercase",
+                        letterSpacing: "0.04em", lineHeight: 1.5,
+                        fontFamily: "'Montserrat', system-ui, sans-serif",
+                        boxShadow: `0 0 8px ${palette.glow}, 0 0 16px ${palette.glow}`,
                       }}
                     >
                       {tag.text}

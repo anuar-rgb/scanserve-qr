@@ -88,6 +88,20 @@ text-shadow: 0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35);
 
 **Slider immersion rule**: Sliders must be fully immersive — no background gradients, no vignette layers (no standalone `div` at `z-index:5`), no backdrop-blur panels. Text sits directly on the clean image, readable only via `textShadow`.
 
+### Tag Palette (`TAG_COLOR_MAP`)
+Vibrant neon/saturated pairs — saturation ≥ 80%, full pill radius (`borderRadius: 99`), glow via `boxShadow`.  
+Font: Montserrat Bold (`fontWeight: 800`). Preserve author case — no `textTransform`.
+
+| Key    | bg        | fg        | glow                         |
+|--------|-----------|-----------|------------------------------|
+| white  | rgba(255,255,255,0.22) | #fff    | rgba(255,255,255,0.25)       |
+| yellow | #F59E0B   | #1C0F00   | rgba(245,158,11,0.55)        |
+| green  | #00C882   | #001A0F   | rgba(0,200,130,0.55)         |
+| red    | #FF4D6D   | #fff      | rgba(255,77,109,0.55)        |
+| blue   | #00AAFF   | #fff      | rgba(0,170,255,0.55)         |
+| orange | #FF6B2B   | #fff      | rgba(255,107,43,0.55)        |
+| purple | #A855F7   | #fff      | rgba(168,85,247,0.55)        |
+
 ### Bento Grid
 - `gap: 12px` between cards
 - Category grid: `repeat(auto-fill, minmax(160px, 1fr))`
