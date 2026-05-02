@@ -104,7 +104,7 @@ Saturation ≥ 80%, full pill radius (`borderRadius: 99`). Font: Montserrat Bold
 
 | Key    | bg                     | fg      |
 |--------|------------------------|---------|
-| white  | rgba(255,255,255,0.22) | #fff    |
+| white  | #FFFFFF                | #111111 |
 | yellow | #F59E0B                | #1C0F00 |
 | green  | #00C882                | #001A0F |
 | red    | #FF4D6D                | #fff    |

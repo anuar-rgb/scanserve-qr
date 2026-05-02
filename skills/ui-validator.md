@@ -3,8 +3,8 @@
 Checklist for every UI change. Fail = do not ship.
 
 ## Tags (Badges)
-- [ ] Solid background only — no gradients, no `backdrop-filter`, no `linear-gradient`
-- [ ] Saturation ≥ 80% — no washed-out or semi-transparent-only backgrounds
+- [ ] Solid background only — no gradients, no `backdrop-filter`, no `linear-gradient`, no `rgba()` with alpha < 1
+- [ ] 100% opaque — every `bg` value in TAG_COLOR_MAP must be a hex color, never rgba
 - [ ] Full pill radius — `borderRadius: 99` (never a fixed px value less than 99)
 - [ ] No `boxShadow` / glow on tags — clean flat appearance
 - [ ] Font: Montserrat Bold (`fontWeight: 800`, `fontFamily: "'Montserrat', system-ui, sans-serif"`)

@@ -1333,7 +1333,7 @@ function CatalogDishCard({
 // ── Hero Slider ───────────────────────────────────────────────────────────────
 
 const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
-  white:  { bg: "rgba(255,255,255,0.22)", fg: "#fff"    },
+  white:  { bg: "#FFFFFF",               fg: "#111111" },
   yellow: { bg: "#F59E0B",               fg: "#1C0F00" },
   green:  { bg: "#00C882",               fg: "#001A0F" },
   red:    { bg: "#FF4D6D",               fg: "#fff"    },
