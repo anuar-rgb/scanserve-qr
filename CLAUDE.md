@@ -174,6 +174,35 @@ Section headings (e.g., "Популярные блюда", "Акции и спе
 
 ---
 
+## Info Showcase Block
+
+The space immediately below the hero slider (position 1 in home view) contains two layers:
+1. **QuickActionsRow** — 3 fixed WhatsApp action pills (Доставка / Предзаказ / Забронировать стол)
+2. **InfoShowcaseSection** — dynamic info cards managed from **Admin → Storefront → Инфо-витрина**
+
+### InfoShowcase architecture
+| Layer | File |
+|-------|------|
+| DB table | `info_showcases` — see `supabase/info-showcase-migration.sql` |
+| DB type | `DbInfoShowcase` in `src/lib/db-types.ts` |
+| Fetch | `fetchInfoShowcase(restaurantId)` in `src/lib/fetch-menu.ts` |
+| Admin page | `/admin/info-showcase` — CRUD (emoji, title en/ru/kz, is_active, order_index) |
+| Sidebar | Storefront section → "Инфо-витрина" (Info icon) |
+| Component | `InfoShowcaseSection` in `MenuTemplate.tsx` |
+| Page prop | `showcaseItems?: ShowcaseItem[]` on `MenuTemplateProps` |
+
+### ShowcaseItem interface
+```ts
+export interface ShowcaseItem { id: string; emoji: string; title: string | LS; }
+```
+
+### InfoShowcaseSection style
+- Horizontal scrolling row with negative-margin bleed (same as QuickActionsRow / BannerSlider)
+- Each card: `borderRadius: R.lg` (24px), solid `#FFFFFF` bg (light) / `var(--bg-card)` (dark), `1px solid` border, no shadow
+- Contents: large emoji (26px) + Montserrat Bold 11px title, centered
+
+---
+
 ## Platform Footer
 
 A "Powered by scanserve.qr" footer is rendered at the bottom of every view (home, catalog, menu) inside `<main>`, above the bottom nav clearance padding.

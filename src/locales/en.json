@@ -225,7 +225,16 @@
     "changeMedia": "Change file",
     "slideTagLabel": "Tags",
     "slideTagColorLabel": "Tag color",
-    "addTag": "Add tag"
+    "addTag": "Add tag",
+    "navInfoShowcase": "Info Showcase",
+    "descInfoShowcase": "Dynamic info cards displayed below the hero slider.",
+    "addShowcaseCard": "Add Card",
+    "editShowcaseCard": "Edit Card",
+    "noShowcaseCards": "No cards yet",
+    "showcaseCardSaved": "Card saved!",
+    "showcaseCardTitleLabel": "Title",
+    "showcaseCardEmojiLabel": "Icon / Emoji",
+    "showcaseCardActive": "Active"
   },
   "receipt": {
     "title": "RECEIPT",

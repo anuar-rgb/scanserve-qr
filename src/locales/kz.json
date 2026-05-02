@@ -225,7 +225,16 @@
     "changeMedia": "Файлды ауыстыру",
     "slideTagLabel": "Тегтер",
     "slideTagColorLabel": "Тег түсі",
-    "addTag": "Тег қосу"
+    "addTag": "Тег қосу",
+    "navInfoShowcase": "Ақпарат витринасы",
+    "descInfoShowcase": "Слайдер астындағы динамикалық ақпарат карточкалары.",
+    "addShowcaseCard": "Карточка қосу",
+    "editShowcaseCard": "Өңдеу",
+    "noShowcaseCards": "Карточкалар жоқ",
+    "showcaseCardSaved": "Карточка сақталды!",
+    "showcaseCardTitleLabel": "Мәтін (тақырып)",
+    "showcaseCardEmojiLabel": "Иконка / Эмодзи",
+    "showcaseCardActive": "Белсенді"
   },
   "receipt": {
     "title": "ТҮБІРТЕК",

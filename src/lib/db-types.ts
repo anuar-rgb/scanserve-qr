@@ -86,3 +86,13 @@ export interface DbHeroSlide {
   is_active: boolean;
   created_at: string;
 }
+
+export interface DbInfoShowcase {
+  id: string;
+  restaurant_id: string;
+  title: LS;
+  emoji: string;
+  order_index: number;
+  is_active: boolean;
+  created_at: string;
+}

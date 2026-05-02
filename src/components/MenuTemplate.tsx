@@ -99,6 +99,12 @@ export interface FeaturedItem {
   tag?: string;
 }
 
+export interface ShowcaseItem {
+  id: string;
+  emoji: string;
+  title: string | LS;
+}
+
 export interface MenuTemplateProps {
   restaurant: RestaurantInfo;
   categories: MenuCategory[];
@@ -106,6 +112,7 @@ export interface MenuTemplateProps {
   heroBanner?: HeroBanner;
   heroSlides?: HeroSlide[];
   banners?: Banner[];
+  showcaseItems?: ShowcaseItem[];
   featuredItems?: FeaturedItem[];
   featuredTitle?: string | LS;
   ctaLabel?: string;
@@ -883,6 +890,74 @@ function QuickActionsRow({
   );
 }
 
+// ── Info Showcase Section ─────────────────────────────────────────────────────
+
+function InfoShowcaseSection({
+  items,
+  lang,
+  theme,
+}: {
+  items: ShowcaseItem[];
+  lang: Lang;
+  theme: "dark" | "light";
+}) {
+  if (!items.length) return null;
+  const isDark = theme === "dark";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 10,
+        marginBottom: SP.lg,
+        overflowX: "auto",
+        scrollbarWidth: "none",
+        marginLeft: -SP.md,
+        marginRight: -SP.md,
+        paddingLeft: SP.md,
+        paddingRight: SP.md,
+        paddingBottom: 2,
+      } as React.CSSProperties}
+    >
+      {items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            minWidth: 88,
+            padding: "14px 12px",
+            borderRadius: R.lg,
+            border: isDark ? "1px solid var(--border-color)" : "1px solid rgba(0,0,0,0.10)",
+            background: isDark ? "var(--bg-card)" : "#FFFFFF",
+            boxShadow: "none",
+          }}
+        >
+          <span style={{ fontSize: 26, lineHeight: 1 }}>{item.emoji}</span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--text-color)",
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+              textAlign: "center",
+              lineHeight: 1.3,
+              maxWidth: 80,
+              overflowWrap: "break-word",
+            }}
+          >
+            {resolve(item.title, lang)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Category Grid ─────────────────────────────────────────────────────────────
 
 const CARD_PALETTES = [
@@ -1452,6 +1527,7 @@ export function MenuTemplate({
   heroBanner,
   heroSlides = [],
   banners = [],
+  showcaseItems = [],
   featuredItems,
   featuredTitle,
 }: MenuTemplateProps) {
@@ -2049,16 +2125,19 @@ export function MenuTemplate({
               whatsappPhone={restaurant.whatsappPhone}
             />
 
-            {/* 1. DB promotional banners */}
+            {/* 1. Info showcase cards — dynamic, admin-managed */}
+            <InfoShowcaseSection items={showcaseItems} lang={lang} theme={theme} />
+
+            {/* 2. DB promotional banners */}
             <BannerSlider banners={banners} lang={lang} />
 
-            {/* 2. Promo slider — dishes flagged is_promo */}
+            {/* 3. Promo slider — dishes flagged is_promo */}
             <PromoSlider
               dishes={promoDishes}
               lang={lang}
             />
 
-            {/* 3. Popular dishes — sorted by like count */}
+            {/* 4. Popular dishes — sorted by like count */}
             <PopularDishesSection
               dishes={allDishes}
               lang={lang}
@@ -2067,7 +2146,7 @@ export function MenuTemplate({
               onGoToDish={goToDish}
             />
 
-            {/* 4. FeaturedItems prop (demo page) */}
+            {/* 5. FeaturedItems prop (demo page) */}
             {featuredItems && featuredItems.length > 0 && (
               <FeaturedSection
                 items={featuredItems}
@@ -2077,7 +2156,7 @@ export function MenuTemplate({
               />
             )}
 
-            {/* 5. Info cards — reserve / contact */}
+            {/* 6. Info cards — reserve / contact */}
             <InfoCards
               lang={lang}
               theme={theme}

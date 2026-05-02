@@ -225,7 +225,16 @@
     "changeMedia": "Сменить файл",
     "slideTagLabel": "Теги",
     "slideTagColorLabel": "Цвет тега",
-    "addTag": "Добавить тег"
+    "addTag": "Добавить тег",
+    "navInfoShowcase": "Инфо-витрина",
+    "descInfoShowcase": "Динамические карточки под слайдером на главном экране.",
+    "addShowcaseCard": "Добавить карточку",
+    "editShowcaseCard": "Редактировать",
+    "noShowcaseCards": "Карточек пока нет",
+    "showcaseCardSaved": "Карточка сохранена!",
+    "showcaseCardTitleLabel": "Текст (заголовок)",
+    "showcaseCardEmojiLabel": "Иконка / Эмодзи",
+    "showcaseCardActive": "Активна"
   },
   "receipt": {
     "title": "ЧЕК",

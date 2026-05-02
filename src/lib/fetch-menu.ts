@@ -1,6 +1,6 @@
 import { supabase, isConfigured } from "./supabase";
 import type { MenuCategory } from "@/components/MenuTemplate";
-import type { DbBanner, DbCategory, DbHeroSlide, DbProduct, DbRestaurant } from "./db-types";
+import type { DbBanner, DbCategory, DbHeroSlide, DbInfoShowcase, DbProduct, DbRestaurant } from "./db-types";
 
 export async function fetchRestaurantBySlug(slug: string): Promise<DbRestaurant | null> {
   if (!isConfigured || !slug) return null;
@@ -82,4 +82,16 @@ export async function fetchHeroSlides(restaurantId: string): Promise<DbHeroSlide
     .order("order_index");
   if (error || !data) return null;
   return data as DbHeroSlide[];
+}
+
+export async function fetchInfoShowcase(restaurantId: string): Promise<DbInfoShowcase[] | null> {
+  if (!isConfigured || !restaurantId) return null;
+  const { data, error } = await supabase
+    .from("info_showcases")
+    .select("*")
+    .eq("restaurant_id", restaurantId)
+    .eq("is_active", true)
+    .order("order_index");
+  if (error || !data) return null;
+  return data as DbInfoShowcase[];
 }
