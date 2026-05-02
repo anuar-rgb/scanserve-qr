@@ -1371,7 +1371,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
   return (
     <div
       style={{
-        position: "relative", width: "100%", height: "min(480px, 125vw)", overflow: "hidden",
+        position: "relative", width: "100%", height: "min(420px, 100vw)", overflow: "hidden",
         borderRadius: "0 0 20px 20px", backgroundColor: "#000",
       }}
     >
@@ -1419,7 +1419,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
       <div
         style={{
           position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
-          padding: "56px 16px 12px",
+          padding: "48px 16px 12px",
           background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 100%)",
           pointerEvents: "none",
           display: "flex", flexDirection: "column", gap: 0,
