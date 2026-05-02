@@ -114,7 +114,7 @@ export interface MenuTemplateProps {
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
-const R  = { sm: 8, md: 16, lg: 20, full: 999 } as const;
+const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const HEADER_H = 64; // slim single-row fixed header
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ const DARK_VARS = {
   "--pill-text":      "#9A9A9A",
   "--cta-bg":         "#E0E0E0",
   "--cta-fg":         "#111111",
-  "--card-shadow":    "0 1px 2px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.18)",
+  "--card-shadow":    "0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.15)",
 };
 
 const LIGHT_VARS = {
@@ -152,7 +152,7 @@ const LIGHT_VARS = {
   "--pill-text":      "#5C6370",
   "--cta-bg":         "#111111",
   "--cta-fg":         "#FFFFFF",
-  "--card-shadow":    "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
+  "--card-shadow":    "0 1px 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.07)",
 };
 
 // ── Featured / Promotions section ─────────────────────────────────────────────
@@ -1328,13 +1328,13 @@ function CatalogDishCard({
 // ── Hero Slider ───────────────────────────────────────────────────────────────
 
 const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
-  white:  { bg: "rgba(255,255,255,0.88)", fg: "#111" },
-  yellow: { bg: "#F9D94A",               fg: "#111" },
-  green:  { bg: "#4ADE80",               fg: "#111" },
-  red:    { bg: "#F87171",               fg: "#111" },
-  blue:   { bg: "#60A5FA",               fg: "#111" },
-  orange: { bg: "#FB923C",               fg: "#111" },
-  purple: { bg: "#A78BFA",               fg: "#111" },
+  white:  { bg: "rgba(255,255,255,0.15)", fg: "#fff" },
+  yellow: { bg: "rgba(245,158,11,0.80)",  fg: "#fff" },
+  green:  { bg: "rgba(16,185,129,0.80)",  fg: "#fff" },
+  red:    { bg: "rgba(239,68,68,0.80)",   fg: "#fff" },
+  blue:   { bg: "rgba(14,165,233,0.80)",  fg: "#fff" },
+  orange: { bg: "rgba(249,115,22,0.80)",  fg: "#fff" },
+  purple: { bg: "rgba(139,92,246,0.80)",  fg: "#fff" },
 };
 
 const SLIDE_DURATION = 5000;
@@ -1372,7 +1372,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
     <div
       style={{
         position: "relative", width: "100%", height: "min(420px, 100vw)", overflow: "hidden",
-        borderRadius: "0 0 20px 20px", backgroundColor: "#000",
+        borderRadius: "0 0 24px 24px", backgroundColor: "#000",
       }}
     >
       {/* Slide media */}
@@ -1415,56 +1415,83 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
         <div style={{ flex: 6 }} onClick={() => go(idx + 1)} />
       </div>
 
-      {/* Bottom overlay: tag + title + description + progress bars */}
+      {/* Gradient vignette — purely darkens the bottom of the image */}
+      <div
+        style={{
+          position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
+          height: "65%",
+          background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.0) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Glassmorphic content overlay */}
       <div
         style={{
           position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
-          padding: "56px 16px 20px",
-          background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 100%)",
+          padding: "12px 12px 22px",
+          display: "flex", flexDirection: "column", gap: 8,
           pointerEvents: "none",
-          display: "flex", flexDirection: "column", gap: 4,
         }}
       >
-        {/* Tag badges */}
-        {slide.tags && slide.tags.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {slide.tags.map((tag, i) => {
-              const palette = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.white;
-              return (
-                <span
-                  key={i}
-                  style={{
-                    display: "inline-block",
-                    backgroundColor: palette.bg,
-                    color: palette.fg,
-                    fontSize: 10, fontWeight: 800,
-                    padding: "3px 10px", borderRadius: 99,
-                    letterSpacing: "0.06em", lineHeight: 1.5,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {tag.text}
-                </span>
-              );
-            })}
+        {/* Glass text panel — only renders if there's something to show */}
+        {(slide.tags?.length || slide.title || slide.description) ? (
+          <div
+            style={{
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              background: "rgba(10,10,20,0.42)",
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.10)",
+              padding: "10px 14px",
+              display: "flex", flexDirection: "column", gap: 5,
+            }}
+          >
+            {/* Tag badges */}
+            {slide.tags && slide.tags.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {slide.tags.map((tag, i) => {
+                  const palette = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.white;
+                  return (
+                    <span
+                      key={i}
+                      style={{
+                        display: "inline-block",
+                        backgroundColor: palette.bg,
+                        backdropFilter: "blur(10px)",
+                        WebkitBackdropFilter: "blur(10px)",
+                        color: palette.fg,
+                        border: "1px solid rgba(255,255,255,0.20)",
+                        fontSize: 10, fontWeight: 800,
+                        padding: "3px 10px", borderRadius: 99,
+                        letterSpacing: "0.06em", lineHeight: 1.5,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {tag.text}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Title */}
+            {slide.title && (
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: 19, margin: 0, lineHeight: 1.25 }}>
+                {slide.title}
+              </p>
+            )}
+
+            {/* Description */}
+            {slide.description && (
+              <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, margin: 0, lineHeight: 1.4 }}>
+                {slide.description}
+              </p>
+            )}
           </div>
-        )}
+        ) : null}
 
-        {/* Title */}
-        {slide.title && (
-          <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: 0, textShadow: "0 1px 8px rgba(0,0,0,0.5)", lineHeight: 1.2 }}>
-            {slide.title}
-          </p>
-        )}
-
-        {/* Description / categories */}
-        {slide.description && (
-          <p style={{ color: "rgba(255,255,255,0.78)", fontSize: 13, margin: 0, lineHeight: 1.4 }}>
-            {slide.description}
-          </p>
-        )}
-
-        {/* Dot / pill indicators — centered */}
+        {/* Dot / pill progress indicators — centered */}
         {slides.length > 1 && (
           <div style={{ display: "flex", gap: 5, justifyContent: "center", alignItems: "center" }}>
             {slides.map((_, i) => {

@@ -46,6 +46,51 @@
 | `src/data/as-tori.ts` | Restaurant info, menu categories, payment options |
 | `src/app/as-tori/page.tsx` | Page entry point — passes `heroBanner` and restaurant data |
 
+## Design System
+
+### Typography
+- **Headings / labels**: Montserrat Bold — loaded via `next/font/google` with `latin` + `cyrillic` subsets
+- **Body text**: Inter (admin/landing), Montserrat (guest menu)
+- No forced `text-transform: lowercase` — use natural case everywhere
+
+### Spacing & Radius
+- `R = { sm: 10, md: 20, lg: 24, full: 999 }` — defined in every component
+- Standard card radius: **24px** (R.lg) for bento-style panels, **20px** (R.md) for inner cards/thumbnails
+- Hero slider bottom corners: `borderRadius: "0 0 24px 24px"`
+
+### Color Palette
+- **Light bg**: `#F5F5F7` (Apple-style soft gray)
+- **Light card**: `#FFFFFF` with multi-layer shadow
+- **Dark bg**: `#111111`, **Dark card**: `#1E1E1E`
+- Accent tones: Soft Amber `#F59E0B`, Slate blue `#0EA5E9`, Violet `#8B5CF6`, Emerald `#10B981`
+
+### Shadows (Apple / multi-layer)
+- **Light**: `0 1px 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.06)`
+- **Dark**: `0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.15)`
+
+### Glassmorphism
+Use on: hero slider text overlay, floating navigation panels, tag pills on hero.
+```css
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+background: rgba(10, 10, 20, 0.4);
+border: 1px solid rgba(255, 255, 255, 0.12);
+border-radius: 16px;
+```
+Tag pills on dark backgrounds:
+```css
+background: rgba(255,255,255,0.15);
+backdrop-filter: blur(10px);
+border: 1px solid rgba(255,255,255,0.2);
+```
+
+### Bento Grid
+- `gap: 12px` between cards
+- Category grid: `repeat(auto-fill, minmax(160px, 1fr))`
+- No `borderBottom` row separators — every item must live inside a card with radius + shadow
+
+---
+
 ## Git workflow
 
 ```bash

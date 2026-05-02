@@ -5,7 +5,7 @@ import { X, Bell } from "lucide-react";
 import type { Lang } from "./MenuTemplate";
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
-const R  = { sm: 8, md: 16, lg: 20, full: 999 } as const;
+const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 
 type WaiterAction = "clean" | "bill" | "come" | "other";
 
