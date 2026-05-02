@@ -409,7 +409,6 @@ function PromoSlider({
           <div style={{ width: 3, height: 20, borderRadius: R.full, backgroundColor: "var(--text-color)", flexShrink: 0 }} />
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>{tTitle}</h2>
           <div style={{ flex: 1, height: 1, backgroundColor: "var(--border-color)" }} />
-          <span style={{ fontSize: 18 }}>🔥</span>
         </div>
 
         <div style={{
@@ -554,13 +553,13 @@ function PopularDishesSection({
   lang,
   liked,
   getLikeCount,
-  onGoToCatalog,
+  onGoToDish,
 }: {
   dishes: Dish[];
   lang: Lang;
   liked: Record<string, boolean>;
   getLikeCount: (id: string) => number;
-  onGoToCatalog: () => void;
+  onGoToDish: (dishId: string) => void;
 }) {
   if (!dishes.length) return null;
 
@@ -581,7 +580,6 @@ function PopularDishesSection({
           {tTitle}
         </h2>
         <div style={{ flex: 1, height: 1, backgroundColor: "var(--border-color)" }} />
-        <span style={{ fontSize: 18 }}>🔥</span>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -592,7 +590,7 @@ function PopularDishesSection({
           return (
             <div
               key={dish.id}
-              onClick={onGoToCatalog}
+              onClick={() => onGoToDish(dish.id)}
               style={{
                 background: "var(--bg-card)",
                 borderRadius: R.lg,
@@ -945,6 +943,7 @@ function CatalogDishCard({
   onAddToCart,
   onToggleLike,
   getLikeCount,
+  id,
 }: {
   dish: Dish;
   lang: Lang;
@@ -954,6 +953,7 @@ function CatalogDishCard({
   onAddToCart: (dish: Dish, currency: string, delta: number) => void;
   onToggleLike: (id: string) => void;
   getLikeCount: (id: string) => number;
+  id?: string;
 }) {
   const isLiked = !!liked[dish.id];
   const count   = getLikeCount(dish.id);
@@ -962,6 +962,7 @@ function CatalogDishCard({
 
   return (
     <div
+      id={id}
       style={{
         borderRadius: R.lg,
         overflow: "hidden",
@@ -1380,7 +1381,8 @@ export function MenuTemplate({
   const [lang, setLang]             = useState<Lang>(initLang);
   const [view, setView]             = useState<"home" | "catalog" | "menu">("home");
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
-  const [scrollToId, setScrollToId] = useState<string | null>(null);
+  const [scrollToId, setScrollToId]       = useState<string | null>(null);
+  const [scrollToDishId, setScrollToDishId] = useState<string | null>(null);
   const [cart, setCart]             = useState<CartMap>({});
   const [cartOpen, setCartOpen]     = useState(false);
   const [waiterOpen, setWaiterOpen] = useState(false);
@@ -1508,6 +1510,17 @@ export function MenuTemplate({
     setView("catalog");
     setActiveCatId(null);
     setScrollToId(null);
+    setScrollToDishId(null);
+    setSearchOpen(false);
+  };
+
+  const goToDish = (dishId: string) => {
+    const cat = categories.find((c) => c.dishes.some((d) => d.id === dishId));
+    if (!cat) return;
+    setView("catalog");
+    setActiveCatId(cat.id);
+    setScrollToDishId(dishId);
+    setScrollToId(null);
     setSearchOpen(false);
   };
 
@@ -1569,6 +1582,19 @@ export function MenuTemplate({
     }, 80);
     return () => clearTimeout(t);
   }, [view, scrollToId]);
+
+  // Scroll to a specific dish after navigating to its catalog category
+  useEffect(() => {
+    if (view !== "catalog" || !activeCatId || !scrollToDishId) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`dish-${scrollToDishId}`);
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY - HEADER_H - 12;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      setScrollToDishId(null);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [view, activeCatId, scrollToDishId]);
 
   // Auto-scroll active pill into view in the strip
   useEffect(() => {
@@ -1953,7 +1979,7 @@ export function MenuTemplate({
               lang={lang}
               liked={liked}
               getLikeCount={getLikeCount}
-              onGoToCatalog={goToCatalogGrid}
+              onGoToDish={goToDish}
             />
 
             {/* 4. FeaturedItems prop (demo page) */}
@@ -2002,6 +2028,7 @@ export function MenuTemplate({
                 {(categories.find((c) => c.id === activeCatId)?.dishes ?? []).map((dish) => (
                   <CatalogDishCard
                     key={dish.id}
+                    id={`dish-${dish.id}`}
                     dish={dish}
                     lang={lang}
                     currency={dish.currency ?? restaurant.currency ?? ""}

@@ -136,6 +136,27 @@ Saturation ≥ 80%, full pill radius (`borderRadius: 99`). Font: Montserrat Bold
 
 ---
 
+## Navigation — Deep Linking
+
+| Function | What it does |
+|----------|-------------|
+| `goHome()` | → home view, resets all state |
+| `goToCatalogGrid()` | → catalog category grid |
+| `goToCatalogCategory(catId)` | → catalog, opens that category, scrolls to top |
+| `goToDish(dishId)` | → catalog, opens the dish's category, scrolls to `#dish-{dishId}` |
+| `goToMenuSection(catId)` | → menu list view, scrolls to that section |
+
+### `goToDish` implementation pattern
+- Finds the category containing the dish via `categories.find(c => c.dishes.some(d => d.id === dishId))`
+- Sets `view="catalog"`, `activeCatId`, and `scrollToDishId`
+- A `useEffect` watches `[view, activeCatId, scrollToDishId]` and after 100 ms queries `document.getElementById("dish-{dishId}")` to scroll to it
+- Every `CatalogDishCard` must have `id={`dish-${dish.id}`}` on its root element
+
+### Section header style rule
+Section headings (e.g., "Популярные блюда", "Акции и спецпредложения") use **plain Montserrat Bold text only** — no emoji or icons next to the title. The decorative left-border accent (3px pill) and horizontal rule are kept; icons/emoji are removed.
+
+---
+
 ## Git workflow
 
 ```bash
