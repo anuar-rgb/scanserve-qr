@@ -547,84 +547,100 @@ function PromoSlider({
   );
 }
 
-// ── Chef Recommends ───────────────────────────────────────────────────────────
+// ── Popular Dishes ─────────────────────────────────────────────────────────────
 
-function ChefRecommendsSection({
+function PopularDishesSection({
   dishes,
   lang,
-  defaultCurrency,
-  cart,
-  onAddToCart,
+  liked,
+  getLikeCount,
+  onGoToCatalog,
 }: {
   dishes: Dish[];
   lang: Lang;
-  defaultCurrency?: string;
-  cart: CartMap;
-  onAddToCart: (dish: Dish, currency: string, delta: number) => void;
+  liked: Record<string, boolean>;
+  getLikeCount: (id: string) => number;
+  onGoToCatalog: () => void;
 }) {
   if (!dishes.length) return null;
-  const highlights = dishes;
 
   const tTitle =
-    lang === "kz" ? "Аспаз ұсынады"
-    : lang === "ru" ? "Рекомендует шеф-повар"
-    : "Chef Recommends";
+    lang === "kz" ? "Танымал тағамдар"
+    : lang === "ru" ? "Популярные блюда"
+    : "Popular Dishes";
+
+  const sorted = [...dishes]
+    .sort((a, b) => getLikeCount(b.id) - getLikeCount(a.id))
+    .slice(0, 8);
 
   return (
-    <section style={{ marginBottom: SP.lg + 4, borderBottom: "1px solid var(--border-color)", paddingBottom: SP.lg }}>
+    <section style={{ marginBottom: SP.lg + 4 }}>
       <div style={{ display: "flex", alignItems: "center", gap: SP.sm, marginBottom: SP.md }}>
         <div style={{ width: 3, height: 20, borderRadius: R.full, backgroundColor: "var(--text-color)", flexShrink: 0 }} />
-        <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>{tTitle}</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+          {tTitle}
+        </h2>
         <div style={{ flex: 1, height: 1, backgroundColor: "var(--border-color)" }} />
-        <span style={{ fontSize: 18 }}>👨‍🍳</span>
+        <span style={{ fontSize: 18 }}>🔥</span>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {highlights.map((dish) => {
-          const currency = dish.currency ?? defaultCurrency ?? "";
-          const qty = cart[dish.id]?.qty ?? 0;
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {sorted.map((dish) => {
+          const likeCount = getLikeCount(dish.id);
+          const isLiked = !!liked[dish.id];
+
           return (
-            <div key={dish.id} style={{
-              display: "flex", alignItems: "center", gap: 14,
-              background: "var(--bg-card)", borderRadius: R.md,
-              border: "1px solid var(--border-color)", padding: "12px 14px",
-              boxShadow: "var(--card-shadow)",
-            }}>
-              {/* Photo or emoji square */}
+            <div
+              key={dish.id}
+              onClick={onGoToCatalog}
+              style={{
+                background: "var(--bg-card)",
+                borderRadius: R.lg,
+                border: "1px solid var(--border-color)",
+                boxShadow: "var(--card-shadow)",
+                overflow: "hidden",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               <div style={{
-                width: 60, height: 60, borderRadius: R.md, flexShrink: 0,
-                background: "var(--bg-surface)", overflow: "hidden",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 32,
+                width: "100%",
+                aspectRatio: "4/3",
+                backgroundColor: "var(--bg-surface)",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 38,
+                position: "relative",
               }}>
                 {dish.imageUrl ? (
-                  <img src={dish.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : dish.emoji}
               </div>
 
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 700, margin: "0 0 3px", color: "var(--text-color)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" as const }}>
+              <div style={{ padding: "10px 12px 12px" }}>
+                <p style={{
+                  fontSize: 13, fontWeight: 700, margin: "0 0 8px",
+                  color: "var(--text-color)",
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                  overflow: "hidden",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical" as const,
+                  lineHeight: 1.3,
+                }}>
                   {resolve(dish.name, lang)}
                 </p>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 6px", lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                  {resolve(dish.desc, lang)}
-                </p>
-                <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
-                  {dish.price.toLocaleString()} {currency}
-                </p>
-              </div>
 
-              {/* Quick-add */}
-              {qty > 0 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => onAddToCart(dish, currency, -1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-                  <button onClick={() => onAddToCart(dish, currency, +1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Heart size={16} strokeWidth={2} fill={isLiked ? "#FF4D6D" : "none"} stroke="#FF4D6D" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#FF4D6D" }}>
+                    {likeCount}
+                  </span>
                 </div>
-              ) : (
-                <button onClick={() => onAddToCart(dish, currency, +1)} style={{ width: 36, height: 36, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
-              )}
+              </div>
             </div>
           );
         })}
@@ -916,211 +932,6 @@ function seedLikes(dishId: string): number {
   let h = 5381;
   for (const c of dishId) h = ((h << 5) + h) ^ c.charCodeAt(0);
   return 8 + (Math.abs(h) % 28);
-}
-
-// ── Horizontal Dish Section ───────────────────────────────────────────────────
-
-function HorizontalDishSection({
-  dishes,
-  title,
-  icon,
-  lang,
-  defaultCurrency,
-  liked,
-  onToggleLike,
-  tagOverride,
-  cart,
-  onAddToCart,
-}: {
-  dishes: Dish[];
-  title: string;
-  icon: string;
-  lang: Lang;
-  defaultCurrency?: string;
-  liked: Record<string, boolean>;
-  onToggleLike: (id: string) => void;
-  tagOverride?: string;
-  cart?: CartMap;
-  onAddToCart?: (dish: Dish, currency: string, delta: number) => void;
-}) {
-  if (!dishes.length) return null;
-
-  return (
-    <section
-      style={{
-        paddingTop: SP.lg,
-        paddingBottom: SP.sm,
-        marginBottom: SP.lg,
-        borderBottom: "1px solid var(--border-color)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: SP.sm,
-          marginBottom: SP.md,
-        }}
-      >
-        <div
-          style={{
-            width: 3,
-            height: 20,
-            borderRadius: R.full,
-            backgroundColor: "var(--text-color)",
-            flexShrink: 0,
-          }}
-        />
-        <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
-          {title}
-        </h2>
-        <div style={{ flex: 1, height: 1, backgroundColor: "var(--border-color)" }} />
-        <span style={{ fontSize: 18 }}>{icon}</span>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          overflowX: "auto",
-          paddingLeft: SP.md,
-          paddingRight: SP.md,
-          paddingBottom: SP.sm,
-          scrollbarWidth: "none",
-          marginLeft: -SP.md,
-          marginRight: -SP.md,
-        } as React.CSSProperties}
-      >
-        {dishes.map((dish) => {
-          const isLiked = !!liked[dish.id];
-          const count = seedLikes(dish.id) + (isLiked ? 1 : 0);
-          const currency = dish.currency ?? defaultCurrency ?? "";
-          const qty = cart?.[dish.id]?.qty ?? 0;
-          const tag = tagOverride ?? dish.badge;
-
-          return (
-            <div
-              key={dish.id}
-              style={{
-                flexShrink: 0,
-                width: 152,
-                borderRadius: R.lg,
-                overflow: "hidden",
-                border: "1px solid var(--border-color)",
-                backgroundColor: "var(--bg-card)",
-                boxShadow: "var(--card-shadow)",
-              }}
-            >
-              <div
-                style={{
-                  height: 96,
-                  backgroundColor: "var(--bg-surface)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 38,
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                {dish.imageUrl ? (
-                  <img
-                    src={dish.imageUrl}
-                    alt={resolve(dish.name, lang)}
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                ) : dish.emoji}
-                {tag && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: SP.xs,
-                      left: SP.xs,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: "3px 7px",
-                      borderRadius: R.sm,
-                      backgroundColor: "var(--text-color)",
-                      color: "var(--bg-color)",
-                      letterSpacing: "0.03em",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {tag}
-                  </span>
-                )}
-                {dish.discountLabel && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      bottom: SP.xs,
-                      left: SP.xs,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: "3px 7px",
-                      borderRadius: R.sm,
-                      backgroundColor: "#E05555",
-                      color: "#fff",
-                      letterSpacing: "0.03em",
-                      lineHeight: 1.4,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {dish.discountLabel}
-                  </span>
-                )}
-              </div>
-
-              <div style={{ padding: SP.sm }}>
-                <p
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    margin: "0 0 4px",
-                    lineHeight: 1.3,
-                    color: "var(--text-color)",
-                    overflow: "hidden",
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical" as const,
-                  }}
-                >
-                  {resolve(dish.name, lang)}
-                </p>
-                <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 6px", color: "var(--text-color)" }}>
-                  {dish.price.toLocaleString()} {currency}
-                </p>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onToggleLike(dish.id); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 3,
-                      background: "none", border: "none", cursor: "pointer", padding: 0,
-                      color: isLiked ? "#E05555" : "var(--text-muted)",
-                    }}
-                  >
-                    <Heart size={12} fill={isLiked ? "#E05555" : "none"} stroke={isLiked ? "#E05555" : "currentColor"} />
-                    <span style={{ fontSize: 11, fontWeight: 700 }}>{count}</span>
-                  </button>
-                  {onAddToCart && (
-                    qty > 0 ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <button onClick={() => onAddToCart(dish, currency, -1)} style={{ width: 20, height: 20, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>−</button>
-                        <span style={{ fontSize: 11, fontWeight: 700, minWidth: 12, textAlign: "center" }}>{qty}</span>
-                        <button onClick={() => onAddToCart(dish, currency, +1)} style={{ width: 20, height: 20, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>+</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => onAddToCart(dish, currency, +1)} style={{ width: 24, height: 24, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700 }}>+</button>
-                    )
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
 }
 
 // ── Catalog Dish Card (2-column square grid) ──────────────────────────────────
@@ -1797,13 +1608,10 @@ export function MenuTemplate({
   }, [langOpen]);
 
   // Curated home sections
-  const allDishes         = categories.flatMap((c) => c.dishes);
-  const promoDishes       = allDishes.filter((d) => d.isPromo);
-  const recommendedDishes = allDishes.filter((d) => d.isRecommended);
-  const newDishes         = allDishes.filter((d) => d.isNew);
+  const allDishes   = categories.flatMap((c) => c.dishes);
+  const promoDishes = allDishes.filter((d) => d.isPromo);
 
   const tAll = lang === "kz" ? "Барлығы" : lang === "ru" ? "Все" : "All";
-  const tNew = lang === "kz" ? "Жаңалықтар" : lang === "ru" ? "Новинки" : "New Arrivals";
 
   const searchTrimmed  = searchQuery.trim().toLowerCase();
   const isSearching    = searchOpen && searchTrimmed.length > 0;
@@ -2139,30 +1947,14 @@ export function MenuTemplate({
               lang={lang}
             />
 
-            {/* 3. Chef recommends — dishes flagged is_recommended */}
-            <ChefRecommendsSection
-              dishes={recommendedDishes}
+            {/* 3. Popular dishes — sorted by like count */}
+            <PopularDishesSection
+              dishes={allDishes}
               lang={lang}
-              defaultCurrency={restaurant.currency}
-              cart={cart}
-              onAddToCart={addToCart}
+              liked={liked}
+              getLikeCount={getLikeCount}
+              onGoToCatalog={goToCatalogGrid}
             />
-
-            {/* 3. New arrivals */}
-            {newDishes.length > 0 && (
-              <HorizontalDishSection
-                dishes={newDishes}
-                title={tNew}
-                icon="✨"
-                lang={lang}
-                defaultCurrency={restaurant.currency}
-                liked={liked}
-                onToggleLike={toggleLike}
-                tagOverride="NEW"
-                cart={cart}
-                onAddToCart={addToCart}
-              />
-            )}
 
             {/* 4. FeaturedItems prop (demo page) */}
             {featuredItems && featuredItems.length > 0 && (
