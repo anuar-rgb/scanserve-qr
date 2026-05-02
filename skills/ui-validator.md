@@ -2,10 +2,11 @@
 
 Checklist for every UI change. Fail = do not ship.
 
-## Tags
+## Tags (Badges)
+- [ ] Solid background only — no gradients, no `backdrop-filter`, no `linear-gradient`
 - [ ] Saturation ≥ 80% — no washed-out or semi-transparent-only backgrounds
 - [ ] Full pill radius — `borderRadius: 99` (never a fixed px value less than 99)
-- [ ] Glow applied — `boxShadow: \`0 0 8px ${glow}, 0 0 16px ${glow}\``
+- [ ] No `boxShadow` / glow on tags — clean flat appearance
 - [ ] Font: Montserrat Bold (`fontWeight: 800`, `fontFamily: "'Montserrat', system-ui, sans-serif"`)
 - [ ] Preserve author case — no `textTransform: "uppercase"` or `"lowercase"`
 - [ ] High contrast — fg color must be legible on bg (dark text on light bg, white on dark/saturated)

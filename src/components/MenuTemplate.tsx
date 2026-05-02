@@ -1332,14 +1332,14 @@ function CatalogDishCard({
 
 // ── Hero Slider ───────────────────────────────────────────────────────────────
 
-const TAG_COLOR_MAP: Record<string, { bg: string; fg: string; glow: string }> = {
-  white:  { bg: "rgba(255,255,255,0.22)", fg: "#fff",    glow: "rgba(255,255,255,0.25)" },
-  yellow: { bg: "#F59E0B",               fg: "#1C0F00", glow: "rgba(245,158,11,0.55)"  },
-  green:  { bg: "#00C882",               fg: "#001A0F", glow: "rgba(0,200,130,0.55)"   },
-  red:    { bg: "#FF4D6D",               fg: "#fff",    glow: "rgba(255,77,109,0.55)"  },
-  blue:   { bg: "#00AAFF",               fg: "#fff",    glow: "rgba(0,170,255,0.55)"   },
-  orange: { bg: "#FF6B2B",               fg: "#fff",    glow: "rgba(255,107,43,0.55)"  },
-  purple: { bg: "#A855F7",               fg: "#fff",    glow: "rgba(168,85,247,0.55)"  },
+const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
+  white:  { bg: "rgba(255,255,255,0.22)", fg: "#fff"    },
+  yellow: { bg: "#F59E0B",               fg: "#1C0F00" },
+  green:  { bg: "#00C882",               fg: "#001A0F" },
+  red:    { bg: "#FF4D6D",               fg: "#fff"    },
+  blue:   { bg: "#00AAFF",               fg: "#fff"    },
+  orange: { bg: "#FF6B2B",               fg: "#fff"    },
+  purple: { bg: "#A855F7",               fg: "#fff"    },
 };
 
 const SLIDE_DURATION = 5000;
@@ -1448,7 +1448,6 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
                         padding: "3px 10px", borderRadius: 99,
                         letterSpacing: "0.04em", lineHeight: 1.5,
                         fontFamily: "'Montserrat', system-ui, sans-serif",
-                        boxShadow: `0 0 8px ${palette.glow}, 0 0 16px ${palette.glow}`,
                       }}
                     >
                       {tag.text}
