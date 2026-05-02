@@ -72,15 +72,24 @@
 Use on: floating navigation panels (fixed header, bottom nav, category pill strip).  
 **Do NOT use large backdrop-blur panels inside sliders.** Slider text sits directly on the image with a subtle vignette + `textShadow` for readability.
 
-#### Fixed header — Minimalist Glass (always on)
+#### Fixed header — Floating Glass Panel (always on)
+The header is a **floating pill panel** — it never touches the screen edges.
 ```css
-/* Header: always-on, softer blur for minimal feel */
+/* Floating, rounded, always-on glass */
+position: fixed;
+top: 8px;                                /* floats 8px from top */
+left: max(calc(50vw - 232px), 8px);      /* 8px side margins    */
+width: min(calc(100vw - 16px), 464px);
+border-radius: 24px;                     /* R.lg — all corners  */
 backdrop-filter: blur(14px) saturate(160%);
 -webkit-backdrop-filter: blur(14px) saturate(160%);
-background: rgba(11, 11, 17, 0.72);  /* dark mode  — 72% opacity */
-background: rgba(245, 245, 247, 0.70); /* light mode — 70% opacity */
-border-bottom: 1px solid var(--border-color);
+background: rgba(11, 11, 17, 0.72);      /* dark  — 72% opacity */
+background: rgba(245, 245, 247, 0.70);   /* light — 70% opacity */
+border: 1px solid var(--border-color);   /* full perimeter glass edge */
+box-shadow: 0 4px 24px rgba(0,0,0,0.35); /* dark  */
+box-shadow: 0 4px 24px rgba(0,0,0,0.10); /* light */
 ```
+`HEADER_H = 80` (64px height + 8px top gap + 8px clearance below).
 
 #### Bottom nav / pill strip — Full Glass
 ```css

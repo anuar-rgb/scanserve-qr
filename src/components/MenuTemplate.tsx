@@ -115,7 +115,7 @@ export interface MenuTemplateProps {
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
-const HEADER_H = 64; // slim single-row fixed header
+const HEADER_H = 80; // 64px height + 8px top margin + 8px gap below
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -1898,14 +1898,18 @@ export function MenuTemplate({
       <div
         style={{
           position: "fixed",
-          top: 0,
-          left: "max(calc(50vw - 240px), 0px)",
-          width: "min(100vw, 480px)",
+          top: 8,
+          left: "max(calc(50vw - 232px), 8px)",
+          width: "min(calc(100vw - 16px), 464px)",
           zIndex: 100,
+          borderRadius: R.lg,
           backgroundColor: theme === "dark" ? "rgba(11,11,17,0.72)" : "rgba(245,245,247,0.70)",
           backdropFilter: "blur(14px) saturate(160%)",
           WebkitBackdropFilter: "blur(14px) saturate(160%)",
-          borderBottom: "1px solid var(--border-color)",
+          border: "1px solid var(--border-color)",
+          boxShadow: theme === "dark"
+            ? "0 4px 24px rgba(0,0,0,0.35)"
+            : "0 4px 24px rgba(0,0,0,0.10)",
         } as React.CSSProperties}
       >
         {/* Single row: logo + controls  ↔  search mode */}
