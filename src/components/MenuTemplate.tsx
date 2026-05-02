@@ -1370,7 +1370,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
   return (
     <div
       style={{
-        position: "relative", width: "100%", height: 280, overflow: "hidden",
+        position: "relative", width: "100%", height: "min(480px, 125vw)", overflow: "hidden",
         borderRadius: "0 0 20px 20px", backgroundColor: "#000",
       }}
     >
@@ -1436,9 +1436,10 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
                     display: "inline-block",
                     backgroundColor: palette.bg,
                     color: palette.fg,
-                    fontSize: 11, fontWeight: 700,
+                    fontSize: 10, fontWeight: 800,
                     padding: "3px 10px", borderRadius: 99,
-                    letterSpacing: "0.01em", lineHeight: 1.5,
+                    letterSpacing: "0.06em", lineHeight: 1.5,
+                    textTransform: "uppercase",
                   }}
                 >
                   {tag.text}
@@ -1462,25 +1463,37 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
           </p>
         )}
 
-        {/* Progress bars at very bottom */}
+        {/* Dot / pill indicators — centered */}
         {slides.length > 1 && (
-          <div style={{ display: "flex", gap: 4 }}>
-            {slides.map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: 1, height: 2.5, borderRadius: 99,
-                  backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden",
-                }}
-              >
+          <div style={{ display: "flex", gap: 5, justifyContent: "center", alignItems: "center" }}>
+            {slides.map((_, i) => {
+              const isActive = i === idx;
+              const isPast   = i < idx;
+              return (
                 <div
+                  key={i}
                   style={{
-                    height: "100%", borderRadius: 99, backgroundColor: "#fff",
-                    width: i < idx ? "100%" : i === idx ? `${progress}%` : "0%",
+                    height: 5,
+                    width: isActive ? 22 : 6,
+                    borderRadius: 99,
+                    backgroundColor: isPast ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.28)",
+                    overflow: "hidden",
+                    transition: "width 0.25s ease",
+                    flexShrink: 0,
                   }}
-                />
-              </div>
-            ))}
+                >
+                  {isActive && (
+                    <div
+                      style={{
+                        height: "100%", borderRadius: 99,
+                        backgroundColor: "rgba(255,255,255,0.95)",
+                        width: `${progress}%`,
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1505,7 +1518,7 @@ function HeroSlider({
   return (
     <div
       style={{
-        position: "relative", width: "100%", height: 280, overflow: "hidden",
+        position: "relative", width: "100%", height: "min(480px, 125vw)", overflow: "hidden",
         backgroundImage: `url(${fallback.imageUrl})`,
         backgroundSize: "cover", backgroundPosition: "center",
         borderRadius: "0 0 20px 20px",
