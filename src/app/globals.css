@@ -141,6 +141,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden; /* global layout rule: never allow horizontal scroll */
 }
 
 body {
@@ -149,6 +150,7 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   transition: background-color 0.2s ease, color 0.2s ease;
+  overflow-x: hidden; /* redundant safety — both html and body must set this */
 }
 
 .bg-grid {

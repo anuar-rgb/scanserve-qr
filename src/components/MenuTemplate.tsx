@@ -1900,7 +1900,7 @@ export function MenuTemplate({
           position: "fixed",
           top: 8,
           left: "max(calc(50vw - 232px), 8px)",
-          width: "min(calc(100vw - 16px), 464px)",
+          right: "max(calc(50vw - 232px), 8px)",
           zIndex: 100,
           borderRadius: R.lg,
           backgroundColor: theme === "dark" ? "rgba(11,11,17,0.72)" : "rgba(245,245,247,0.70)",

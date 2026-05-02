@@ -31,3 +31,8 @@ Checklist for every UI change. Fail = do not ship.
 - [ ] No forced `text-transform: uppercase` on section headings
 - [ ] Headings / labels: Montserrat Bold
 - [ ] Body: Montserrat (guest menu), Inter (admin)
+
+## Layout (hard rules — any violation = do not ship)
+- [ ] `html` and `body` both have `overflow-x: hidden` in `globals.css` — never remove
+- [ ] All `position: fixed` panels use symmetric `left` + `right` (not `left` + `width`)
+- [ ] No element causes horizontal overflow — test by scrolling right on mobile

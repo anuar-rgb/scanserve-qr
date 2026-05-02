@@ -46,6 +46,13 @@
 | `src/data/as-tori.ts` | Restaurant info, menu categories, payment options |
 | `src/app/as-tori/page.tsx` | Page entry point — passes `heroBanner` and restaurant data |
 
+## Layout Rules (non-negotiable)
+
+- **`overflow-x: hidden` on both `html` and `body`** — set in `globals.css`. Never remove. Horizontal scroll is forbidden everywhere.
+- **All fixed panels (header, BottomNav, drawers) use symmetric `left`+`right` formulas** — never `left+width` alone, which can overflow on the right.
+- **Centering formula for fixed panels**: `left/right: "max(calc(50vw - Npx), Mpx)"` where N = half max-width minus margin, M = minimum margin.
+- Header: N=232, M=8 (8px margins, 464px max). BottomNav: N=240, M=0 (edge-to-edge, 480px max).
+
 ## Design System
 
 ### Typography
