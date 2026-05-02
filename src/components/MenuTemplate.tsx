@@ -1420,17 +1420,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
         <div style={{ flex: 6 }} onClick={() => go(idx + 1)} />
       </div>
 
-      {/* Subtle vignette — softly darkens the bottom for text legibility */}
-      <div
-        style={{
-          position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
-          height: "60%",
-          background: "linear-gradient(to top, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.0) 100%)",
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Text overlay — content sits directly on the image, no backdrop panel */}
+      {/* Text overlay — content sits directly on the clean image */}
       <div
         style={{
           position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
@@ -1545,18 +1535,14 @@ function HeroSlider({
       } as React.CSSProperties}
     >
       {(fallback.title || fallback.subtitle) && (
-        <div style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          padding: "40px 16px 16px",
-          background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)",
-        }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 16px 16px" }}>
           {fallback.title && (
-            <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 2px", textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
+            <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 2px", textShadow: "0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35)" }}>
               {resolve(fallback.title, lang)}
             </p>
           )}
           {fallback.subtitle && (
-            <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, margin: 0 }}>
+            <p style={{ color: "rgba(255,255,255,0.88)", fontSize: 13, margin: 0, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
               {resolve(fallback.subtitle, lang)}
             </p>
           )}

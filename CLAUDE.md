@@ -82,12 +82,11 @@ border-bottom: 1px solid var(--border-color);
 ```
 
 ```css
-/* Slider vignette (never a solid dark panel) */
-background: linear-gradient(to top, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.0) 100%);
-height: 60%;
-/* Slider text shadow for legibility */
+/* Slider text shadow for legibility — the ONLY overlay allowed */
 text-shadow: 0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35);
 ```
+
+**Slider immersion rule**: Sliders must be fully immersive — no background gradients, no vignette layers (no standalone `div` at `z-index:5`), no backdrop-blur panels. Text sits directly on the clean image, readable only via `textShadow`.
 
 ### Bento Grid
 - `gap: 12px` between cards
