@@ -64,6 +64,7 @@
 - `R = { sm: 10, md: 20, lg: 24, full: 999 }` — defined in every component
 - Standard card radius: **24px** (R.lg) for bento-style panels, **20px** (R.md) for inner cards/thumbnails
 - Hero slider bottom corners: `borderRadius: "0 0 24px 24px"`
+- **Hero slider height**: `SLIDER_H = "min(520px, 133vw)"` — ~520px on all phones. Defined as a constant in MenuTemplate.tsx and applied to both the main slider and the fallback. Do not change without updating both.
 
 ### Color Palette
 - **Light bg**: `#F5F5F7` (Apple-style soft gray)

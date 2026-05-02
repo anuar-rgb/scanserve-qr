@@ -115,7 +115,8 @@ export interface MenuTemplateProps {
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
-const HEADER_H = 80; // 64px height + 8px top margin + 8px gap below
+const HEADER_H  = 80;                     // 64px height + 8px top margin + 8px gap below
+const SLIDER_H  = "min(520px, 133vw)";   // hero slider height — ~520px on any phone
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -1376,7 +1377,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
   return (
     <div
       style={{
-        position: "relative", width: "100%", height: "min(420px, 100vw)", overflow: "hidden",
+        position: "relative", width: "100%", height: SLIDER_H, overflow: "hidden",
         borderRadius: "0 0 24px 24px", backgroundColor: "#000",
       }}
     >
@@ -1528,7 +1529,7 @@ function HeroSlider({
   return (
     <div
       style={{
-        position: "relative", width: "100%", height: "min(480px, 125vw)", overflow: "hidden",
+        position: "relative", width: "100%", height: SLIDER_H, overflow: "hidden",
         backgroundImage: `url(${fallback.imageUrl})`,
         backgroundSize: "cover", backgroundPosition: "center",
         borderRadius: "0 0 20px 20px",
