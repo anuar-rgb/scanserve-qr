@@ -68,13 +68,15 @@
 
 ### Color Palette
 - **Light bg**: `#F5F5F7` (Apple-style soft gray)
-- **Light card**: `#FFFFFF` with multi-layer shadow
-- **Dark bg**: `#111111`, **Dark card**: `#1E1E1E`
+- **Light card**: `#FFFFFF` — flat, no shadow
+- **Dark bg**: `#111111`, **Dark card**: `#1E1E1E` — flat, no shadow
 - Accent tones: Soft Amber `#F59E0B`, Slate blue `#0EA5E9`, Violet `#8B5CF6`, Emerald `#10B981`
 
-### Shadows (Apple / multi-layer)
-- **Light**: `0 1px 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.06)`
-- **Dark**: `0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.15)`
+### Shadows
+**Cards must be flat — no box-shadow, no gradients.**
+- `--card-shadow` is set to `"none"` in both DARK_VARS and LIGHT_VARS.
+- Content cards (dish cards, category cards, info cards) use `border: 1px solid var(--border-color)` for separation — no shadow.
+- Only floating UI panels (header, bottom nav, dropdowns, modals) may carry a shadow.
 
 ### Glassmorphism
 Use on: floating navigation panels (fixed header, bottom nav, category pill strip).  

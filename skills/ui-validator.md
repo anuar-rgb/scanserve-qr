@@ -19,7 +19,8 @@ Checklist for every UI change. Fail = do not ship.
 ## Cards (Bento)
 - [ ] Light mode cards: `#FFFFFF` background (not `var(--bg-surface)`)
 - [ ] Dark mode cards: `var(--bg-card)`
-- [ ] Apple multi-layer shadow applied (`var(--card-shadow)`)
+- [ ] **No `boxShadow`** — cards must be flat. `--card-shadow` is `"none"`.
+- [ ] Separation via `border: 1px solid var(--border-color)` only — never a shadow
 - [ ] Border radius `R.lg` (24px) for outer panels, `R.md` (20px) for inner thumbnails
 
 ## Glassmorphism surfaces (nav / floating panels)

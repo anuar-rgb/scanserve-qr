@@ -136,7 +136,7 @@ const DARK_VARS = {
   "--pill-text":      "#9A9A9A",
   "--cta-bg":         "#E0E0E0",
   "--cta-fg":         "#111111",
-  "--card-shadow":    "0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.15)",
+  "--card-shadow":    "none",
 };
 
 const LIGHT_VARS = {
@@ -153,7 +153,7 @@ const LIGHT_VARS = {
   "--pill-text":      "#5C6370",
   "--cta-bg":         "#111111",
   "--cta-fg":         "#FFFFFF",
-  "--card-shadow":    "0 1px 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.07)",
+  "--card-shadow":    "none",
 };
 
 // ── Featured / Promotions section ─────────────────────────────────────────────
@@ -426,7 +426,6 @@ function PromoSlider({
                 style={{
                   flexShrink: 0, width: 190, height: 150,
                   borderRadius: 18, background: palette.bg,
-                  boxShadow: `0 6px 20px ${palette.glow}`,
                   position: "relative", overflow: "hidden",
                   display: "flex", flexDirection: "column",
                   justifyContent: "flex-end",
@@ -851,11 +850,8 @@ function CategoryGrid({
                 padding: "14px 14px",
                 background: palette.bg,
                 overflow: "hidden",
-                boxShadow: pressed
-                  ? `0 4px 14px ${palette.glow}`
-                  : `0 8px 28px ${palette.glow}`,
                 transform: pressed ? "scale(0.96)" : "scale(1)",
-                transition: "transform 0.12s ease, box-shadow 0.12s ease",
+                transition: "transform 0.12s ease",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "space-between",
