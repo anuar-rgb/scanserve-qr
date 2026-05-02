@@ -122,37 +122,37 @@ const HEADER_H = 64; // slim single-row fixed header
 type Theme = "dark" | "light";
 
 const DARK_VARS = {
-  "--bg-color":       "#121212",
-  "--bg-surface":     "#1C1C1C",
+  "--bg-color":       "#111111",
+  "--bg-surface":     "#1A1A1A",
   "--bg-card":        "#1E1E1E",
-  "--bg-shell":       "#0D0D0D",
+  "--bg-shell":       "#0A0A0A",
   "--text-color":     "#E0E0E0",
   "--text-muted":     "#9A9A9A",
-  "--border-color":   "#2A2A2A",
+  "--border-color":   "#303030",
   "--pill-active-bg": "#E0E0E0",
-  "--pill-active-fg": "#121212",
-  "--pill-border":    "#333333",
+  "--pill-active-fg": "#111111",
+  "--pill-border":    "#383838",
   "--pill-text":      "#9A9A9A",
   "--cta-bg":         "#E0E0E0",
-  "--cta-fg":         "#121212",
-  "--card-shadow":    "none",
+  "--cta-fg":         "#111111",
+  "--card-shadow":    "0 1px 4px rgba(0,0,0,0.6)",
 };
 
 const LIGHT_VARS = {
-  "--bg-color":       "#F8F9FA",
-  "--bg-surface":     "#ECEEF0",
+  "--bg-color":       "#F5F5F7",
+  "--bg-surface":     "#EBEBED",
   "--bg-card":        "#FFFFFF",
   "--bg-shell":       "#D0D4D9",
-  "--text-color":     "#121212",
+  "--text-color":     "#111111",
   "--text-muted":     "#6B7280",
-  "--border-color":   "#DDE1E6",
-  "--pill-active-bg": "#121212",
+  "--border-color":   "#E2E4E8",
+  "--pill-active-bg": "#111111",
   "--pill-active-fg": "#FFFFFF",
   "--pill-border":    "#D0D4D9",
   "--pill-text":      "#5C6370",
-  "--cta-bg":         "#121212",
+  "--cta-bg":         "#111111",
   "--cta-fg":         "#FFFFFF",
-  "--card-shadow":    "0 2px 16px rgba(0,0,0,0.07)",
+  "--card-shadow":    "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06)",
 };
 
 // ── Featured / Promotions section ─────────────────────────────────────────────
@@ -702,7 +702,7 @@ function InfoCards({
 
   return (
     <section style={{ marginBottom: SP.lg }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <button onClick={() => openWA(bookingMsg)} style={cardBase}>
           <span style={{ fontSize: 22 }}>📅</span>
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-color)", textAlign: "center", lineHeight: 1.2 }}>{tBook}</span>
@@ -1166,6 +1166,7 @@ function CatalogDishCard({
           alignItems: "center",
           justifyContent: "center",
           fontSize: 52,
+          backgroundColor: "var(--bg-surface)",
         } as React.CSSProperties}
       >
         {dish.imageUrl ? (
@@ -2109,7 +2110,7 @@ export function MenuTemplate({
               {lang === "kz" ? "Ештеңе табылмады" : lang === "ru" ? "Ничего не найдено" : "Nothing found"}
             </p>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {filteredDishes.map((dish) => (
                 <CatalogDishCard
                   key={dish.id}
@@ -2206,7 +2207,7 @@ export function MenuTemplate({
                   {categories.find((c) => c.id === activeCatId)?.dishes.length ?? 0}
                 </span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {(categories.find((c) => c.id === activeCatId)?.dishes ?? []).map((dish) => (
                   <CatalogDishCard
                     key={dish.id}
@@ -2260,16 +2261,19 @@ export function MenuTemplate({
                 </div>
 
                 {/* Compact list rows */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {cat.dishes.map((dish) => {
                   const currency = dish.currency ?? restaurant.currency ?? "";
                   const qty = cart[dish.id]?.qty ?? 0;
                   return (
-                    <div key={dish.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--border-color)" }}>
-                      {/* Emoji thumbnail */}
-                      <div style={{ width: 60, height: 60, borderRadius: R.md, flexShrink: 0, background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, position: "relative" }}>
-                        {dish.emoji}
+                    <div key={dish.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: R.md, border: "1px solid var(--border-color)", backgroundColor: "var(--bg-card)", boxShadow: "var(--card-shadow)" }}>
+                      {/* Thumbnail */}
+                      <div style={{ width: 72, height: 72, borderRadius: R.md, flexShrink: 0, background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, position: "relative", overflow: "hidden" }}>
+                        {dish.imageUrl ? (
+                          <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : dish.emoji}
                         {(dish.badge || dish.isNew) && (
-                          <span style={{ position: "absolute", top: -4, left: -4, fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: R.sm, backgroundColor: "var(--text-color)", color: "var(--bg-color)", letterSpacing: "0.03em", lineHeight: 1.4, whiteSpace: "nowrap" }}>
+                          <span style={{ position: "absolute", top: 4, left: 4, fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: R.sm, backgroundColor: "var(--text-color)", color: "var(--bg-color)", letterSpacing: "0.03em", lineHeight: 1.4, whiteSpace: "nowrap" }}>
                             {dish.badge ?? "NEW"}
                           </span>
                         )}
@@ -2301,6 +2305,7 @@ export function MenuTemplate({
                     </div>
                   );
                 })}
+                </div>
               </section>
             ))}
           </>
