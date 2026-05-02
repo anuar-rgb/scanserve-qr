@@ -1420,17 +1420,17 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
         <div style={{ flex: 6 }} onClick={() => go(idx + 1)} />
       </div>
 
-      {/* Gradient vignette — purely darkens the bottom of the image */}
+      {/* Subtle vignette — softly darkens the bottom for text legibility */}
       <div
         style={{
           position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
-          height: "65%",
-          background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.0) 100%)",
+          height: "60%",
+          background: "linear-gradient(to top, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.0) 100%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Glassmorphic content overlay */}
+      {/* Text overlay — content sits directly on the image, no backdrop panel */}
       <div
         style={{
           position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
@@ -1439,19 +1439,9 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
           pointerEvents: "none",
         }}
       >
-        {/* Glass text panel — only renders if there's something to show */}
-        {(slide.tags?.length || slide.title || slide.description) ? (
-          <div
-            style={{
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              background: "rgba(10,10,20,0.42)",
-              borderRadius: 16,
-              border: "1px solid rgba(255,255,255,0.10)",
-              padding: "10px 14px",
-              display: "flex", flexDirection: "column", gap: 5,
-            }}
-          >
+        {/* Slide text */}
+        {(slide.tags?.length || slide.title || slide.description) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {/* Tag badges */}
             {slide.tags && slide.tags.length > 0 && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1463,10 +1453,7 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
                       style={{
                         display: "inline-block",
                         backgroundColor: palette.bg,
-                        backdropFilter: "blur(10px)",
-                        WebkitBackdropFilter: "blur(10px)",
                         color: palette.fg,
-                        border: "1px solid rgba(255,255,255,0.20)",
                         fontSize: 10, fontWeight: 800,
                         padding: "3px 10px", borderRadius: 99,
                         letterSpacing: "0.06em", lineHeight: 1.5,
@@ -1482,19 +1469,19 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
 
             {/* Title */}
             {slide.title && (
-              <p style={{ color: "#fff", fontWeight: 700, fontSize: 19, margin: 0, lineHeight: 1.25 }}>
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: 19, margin: 0, lineHeight: 1.25, textShadow: "0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35)" }}>
                 {slide.title}
               </p>
             )}
 
             {/* Description */}
             {slide.description && (
-              <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, margin: 0, lineHeight: 1.4 }}>
+              <p style={{ color: "rgba(255,255,255,0.88)", fontSize: 13, margin: 0, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
                 {slide.description}
               </p>
             )}
           </div>
-        ) : null}
+        )}
 
         {/* Dot / pill progress indicators — centered */}
         {slides.length > 1 && (

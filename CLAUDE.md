@@ -69,19 +69,24 @@
 - **Dark**: `0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.15)`
 
 ### Glassmorphism
-Use on: hero slider text overlay, floating navigation panels, tag pills on hero.
+Use on: floating navigation panels (header on scroll, bottom nav, category pill strip).  
+**Do NOT use large backdrop-blur panels inside sliders.** Slider text sits directly on the image with a subtle vignette + `textShadow` for readability.
+
 ```css
-backdrop-filter: blur(20px);
--webkit-backdrop-filter: blur(20px);
-background: rgba(10, 10, 20, 0.4);
-border: 1px solid rgba(255, 255, 255, 0.12);
-border-radius: 16px;
+/* Navigation / floating panels */
+backdrop-filter: blur(20px) saturate(180%);
+-webkit-backdrop-filter: blur(20px) saturate(180%);
+background: rgba(11, 11, 17, 0.82); /* dark mode */
+background: rgba(245, 245, 247, 0.82); /* light mode */
+border-bottom: 1px solid var(--border-color);
 ```
-Tag pills on dark backgrounds:
+
 ```css
-background: rgba(255,255,255,0.15);
-backdrop-filter: blur(10px);
-border: 1px solid rgba(255,255,255,0.2);
+/* Slider vignette (never a solid dark panel) */
+background: linear-gradient(to top, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.0) 100%);
+height: 60%;
+/* Slider text shadow for legibility */
+text-shadow: 0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35);
 ```
 
 ### Bento Grid
