@@ -1419,15 +1419,15 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
       <div
         style={{
           position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6,
-          padding: "48px 16px 12px",
+          padding: "56px 16px 20px",
           background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 100%)",
           pointerEvents: "none",
-          display: "flex", flexDirection: "column", gap: 0,
+          display: "flex", flexDirection: "column", gap: 4,
         }}
       >
         {/* Tag badges */}
         {slide.tags && slide.tags.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {slide.tags.map((tag, i) => {
               const palette = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.white;
               return (
@@ -1452,14 +1452,14 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
 
         {/* Title */}
         {slide.title && (
-          <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 0 3px", textShadow: "0 1px 8px rgba(0,0,0,0.5)", lineHeight: 1.2 }}>
+          <p style={{ color: "#fff", fontWeight: 700, fontSize: 20, margin: 0, textShadow: "0 1px 8px rgba(0,0,0,0.5)", lineHeight: 1.2 }}>
             {slide.title}
           </p>
         )}
 
         {/* Description / categories */}
         {slide.description && (
-          <p style={{ color: "rgba(255,255,255,0.78)", fontSize: 13, margin: "0 0 10px", lineHeight: 1.4 }}>
+          <p style={{ color: "rgba(255,255,255,0.78)", fontSize: 13, margin: 0, lineHeight: 1.4 }}>
             {slide.description}
           </p>
         )}
