@@ -845,29 +845,25 @@ function InfoShowcaseSection({
           style={{
             flexShrink: 0,
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
             gap: 6,
-            minWidth: 88,
-            padding: "14px 12px",
-            borderRadius: R.lg,
+            padding: "8px 14px",
+            borderRadius: R.full,
             border: isDark ? "1px solid var(--border-color)" : "1px solid rgba(0,0,0,0.10)",
             background: isDark ? "var(--bg-card)" : "#FFFFFF",
             boxShadow: "none",
           }}
         >
-          <span style={{ fontSize: 26, lineHeight: 1 }}>{item.emoji}</span>
+          <span style={{ fontSize: 18, lineHeight: 1 }}>{item.emoji}</span>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               color: "var(--text-color)",
               fontFamily: "'Montserrat', system-ui, sans-serif",
-              textAlign: "center",
-              lineHeight: 1.3,
-              maxWidth: 80,
-              overflowWrap: "break-word",
+              whiteSpace: "nowrap",
+              lineHeight: 1,
             }}
           >
             {resolve(item.title, lang)}
@@ -2044,13 +2040,7 @@ export function MenuTemplate({
             {/* 2. DB promotional banners */}
             <BannerSlider banners={banners} lang={lang} />
 
-            {/* 3. Promo slider — dishes flagged is_promo */}
-            <PromoSlider
-              dishes={promoDishes}
-              lang={lang}
-            />
-
-            {/* 4. Popular dishes — sorted by like count */}
+            {/* 3. Popular dishes — sorted by like count */}
             <PopularDishesSection
               dishes={allDishes}
               lang={lang}
@@ -2059,17 +2049,7 @@ export function MenuTemplate({
               onGoToDish={goToDish}
             />
 
-            {/* 5. FeaturedItems prop (demo page) */}
-            {featuredItems && featuredItems.length > 0 && (
-              <FeaturedSection
-                items={featuredItems}
-                title={featuredTitle}
-                lang={lang}
-                defaultCurrency={restaurant.currency}
-              />
-            )}
-
-            {/* 6. Info cards — reserve / contact */}
+            {/* 5. Info cards — reserve / contact */}
             <InfoCards
               lang={lang}
               theme={theme}
