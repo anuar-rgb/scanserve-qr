@@ -810,86 +810,6 @@ function InfoCards({
   );
 }
 
-// ── Quick Actions Row ─────────────────────────────────────────────────────────
-
-function QuickActionsRow({
-  lang,
-  theme,
-  whatsappPhone,
-}: {
-  lang: Lang;
-  theme: "dark" | "light";
-  whatsappPhone?: string;
-}) {
-  const isDark = theme === "dark";
-
-  const items = [
-    {
-      label: lang === "kz" ? "Жеткізу" : lang === "ru" ? "Доставка" : "Delivery",
-      msg:   lang === "kz" ? "Сәлем! Мен жеткізу тапсырысы берген болатынмын."
-           : lang === "ru" ? "Здравствуйте! Я хочу заказать доставку."
-           : "Hello! I would like to order delivery.",
-    },
-    {
-      label: lang === "kz" ? "Алдын ала тапсырыс" : lang === "ru" ? "Предзаказ" : "Pre-order",
-      msg:   lang === "kz" ? "Сәлем! Мен алдын ала тапсырыс жасағым келеді."
-           : lang === "ru" ? "Здравствуйте! Я хочу сделать предзаказ."
-           : "Hello! I would like to make a pre-order.",
-    },
-    {
-      label: lang === "kz" ? "Үстел брондау" : lang === "ru" ? "Забронировать стол" : "Reserve a Table",
-      msg:   lang === "kz" ? "Сәлем! Мен сіздің мейрамханаңызда үстел броньдағым келеді. Бос орындарды айтып беріңіз."
-           : lang === "ru" ? "Здравствуйте! Я хотел бы забронировать столик в вашем ресторане. Подскажите, пожалуйста, свободные места."
-           : "Hello! I would like to book a table at your restaurant. Please provide availability.",
-    },
-  ];
-
-  const openWA = (msg: string) => {
-    if (!whatsappPhone) return;
-    window.open(`https://wa.me/${whatsappPhone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
-  };
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        marginBottom: SP.lg,
-        overflowX: "auto",
-        scrollbarWidth: "none",
-        marginLeft: -SP.md,
-        marginRight: -SP.md,
-        paddingLeft: SP.md,
-        paddingRight: SP.md,
-        paddingBottom: 2,
-      } as React.CSSProperties}
-    >
-      {items.map(({ label, msg }) => (
-        <button
-          key={label}
-          onClick={() => openWA(msg)}
-          style={{
-            flexShrink: 0,
-            padding: "8px 16px",
-            borderRadius: R.full,
-            border: isDark ? "1px solid var(--border-color)" : "1px solid rgba(0,0,0,0.10)",
-            background: isDark ? "var(--bg-card)" : "#FFFFFF",
-            color: "var(--text-color)",
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: "'Montserrat', system-ui, sans-serif",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            boxShadow: "none",
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // ── Info Showcase Section ─────────────────────────────────────────────────────
 
 function InfoShowcaseSection({
@@ -2118,14 +2038,7 @@ export function MenuTemplate({
         {/* ── HOME VIEW ──────────────────────────────────────────────────── */}
         {!isSearching && view === "home" && (
           <>
-            {/* 0. Quick action pills — Доставка / Предзаказ / Забронировать стол */}
-            <QuickActionsRow
-              lang={lang}
-              theme={theme}
-              whatsappPhone={restaurant.whatsappPhone}
-            />
-
-            {/* 1. Info showcase cards — dynamic, admin-managed */}
+            {/* 0. Info showcase cards — dynamic, admin-managed via /admin/info-showcase */}
             <InfoShowcaseSection items={showcaseItems} lang={lang} theme={theme} />
 
             {/* 2. DB promotional banners */}

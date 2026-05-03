@@ -142,11 +142,6 @@ Saturation ≥ 80%, full pill radius (`borderRadius: 99`). Font: Montserrat Bold
 - Separation: `border: 1px solid rgba(0,0,0,0.10)` (light) or `1px solid var(--border-color)` (dark)
 - For text on photo banners: use a small `rgba(0,0,0,0.52)` solid-background pill — never a full-width gradient overlay
 
-### Quick Actions Row
-A horizontal scrolling row of 3 pill buttons ("Доставка", "Предзаказ", "Забронировать стол") placed at the top of the home view, above `BannerSlider`. Each pill opens a pre-filled WhatsApp message.
-- Component: `QuickActionsRow` — accepts `lang`, `theme`, `whatsappPhone`
-- Style: `borderRadius: R.full`, solid white bg (light) / card bg (dark), 1px border, Montserrat 13px Bold, no shadow
-
 ### Layout — no overflow
 - `html` and `body` both have `overflow-x: hidden` in `globals.css` — never remove
 - Horizontal scrollers (BannerSlider, QuickActionsRow) use negative margin bleed: `marginLeft/Right: -SP.md` + `paddingLeft/Right: SP.md` — keeps content flush without causing page overflow
@@ -176,9 +171,8 @@ Section headings (e.g., "Популярные блюда", "Акции и спе
 
 ## Info Showcase Block
 
-The space immediately below the hero slider (position 1 in home view) contains two layers:
-1. **QuickActionsRow** — 3 fixed WhatsApp action pills (Доставка / Предзаказ / Забронировать стол)
-2. **InfoShowcaseSection** — dynamic info cards managed from **Admin → Storefront → Инфо-витрина**
+The space immediately below the hero slider (position 0 in home view) contains:
+- **InfoShowcaseSection** — dynamic info cards managed from **Admin → Storefront → Инфо-витрина**. Hidden when the table is empty.
 
 ### InfoShowcase architecture
 | Layer | File |
