@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
-type Flag = "is_promo" | "is_recommended" | "is_new";
+type Flag = "is_promo";
 
 interface Category {
   id: string;
@@ -32,10 +32,8 @@ interface Product {
   is_archived: boolean;
 }
 
-const TABS: { key: Flag; labelKey: "tabPromos" | "tabRecommended" | "tabNew" }[] = [
-  { key: "is_promo",       labelKey: "tabPromos" },
-  { key: "is_recommended", labelKey: "tabRecommended" },
-  { key: "is_new",         labelKey: "tabNew" },
+const TABS: { key: Flag; labelKey: "tabPromos" }[] = [
+  { key: "is_promo", labelKey: "tabPromos" },
 ];
 
 export default function StorefrontPage() {

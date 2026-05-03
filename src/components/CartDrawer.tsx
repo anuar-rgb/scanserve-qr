@@ -52,6 +52,13 @@ const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const DELIVERY_FEE = 600;
 
+function effPrice(dish: Dish): number {
+  if (!dish.isPromo || !dish.discountLabel) return dish.price;
+  const pct = parseInt(dish.discountLabel, 10);
+  if (isNaN(pct) || pct <= 0 || pct >= 100) return dish.price;
+  return Math.round(dish.price * (1 - pct / 100));
+}
+
 // ── Kazakhstan cities ─────────────────────────────────────────────────────────
 
 const KZ_CITIES: { id: string; en: string; ru: string; kz: string }[] = [
@@ -373,7 +380,7 @@ export function CartDrawer({
   const border  = isDark ? "#2A2A2A" : "#DDE1E6";
 
   const items        = Object.values(cart);
-  const total        = items.reduce((s, { dish, qty }) => s + dish.price * qty, 0);
+  const total        = items.reduce((s, { dish, qty }) => s + effPrice(dish) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
   const grandTotal   = total + deliveryFee;
   const isEmpty      = items.length === 0;
@@ -479,7 +486,7 @@ export function CartDrawer({
     const orderItems = items.map(({ dish, qty, currency: c }) => ({
       name: resolve(dish.name, lang),
       qty,
-      price: dish.price,
+      price: effPrice(dish),
       currency: c || currency,
     }));
     const foundCity = KZ_CITIES.find((c) => c.id === city);
@@ -1155,7 +1162,7 @@ export function CartDrawer({
                 {items.map(({ dish, qty, currency: ic }) => (
                   <div key={dish.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
                     <span style={{ color: muted }}>{resolve(dish.name, lang)} × {qty}</span>
-                    <span style={{ fontWeight: 600 }}>{(dish.price * qty).toLocaleString()} {ic || currency}</span>
+                    <span style={{ fontWeight: 600 }}>{(effPrice(dish) * qty).toLocaleString()} {ic || currency}</span>
                   </div>
                 ))}
                 {deliveryFee > 0 && (

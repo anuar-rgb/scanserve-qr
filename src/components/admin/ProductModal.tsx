@@ -58,13 +58,17 @@ function PhoneMockup({ children }: { children: React.ReactNode }) {
 // ── Product card preview (mirrors CatalogDishCard from MenuTemplate) ──────────
 
 function ProductCardPreview({
-  name, price, imagePreview, emoji, badge, isNew,
+  name, price, imagePreview, emoji, badge, isNew, isPromo, discountPct,
 }: {
   name: string; price: string; imagePreview: string | null;
-  emoji: string; badge: string; isNew: boolean;
+  emoji: string; badge: string; isNew: boolean; isPromo: boolean; discountPct: string;
 }) {
   const badgeLabel = badge.trim() || (isNew ? "NEW" : null);
-  const priceNum = parseInt(price, 10);
+  const priceNum   = parseInt(price, 10);
+  const pct        = parseInt(discountPct, 10);
+  const discountedPrice = isPromo && !isNaN(pct) && pct > 0 && pct < 100 && !isNaN(priceNum)
+    ? Math.round(priceNum * (1 - pct / 100))
+    : null;
 
   return (
     <div style={{
@@ -95,6 +99,16 @@ function ProductCardPreview({
             {badgeLabel}
           </span>
         )}
+        {discountedPrice !== null && (
+          <span style={{
+            position: "absolute", bottom: 5, left: 5,
+            fontSize: 7, fontWeight: 700, padding: "2px 6px",
+            borderRadius: 8, background: "#E05555", color: "#fff",
+            letterSpacing: "0.03em", lineHeight: 1.4,
+          }}>
+            −{pct}%
+          </span>
+        )}
       </div>
       {/* Info */}
       <div style={{ padding: "7px 8px 8px" }}>
@@ -107,12 +121,23 @@ function ProductCardPreview({
         } as React.CSSProperties}>
           {name || "Название блюда"}
         </p>
-        <p style={{
-          fontFamily: "'Montserrat', system-ui, sans-serif",
-          fontWeight: 700, fontSize: 11, color: "#111", margin: 0,
-        }}>
-          {!isNaN(priceNum) && priceNum > 0 ? `${priceNum} ₸` : "— ₸"}
-        </p>
+        {discountedPrice !== null ? (
+          <div>
+            <p style={{ fontFamily: "'Montserrat', system-ui, sans-serif", fontWeight: 500, fontSize: 9, color: "#888", margin: 0, textDecoration: "line-through" }}>
+              {priceNum > 0 ? `${priceNum} ₸` : ""}
+            </p>
+            <p style={{ fontFamily: "'Montserrat', system-ui, sans-serif", fontWeight: 700, fontSize: 11, color: "#E05555", margin: 0 }}>
+              {discountedPrice} ₸
+            </p>
+          </div>
+        ) : (
+          <p style={{
+            fontFamily: "'Montserrat', system-ui, sans-serif",
+            fontWeight: 700, fontSize: 11, color: "#111", margin: 0,
+          }}>
+            {!isNaN(priceNum) && priceNum > 0 ? `${priceNum} ₸` : "— ₸"}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -134,6 +159,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const [isPopular, setIsPopular] = useState(product?.is_popular ?? false);
   const [isSpicy, setIsSpicy]     = useState(product?.is_spicy ?? false);
   const [isAvail, setIsAvail]     = useState(product?.is_available ?? true);
+  const [isPromo, setIsPromo]     = useState(product?.is_promo ?? false);
+  const [discountPct, setDiscountPct] = useState(product?.is_promo ? (product?.discount_label ?? "") : "");
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.image_url ?? null);
   const [file, setFile]             = useState<File | null>(null);
@@ -191,6 +218,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         is_popular: isPopular,
         is_spicy: isSpicy,
         is_available: isAvail,
+        is_promo: isPromo,
+        discount_label: isPromo && discountPct.trim() ? discountPct.trim() : null,
         is_archived: product?.is_archived ?? false,
         order_index: product?.order_index ?? 9999,
       };
@@ -412,6 +441,40 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                 </button>
               </div>
 
+              {/* Promo / discount */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Акция</p>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                      Зачёркнутая цена и бейдж скидки на карточке
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsPromo(!isPromo)}
+                    className={`w-11 h-6 rounded-full flex items-center px-0.5 transition-all duration-200 ${
+                      isPromo ? "bg-red-500 justify-end" : "bg-zinc-300 dark:bg-zinc-600 justify-start"
+                    }`}
+                  >
+                    <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
+                {isPromo && (
+                  <Field label="Процент скидки (%)">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={discountPct}
+                      onChange={(e) => setDiscountPct(e.target.value)}
+                      placeholder="15"
+                      className={inputCls}
+                    />
+                  </Field>
+                )}
+              </div>
+
               {/* Error */}
               {error && (
                 <p className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg border border-red-200 dark:border-red-500/20">
@@ -433,6 +496,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   emoji={emoji}
                   badge={badge}
                   isNew={isNew}
+                  isPromo={isPromo}
+                  discountPct={discountPct}
                 />
               </PhoneMockup>
               <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">

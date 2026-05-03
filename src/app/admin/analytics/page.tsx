@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, ShoppingBag, CreditCard, Star } from "lucide-react";
+import { TrendingUp, ShoppingBag, CreditCard, Star, Tag } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import type { DbOrder } from "@/lib/db-types";
+import type { DbOrder, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 
 const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
@@ -19,9 +19,12 @@ const TOP_DISHES = [
   { name: "Qara Shay",  orders: 19, revenue: 7600   },
 ];
 
+interface PromoProduct { id: string; name: LS; price: number; discount_label: string | null; }
+
 export default function AnalyticsPage() {
   const { t } = useTranslations();
-  const [orders, setOrders] = useState<DbOrder[]>([]);
+  const [orders, setOrders]           = useState<DbOrder[]>([]);
+  const [promoProducts, setPromoProducts] = useState<PromoProduct[]>([]);
 
   useEffect(() => {
     if (!isConfigured) return;
@@ -32,6 +35,14 @@ export default function AnalyticsPage() {
       .order("created_at", { ascending: false })
       .limit(500)
       .then(({ data }: { data: DbOrder[] | null }) => setOrders(data ?? []));
+    supabase
+      .from("products")
+      .select("id, name, price, discount_label")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("is_promo", true)
+      .eq("is_archived", false)
+      .order("name->ru")
+      .then(({ data }) => setPromoProducts((data as PromoProduct[]) ?? []));
   }, []);
 
   const totalRevenue = orders.length
@@ -138,6 +149,61 @@ export default function AnalyticsPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Promo dishes */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
+              <Tag size={15} />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Акционные блюда</h2>
+              <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                {promoProducts.length > 0
+                  ? `${promoProducts.length} блюд со скидкой`
+                  : "Нет активных акций"}
+              </p>
+            </div>
+          </div>
+          {promoProducts.length === 0 ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-600 text-center py-4">
+              Включите «Акцию» в карточке блюда, чтобы увидеть их здесь
+            </p>
+          ) : (
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {promoProducts.map((p) => {
+                const pct = parseInt(p.discount_label ?? "", 10);
+                const discounted = !isNaN(pct) && pct > 0 && pct < 100
+                  ? Math.round(p.price * (1 - pct / 100))
+                  : null;
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate flex-1">
+                      {p.name?.ru ?? p.name?.en ?? "—"}
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0 ml-4">
+                      {discounted !== null && (
+                        <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
+                          −{pct}%
+                        </span>
+                      )}
+                      <div className="text-right">
+                        {discounted !== null && (
+                          <p className="text-[11px] text-zinc-400 line-through leading-none">
+                            {p.price.toLocaleString()} ₸
+                          </p>
+                        )}
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 leading-tight">
+                          {(discounted ?? p.price).toLocaleString()} ₸
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </div>

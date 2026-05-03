@@ -1022,6 +1022,10 @@ function CatalogDishCard({
   const count   = getLikeCount(dish.id);
   const qty     = cart[dish.id]?.qty ?? 0;
   const badgeLabel = dish.badge ?? (dish.isNew ? "NEW" : null);
+  const dishPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+  const discountedPrice = !isNaN(dishPct) && dishPct > 0 && dishPct < 100
+    ? Math.round(dish.price * (1 - dishPct / 100))
+    : null;
 
   return (
     <div
@@ -1077,7 +1081,7 @@ function CatalogDishCard({
             {badgeLabel}
           </span>
         )}
-        {dish.discountLabel && (
+        {discountedPrice !== null && (
           <span
             style={{
               position: "absolute",
@@ -1094,7 +1098,7 @@ function CatalogDishCard({
               whiteSpace: "nowrap",
             }}
           >
-            {dish.discountLabel}
+            −{dishPct}%
           </span>
         )}
       </div>
@@ -1125,9 +1129,20 @@ function CatalogDishCard({
           {resolve(dish.name, lang)}
         </p>
 
-        <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
-          {dish.price.toLocaleString()} {currency}
-        </p>
+        {discountedPrice !== null ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <p style={{ fontSize: 11, fontWeight: 500, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
+              {dish.price.toLocaleString()} {currency}
+            </p>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "#E05555" }}>
+              {discountedPrice.toLocaleString()} {currency}
+            </p>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
+            {dish.price.toLocaleString()} {currency}
+          </p>
+        )}
 
         {/* Action bar: heart + cart control */}
         <div
