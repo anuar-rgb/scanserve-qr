@@ -22,9 +22,7 @@ import {
 } from "@/components/ui/dialog";
 
 type BannerForm = {
-  title_ru: string;
-  title_en: string;
-  title_kz: string;
+  title: string;
   link_url: string;
   is_active: boolean;
   imageFile: File | null;
@@ -32,8 +30,7 @@ type BannerForm = {
 };
 
 const EMPTY_FORM: BannerForm = {
-  title_ru: "", title_en: "", title_kz: "",
-  link_url: "", is_active: true,
+  title: "", link_url: "", is_active: true,
   imageFile: null, imagePreview: null,
 };
 
@@ -72,9 +69,7 @@ export default function BannersPage() {
   function openEdit(b: DbBanner) {
     setEditingId(b.id);
     setForm({
-      title_ru: b.title?.ru ?? "",
-      title_en: b.title?.en ?? "",
-      title_kz: b.title?.kz ?? "",
+      title: b.title?.ru ?? b.title?.en ?? "",
       link_url: b.link_url ?? "",
       is_active: b.is_active,
       imageFile: null,
@@ -106,7 +101,7 @@ export default function BannersPage() {
 
       const payload = {
         restaurant_id: RESTAURANT_ID,
-        title: { en: form.title_en, ru: form.title_ru, kz: form.title_kz },
+        title: { en: form.title, ru: form.title, kz: form.title },
         link_url: form.link_url || null,
         is_active: form.is_active,
         ...(imageUrl ? { image_url: imageUrl } : {}),
@@ -279,16 +274,14 @@ export default function BannersPage() {
               />
             </div>
 
-            {(["ru", "en", "kz"] as const).map(lang => (
-              <div key={lang} className="space-y-1.5">
-                <Label>{t.admin.bannerTitleLabel} ({lang.toUpperCase()})</Label>
-                <Input
-                  value={form[`title_${lang}`]}
-                  onChange={e => setForm(prev => ({ ...prev, [`title_${lang}`]: e.target.value }))}
-                  placeholder={`Title in ${lang.toUpperCase()}`}
-                />
-              </div>
-            ))}
+            <div className="space-y-1.5">
+              <Label>{t.admin.bannerTitleLabel}</Label>
+              <Input
+                value={form.title}
+                onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Акции этой недели"
+              />
+            </div>
 
             <div className="space-y-1.5">
               <Label>{t.admin.bannerLinkLabel}</Label>

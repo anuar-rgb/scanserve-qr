@@ -15,20 +15,17 @@ interface Props {
   onSaved: (category: DbCategory) => void;
 }
 
-function emptyLS(): LS { return { en: "", ru: "", kz: "" }; }
-
 export default function CategoryModal({ mode, category, onClose, onSaved }: Props) {
   const { t } = useTranslations();
-  const [nameEn, setNameEn] = useState(category?.name.en ?? "");
-  const [nameRu, setNameRu] = useState(category?.name.ru ?? "");
+  const [name, setName]     = useState(category?.name.ru ?? category?.name.en ?? "");
   const [icon, setIcon]     = useState(category?.icon ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
 
   async function handleSave() {
     if (!isConfigured) { setError("Database not configured. Set Supabase env vars in Railway."); return; }
-    if (!nameEn.trim() || !nameRu.trim()) {
-      setError("Name (EN) and Name (RU) are required.");
+    if (!name.trim()) {
+      setError("Name is required.");
       return;
     }
     setSaving(true);
@@ -36,7 +33,7 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
 
     const payload = {
       restaurant_id: RESTAURANT_ID,
-      name: { en: nameEn.trim(), ru: nameRu.trim(), kz: nameRu.trim() } satisfies LS,
+      name: { en: name.trim(), ru: name.trim(), kz: name.trim() } satisfies LS,
       icon: icon.trim() || null,
       image_url: category?.image_url ?? null,
       order_index: category?.order_index ?? 9999,
@@ -86,27 +83,15 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>{t.admin.nameEn} <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={nameEn}
-                onChange={(e) => setNameEn(e.target.value)}
-                placeholder="Main Courses"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>{t.admin.nameRu} <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={nameRu}
-                onChange={(e) => setNameRu(e.target.value)}
-                placeholder="Основные блюда"
-                className={inputCls}
-              />
-            </div>
+          <div>
+            <label className={labelCls}>{t.admin.nameLabel} <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Основные блюда"
+              className={inputCls}
+            />
           </div>
 
           <div>

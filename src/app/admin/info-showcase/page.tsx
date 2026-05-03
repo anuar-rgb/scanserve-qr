@@ -21,16 +21,13 @@ import {
 } from "@/components/ui/dialog";
 
 type ShowcaseForm = {
-  title_ru: string;
-  title_en: string;
-  title_kz: string;
+  title: string;
   emoji: string;
   is_active: boolean;
 };
 
 const EMPTY_FORM: ShowcaseForm = {
-  title_ru: "", title_en: "", title_kz: "",
-  emoji: "✨", is_active: true,
+  title: "", emoji: "✨", is_active: true,
 };
 
 export default function InfoShowcasePage() {
@@ -67,9 +64,7 @@ export default function InfoShowcasePage() {
   function openEdit(c: DbInfoShowcase) {
     setEditingId(c.id);
     setForm({
-      title_ru: c.title?.ru ?? "",
-      title_en: c.title?.en ?? "",
-      title_kz: c.title?.kz ?? "",
+      title: c.title?.ru ?? c.title?.en ?? "",
       emoji: c.emoji,
       is_active: c.is_active,
     });
@@ -88,7 +83,7 @@ export default function InfoShowcasePage() {
     try {
       const payload = {
         restaurant_id: RESTAURANT_ID,
-        title: { en: form.title_en, ru: form.title_ru, kz: form.title_kz },
+        title: { en: form.title, ru: form.title, kz: form.title },
         emoji: form.emoji || "✨",
         is_active: form.is_active,
       };
@@ -254,17 +249,15 @@ export default function InfoShowcasePage() {
               />
             </div>
 
-            {/* Title per language */}
-            {(["ru", "en", "kz"] as const).map(lang => (
-              <div key={lang} className="space-y-1.5">
-                <Label>{t.admin.showcaseCardTitleLabel} ({lang.toUpperCase()})</Label>
-                <Input
-                  value={form[`title_${lang}`]}
-                  onChange={e => setForm(prev => ({ ...prev, [`title_${lang}`]: e.target.value }))}
-                  placeholder={`Title in ${lang.toUpperCase()}`}
-                />
-              </div>
-            ))}
+            {/* Title */}
+            <div className="space-y-1.5">
+              <Label>{t.admin.showcaseCardTitleLabel}</Label>
+              <Input
+                value={form.title}
+                onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Доставка"
+              />
+            </div>
 
             {/* Active toggle */}
             <div className="flex items-center justify-between py-1">

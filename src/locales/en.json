@@ -159,6 +159,8 @@
     "nameRu": "Name (RU)",
     "descEn": "Description (EN)",
     "descRu": "Description (RU)",
+    "nameLabel": "Name",
+    "descLabel": "Description",
     "priceLabel": "Price, ₸",
     "categoryLabel": "Category",
     "photoLabel": "Photo",

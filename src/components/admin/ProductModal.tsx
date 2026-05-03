@@ -17,8 +17,6 @@ interface Props {
   onSaved: (product: DbProduct) => void;
 }
 
-function emptyLS(): LS { return { en: "", ru: "", kz: "" }; }
-
 async function uploadToStorage(file: File, bucket: string): Promise<string> {
   if (!isConfigured) throw new Error("Database not configured");
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
@@ -35,10 +33,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const { t } = useTranslations();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [nameEn, setNameEn]       = useState(product?.name.en ?? "");
-  const [nameRu, setNameRu]       = useState(product?.name.ru ?? "");
-  const [descEn, setDescEn]       = useState(product?.description?.en ?? "");
-  const [descRu, setDescRu]       = useState(product?.description?.ru ?? "");
+  const [name, setName]           = useState(product?.name.ru ?? product?.name.en ?? "");
+  const [desc, setDesc]           = useState(product?.description?.ru ?? product?.description?.en ?? "");
   const [price, setPrice]         = useState(String(product?.price ?? ""));
   const [emoji, setEmoji]         = useState(product?.emoji ?? "");
   const [badge, setBadge]         = useState(product?.badge ?? "");
@@ -62,7 +58,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
 
   async function handleSave() {
     if (!isConfigured) { setError("Database not configured. Set Supabase env vars in Railway."); return; }
-    if (!nameEn.trim() || !nameRu.trim()) { setError("Name (EN) and Name (RU) are required."); return; }
+    if (!name.trim()) { setError("Name is required."); return; }
     const priceNum = parseInt(price, 10);
     if (isNaN(priceNum) || priceNum < 0) { setError("Enter a valid price."); return; }
     if (!catId) { setError("Select a category."); return; }
@@ -79,9 +75,9 @@ export default function ProductModal({ mode, product, categories, defaultCategor
       const payload = {
         restaurant_id: RESTAURANT_ID,
         category_id: catId,
-        name: { en: nameEn.trim(), ru: nameRu.trim(), kz: nameRu.trim() },
-        description: (descEn.trim() || descRu.trim())
-          ? { en: descEn.trim(), ru: descRu.trim(), kz: descRu.trim() }
+        name: { en: name.trim(), ru: name.trim(), kz: name.trim() },
+        description: desc.trim()
+          ? { en: desc.trim(), ru: desc.trim(), kz: desc.trim() }
           : null,
         price: priceNum,
         image_url: imageUrl,
@@ -197,49 +193,27 @@ export default function ProductModal({ mode, product, categories, defaultCategor
             </div>
           </div>
 
-          {/* Names */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t.admin.nameEn} required>
-              <input
-                type="text"
-                value={nameEn}
-                onChange={(e) => setNameEn(e.target.value)}
-                placeholder="Beshbarmak"
-                className={inputCls}
-              />
-            </Field>
-            <Field label={t.admin.nameRu} required>
-              <input
-                type="text"
-                value={nameRu}
-                onChange={(e) => setNameRu(e.target.value)}
-                placeholder="Бешбармак"
-                className={inputCls}
-              />
-            </Field>
-          </div>
+          {/* Name */}
+          <Field label={t.admin.nameLabel} required>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Бешбармак"
+              className={inputCls}
+            />
+          </Field>
 
-          {/* Descriptions */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t.admin.descEn}>
-              <textarea
-                value={descEn}
-                onChange={(e) => setDescEn(e.target.value)}
-                rows={3}
-                placeholder="Traditional Kazakh dish…"
-                className={inputCls + " resize-none"}
-              />
-            </Field>
-            <Field label={t.admin.descRu}>
-              <textarea
-                value={descRu}
-                onChange={(e) => setDescRu(e.target.value)}
-                rows={3}
-                placeholder="Традиционное казахское блюдо…"
-                className={inputCls + " resize-none"}
-              />
-            </Field>
-          </div>
+          {/* Description */}
+          <Field label={t.admin.descLabel}>
+            <textarea
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              rows={3}
+              placeholder="Традиционное казахское блюдо…"
+              className={inputCls + " resize-none"}
+            />
+          </Field>
 
           {/* Price + Category */}
           <div className="grid grid-cols-2 gap-3">
@@ -261,7 +235,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.icon ?? ""} {c.name.en}
+                    {c.icon ?? ""} {c.name.ru || c.name.en}
                   </option>
                 ))}
               </select>

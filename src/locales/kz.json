@@ -159,6 +159,8 @@
     "nameRu": "Name (RU)",
     "descEn": "Description (EN)",
     "descRu": "Description (RU)",
+    "nameLabel": "Атауы",
+    "descLabel": "Сипаттама",
     "priceLabel": "Price, ₸",
     "categoryLabel": "Category",
     "photoLabel": "Photo",
