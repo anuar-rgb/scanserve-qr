@@ -828,22 +828,16 @@ function InfoShowcaseSection({
     <div
       style={{
         display: "flex",
-        gap: 10,
+        flexWrap: "wrap",
+        gap: 8,
+        justifyContent: "center",
         marginBottom: SP.lg,
-        overflowX: "auto",
-        scrollbarWidth: "none",
-        marginLeft: -SP.md,
-        marginRight: -SP.md,
-        paddingLeft: SP.md,
-        paddingRight: SP.md,
-        paddingBottom: 2,
-      } as React.CSSProperties}
+      }}
     >
       {items.map((item) => (
         <div
           key={item.id}
           style={{
-            flexShrink: 0,
             display: "flex",
             flexDirection: "row",
             alignItems: "center",
@@ -1224,33 +1218,13 @@ const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
   purple: { bg: "#A855F7",               fg: "#fff"    },
 };
 
-const SLIDE_DURATION = 5000;
-const SLIDE_TICK     = 50;
-
 function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
-  const [idx, setIdx]           = useState(0);
-  const [progress, setProgress] = useState(0);
-  const timerRef                = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [idx, setIdx] = useState(0);
 
   const go = useCallback((next: number) => {
     const n = ((next % slides.length) + slides.length) % slides.length;
     setIdx(n);
-    setProgress(0);
   }, [slides.length]);
-
-  useEffect(() => {
-    setProgress(0);
-    if (slides[idx]?.type === "video") return;
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setProgress(prev => {
-        const next = prev + (SLIDE_TICK / SLIDE_DURATION) * 100;
-        if (next >= 100) { go(idx + 1); return 0; }
-        return next;
-      });
-    }, SLIDE_TICK);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [idx, go, slides]);
 
   const slide = slides[idx];
   if (!slide) return null;
@@ -1278,10 +1252,6 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
               src={slide.url}
               autoPlay muted playsInline loop={false}
               onEnded={() => go(idx + 1)}
-              onTimeUpdate={(e) => {
-                const v = e.currentTarget;
-                if (v.duration) setProgress((v.currentTime / v.duration) * 100);
-              }}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
@@ -1368,22 +1338,15 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
                     height: 5,
                     width: isActive ? 22 : 6,
                     borderRadius: 99,
-                    backgroundColor: isPast ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.28)",
-                    overflow: "hidden",
-                    transition: "width 0.25s ease",
+                    backgroundColor: isActive
+                      ? "rgba(255,255,255,0.95)"
+                      : isPast
+                        ? "rgba(255,255,255,0.75)"
+                        : "rgba(255,255,255,0.28)",
+                    transition: "width 0.25s ease, background-color 0.25s ease",
                     flexShrink: 0,
                   }}
-                >
-                  {isActive && (
-                    <div
-                      style={{
-                        height: "100%", borderRadius: 99,
-                        backgroundColor: "rgba(255,255,255,0.95)",
-                        width: `${progress}%`,
-                      }}
-                    />
-                  )}
-                </div>
+                />
               );
             })}
           </div>
