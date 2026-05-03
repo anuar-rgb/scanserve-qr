@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ImageCropModal } from "@/components/admin/ImageCropModal";
 
 type BannerForm = {
   title: string;
@@ -45,6 +46,10 @@ export default function BannersPage() {
   const [form, setForm]           = useState<BannerForm>(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null);
+
+  // Crop state
+  const [cropSrc, setCropSrc]         = useState<string | null>(null);
+  const [rawMimeType, setRawMimeType] = useState("image/jpeg");
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -87,7 +92,16 @@ export default function BannersPage() {
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    setForm(prev => ({ ...prev, imageFile: f, imagePreview: URL.createObjectURL(f) }));
+    setRawMimeType(f.type || "image/jpeg");
+    setCropSrc(URL.createObjectURL(f));
+    e.target.value = "";
+  }
+
+  function handleCropApply(blob: Blob, url: string) {
+    const ext = rawMimeType === "image/png" ? "png" : rawMimeType === "image/webp" ? "webp" : "jpg";
+    const croppedFile = new File([blob], `cropped.${ext}`, { type: blob.type });
+    setForm(prev => ({ ...prev, imageFile: croppedFile, imagePreview: url }));
+    setCropSrc(null);
   }
 
   async function handleSave() {
@@ -241,64 +255,79 @@ export default function BannersPage() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {editingId ? t.admin.editBanner : t.admin.addBanner}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1">
-            {/* Image upload */}
-            <div className="space-y-2">
-              <Label>{t.admin.photoLabel}</Label>
-              <div
-                onClick={() => fileRef.current?.click()}
-                className="w-full h-36 rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-violet-500 dark:hover:border-violet-500 cursor-pointer transition-colors bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center overflow-hidden"
-              >
-                {form.imagePreview ? (
-                  <img src={form.imagePreview} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-zinc-400">
-                    <ImageIcon size={24} />
-                    <span className="text-xs">{t.admin.uploadPhoto}</span>
-                  </div>
-                )}
+          {/* Two-column layout: form + live preview */}
+          <div className="flex gap-6 min-h-0">
+            {/* Left: form */}
+            <div className="flex-1 space-y-4 overflow-y-auto max-h-[60vh] pr-1 min-w-0">
+              {/* Image upload */}
+              <div className="space-y-2">
+                <Label>{t.admin.photoLabel}</Label>
+                <div
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full h-36 rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-violet-500 dark:hover:border-violet-500 cursor-pointer transition-colors bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center overflow-hidden"
+                >
+                  {form.imagePreview ? (
+                    <img src={form.imagePreview} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-zinc-400">
+                      <ImageIcon size={24} />
+                      <span className="text-xs">{t.admin.uploadPhoto}</span>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={onFileChange}
+                />
               </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={onFileChange}
-              />
+
+              <div className="space-y-1.5">
+                <Label>{t.admin.bannerTitleLabel}</Label>
+                <Input
+                  value={form.title}
+                  onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Акции этой недели"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.admin.bannerLinkLabel}</Label>
+                <Input
+                  type="url"
+                  value={form.link_url}
+                  onChange={e => setForm(prev => ({ ...prev, link_url: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1">
+                <Label>{t.admin.bannerActive}</Label>
+                <Switch
+                  checked={form.is_active}
+                  onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>{t.admin.bannerTitleLabel}</Label>
-              <Input
-                value={form.title}
-                onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Акции этой недели"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.admin.bannerLinkLabel}</Label>
-              <Input
-                type="url"
-                value={form.link_url}
-                onChange={e => setForm(prev => ({ ...prev, link_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-1">
-              <Label>{t.admin.bannerActive}</Label>
-              <Switch
-                checked={form.is_active}
-                onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
-              />
+            {/* Right: live preview */}
+            <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-1">
+              <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
+                Preview
+              </p>
+              <BannerPhoneMockup title={form.title} imagePreview={form.imagePreview} />
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
+                Так выглядит баннер в меню гостя
+              </p>
             </div>
           </div>
 
@@ -313,6 +342,83 @@ export default function BannersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          aspect={2}
+          mimeType={rawMimeType}
+          onApply={handleCropApply}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
     </div>
   );
 }
+
+// ── Banner phone mockup (matches BannerSlider in MenuTemplate) ────────────────
+
+function BannerPhoneMockup({ title, imagePreview }: { title: string; imagePreview: string | null }) {
+  return (
+    <div style={{
+      width: 196,
+      background: "#1C1C1E",
+      borderRadius: 36,
+      padding: "18px 9px 14px",
+      boxShadow: "inset 0 0 0 1.5px #3a3a3c, 0 12px 32px rgba(0,0,0,0.4)",
+      flexShrink: 0,
+    }}>
+      {/* Pill notch */}
+      <div style={{ width: 52, height: 7, background: "#2c2c2e", borderRadius: 99, margin: "0 auto 10px" }} />
+      {/* Screen */}
+      <div style={{ background: "#F5F5F7", borderRadius: 20, overflow: "hidden", padding: "10px 8px" }}>
+        {/* Simulated header strip */}
+        <div style={{ height: 6, width: "60%", background: "#e0e0e0", borderRadius: 4, marginBottom: 8 }} />
+        {/* Banner card */}
+        <div style={{
+          width: "100%",
+          aspectRatio: "2 / 1",
+          borderRadius: 12,
+          overflow: "hidden",
+          position: "relative",
+          background: "#e5e5e5",
+          border: "1px solid rgba(0,0,0,0.10)",
+        } as React.CSSProperties}>
+          {imagePreview
+            ? <img src={imagePreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : (
+              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>
+                🖼️
+              </div>
+            )
+          }
+          {title && (
+            <div style={{
+              position: "absolute", bottom: 5, left: 5, right: 5,
+              background: "rgba(0,0,0,0.52)",
+              borderRadius: 8, padding: "3px 7px",
+            }}>
+              <p style={{
+                color: "#fff", fontWeight: 700, fontSize: 9,
+                margin: 0, lineHeight: 1.3,
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+              }}>
+                {title}
+              </p>
+            </div>
+          )}
+        </div>
+        {/* Dots indicator */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ width: i === 0 ? 12 : 4, height: 4, borderRadius: 99, background: i === 0 ? "#8B5CF6" : "#d0d0d0" }} />
+          ))}
+        </div>
+      </div>
+      {/* Home bar */}
+      <div style={{ width: 62, height: 4, background: "#3a3a3c", borderRadius: 99, margin: "9px auto 0" }} />
+    </div>
+  );
+}
+
