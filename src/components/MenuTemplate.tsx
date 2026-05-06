@@ -653,6 +653,7 @@ function InfoCards({
   phone,
   address,
   workingHours,
+  onGoToCatalog,
 }: {
   lang: Lang;
   theme: "dark" | "light";
@@ -661,9 +662,11 @@ function InfoCards({
   phone?: string;
   address?: string | LS;
   workingHours?: string | LS;
+  onGoToCatalog?: () => void;
 }) {
   const isDark = theme === "dark";
-  const [contactOpen, setContactOpen] = useState(false);
+  const [contactOpen,   setContactOpen]   = useState(false);
+  const [orderInfoOpen, setOrderInfoOpen] = useState(false);
 
   const tBook     = lang === "kz" ? "Үстел брондау"      : lang === "ru" ? "Забронировать стол" : "Reserve a Table";
   const tContact  = lang === "kz" ? "Байланыс"           : lang === "ru" ? "Связаться с нами"   : "Contact Us";
@@ -721,11 +724,11 @@ function InfoCards({
           <span style={{ fontSize: 22 }}>📅</span>
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-color)", textAlign: "center", lineHeight: 1.2 }}>{tBook}</span>
         </button>
-        <button onClick={() => openWA(preorderMsg)} style={cardBase}>
+        <button onClick={() => setOrderInfoOpen(true)} style={cardBase}>
           <span style={{ fontSize: 22 }}>🛒</span>
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-color)", textAlign: "center", lineHeight: 1.2 }}>{tPreorder}</span>
         </button>
-        <button onClick={() => openWA(deliveryMsg)} style={cardBase}>
+        <button onClick={() => setOrderInfoOpen(true)} style={cardBase}>
           <span style={{ fontSize: 22 }}>🚗</span>
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-color)", textAlign: "center", lineHeight: 1.2 }}>{tDelivery}</span>
         </button>
@@ -794,6 +797,91 @@ function InfoCards({
           )}
         </div>
       </div>
+
+      {/* ── Order Info Modal (Delivery / Preorder) ────────────────────────── */}
+      {orderInfoOpen && (
+        <>
+          <div
+            onClick={() => setOrderInfoOpen(false)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 100,
+              background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)",
+            }}
+          />
+          <div style={{
+            position: "fixed", bottom: 0, zIndex: 101,
+            left: "max(calc(50vw - 240px), 0px)",
+            width: "min(100vw, 480px)",
+            background: isDark ? "#1C1C1C" : "#FFFFFF",
+            borderRadius: "24px 24px 0 0",
+            padding: "28px 24px 36px",
+            fontFamily: "'Montserrat', system-ui, sans-serif",
+            boxShadow: "0 -4px 40px rgba(0,0,0,0.4)",
+          }}>
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: isDark ? "#3A3A3A" : "#DDE1E6" }} />
+            </div>
+
+            {/* Icon */}
+            <div style={{ textAlign: "center", fontSize: 40, marginBottom: 12 }}>🛍️</div>
+
+            {/* Title */}
+            <h2 style={{
+              margin: "0 0 12px",
+              fontSize: 20, fontWeight: 800,
+              color: isDark ? "#F0F0F0" : "#111111",
+              textAlign: "center",
+            }}>
+              {lang === "kz" ? "Қалай тапсырыс беруге болады?" : lang === "ru" ? "Как заказать?" : "How to Order?"}
+            </h2>
+
+            {/* Text */}
+            <p style={{
+              margin: "0 0 28px",
+              fontSize: 14, lineHeight: 1.6, fontWeight: 500,
+              color: isDark ? "#9A9A9A" : "#6B7280",
+              textAlign: "center",
+            }}>
+              {lang === "kz"
+                ? "Жеткізу немесе алдын ала тапсырысты өзіңіз рәсімдей аласыз! Каталогқа немесе Мәзірге өтіп, ұнаған тағамдарды таңдап, себетке қосыңыз. Тапсырысты рәсімдеу кезінде алу түрін көрсете аласыз."
+                : lang === "ru"
+                ? "Вы можете оформить доставку или предзаказ самостоятельно! Просто перейдите в Каталог или Меню, выберите понравившиеся блюда и добавьте их в корзину. В разделе оформления заказа вы сможете указать тип получения заказа."
+                : "You can place a delivery or pre-order yourself! Go to the Catalog or Menu, choose your dishes and add them to the cart. During checkout you can select the order type."}
+            </p>
+
+            {/* CTA button */}
+            <button
+              onClick={() => { setOrderInfoOpen(false); onGoToCatalog?.(); }}
+              style={{
+                width: "100%", padding: "15px 0",
+                borderRadius: 999, border: "none",
+                background: isDark ? "#F0F0F0" : "#111111",
+                color: isDark ? "#111111" : "#F0F0F0",
+                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {lang === "kz" ? "Мәзірге өту" : lang === "ru" ? "Перейти к меню" : "Go to Menu"}
+            </button>
+
+            {/* Close link */}
+            <button
+              onClick={() => setOrderInfoOpen(false)}
+              style={{
+                display: "block", width: "100%", marginTop: 12,
+                padding: "10px 0", borderRadius: 999,
+                border: `1px solid ${isDark ? "#2A2A2A" : "#DDE1E6"}`,
+                background: "transparent",
+                color: isDark ? "#9A9A9A" : "#6B7280",
+                fontSize: 14, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              {lang === "kz" ? "Жабу" : lang === "ru" ? "Закрыть" : "Close"}
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -2199,6 +2287,7 @@ export function MenuTemplate({
               phone={restaurant.phone}
               address={restaurant.address}
               workingHours={restaurant.workingHours}
+              onGoToCatalog={goToCatalogGrid}
             />
           </>
         )}
