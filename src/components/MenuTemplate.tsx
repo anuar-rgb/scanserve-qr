@@ -1282,6 +1282,108 @@ function CatalogDishCard({
   );
 }
 
+// ── Menu List Dish Row ────────────────────────────────────────────────────────
+
+function MenuDishRow({
+  dish, lang, currency, cart, addToCart,
+}: {
+  dish: Dish; lang: Lang; currency: string;
+  cart: CartMap;
+  addToCart: (dish: Dish, currency: string, delta: number) => void;
+}) {
+  const [ingredientsOpen, setIngredientsOpen] = useState(false);
+  const qty    = cart[dish.id]?.qty ?? 0;
+  const badges = dishBadges(dish);
+
+  return (
+    <div style={{
+      borderRadius: R.md, border: "1px solid var(--border-color)",
+      backgroundColor: "var(--bg-card)", boxShadow: "var(--card-shadow)",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: 12 }}>
+        {/* Thumbnail */}
+        <div style={{
+          width: 72, height: 72, borderRadius: R.md, flexShrink: 0,
+          background: "var(--bg-surface)", display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 34, position: "relative", overflow: "hidden",
+        }}>
+          {dish.imageUrl
+            ? <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+            : dish.emoji}
+          {badges.length > 0 && (
+            <div style={{ position: "absolute", top: 4, left: 4 }}>
+              <BadgeStack badges={badges} size="xs" />
+            </div>
+          )}
+        </div>
+
+        {/* Info column */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 600, margin: "0 0 2px", color: "var(--text-color)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" as const }}>
+            {resolve(dish.name, lang)}
+          </p>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 4px", lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
+            {resolve(dish.desc, lang)}
+          </p>
+          <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
+            {dish.price.toLocaleString()} {currency}
+          </p>
+
+          {dish.ingredients && (
+            <>
+              <button
+                onClick={() => setIngredientsOpen(o => !o)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 3,
+                  background: "none", border: "none", padding: "5px 0 0",
+                  cursor: "pointer", color: "var(--text-muted)",
+                }}
+              >
+                <span style={{
+                  fontSize: 10, fontWeight: 700,
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                  letterSpacing: "0.03em",
+                }}>
+                  Состав
+                </span>
+                <ChevronDown
+                  size={11}
+                  style={{
+                    transform: ingredientsOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s",
+                    flexShrink: 0,
+                  }}
+                />
+              </button>
+              {ingredientsOpen && (
+                <p style={{
+                  fontSize: 10, color: "var(--text-muted)", margin: "3px 0 0",
+                  lineHeight: 1.55, fontFamily: "'Montserrat', system-ui, sans-serif",
+                }}>
+                  {dish.ingredients}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Cart control — pinned top-right */}
+        <div style={{ flexShrink: 0, paddingTop: 2 }}>
+          {qty > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => addToCart(dish, currency, -1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+              <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
+              <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            </div>
+          ) : (
+            <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Hero Slider ───────────────────────────────────────────────────────────────
 
 const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
@@ -2176,49 +2278,16 @@ export function MenuTemplate({
 
                 {/* Compact list rows */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {cat.dishes.map((dish) => {
-                  const currency = dish.currency ?? restaurant.currency ?? "";
-                  const qty = cart[dish.id]?.qty ?? 0;
-                  return (
-                    <div key={dish.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: R.md, border: "1px solid var(--border-color)", backgroundColor: "var(--bg-card)", boxShadow: "var(--card-shadow)" }}>
-                      {/* Thumbnail */}
-                      <div style={{ width: 72, height: 72, borderRadius: R.md, flexShrink: 0, background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, position: "relative", overflow: "hidden" }}>
-                        {dish.imageUrl ? (
-                          <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : dish.emoji}
-                        {dishBadges(dish).length > 0 && (
-                          <div style={{ position: "absolute", top: 4, left: 4 }}>
-                            <BadgeStack badges={dishBadges(dish)} size="xs" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 600, margin: "0 0 2px", color: "var(--text-color)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" as const }}>
-                          {resolve(dish.name, lang)}
-                        </p>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 4px", lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                          {resolve(dish.desc, lang)}
-                        </p>
-                        <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
-                          {dish.price.toLocaleString()} {currency}
-                        </p>
-                      </div>
-
-                      {/* Cart control */}
-                      {qty > 0 ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                          <button onClick={() => addToCart(dish, currency, -1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                          <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-                          <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
-                      )}
-                    </div>
-                  );
-                })}
+                  {cat.dishes.map((dish) => (
+                    <MenuDishRow
+                      key={dish.id}
+                      dish={dish}
+                      lang={lang}
+                      currency={dish.currency ?? restaurant.currency ?? ""}
+                      cart={cart}
+                      addToCart={addToCart}
+                    />
+                  ))}
                 </div>
               </section>
             ))}
