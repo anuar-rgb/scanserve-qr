@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2, Star } from "lucide-react";
 import { resolve, type Lang, type Dish, type PaymentInfo } from "./MenuTemplate";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID } from "@/constants";
+import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CartMap = Record<string, { dish: Dish; qty: number; currency: string }>;
+
+interface GuestTable { id: string; label: string; seats: number; }
 
 type PaymentMethod = "pay-at-restaurant" | "cash" | "kaspi" | "card-transfer" | "remote-payment";
 type OrderType = "dine-in" | "pickup" | "delivery";
@@ -203,6 +205,10 @@ const T: Record<string, Record<Lang, string>> = {
   preorderDate:         { en: "Date",                                     ru: "Дата",                                        kz: "Күн"                                   },
   preorderTime:         { en: "Time",                                     ru: "Время",                                       kz: "Уақыт"                                 },
   preorderFor:          { en: "Pre-order for",                            ru: "Предзаказ на",                                kz: "Алдын ала тапсырыс"                    },
+  selectTable:          { en: "Choose a Table",                          ru: "Выберите стол",                               kz: "Үстел таңдаңыз"                        },
+  tableOccupied:        { en: "Occupied",                                ru: "Занят",                                       kz: "Бос емес"                              },
+  noTablesAvailable:    { en: "No tables available",                     ru: "Нет доступных столов",                        kz: "Бос үстел жоқ"                         },
+  loadingTables:        { en: "Loading tables…",                         ru: "Загрузка столов…",                            kz: "Үстелдер жүктелуде…"                   },
 };
 
 const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? key;
@@ -400,6 +406,39 @@ export function CartDrawer({
   const [reviewComment, setReviewComment]     = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewLoading, setReviewLoading]     = useState(false);
+  const [guestTables, setGuestTables]         = useState<GuestTable[]>([]);
+  const [occupiedLabels, setOccupiedLabels]   = useState<Set<string>>(new Set());
+  const [tablesLoading, setTablesLoading]     = useState(false);
+
+  useEffect(() => {
+    if (!open || !isConfigured) return;
+    let cancelled = false;
+    async function fetchTables() {
+      setTablesLoading(true);
+      const [tablesRes, ordersRes] = await Promise.all([
+        supabase
+          .from(DB_TABLES.restaurantTables)
+          .select("id, label, seats")
+          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("is_active", true)
+          .order("label"),
+        supabase
+          .from(DB_TABLES.orders)
+          .select("table_number")
+          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("status", "pending")
+          .eq("type", "dine-in"),
+      ]);
+      if (cancelled) return;
+      setGuestTables((tablesRes.data as GuestTable[]) ?? []);
+      setOccupiedLabels(
+        new Set(((ordersRes.data ?? []) as { table_number: string }[]).map((o) => o.table_number))
+      );
+      setTablesLoading(false);
+    }
+    fetchTables();
+    return () => { cancelled = true; };
+  }, [open]);
 
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -475,11 +514,11 @@ export function CartDrawer({
   });
 
   const resetCheckout = () => {
-    setOrderType(null);
+    setOrderType(isTableLocked ? "dine-in" : null);
     setTimingMode("asap");
     setPreorderDate("");
     setPreorderTime("");
-    setTableNumber("");
+    if (!isTableLocked) setTableNumber("");
     setDeliveryAddress("");
     setNotes("");
     setPayment(null);
@@ -978,27 +1017,62 @@ export function CartDrawer({
                 </div>
               )}
 
-              {/* ── Dynamic field ── */}
+              {/* ── Table picker (dine-in, not pre-filled from QR) ── */}
               {orderType === "dine-in" && !isTableLocked && (
-                <label style={{ display: "block", marginBottom: SP.lg }}>
-                  <span style={labelSectionStyle}>{tn("tableNum", lang)}</span>
-                  <input
-                    type="text"
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    placeholder={tn("tableHint", lang)}
-                    style={{
-                      display: "block", width: "100%", marginTop: SP.sm,
-                      padding: "13px 14px",
-                      background: surface,
-                      border: `1.5px solid ${tableNumber.trim() ? textClr : border}`,
-                      borderRadius: R.md, color: textClr, fontSize: 15,
-                      outline: "none", boxSizing: "border-box",
-                      transition: "border-color 0.15s",
-                      fontFamily: "inherit",
-                    } as React.CSSProperties}
-                  />
-                </label>
+                <div style={{ marginBottom: SP.lg }}>
+                  <p style={labelSectionStyle}>{tn("selectTable", lang)}</p>
+                  {tablesLoading ? (
+                    <p style={{ fontSize: 13, color: muted, textAlign: "center", padding: "16px 0" }}>
+                      {tn("loadingTables", lang)}
+                    </p>
+                  ) : guestTables.length === 0 ? (
+                    <div style={{
+                      padding: "12px 14px", background: surface, borderRadius: R.md,
+                      marginTop: SP.sm, color: muted, fontSize: 13, textAlign: "center",
+                    }}>
+                      {tn("noTablesAvailable", lang)}
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))",
+                      gap: SP.sm,
+                      marginTop: SP.sm,
+                    }}>
+                      {guestTables.map((t) => {
+                        const isOccupied = occupiedLabels.has(t.label);
+                        const isSelected = tableNumber === t.label;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            disabled={isOccupied}
+                            onClick={() => setTableNumber(isSelected ? "" : t.label)}
+                            style={{
+                              display: "flex", flexDirection: "column",
+                              alignItems: "center", justifyContent: "center",
+                              gap: 3, padding: "10px 6px",
+                              background: isSelected
+                                ? (isDark ? "rgba(255,255,255,0.13)" : "rgba(0,0,0,0.07)")
+                                : card,
+                              border: `2px solid ${isSelected ? textClr : isOccupied ? "transparent" : border}`,
+                              borderRadius: R.md,
+                              cursor: isOccupied ? "not-allowed" : "pointer",
+                              opacity: isOccupied ? 0.4 : 1,
+                              transition: "all 0.15s",
+                              color: textClr,
+                            }}
+                          >
+                            <span style={{ fontSize: 17, fontWeight: 800, lineHeight: 1 }}>{t.label}</span>
+                            <span style={{ fontSize: 9, color: muted, lineHeight: 1.2 }}>
+                              {isOccupied ? tn("tableOccupied", lang) : `${t.seats} мест`}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* ── City selector (delivery + pickup) ── */}
