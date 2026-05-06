@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Sparkles, Monitor, Palette,
-  Layers, QrCode, BookOpen, Settings, LogOut, Sun, Moon, Film, Info, ShoppingBag,
+  Layers, QrCode, BookOpen, Settings, LogOut, Sun, Moon, Film, Info, ShoppingBag, LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -26,6 +26,12 @@ const NAV: NavSection[] = [
       { labelKey: "navOrders",     icon: ShoppingBag, href: "/admin/orders"    },
       { labelKey: "navReviews",    icon: Star,        href: "/admin/reviews"   },
       { labelKey: "navPromotions", icon: Tag,         href: "/admin/promotions"},
+    ],
+  },
+  {
+    titleKey: "sectionPOS",
+    items: [
+      { labelKey: "navHall", icon: LayoutGrid, href: "/admin/hall" },
     ],
   },
   {

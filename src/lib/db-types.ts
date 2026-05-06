@@ -101,3 +101,12 @@ export interface DbInfoShowcase {
   is_active: boolean;
   created_at: string;
 }
+
+export interface DbRestaurantTable {
+  id: string;
+  restaurant_id: string;
+  label: string;
+  seats: number;
+  is_active: boolean;
+  created_at: string;
+}
