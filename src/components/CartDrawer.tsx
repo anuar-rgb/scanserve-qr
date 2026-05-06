@@ -31,6 +31,7 @@ interface PlacedOrder {
   total: number;
   currency: string;
   deliveryFee?: number;
+  savings?: number;
 }
 
 export interface StoredOrder {
@@ -166,6 +167,7 @@ const T: Record<string, Record<Lang, string>> = {
   cancel:            { en: "Cancel",                                  ru: "Отмена",                                      kz: "Болдырмау"                             },
   clearConfirmBtn:   { en: "Clear",                                   ru: "Очистить",                                    kz: "Тазарту"                               },
   deliveryFee:       { en: "Delivery fee",                            ru: "Доставка",                                    kz: "Жеткізу"                               },
+  savings:           { en: "Your savings",                            ru: "Ваша экономия",                               kz: "Үнемдедіңіз"                           },
   cityLabel:         { en: "City",                                    ru: "Город",                                       kz: "Қала"                                  },
   citySelect:        { en: "Select city",                             ru: "Выберите город",                              kz: "Қала таңдаңыз"                         },
   citySearchHint:    { en: "Search city...",                          ru: "Поиск города...",                             kz: "Қала іздеу..."                         },
@@ -383,6 +385,7 @@ export function CartDrawer({
   const total        = items.reduce((s, { dish, qty }) => s + effPrice(dish) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
   const grandTotal   = total + deliveryFee;
+  const totalSavings = items.reduce((s, { dish, qty }) => s + (dish.price - effPrice(dish)) * qty, 0);
   const isEmpty      = items.length === 0;
 
   const phoneValid = (orderType === "pickup" || orderType === "delivery")
@@ -507,6 +510,7 @@ export function CartDrawer({
       total: grandTotal,
       currency,
       deliveryFee: deliveryFee || undefined,
+      savings: totalSavings || undefined,
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     setPlacedOrderId(orderId);
@@ -720,12 +724,30 @@ export function CartDrawer({
                     <div key={dish.id} style={{ display: "flex", alignItems: "center", gap: SP.md - 4, padding: SP.sm + 2, background: card, borderRadius: R.md, border: `1px solid ${border}` }}>
                       <span style={{ fontSize: 26, flexShrink: 0 }}>{dish.emoji}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 600, margin: "0 0 2px", lineHeight: 1.3 }}>
-                          {resolve(dish.name, lang)}
-                        </p>
-                        <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
-                          {(dish.price * qty).toLocaleString()} {ic || currency}
-                        </p>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
+                          <p style={{ fontSize: 14, fontWeight: 600, margin: 0, lineHeight: 1.3 }}>
+                            {resolve(dish.name, lang)}
+                          </p>
+                          {effPrice(dish) < dish.price && (
+                            <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 7px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", flexShrink: 0 }}>
+                              -{dish.discountLabel}%
+                            </span>
+                          )}
+                        </div>
+                        {effPrice(dish) < dish.price ? (
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                            <span style={{ fontSize: 11, color: muted, textDecoration: "line-through" }}>
+                              {(dish.price * qty).toLocaleString()}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>
+                              {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
+                            </span>
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
+                            {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
+                          </p>
+                        )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: SP.sm - 2, flexShrink: 0 }}>
                         <button onClick={() => onUpdateQty(dish.id, -1)} style={iconBtn}><Minus size={12} /></button>
@@ -740,6 +762,12 @@ export function CartDrawer({
 
             {!isEmpty && (
               <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0 }}>
+                {totalSavings > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, color: isDark ? "#6DB86D" : "#2E7D32" }}>🎉 {tn("savings", lang)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#6DB86D" : "#2E7D32" }}>-{totalSavings.toLocaleString()} {currency}</span>
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: SP.md }}>
                   <span style={{ fontSize: 15, fontWeight: 600 }}>{tn("total", lang)}</span>
                   <span style={{ fontSize: 18, fontWeight: 700 }}>{total.toLocaleString()} {currency}</span>
@@ -1160,15 +1188,37 @@ export function CartDrawer({
                   {tn("summary", lang)}
                 </p>
                 {items.map(({ dish, qty, currency: ic }) => (
-                  <div key={dish.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
-                    <span style={{ color: muted }}>{resolve(dish.name, lang)} × {qty}</span>
-                    <span style={{ fontWeight: 600 }}>{(effPrice(dish) * qty).toLocaleString()} {ic || currency}</span>
+                  <div key={dish.id} style={{ marginBottom: 5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                      <span style={{ color: muted }}>
+                        {resolve(dish.name, lang)} × {qty}
+                        {effPrice(dish) < dish.price && (
+                          <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", verticalAlign: "middle" }}>
+                            -{dish.discountLabel}%
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
+                        {effPrice(dish) < dish.price && (
+                          <span style={{ fontSize: 11, color: muted, textDecoration: "line-through", marginRight: 4, fontWeight: 400 }}>
+                            {(dish.price * qty).toLocaleString()}
+                          </span>
+                        )}
+                        {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 {deliveryFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
                     <span style={{ color: muted }}>🚚 {tn("deliveryFee", lang)}</span>
                     <span style={{ fontWeight: 600 }}>{deliveryFee.toLocaleString()} {currency}</span>
+                  </div>
+                )}
+                {totalSavings > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: isDark ? "#6DB86D" : "#2E7D32" }}>
+                    <span>🎉 {tn("savings", lang)}</span>
+                    <span style={{ fontWeight: 700 }}>-{totalSavings.toLocaleString()} {currency}</span>
                   </div>
                 )}
                 <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.sm, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700 }}>
@@ -1279,6 +1329,12 @@ export function CartDrawer({
                     <span style={{ fontWeight: 600 }}>{placedOrder.deliveryFee.toLocaleString()} {placedOrder.currency}</span>
                   </div>
                 )}
+                {placedOrder.savings && placedOrder.savings > 0 ? (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: isDark ? "#6DB86D" : "#2E7D32" }}>
+                    <span>🎉 {tn("savings", lang)}</span>
+                    <span style={{ fontWeight: 700 }}>-{placedOrder.savings.toLocaleString()} {placedOrder.currency}</span>
+                  </div>
+                ) : null}
                 <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.sm, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}>
                   <span>{tn("total", lang)}</span>
                   <span>{placedOrder.total.toLocaleString()} {placedOrder.currency}</span>
