@@ -119,6 +119,7 @@ export interface MenuTemplateProps {
   featuredItems?: FeaturedItem[];
   featuredTitle?: string | LS;
   ctaLabel?: string;
+  initialTableNumber?: string;
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -1675,6 +1676,7 @@ export function MenuTemplate({
   showcaseItems = [],
   featuredItems,
   featuredTitle,
+  initialTableNumber,
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -2498,6 +2500,7 @@ export function MenuTemplate({
         cardTransferOptions={restaurant.cardTransferOptions}
         clientId={clientId}
         onOrderPlaced={saveOrder}
+        initialTableNumber={initialTableNumber}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}

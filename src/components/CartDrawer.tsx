@@ -354,6 +354,7 @@ export interface CartDrawerProps {
   onClearCart: () => void;
   onOrderPlaced?: (order: StoredOrder) => void;
   clientId?: string;
+  initialTableNumber?: string;
 }
 
 export function CartDrawer({
@@ -371,14 +372,16 @@ export function CartDrawer({
   onClearCart,
   onOrderPlaced,
   clientId = "anon",
+  initialTableNumber,
 }: CartDrawerProps) {
+  const isTableLocked = Boolean(initialTableNumber);
   const [step, setStep]                       = useState<Step>("cart");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [orderType, setOrderType]             = useState<OrderType | null>(null);
+  const [orderType, setOrderType]             = useState<OrderType | null>(isTableLocked ? "dine-in" : null);
   const [timingMode, setTimingMode]           = useState<TimingMode>("asap");
   const [preorderDate, setPreorderDate]       = useState("");
   const [preorderTime, setPreorderTime]       = useState("");
-  const [tableNumber, setTableNumber]         = useState("");
+  const [tableNumber, setTableNumber]         = useState(initialTableNumber ?? "");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes]                     = useState("");
   const [payment, setPayment]                 = useState<PaymentMethod | null>(null);
@@ -850,36 +853,54 @@ export function CartDrawer({
             <div style={{ flex: 1, overflowY: "auto", padding: `${SP.sm}px ${SP.md}px ${SP.lg}px` }}>
 
               {/* ── Order type ── */}
-              <p style={labelSectionStyle}>{tn("selectOrderType", lang)}</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: SP.sm, marginBottom: SP.lg }}>
-                {ORDER_TYPE_OPTIONS.map(({ id, icon, labelKey }) => {
-                  const sel = orderType === id;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => handleOrderTypeSelect(id)}
-                      style={{
-                        display: "flex", flexDirection: "column", alignItems: "center",
-                        justifyContent: "center", gap: 6,
-                        padding: "12px 8px",
-                        background: sel
-                          ? (isDark ? "rgba(245,245,245,0.10)" : "rgba(0,0,0,0.05)")
-                          : card,
-                        border: `2px solid ${sel ? textClr : border}`,
-                        borderRadius: R.lg,
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                        color: textClr,
-                      }}
-                    >
-                      <span style={{ fontSize: 22 }}>{icon}</span>
-                      <span style={{ fontSize: 11, fontWeight: sel ? 700 : 500, lineHeight: 1.2, textAlign: "center" }}>
-                        {tn(labelKey, lang)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              {isTableLocked ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: SP.sm, marginBottom: SP.lg,
+                  padding: "10px 14px",
+                  background: isDark ? "rgba(108,71,255,0.12)" : "rgba(108,71,255,0.08)",
+                  border: `1.5px solid rgba(108,71,255,0.3)`,
+                  borderRadius: R.md,
+                }}>
+                  <span style={{ fontSize: 18 }}>📍</span>
+                  <div>
+                    <div style={{ fontSize: 11, color: muted, marginBottom: 2 }}>{tn("table", lang)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: textClr }}>{tableNumber}</div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p style={labelSectionStyle}>{tn("selectOrderType", lang)}</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: SP.sm, marginBottom: SP.lg }}>
+                    {ORDER_TYPE_OPTIONS.map(({ id, icon, labelKey }) => {
+                      const sel = orderType === id;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => handleOrderTypeSelect(id)}
+                          style={{
+                            display: "flex", flexDirection: "column", alignItems: "center",
+                            justifyContent: "center", gap: 6,
+                            padding: "12px 8px",
+                            background: sel
+                              ? (isDark ? "rgba(245,245,245,0.10)" : "rgba(0,0,0,0.05)")
+                              : card,
+                            border: `2px solid ${sel ? textClr : border}`,
+                            borderRadius: R.lg,
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                            color: textClr,
+                          }}
+                        >
+                          <span style={{ fontSize: 22 }}>{icon}</span>
+                          <span style={{ fontSize: 11, fontWeight: sel ? 700 : 500, lineHeight: 1.2, textAlign: "center" }}>
+                            {tn(labelKey, lang)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
               {/* ── Timing mode ── */}
               <p style={labelSectionStyle}>{tn("timingLabel", lang)}</p>
@@ -958,7 +979,7 @@ export function CartDrawer({
               )}
 
               {/* ── Dynamic field ── */}
-              {orderType === "dine-in" && (
+              {orderType === "dine-in" && !isTableLocked && (
                 <label style={{ display: "block", marginBottom: SP.lg }}>
                   <span style={labelSectionStyle}>{tn("tableNum", lang)}</span>
                   <input
