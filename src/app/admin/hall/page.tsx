@@ -535,7 +535,7 @@ function TablePanel({
   // ── Order creation mode ──────────────────────────────────────────────────────
   if (panelMode === "order") {
     return (
-      <aside className="w-[340px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+      <aside className="w-[500px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
         <OrderPanel
           table={table}
           onBack={() => setPanelMode("info")}
@@ -605,7 +605,7 @@ function TablePanel({
   }
 
   return (
-    <aside className="w-[340px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+    <aside className="w-[500px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
 
       {/* Panel header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
@@ -893,6 +893,19 @@ function OrderPanel({
   const [search, setSearch]             = useState("");
   const [cart, setCart]                 = useState<Map<string, CartItem>>(new Map());
   const [submitting, setSubmitting]     = useState(false);
+  const catTabsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = catTabsRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   useEffect(() => {
     async function fetchCatalog() {
@@ -1007,7 +1020,7 @@ function OrderPanel({
 
       {/* ── Category tabs ── */}
       {!trimmed && categories.length > 0 && (
-        <div className="flex gap-1.5 px-3 py-2 border-b border-border overflow-x-auto shrink-0 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+        <div ref={catTabsRef} className="flex gap-1.5 px-3 py-2 border-b border-border overflow-x-auto shrink-0 scrollbar-none" style={{ scrollbarWidth: "none" }}>
           {categories.map((cat) => (
             <button
               key={cat.id}
