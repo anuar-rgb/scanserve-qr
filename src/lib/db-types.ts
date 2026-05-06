@@ -37,6 +37,7 @@ export interface DbProduct {
   is_recommended: boolean;
   order_index: number;
   discount_label: string | null;
+  ingredients: string | null;
 }
 
 export interface DbBanner {

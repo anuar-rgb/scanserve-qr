@@ -57,6 +57,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           name: p.name,
           desc: p.description ?? { en: "", ru: "", kz: "" },
           price: p.price,
+          ingredients: p.ingredients ?? undefined,
         })),
     }))
     .filter(cat => cat.dishes.length > 0);

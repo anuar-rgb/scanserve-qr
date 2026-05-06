@@ -159,6 +159,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const [emoji, setEmoji]         = useState(product?.emoji ?? "");
   const [badge, setBadge]         = useState(product?.badge ?? "");
   const [catId, setCatId]         = useState(product?.category_id ?? defaultCategoryId ?? categories[0]?.id ?? "");
+  const [ingredients, setIngredients] = useState(product?.ingredients ?? "");
   const [isNew, setIsNew]         = useState(product?.is_new ?? false);
   const [isPopular, setIsPopular] = useState(product?.is_popular ?? false);
   const [isSpicy, setIsSpicy]     = useState(product?.is_spicy ?? false);
@@ -218,6 +219,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         image_url: imageUrl,
         emoji: emoji.trim() || null,
         badge: badge.trim() || null,
+        ingredients: ingredients.trim() || null,
         is_new: isNew,
         is_popular: isPopular,
         is_spicy: isSpicy,
@@ -351,6 +353,17 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   onChange={(e) => setDesc(e.target.value)}
                   rows={3}
                   placeholder="Традиционное казахское блюдо…"
+                  className={inputCls + " resize-none"}
+                />
+              </Field>
+
+              {/* Ingredients */}
+              <Field label="Состав">
+                <textarea
+                  value={ingredients}
+                  onChange={(e) => setIngredients(e.target.value)}
+                  rows={2}
+                  placeholder="Говядина, лук, морковь, специи…"
                   className={inputCls + " resize-none"}
                 />
               </Field>

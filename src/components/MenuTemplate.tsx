@@ -36,6 +36,7 @@ export interface Dish {
   isSpicy?: boolean;
   isPromo?: boolean;
   isRecommended?: boolean;
+  ingredients?: string;
 }
 
 export interface Banner {
@@ -1044,6 +1045,7 @@ function CatalogDishCard({
   getLikeCount: (id: string) => number;
   id?: string;
 }) {
+  const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const isLiked = !!liked[dish.id];
   const count   = getLikeCount(dish.id);
   const qty     = cart[dish.id]?.qty ?? 0;
@@ -1236,6 +1238,45 @@ function CatalogDishCard({
             >+</button>
           )}
         </div>
+
+        {dish.ingredients && (
+          <div style={{ marginTop: 2 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setIngredientsOpen(o => !o); }}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                width: "100%", background: "none", border: "none",
+                padding: "7px 0 0",
+                borderTop: "1px solid var(--border-color)",
+                cursor: "pointer", color: "var(--text-muted)",
+              }}
+            >
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+                letterSpacing: "0.03em",
+              }}>
+                Состав
+              </span>
+              <ChevronDown
+                size={12}
+                style={{
+                  transform: ingredientsOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s",
+                  flexShrink: 0,
+                }}
+              />
+            </button>
+            {ingredientsOpen && (
+              <p style={{
+                fontSize: 10, color: "var(--text-muted)", margin: "5px 0 0",
+                lineHeight: 1.55, fontFamily: "'Montserrat', system-ui, sans-serif",
+              }}>
+                {dish.ingredients}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
