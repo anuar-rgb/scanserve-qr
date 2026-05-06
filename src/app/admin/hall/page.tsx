@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
-  ArrowLeft, Search, Minus,
+  ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
@@ -93,6 +93,8 @@ function productName(p: DbProduct): string {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+type ActiveTab = "dine-in" | "takeaway" | "delivery";
+
 export default function HallPage() {
   const [tables, setTables]         = useState<DbRestaurantTable[]>([]);
   const [orders, setOrders]         = useState<DbOrder[]>([]);
@@ -102,6 +104,7 @@ export default function HallPage() {
   const [selected, setSelected]     = useState<string | null>(null);
   const [addOpen, setAddOpen]       = useState(false);
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
+  const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
   const knownOrderIds               = useRef(new Set<string>());
 
   const load = useCallback(async () => {
@@ -134,7 +137,13 @@ export default function HallPage() {
       const incoming = newOrders.filter((o) => !knownOrderIds.current.has(o.id));
       if (incoming.length > 0) {
         playNewOrderSound();
-        toast.success(`Новый заказ · Стол ${incoming[0].table_number ?? "—"}`, { duration: 6000 });
+        const o = incoming[0];
+        const label = o.type === "delivery"
+          ? "Доставка"
+          : o.type === "dine-in"
+          ? `Стол ${o.table_number ?? "—"}`
+          : "С собой";
+        toast.success(`Новый заказ · ${label}`, { duration: 6000 });
       }
     }
 
@@ -172,6 +181,17 @@ export default function HallPage() {
     load();
   }
 
+  async function closeOrderById(orderId: string) {
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ status: "completed" })
+      .eq("id", orderId)
+      .eq("restaurant_id", RESTAURANT_ID);
+    if (error) { toast.error("Ошибка закрытия заказа"); return; }
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    toast.success("Заказ выдан!");
+  }
+
   function enterEditMode() {
     setEditMode(true);
     setSelected(null);
@@ -203,23 +223,29 @@ export default function HallPage() {
   const preorderCount  = tablesWithStatus.filter((t) => t.status === "preorder").length;
   const selectedData   = selected ? tablesWithStatus.find((t) => t.table.id === selected) ?? null : null;
 
+  const takeawayOrders = orders.filter((o) => o.type !== "dine-in" && o.type !== "delivery");
+  const deliveryOrders = orders.filter((o) => o.type === "delivery");
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="px-6 py-4 border-b border-border shrink-0 flex items-center gap-3 bg-background">
+      <header className="px-6 py-3 border-b border-border shrink-0 flex items-center gap-3 bg-background">
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold leading-tight">План зала</h1>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${realtimeOk ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
             <span className="text-xs text-muted-foreground">
               {realtimeOk ? "Realtime" : "Подключение…"}
             </span>
-            <span className="text-xs text-muted-foreground">·</span>
-            <span className="text-xs text-muted-foreground">
-              {occupiedCount} занято · {freeCount} свободно
-              {preorderCount > 0 && ` · ${preorderCount} предзаказ`}
-            </span>
+            {activeTab === "dine-in" && (
+              <>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground">
+                  {occupiedCount} занято · {freeCount} свободно
+                  {preorderCount > 0 && ` · ${preorderCount} предзаказ`}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -232,7 +258,7 @@ export default function HallPage() {
           Обновить
         </button>
 
-        {editMode && (
+        {activeTab === "dine-in" && editMode && (
           <button
             onClick={() => setAddOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors shrink-0"
@@ -242,21 +268,54 @@ export default function HallPage() {
           </button>
         )}
 
-        <button
-          onClick={editMode ? exitEditMode : enterEditMode}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
-            editMode
-              ? "bg-amber-500 text-white hover:bg-amber-600"
-              : "border border-border hover:bg-accent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Settings size={12} className={editMode ? "animate-spin" : ""} style={{ animationDuration: "3s" }} />
-          {editMode ? "Готово" : "Редактировать зал"}
-        </button>
+        {activeTab === "dine-in" && (
+          <button
+            onClick={editMode ? exitEditMode : enterEditMode}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+              editMode
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : "border border-border hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Settings size={12} className={editMode ? "animate-spin" : ""} style={{ animationDuration: "3s" }} />
+            {editMode ? "Готово" : "Редактировать зал"}
+          </button>
+        )}
       </header>
 
+      {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
+      <div className="flex shrink-0 border-b border-border bg-background px-4 gap-1 pt-1">
+        {([
+          { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
+          { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length },
+          { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length },
+        ] as const).map(({ id, icon: Icon, label, count }) => (
+          <button
+            key={id}
+            onClick={() => { setActiveTab(id); if (id !== "dine-in") setEditMode(false); }}
+            className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+              activeTab === id
+                ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-violet-50/60 dark:bg-violet-900/10"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            }`}
+          >
+            <Icon size={14} />
+            {label}
+            {count > 0 && (
+              <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                activeTab === id
+                  ? "bg-violet-600 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* ── Edit mode banner ────────────────────────────────────────────────── */}
-      {editMode && (
+      {activeTab === "dine-in" && editMode && (
         <div className="px-6 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-700/50 shrink-0 flex items-center gap-2">
           <Settings size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -265,70 +324,94 @@ export default function HallPage() {
         </div>
       )}
 
-      {/* ── Legend ─────────────────────────────────────────────────────────── */}
-      <div className="px-6 py-2 flex items-center gap-4 text-xs border-b border-border bg-muted/20 shrink-0">
-        <LegendDot color="emerald" label="Свободен" />
-        <LegendDot color="red"     label="Занят"    />
-        <LegendDot color="amber"   label="Предзаказ" />
-      </div>
+      {/* ── В заведении ─────────────────────────────────────────────────────── */}
+      {activeTab === "dine-in" && (
+        <>
+          {/* Legend */}
+          <div className="px-6 py-2 flex items-center gap-4 text-xs border-b border-border bg-muted/20 shrink-0">
+            <LegendDot color="emerald" label="Свободен" />
+            <LegendDot color="red"     label="Занят"    />
+            <LegendDot color="amber"   label="Предзаказ" />
+          </div>
 
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Grid area */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {loading ? (
-            <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
-              <Loader2 size={16} className="animate-spin" /> Загрузка…
+          {/* Body */}
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-5">
+              {loading ? (
+                <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
+                  <Loader2 size={16} className="animate-spin" /> Загрузка…
+                </div>
+              ) : tables.length === 0 ? (
+                <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
+              ) : (
+                <div
+                  className="grid gap-3"
+                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
+                >
+                  {tablesWithStatus.map((tws) => (
+                    <TableCard
+                      key={tws.table.id}
+                      tws={tws}
+                      isSelected={!editMode && selected === tws.table.id}
+                      editMode={editMode}
+                      onClick={() => {
+                        if (editMode) return;
+                        setSelected(selected === tws.table.id ? null : tws.table.id);
+                      }}
+                      onEdit={() => {
+                        if (tws.status !== "free") {
+                          toast.error("Нельзя редактировать занятый стол");
+                          return;
+                        }
+                        setEditTable(tws.table);
+                      }}
+                      onDelete={() => deleteTable(tws)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          ) : tables.length === 0 ? (
-            <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
-          ) : (
-            <div
-              className="grid gap-3"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
-            >
-              {tablesWithStatus.map((tws) => (
-                <TableCard
-                  key={tws.table.id}
-                  tws={tws}
-                  isSelected={!editMode && selected === tws.table.id}
-                  editMode={editMode}
-                  onClick={() => {
-                    if (editMode) return;
-                    setSelected(selected === tws.table.id ? null : tws.table.id);
-                  }}
-                  onEdit={() => {
-                    if (tws.status !== "free") {
-                      toast.error("Нельзя редактировать занятый стол");
-                      return;
-                    }
-                    setEditTable(tws.table);
-                  }}
-                  onDelete={() => deleteTable(tws)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Side panel — work mode only, slides from right */}
-        {!editMode && selectedData && (
-          <TablePanel
-            key={selectedData.table.id}
-            data={selectedData}
-            onClose={() => setSelected(null)}
-            onRefresh={load}
-            onOrderTransferred={(orderId, newTableNumber) => {
-              setOrders((prev) =>
-                prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
-              );
-              setSelected(null);
-            }}
-            allTables={tablesWithStatus}
-          />
-        )}
-      </div>
+            {!editMode && selectedData && (
+              <TablePanel
+                key={selectedData.table.id}
+                data={selectedData}
+                onClose={() => setSelected(null)}
+                onRefresh={load}
+                onOrderTransferred={(orderId, newTableNumber) => {
+                  setOrders((prev) =>
+                    prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
+                  );
+                  setSelected(null);
+                }}
+                allTables={tablesWithStatus}
+              />
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── С собой ─────────────────────────────────────────────────────────── */}
+      {activeTab === "takeaway" && (
+        <OrderQueue
+          orders={takeawayOrders}
+          loading={loading}
+          emptyIcon="🛍️"
+          emptyText="Нет активных заказов с собой"
+          onIssue={closeOrderById}
+        />
+      )}
+
+      {/* ── Доставка ────────────────────────────────────────────────────────── */}
+      {activeTab === "delivery" && (
+        <OrderQueue
+          orders={deliveryOrders}
+          loading={loading}
+          emptyIcon="🛵"
+          emptyText="Нет активных заказов на доставку"
+          onIssue={closeOrderById}
+        />
+      )}
 
       {/* Modals */}
       {(addOpen || editTable) && (
@@ -350,6 +433,120 @@ function LegendDot({ color, label }: { color: "emerald" | "red" | "amber"; label
     <div className="flex items-center gap-1.5 text-muted-foreground">
       <div className={`w-2 h-2 rounded-full ${cls}`} />
       {label}
+    </div>
+  );
+}
+
+// ── OrderQueue ────────────────────────────────────────────────────────────────
+
+function OrderQueue({
+  orders,
+  loading,
+  emptyIcon,
+  emptyText,
+  onIssue,
+}: {
+  orders: DbOrder[];
+  loading: boolean;
+  emptyIcon: string;
+  emptyText: string;
+  onIssue: (orderId: string) => void;
+}) {
+  const [issuing, setIssuing] = useState<string | null>(null);
+
+  async function handleIssue(orderId: string) {
+    setIssuing(orderId);
+    await onIssue(orderId);
+    setIssuing(null);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground text-sm">
+        <Loader2 size={16} className="animate-spin" /> Загрузка…
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+        <span className="text-5xl select-none">{emptyIcon}</span>
+        <p className="text-sm">{emptyText}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto admin-scroll p-5">
+      <div className="max-w-4xl mx-auto grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
+        {orders.map((order) => {
+          const items: OrderItem[] = Array.isArray(order.items_json)
+            ? (order.items_json as OrderItem[])
+            : [];
+          const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
+          const issuingThis = issuing === order.id;
+
+          return (
+            <div
+              key={order.id}
+              className="flex flex-col rounded-xl border border-border bg-card overflow-hidden"
+            >
+              {/* Card header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold text-foreground">{shortId}</span>
+                  <span className="text-muted-foreground text-xs">·</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{formatOrderTime(order.created_at)}</span>
+                </div>
+                <span className="text-lg font-black tabular-nums text-foreground">
+                  {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+                </span>
+              </div>
+
+              {/* Comments */}
+              {order.customer_comments && (
+                <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-50/60 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-800/30">
+                  <MessageSquare size={12} className="text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800 dark:text-amber-300 leading-snug">{order.customer_comments}</p>
+                </div>
+              )}
+
+              {/* Items */}
+              {items.length > 0 && (
+                <div className="px-4 py-3 space-y-1.5 flex-1">
+                  {items.map((item, i) => (
+                    <div key={i} className="flex justify-between items-center text-sm gap-3">
+                      <span className="text-muted-foreground truncate">
+                        {item.name}
+                        <span className="text-muted-foreground/60 ml-1">× {item.qty}</span>
+                      </span>
+                      <span className="font-semibold shrink-0 tabular-nums text-xs">
+                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Issue button */}
+              <div className="px-4 py-3 border-t border-border">
+                <button
+                  onClick={() => handleIssue(order.id)}
+                  disabled={issuingThis}
+                  className="w-full flex items-center justify-center gap-2 h-9 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                >
+                  {issuingThis
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : <CheckCircle2 size={14} />
+                  }
+                  Готов / Выдан
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
