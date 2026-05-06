@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
-  Check, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
+  Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
@@ -886,15 +886,18 @@ function OrderPanel({
   onBack: () => void;
   onDone: () => void;
 }) {
-  const [categories, setCategories]     = useState<DbCategory[]>([]);
-  const [products, setProducts]         = useState<DbProduct[]>([]);
-  const [catLoading, setCatLoading]     = useState(true);
+  const [categories, setCategories]       = useState<DbCategory[]>([]);
+  const [products, setProducts]           = useState<DbProduct[]>([]);
+  const [catLoading, setCatLoading]       = useState(true);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
-  const [search, setSearch]             = useState("");
-  const [cart, setCart]                 = useState<Map<string, CartItem>>(new Map());
-  const [submitting, setSubmitting]     = useState(false);
+  const [search, setSearch]               = useState("");
+  const [cart, setCart]                   = useState<Map<string, CartItem>>(new Map());
+  const [submitting, setSubmitting]       = useState(false);
+  const [canScrollLeft, setCanScrollLeft]   = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const catTabsRef = useRef<HTMLDivElement>(null);
 
+  // Wheel → horizontal scroll + arrow visibility
   useEffect(() => {
     const el = catTabsRef.current;
     if (!el) return;
@@ -903,9 +906,26 @@ function OrderPanel({
       e.preventDefault();
       el.scrollLeft += e.deltaY;
     };
+    function onScroll() {
+      if (!el) return;
+      setCanScrollLeft(el.scrollLeft > 2);
+      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+    }
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    el.addEventListener("scroll", onScroll);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", onScroll);
+    };
   }, []);
+
+  // Recheck arrows when categories load
+  useEffect(() => {
+    const el = catTabsRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  }, [categories]);
 
   useEffect(() => {
     async function fetchCatalog() {
@@ -930,6 +950,10 @@ function OrderPanel({
     }
     fetchCatalog();
   }, []);
+
+  function scrollCats(dir: "left" | "right") {
+    catTabsRef.current?.scrollBy({ left: dir === "left" ? -180 : 180, behavior: "smooth" });
+  }
 
   function addToCart(product: DbProduct) {
     const name = productName(product);
@@ -1020,21 +1044,55 @@ function OrderPanel({
 
       {/* ── Category tabs ── */}
       {!trimmed && categories.length > 0 && (
-        <div ref={catTabsRef} className="flex gap-1.5 px-3 py-2 border-b border-border overflow-x-auto shrink-0 scrollbar-none" style={{ scrollbarWidth: "none" }}>
-          {categories.map((cat) => (
+        <div className="relative border-b border-border shrink-0">
+
+          {/* Left arrow */}
+          {canScrollLeft && (
             <button
-              key={cat.id}
-              onClick={() => setSelectedCatId(cat.id)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
-                selectedCatId === cat.id
-                  ? "bg-violet-600 text-white"
-                  : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
-              }`}
+              onClick={() => scrollCats("left")}
+              className="absolute left-0 top-0 bottom-[5px] z-10 flex items-center pl-1 pr-2.5 bg-gradient-to-r from-background via-background/70 to-transparent"
             >
-              {cat.icon && <span>{cat.icon}</span>}
-              {cat.name.ru || cat.name.en}
+              <ChevronLeft size={14} className="text-zinc-400 dark:text-zinc-500 hover:text-foreground transition-colors shrink-0" />
             </button>
-          ))}
+          )}
+
+          {/* Scrollable strip */}
+          <div
+            ref={catTabsRef}
+            className="flex gap-1.5 py-2 overflow-x-auto admin-scroll-x"
+            style={{
+              paddingLeft:  canScrollLeft  ? 28 : 12,
+              paddingRight: canScrollRight ? 28 : 12,
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgba(120,120,130,0.4) transparent",
+            } as React.CSSProperties}
+          >
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCatId(cat.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                  selectedCatId === cat.id
+                    ? "bg-violet-600 text-white"
+                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                }`}
+              >
+                {cat.icon && <span>{cat.icon}</span>}
+                {cat.name.ru || cat.name.en}
+              </button>
+            ))}
+          </div>
+
+          {/* Right arrow */}
+          {canScrollRight && (
+            <button
+              onClick={() => scrollCats("right")}
+              className="absolute right-0 top-0 bottom-[5px] z-10 flex items-center pr-1 pl-2.5 bg-gradient-to-l from-background via-background/70 to-transparent"
+            >
+              <ChevronRight size={14} className="text-zinc-400 dark:text-zinc-500 hover:text-foreground transition-colors shrink-0" />
+            </button>
+          )}
+
         </div>
       )}
 
