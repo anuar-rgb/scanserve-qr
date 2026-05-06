@@ -814,7 +814,7 @@ function InfoCards({
             width: "min(100vw, 480px)",
             background: isDark ? "#1C1C1C" : "#FFFFFF",
             borderRadius: "24px 24px 0 0",
-            padding: "28px 24px 36px",
+            padding: "28px 24px calc(env(safe-area-inset-bottom, 0px) + 76px)",
             fontFamily: "'Montserrat', system-ui, sans-serif",
             boxShadow: "0 -4px 40px rgba(0,0,0,0.4)",
           }}>
