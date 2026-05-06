@@ -1039,7 +1039,7 @@ function OrderPanel({
       )}
 
       {/* ── Product grid (scrollable) ── */}
-      <div className="flex-1 overflow-y-auto p-2.5 min-h-0">
+      <div className="flex-1 overflow-y-auto p-2.5 min-h-0 admin-scroll">
         {catLoading ? (
           <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
             <Loader2 size={14} className="animate-spin" /> Загрузка меню…

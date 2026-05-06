@@ -253,3 +253,24 @@ body {
     @apply font-sans;
   }
 }
+
+/* Thin styled scrollbar — apply via className="admin-scroll" */
+.admin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 130, 0.35);
+  border-radius: 999px;
+}
+.admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 130, 0.6);
+}
+.dark .admin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(200, 200, 220, 0.2);
+}
+.dark .admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 200, 220, 0.4);
+}
