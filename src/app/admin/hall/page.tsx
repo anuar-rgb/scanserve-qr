@@ -307,6 +307,7 @@ export default function HallPage() {
             data={selectedData}
             onClose={() => setSelected(null)}
             onRefresh={load}
+            allTables={tablesWithStatus}
           />
         )}
       </div>
@@ -510,17 +511,18 @@ function TablePanel({
   data,
   onClose,
   onRefresh,
+  allTables,
 }: {
   data: TableWithStatus;
   onClose: () => void;
   onRefresh: () => void;
+  allTables: TableWithStatus[];
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
   const [panelMode, setPanelMode]             = useState<"info" | "order">("info");
   const [closing, setClosing]                 = useState(false);
   const [copiedId, setCopiedId]               = useState(false);
   const [changingTable, setChangingTable]     = useState(false);
-  const [newLabel, setNewLabel]               = useState("");
   const [addingItem, setAddingItem]           = useState(false);
   const [itemName, setItemName]               = useState("");
   const [itemPrice, setItemPrice]             = useState("");
@@ -561,17 +563,18 @@ function TablePanel({
     onRefresh();
   }
 
-  async function changeTable() {
-    if (!order || !newLabel.trim()) return;
+  async function changeTable(targetLabel: string) {
+    if (!order || !targetLabel) return;
     const { error } = await supabase
       .from(DB_TABLES.orders)
-      .update({ table_number: newLabel.trim() })
-      .eq("id", order.id);
-    if (error) { toast.error("Ошибка обновления"); return; }
-    toast.success(`Заказ перенесён на стол ${newLabel.trim()}`);
+      .update({ table_number: targetLabel })
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    if (error) { toast.error(`Ошибка переноса: ${error.message}`); return; }
+    toast.success(`Заказ перенесён: стол ${table.label} → стол ${targetLabel}`);
     setChangingTable(false);
-    setNewLabel("");
     onRefresh();
+    onClose();
   }
 
   async function copyId(id: string) {
@@ -819,28 +822,37 @@ function TablePanel({
             {status === "occupied" && (
               <>
                 {changingTable ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newLabel}
-                      onChange={(e) => setNewLabel(e.target.value)}
-                      placeholder="Номер нового стола"
-                      className="flex-1 h-9 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      autoFocus
-                      onKeyDown={(e) => e.key === "Enter" && changeTable()}
-                    />
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Выберите стол для переноса:
+                    </p>
+                    <div className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto admin-scroll">
+                      {allTables
+                        .filter((tws) => tws.table.id !== table.id)
+                        .map((tws) => {
+                          const isFree = tws.status === "free";
+                          return (
+                            <button
+                              key={tws.table.id}
+                              onClick={() => changeTable(tws.table.label)}
+                              disabled={!isFree}
+                              title={isFree ? `Перенести на стол ${tws.table.label}` : "Стол занят"}
+                              className={`h-10 rounded-lg text-xs font-bold border transition-colors ${
+                                isFree
+                                  ? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                  : "border-border text-muted-foreground opacity-40 cursor-not-allowed"
+                              }`}
+                            >
+                              {tws.table.label}
+                            </button>
+                          );
+                        })}
+                    </div>
                     <button
-                      onClick={changeTable}
-                      disabled={!newLabel.trim()}
-                      className="px-4 h-9 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-40 transition-colors"
+                      onClick={() => setChangingTable(false)}
+                      className="w-full h-8 rounded-lg border border-border text-xs text-muted-foreground hover:bg-accent transition-colors"
                     >
-                      OK
-                    </button>
-                    <button
-                      onClick={() => { setChangingTable(false); setNewLabel(""); }}
-                      className="px-3 h-9 rounded-xl border border-border hover:bg-accent transition-colors"
-                    >
-                      <X size={13} />
+                      Отмена
                     </button>
                   </div>
                 ) : (
@@ -1107,7 +1119,7 @@ function OrderPanel({
             {trimmed ? "Ничего не найдено" : "Нет доступных позиций"}
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {visibleProducts.map((product) => {
               const inCart = cart.get(product.id);
               const name   = productName(product);
@@ -1115,27 +1127,27 @@ function OrderPanel({
                 <button
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  className="relative flex flex-col text-left rounded-xl border border-border bg-card p-2.5 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
+                  className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
                 >
                   {/* Qty badge */}
                   {inCart && (
-                    <span className="absolute top-2 right-2 min-w-[20px] h-5 px-1 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
                       {inCart.qty}
                     </span>
                   )}
 
                   {/* Name */}
-                  <p className="text-[11px] font-semibold leading-tight line-clamp-2 pr-6 min-h-[2.2rem] text-foreground">
+                  <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">
                     {name}
                   </p>
 
                   {/* Price + add */}
-                  <div className="flex items-center justify-between mt-2 gap-1">
-                    <span className="text-sm font-black tabular-nums text-foreground">
+                  <div className="flex items-center justify-between mt-1.5 gap-0.5">
+                    <span className="text-[11px] font-black tabular-nums text-foreground leading-none">
                       {product.price.toLocaleString("ru-RU")} ₸
                     </span>
-                    <div className="w-6 h-6 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
-                      <Plus size={13} />
+                    <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
+                      <Plus size={11} />
                     </div>
                   </div>
                 </button>
