@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
+  ArrowLeft, Search, Minus,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import type { DbOrder, DbRestaurantTable } from "@/lib/db-types";
+import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ import { toast } from "sonner";
 
 type TableStatus = "free" | "occupied" | "preorder";
 type OrderItem = { name: string; qty: number; price: number; currency: string };
+type CartItem  = { productId: string; name: string; price: number; qty: number };
 
 interface TableWithStatus {
   table: DbRestaurantTable;
@@ -73,6 +75,10 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function productName(p: DbProduct): string {
+  return p.name.ru || p.name.en || p.name.kz || "";
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function HallPage() {
@@ -102,6 +108,13 @@ export default function HallPage() {
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
     ]);
+
+    if (tablesRes.error) {
+      console.error("[HallPage] tables fetch error:", tablesRes.error);
+      toast.error(`Ошибка загрузки столов: ${tablesRes.error.message}`);
+      setLoading(false);
+      return;
+    }
 
     const newOrders = (ordersRes.data as DbOrder[]) ?? [];
 
@@ -503,21 +516,36 @@ function TablePanel({
   onRefresh: () => void;
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
-  const [closing, setClosing]             = useState(false);
-  const [copiedId, setCopiedId]           = useState(false);
-  const [changingTable, setChangingTable] = useState(false);
-  const [newLabel, setNewLabel]           = useState("");
-  const [creatingOrder, setCreatingOrder] = useState(false);
-  const [addingItem, setAddingItem]       = useState(false);
-  const [itemName, setItemName]           = useState("");
-  const [itemPrice, setItemPrice]         = useState("");
-  const [itemQty, setItemQty]             = useState("1");
-  const [itemSaving, setItemSaving]       = useState(false);
+  const [panelMode, setPanelMode]             = useState<"info" | "order">("info");
+  const [closing, setClosing]                 = useState(false);
+  const [copiedId, setCopiedId]               = useState(false);
+  const [changingTable, setChangingTable]     = useState(false);
+  const [newLabel, setNewLabel]               = useState("");
+  const [addingItem, setAddingItem]           = useState(false);
+  const [itemName, setItemName]               = useState("");
+  const [itemPrice, setItemPrice]             = useState("");
+  const [itemQty, setItemQty]                 = useState("1");
+  const [itemSaving, setItemSaving]           = useState(false);
 
   const activeOrder = order ?? preorderOrder;
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
     ? (activeOrder!.items_json as OrderItem[])
     : [];
+
+  // ── Order creation mode ──────────────────────────────────────────────────────
+  if (panelMode === "order") {
+    return (
+      <aside className="w-[340px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+        <OrderPanel
+          table={table}
+          onBack={() => setPanelMode("info")}
+          onDone={() => { setPanelMode("info"); onRefresh(); }}
+        />
+      </aside>
+    );
+  }
+
+  // ── Info mode ────────────────────────────────────────────────────────────────
 
   async function closeOrder() {
     if (!order) return;
@@ -552,25 +580,6 @@ function TablePanel({
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
     } catch { /* clipboard unavailable */ }
-  }
-
-  async function createWalkInOrder() {
-    setCreatingOrder(true);
-    const { error } = await supabase
-      .from(DB_TABLES.orders)
-      .insert({
-        restaurant_id: RESTAURANT_ID,
-        status: "pending",
-        type: "dine-in",
-        table_number: table.label,
-        items_json: [],
-        total_price: 0,
-        order_type: "asap",
-      });
-    setCreatingOrder(false);
-    if (error) { toast.error("Ошибка создания заказа"); return; }
-    toast.success(`Заказ для стола ${table.label} открыт`);
-    onRefresh();
   }
 
   async function addItemToOrder() {
@@ -637,13 +646,10 @@ function TablePanel({
               </p>
             </div>
             <button
-              onClick={createWalkInOrder}
-              disabled={creatingOrder}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              onClick={() => setPanelMode("order")}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors"
             >
-              {creatingOrder
-                ? <><Loader2 size={14} className="animate-spin" /> Создаём…</>
-                : <><ShoppingCart size={14} /> Принять заказ</>}
+              <ShoppingCart size={14} /> Принять заказ
             </button>
           </div>
         )}
@@ -869,6 +875,254 @@ function TablePanel({
   );
 }
 
+// ── OrderPanel ────────────────────────────────────────────────────────────────
+
+function OrderPanel({
+  table,
+  onBack,
+  onDone,
+}: {
+  table: DbRestaurantTable;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const [categories, setCategories]     = useState<DbCategory[]>([]);
+  const [products, setProducts]         = useState<DbProduct[]>([]);
+  const [catLoading, setCatLoading]     = useState(true);
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [search, setSearch]             = useState("");
+  const [cart, setCart]                 = useState<Map<string, CartItem>>(new Map());
+  const [submitting, setSubmitting]     = useState(false);
+
+  useEffect(() => {
+    async function fetchCatalog() {
+      const [catsRes, prodsRes] = await Promise.all([
+        supabase
+          .from(DB_TABLES.categories)
+          .select("*")
+          .eq("restaurant_id", RESTAURANT_ID)
+          .order("order_index"),
+        supabase
+          .from(DB_TABLES.products)
+          .select("*")
+          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("is_archived", false)
+          .order("order_index"),
+      ]);
+      const cats = (catsRes.data as DbCategory[]) ?? [];
+      setCategories(cats);
+      setProducts((prodsRes.data as DbProduct[]) ?? []);
+      setSelectedCatId(cats[0]?.id ?? null);
+      setCatLoading(false);
+    }
+    fetchCatalog();
+  }, []);
+
+  function addToCart(product: DbProduct) {
+    const name = productName(product);
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(product.id);
+      next.set(product.id, existing
+        ? { ...existing, qty: existing.qty + 1 }
+        : { productId: product.id, name, price: product.price, qty: 1 }
+      );
+      return next;
+    });
+  }
+
+  function decrementCart(productId: string) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(productId);
+      if (!existing) return prev;
+      if (existing.qty <= 1) next.delete(productId);
+      else next.set(productId, { ...existing, qty: existing.qty - 1 });
+      return next;
+    });
+  }
+
+  const cartItems = Array.from(cart.values());
+  const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
+  const total     = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const trimmed = search.trim().toLowerCase();
+  const visibleProducts = products.filter((p) => {
+    if (!p.is_available) return false;
+    if (trimmed) {
+      return (
+        p.name.ru.toLowerCase().includes(trimmed) ||
+        p.name.en.toLowerCase().includes(trimmed) ||
+        p.name.kz.toLowerCase().includes(trimmed)
+      );
+    }
+    return !selectedCatId || p.category_id === selectedCatId;
+  });
+
+  async function submitOrder() {
+    if (cartItems.length === 0) { toast.error("Добавьте хотя бы одно блюдо"); return; }
+    setSubmitting(true);
+    const items: OrderItem[] = cartItems.map((i) => ({
+      name: i.name, qty: i.qty, price: i.price, currency: "₸",
+    }));
+    const { error } = await supabase.from(DB_TABLES.orders).insert({
+      restaurant_id: RESTAURANT_ID,
+      status: "pending",
+      type: "dine-in",
+      table_number: table.label,
+      items_json: items,
+      total_price: total,
+      order_type: "asap",
+    });
+    setSubmitting(false);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    toast.success(`Заказ для стола ${table.label} отправлен на кухню!`);
+    onDone();
+  }
+
+  return (
+    <>
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+        <button
+          onClick={onBack}
+          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+        >
+          <ArrowLeft size={15} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm leading-tight truncate">Стол {table.label} · Новый заказ</p>
+        </div>
+        <div className="relative shrink-0">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск…"
+            className="h-8 pl-7 pr-3 w-28 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 focus:w-36 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* ── Category tabs ── */}
+      {!trimmed && categories.length > 0 && (
+        <div className="flex gap-1.5 px-3 py-2 border-b border-border overflow-x-auto shrink-0 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCatId(cat.id)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                selectedCatId === cat.id
+                  ? "bg-violet-600 text-white"
+                  : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+              }`}
+            >
+              {cat.icon && <span>{cat.icon}</span>}
+              {cat.name.ru || cat.name.en}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Product grid (scrollable) ── */}
+      <div className="flex-1 overflow-y-auto p-2.5 min-h-0">
+        {catLoading ? (
+          <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
+            <Loader2 size={14} className="animate-spin" /> Загрузка меню…
+          </div>
+        ) : visibleProducts.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-10">
+            {trimmed ? "Ничего не найдено" : "Нет доступных позиций"}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {visibleProducts.map((product) => {
+              const inCart = cart.get(product.id);
+              const name   = productName(product);
+              return (
+                <button
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className="relative flex flex-col text-left rounded-xl border border-border bg-card p-2.5 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
+                >
+                  {/* Qty badge */}
+                  {inCart && (
+                    <span className="absolute top-2 right-2 min-w-[20px] h-5 px-1 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">
+                      {inCart.qty}
+                    </span>
+                  )}
+
+                  {/* Name */}
+                  <p className="text-[11px] font-semibold leading-tight line-clamp-2 pr-6 min-h-[2.2rem] text-foreground">
+                    {name}
+                  </p>
+
+                  {/* Price + add */}
+                  <div className="flex items-center justify-between mt-2 gap-1">
+                    <span className="text-sm font-black tabular-nums text-foreground">
+                      {product.price.toLocaleString("ru-RU")} ₸
+                    </span>
+                    <div className="w-6 h-6 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
+                      <Plus size={13} />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Cart + Submit (pinned to bottom) ── */}
+      <div className="shrink-0 border-t border-border bg-background">
+        {/* Cart items */}
+        {cartItems.length > 0 && (
+          <div className="px-3 pt-2 pb-1 max-h-32 overflow-y-auto space-y-1">
+            {cartItems.map((item) => (
+              <div key={item.productId} className="flex items-center gap-1.5 text-xs">
+                <button
+                  onClick={() => decrementCart(item.productId)}
+                  className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                >
+                  <Minus size={9} />
+                </button>
+                <span className="flex-1 truncate text-foreground">{item.name}</span>
+                <span className="shrink-0 text-muted-foreground">×{item.qty}</span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                  {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Total + button */}
+        <div className="px-3 pb-3 pt-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {cartItems.length === 0 ? "Корзина пуста" : `${cartCount} позиц.`}
+            </span>
+            <span className="text-xl font-black tabular-nums">
+              {total.toLocaleString("ru-RU")} ₸
+            </span>
+          </div>
+          <button
+            onClick={submitOrder}
+            disabled={submitting || cartItems.length === 0}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+          >
+            {submitting
+              ? <><Loader2 size={14} className="animate-spin" /> Отправка…</>
+              : <><Check size={15} /> Отправить на кухню</>
+            }
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── TableFormModal ────────────────────────────────────────────────────────────
 
 function TableFormModal({
@@ -887,17 +1141,20 @@ function TableFormModal({
   async function save() {
     if (!label.trim()) return;
     setSaving(true);
-    if (table) {
-      await supabase
-        .from(DB_TABLES.restaurantTables)
-        .update({ label: label.trim(), seats: Number(seats) || 4 })
-        .eq("id", table.id);
-    } else {
-      await supabase
-        .from(DB_TABLES.restaurantTables)
-        .insert({ restaurant_id: RESTAURANT_ID, label: label.trim(), seats: Number(seats) || 4 });
-    }
+    const { error } = table
+      ? await supabase
+          .from(DB_TABLES.restaurantTables)
+          .update({ label: label.trim(), seats: Number(seats) || 4 })
+          .eq("id", table.id)
+      : await supabase
+          .from(DB_TABLES.restaurantTables)
+          .insert({ restaurant_id: RESTAURANT_ID, label: label.trim(), seats: Number(seats) || 4 });
     setSaving(false);
+    if (error) {
+      console.error("[TableFormModal] save error:", error);
+      toast.error(`Ошибка сохранения: ${error.message}`);
+      return;
+    }
     toast.success(table ? "Стол обновлён" : "Стол добавлен");
     onSaved();
   }

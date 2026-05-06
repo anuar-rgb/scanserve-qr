@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
 -- ── RLS ───────────────────────────────────────────────────────────────────────
 ALTER TABLE restaurant_tables ENABLE ROW LEVEL SECURITY;
 
--- Admins read/write all tables for their restaurant (authenticated)
+-- authenticated role (service/JWT users)
 DROP POLICY IF EXISTS "auth read restaurant_tables"   ON restaurant_tables;
 CREATE POLICY "auth read restaurant_tables"
   ON restaurant_tables FOR SELECT TO authenticated
@@ -20,6 +20,17 @@ CREATE POLICY "auth read restaurant_tables"
 DROP POLICY IF EXISTS "auth write restaurant_tables"  ON restaurant_tables;
 CREATE POLICY "auth write restaurant_tables"
   ON restaurant_tables FOR ALL TO authenticated
+  WITH CHECK (true);
+
+-- anon role (frontend / admin panel using anon key)
+DROP POLICY IF EXISTS "anon read restaurant_tables"   ON restaurant_tables;
+CREATE POLICY "anon read restaurant_tables"
+  ON restaurant_tables FOR SELECT TO anon
+  USING (true);
+
+DROP POLICY IF EXISTS "anon write restaurant_tables"  ON restaurant_tables;
+CREATE POLICY "anon write restaurant_tables"
+  ON restaurant_tables FOR ALL TO anon
   WITH CHECK (true);
 
 -- ── Index ─────────────────────────────────────────────────────────────────────
