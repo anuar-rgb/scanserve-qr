@@ -209,6 +209,9 @@ const T: Record<string, Record<Lang, string>> = {
   tableOccupied:        { en: "Occupied",                                ru: "Занят",                                       kz: "Бос емес"                              },
   noTablesAvailable:    { en: "No tables available",                     ru: "Нет доступных столов",                        kz: "Бос үстел жоқ"                         },
   loadingTables:        { en: "Loading tables…",                         ru: "Загрузка столов…",                            kz: "Үстелдер жүктелуде…"                   },
+  dineInSuccess:        { en: "Order Received!",                         ru: "Ваш заказ принят!",                           kz: "Тапсырысыңыз қабылданды!"              },
+  dineInSuccessSub:     { en: "Our staff will attend to you shortly.",   ru: "Официант скоро подойдет.",                    kz: "Даяшы жақын арада келеді."             },
+  sendOrder:            { en: "Place Order",                             ru: "Отправить заказ",                             kz: "Тапсырыс беру"                         },
 };
 
 const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? key;
@@ -390,7 +393,7 @@ export function CartDrawer({
   const [tableNumber, setTableNumber]         = useState(initialTableNumber ?? "");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes]                     = useState("");
-  const [payment, setPayment]                 = useState<PaymentMethod | null>(null);
+  const [payment, setPayment]                 = useState<PaymentMethod | null>(isTableLocked ? "pay-at-restaurant" : null);
   const [cardBankIdx, setCardBankIdx]         = useState<number | null>(null);
   const [placedOrder, setPlacedOrder]         = useState<PlacedOrder | null>(null);
   const [loading, setLoading]                 = useState(false);
@@ -594,27 +597,51 @@ export function CartDrawer({
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     setPlacedOrderId(orderId);
-    const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId, notes.trim() || undefined);
-    if (isMobile) {
-      window.location.href = url;
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
 
-    if (isConfigured) {
-      supabase.from("orders").insert({
-        id: orderId,
-        restaurant_id: RESTAURANT_ID,
-        table_number: orderType === "dine-in" ? tableNumber.trim() : null,
-        items_json: orderItems,
-        total_price: grandTotal,
-        status: "pending",
-        type: orderType!,
-        order_type: timingMode,
-        preorder_date: timingMode === "preorder" ? preorderDate : null,
-        preorder_time: timingMode === "preorder" ? preorderTime : null,
-        customer_comments: notes.trim() || null,
-      }).then(() => {});
+    if (orderType === "dine-in") {
+      // Direct Supabase insert — no WhatsApp redirect for table orders
+      if (isConfigured) {
+        const { error } = await supabase.from(DB_TABLES.orders).insert({
+          id: orderId,
+          restaurant_id: RESTAURANT_ID,
+          table_number: tableNumber.trim() || null,
+          items_json: orderItems,
+          total_price: grandTotal,
+          status: "pending",
+          type: "dine-in",
+          order_type: timingMode,
+          preorder_date: timingMode === "preorder" ? preorderDate : null,
+          preorder_time: timingMode === "preorder" ? preorderTime : null,
+          customer_comments: notes.trim() || null,
+        });
+        if (error) {
+          setLoading(false);
+          return;
+        }
+      }
+    } else {
+      // pickup/delivery: redirect to WhatsApp + fire-and-forget DB insert
+      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId, notes.trim() || undefined);
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      if (isConfigured) {
+        supabase.from(DB_TABLES.orders).insert({
+          id: orderId,
+          restaurant_id: RESTAURANT_ID,
+          table_number: null,
+          items_json: orderItems,
+          total_price: grandTotal,
+          status: "pending",
+          type: orderType!,
+          order_type: timingMode,
+          preorder_date: timingMode === "preorder" ? preorderDate : null,
+          preorder_time: timingMode === "preorder" ? preorderTime : null,
+          customer_comments: notes.trim() || null,
+        }).then(() => {});
+      }
     }
 
     onClearCart();
@@ -1463,7 +1490,7 @@ export function CartDrawer({
                 disabled={!canPlaceOrder || loading}
                 style={primaryBtn(!canPlaceOrder || loading)}
               >
-                {loading ? "…" : tn("placeOrder", lang)}
+                {loading ? "…" : orderType === "dine-in" ? tn("sendOrder", lang) : tn("placeOrder", lang)}
               </button>
             </div>
           </>
@@ -1476,8 +1503,12 @@ export function CartDrawer({
               <div style={{ width: 72, height: 72, borderRadius: R.full, background: surface, border: `2px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: `${SP.xl}px 0 ${SP.md}px` }}>
                 <Check size={32} strokeWidth={2.5} />
               </div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", textAlign: "center" }}>{tn("success", lang)}</h2>
-              <p style={{ fontSize: 14, color: muted, margin: "0 0 28px", textAlign: "center", lineHeight: 1.5 }}>{tn("successSub", lang)}</p>
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", textAlign: "center" }}>
+                {placedOrder.orderType === "dine-in" ? tn("dineInSuccess", lang) : tn("success", lang)}
+              </h2>
+              <p style={{ fontSize: 14, color: muted, margin: "0 0 28px", textAlign: "center", lineHeight: 1.5 }}>
+                {placedOrder.orderType === "dine-in" ? tn("dineInSuccessSub", lang) : tn("successSub", lang)}
+              </p>
 
               <div style={{ width: "100%", background: surface, borderRadius: R.lg, padding: SP.md, border: `1px solid ${border}` }}>
                 <OrderRow
