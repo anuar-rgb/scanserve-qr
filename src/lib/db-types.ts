@@ -60,6 +60,10 @@ export interface DbOrder {
   total_price: number;
   status: string;
   type: string;
+  order_type: "asap" | "preorder" | null;
+  preorder_date: string | null;
+  preorder_time: string | null;
+  customer_comments: string | null;
   created_at: string;
 }
 

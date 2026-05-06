@@ -12,11 +12,15 @@ export type CartMap = Record<string, { dish: Dish; qty: number; currency: string
 
 type PaymentMethod = "pay-at-restaurant" | "cash" | "kaspi" | "card-transfer" | "remote-payment";
 type OrderType = "dine-in" | "pickup" | "delivery";
+type TimingMode = "asap" | "preorder";
 type Step = "cart" | "checkout" | "success";
 
 interface PlacedOrder {
   restaurantName: string;
   orderType: OrderType;
+  timingMode: TimingMode;
+  preorderDate?: string;
+  preorderTime?: string;
   tableNumber?: string;
   deliveryAddress?: string;
   cityName?: string;
@@ -40,6 +44,9 @@ export interface StoredOrder {
   timestamp: number;
   restaurantName: string;
   orderType: "dine-in" | "pickup" | "delivery";
+  timingMode?: "asap" | "preorder";
+  preorderDate?: string;
+  preorderTime?: string;
   tableNumber?: string;
   items: { name: string; qty: number; price: number; currency: string }[];
   total: number;
@@ -190,6 +197,12 @@ const T: Record<string, Record<Lang, string>> = {
   reviewSend:           { en: "Submit Review",                            ru: "Отправить отзыв",                             kz: "Пікір жіберу"                          },
   reviewThanks:         { en: "Thank you for your review!",               ru: "Спасибо за ваш отзыв!",                      kz: "Пікіріңізге рахмет!"                   },
   reviewHint:           { en: "Your comment (optional)",                  ru: "Комментарий (необязательно)",                 kz: "Түсініктеме (міндетті емес)"           },
+  timingLabel:          { en: "When?",                                    ru: "Когда?",                                      kz: "Қашан?"                                },
+  asap:                 { en: "As Soon As Possible",                      ru: "Как можно быстрее",                           kz: "Мүмкіндігінше тез"                     },
+  preorderMode:         { en: "Pre-order",                                ru: "Предзаказ",                                   kz: "Алдын ала тапсырыс"                    },
+  preorderDate:         { en: "Date",                                     ru: "Дата",                                        kz: "Күн"                                   },
+  preorderTime:         { en: "Time",                                     ru: "Время",                                       kz: "Уақыт"                                 },
+  preorderFor:          { en: "Pre-order for",                            ru: "Предзаказ на",                                kz: "Алдын ала тапсырыс"                    },
 };
 
 const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? key;
@@ -203,6 +216,7 @@ function buildWhatsAppUrl(
   kaspiPhone?: string,
   cardTransferOptions?: PaymentInfo[],
   orderId?: string,
+  comments?: string,
 ): string {
   // Message-only translations (not shown in the UI, only in the WA message)
   const MSG: Record<string, Record<Lang, string>> = {
@@ -234,6 +248,10 @@ function buildWhatsAppUrl(
     kaspiBank:            { en: "Kaspi.kz",                     ru: "Kaspi.kz",                             kz: "Kaspi.kz"                             },
     halykBank:            { en: "Halyk Bank",                   ru: "Halyk Bank",                           kz: "Halyk Bank"                           },
     paymentCommentLabel:  { en: "Payment Comment",              ru: "Комментарий к оплате",                 kz: "Төлемге түсініктеме"                  },
+    preorderLabel:        { en: "Pre-order",                   ru: "Предзаказ",                            kz: "Алдын ала тапсырыс"                   },
+    preorderDateLabel:    { en: "Date",                        ru: "Дата",                                 kz: "Күн"                                  },
+    preorderTimeLabel:    { en: "Time",                        ru: "Время",                                kz: "Уақыт"                                },
+    commentsLabel:        { en: "Comments",                    ru: "Пожелания",                            kz: "Ескертулер"                           },
   };
 
   const m = (key: string): string => MSG[key]?.[lang] ?? MSG[key]?.en ?? key;
@@ -304,7 +322,13 @@ function buildWhatsAppUrl(
     ...(order.deliveryFee ? [`• 🚚 ${m("deliveryFeeLabel")}: ${order.deliveryFee.toLocaleString("ru-RU")} ${order.currency}`] : []),
     `---`,
     `>> *${m("totalLabel")}: ${order.total.toLocaleString("ru-RU")} ${order.currency}*`,
+    ...(order.timingMode === "preorder" ? [
+      `📅 *${m("preorderLabel")}*`,
+      `• ${m("preorderDateLabel")}: ${order.preorderDate ?? ""}`,
+      `• ${m("preorderTimeLabel")}: ${order.preorderTime ?? ""}`,
+    ] : []),
     ...(order.notes ? [`• ${m("notesLabel")}: ${order.notes}`] : []),
+    ...(comments ? [`• ${m("commentsLabel")}: ${comments}`] : []),
   ];
 
   // encodeURIComponent correctly percent-encodes Kazakh/Cyrillic characters (UTF-8)
@@ -351,6 +375,9 @@ export function CartDrawer({
   const [step, setStep]                       = useState<Step>("cart");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [orderType, setOrderType]             = useState<OrderType | null>(null);
+  const [timingMode, setTimingMode]           = useState<TimingMode>("asap");
+  const [preorderDate, setPreorderDate]       = useState("");
+  const [preorderTime, setPreorderTime]       = useState("");
   const [tableNumber, setTableNumber]         = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes]                     = useState("");
@@ -399,11 +426,16 @@ export function CartDrawer({
       cardBankIdx !== null) &&
     (payment !== "remote-payment" || (remoteBank !== null && invoicePhone.trim().replace(/\D/g, "").length >= 10));
 
+  const preorderOk =
+    timingMode === "asap" ||
+    (preorderDate !== "" && preorderTime !== "");
+
   const canPlaceOrder =
     bankOk &&
     orderType !== null &&
     payment !== null &&
     phoneValid &&
+    preorderOk &&
     (orderType === "dine-in"
       ? tableNumber.trim().length > 0
       : orderType === "delivery"
@@ -441,6 +473,9 @@ export function CartDrawer({
 
   const resetCheckout = () => {
     setOrderType(null);
+    setTimingMode("asap");
+    setPreorderDate("");
+    setPreorderTime("");
     setTableNumber("");
     setDeliveryAddress("");
     setNotes("");
@@ -496,6 +531,9 @@ export function CartDrawer({
     const order: PlacedOrder = {
       restaurantName,
       orderType: orderType!,
+      timingMode,
+      preorderDate: timingMode === "preorder" ? preorderDate : undefined,
+      preorderTime: timingMode === "preorder" ? preorderTime : undefined,
       tableNumber: orderType === "dine-in" ? tableNumber.trim() : undefined,
       deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() : undefined,
       cityName: foundCity ? foundCity[lang] : city || undefined,
@@ -514,12 +552,29 @@ export function CartDrawer({
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     setPlacedOrderId(orderId);
-    const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
+    const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId, notes.trim() || undefined);
     if (isMobile) {
       window.location.href = url;
     } else {
       window.open(url, "_blank", "noopener,noreferrer");
     }
+
+    if (isConfigured) {
+      supabase.from("orders").insert({
+        id: orderId,
+        restaurant_id: RESTAURANT_ID,
+        table_number: orderType === "dine-in" ? tableNumber.trim() : null,
+        items_json: orderItems,
+        total_price: grandTotal,
+        status: "pending",
+        type: orderType!,
+        order_type: timingMode,
+        preorder_date: timingMode === "preorder" ? preorderDate : null,
+        preorder_time: timingMode === "preorder" ? preorderTime : null,
+        customer_comments: notes.trim() || null,
+      }).then(() => {});
+    }
+
     onClearCart();
     setPlacedOrder(order);
     setStep("success");
@@ -530,6 +585,9 @@ export function CartDrawer({
       timestamp: Date.now(),
       restaurantName,
       orderType: order.orderType,
+      timingMode,
+      preorderDate: order.preorderDate,
+      preorderTime: order.preorderTime,
       tableNumber: order.tableNumber,
       items: orderItems,
       total: grandTotal,
@@ -822,6 +880,82 @@ export function CartDrawer({
                   );
                 })}
               </div>
+
+              {/* ── Timing mode ── */}
+              <p style={labelSectionStyle}>{tn("timingLabel", lang)}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SP.sm, marginBottom: SP.lg }}>
+                {(["asap", "preorder"] as const).map((mode) => {
+                  const sel = timingMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setTimingMode(mode)}
+                      style={{
+                        display: "flex", flexDirection: "column", alignItems: "center",
+                        justifyContent: "center", gap: 6,
+                        padding: "12px 8px",
+                        background: sel
+                          ? (isDark ? "rgba(245,245,245,0.10)" : "rgba(0,0,0,0.05)")
+                          : card,
+                        border: `2px solid ${sel ? textClr : border}`,
+                        borderRadius: R.lg,
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        color: textClr,
+                      }}
+                    >
+                      <span style={{ fontSize: 22 }}>{mode === "asap" ? "⚡" : "📅"}</span>
+                      <span style={{ fontSize: 11, fontWeight: sel ? 700 : 500, lineHeight: 1.2, textAlign: "center" }}>
+                        {tn(mode === "asap" ? "asap" : "preorderMode", lang)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* ── Preorder date & time ── */}
+              {timingMode === "preorder" && (
+                <div style={{ marginBottom: SP.lg, display: "flex", gap: SP.sm }}>
+                  <label style={{ flex: 1 }}>
+                    <span style={labelSectionStyle}>{tn("preorderDate", lang)}</span>
+                    <input
+                      type="date"
+                      value={preorderDate}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setPreorderDate(e.target.value)}
+                      style={{
+                        display: "block", width: "100%", marginTop: SP.sm,
+                        padding: "13px 14px",
+                        background: surface,
+                        border: `1.5px solid ${preorderDate ? textClr : border}`,
+                        borderRadius: R.md, color: textClr, fontSize: 15,
+                        outline: "none", boxSizing: "border-box",
+                        transition: "border-color 0.15s",
+                        fontFamily: "inherit",
+                      } as React.CSSProperties}
+                    />
+                  </label>
+                  <label style={{ flex: 1 }}>
+                    <span style={labelSectionStyle}>{tn("preorderTime", lang)}</span>
+                    <input
+                      type="time"
+                      value={preorderTime}
+                      onChange={(e) => setPreorderTime(e.target.value)}
+                      style={{
+                        display: "block", width: "100%", marginTop: SP.sm,
+                        padding: "13px 14px",
+                        background: surface,
+                        border: `1.5px solid ${preorderTime ? textClr : border}`,
+                        borderRadius: R.md, color: textClr, fontSize: 15,
+                        outline: "none", boxSizing: "border-box",
+                        transition: "border-color 0.15s",
+                        fontFamily: "inherit",
+                      } as React.CSSProperties}
+                    />
+                  </label>
+                </div>
+              )}
 
               {/* ── Dynamic field ── */}
               {orderType === "dine-in" && (
@@ -1260,6 +1394,16 @@ export function CartDrawer({
                   )}
                   border={border} muted={muted}
                 />
+                {placedOrder.timingMode === "preorder" && placedOrder.preorderDate && (
+                  <div style={{ marginBottom: SP.sm, paddingBottom: SP.sm, borderBottom: `1px solid ${border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", background: isDark ? "rgba(251,191,36,0.10)" : "rgba(251,191,36,0.12)", borderRadius: R.sm, border: `1px solid rgba(251,191,36,0.35)`, marginBottom: 6 }}>
+                      <span style={{ fontSize: 16 }}>📅</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#FBBF24" : "#B45309" }}>
+                        {tn("preorderMode", lang)}: {placedOrder.preorderDate}{placedOrder.preorderTime ? ` · ${placedOrder.preorderTime}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {placedOrder.orderType === "dine-in" && placedOrder.tableNumber && (
                   <OrderRow label={tn("table", lang)} value={placedOrder.tableNumber} border={border} muted={muted} />
                 )}
