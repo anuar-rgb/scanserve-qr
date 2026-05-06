@@ -361,14 +361,17 @@ export default function HeroSliderPage() {
       )}
 
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[860px]">
           <DialogHeader>
             <DialogTitle>
               {editingId ? t.admin.editSlide : t.admin.addSlide}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1">
+          {/* Two-column layout: form + live preview */}
+          <div className="flex gap-6 min-h-0">
+            {/* Left: form */}
+            <div className="flex-1 space-y-4 overflow-y-auto max-h-[60vh] pr-1 min-w-0">
             {/* Media upload */}
             <div className="space-y-2">
               <Label>{t.admin.photoLabel}</Label>
@@ -484,6 +487,24 @@ export default function HeroSliderPage() {
                 onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
               />
             </div>
+            </div>
+
+            {/* Right: phone preview */}
+            <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-1">
+              <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
+                Preview
+              </p>
+              <SliderPhoneMockup
+                title={form.title}
+                description={form.description}
+                tags={form.tags}
+                mediaPreview={form.mediaPreview}
+                mediaType={form.mediaType}
+              />
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
+                Так выглядит слайд в меню гостя
+              </p>
+            </div>
           </div>
 
           <DialogFooter>
@@ -497,6 +518,156 @@ export default function HeroSliderPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Tag color map (matches TAG_COLOR_MAP in MenuTemplate) ─────────────────────
+
+const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
+  white:  { bg: "#FFFFFF", fg: "#111111" },
+  yellow: { bg: "#F59E0B", fg: "#1C0F00" },
+  green:  { bg: "#00C882", fg: "#001A0F" },
+  red:    { bg: "#FF4D6D", fg: "#ffffff" },
+  blue:   { bg: "#00AAFF", fg: "#ffffff" },
+  orange: { bg: "#FF6B2B", fg: "#ffffff" },
+  purple: { bg: "#A855F7", fg: "#ffffff" },
+};
+
+// ── Slider phone mockup (mirrors hero slider in MenuTemplate) ─────────────────
+
+function SliderPhoneMockup({
+  title, description, tags, mediaPreview, mediaType,
+}: {
+  title: string; description: string; tags: SlideTag[];
+  mediaPreview: string | null; mediaType: "image" | "video";
+}) {
+  const visibleTags = tags.filter(t => t.text.trim());
+  return (
+    <div style={{
+      width: 196,
+      background: "#1C1C1E",
+      borderRadius: 36,
+      padding: "18px 9px 14px",
+      boxShadow: "inset 0 0 0 1.5px #3a3a3c, 0 12px 32px rgba(0,0,0,0.4)",
+      flexShrink: 0,
+    }}>
+      {/* Pill notch */}
+      <div style={{ width: 52, height: 7, background: "#2c2c2e", borderRadius: 99, margin: "0 auto 10px" }} />
+      {/* Screen */}
+      <div style={{ background: "#F5F5F7", borderRadius: 20, overflow: "hidden" }}>
+        {/* Slider — 4:5 portrait, edge-to-edge */}
+        <div style={{
+          width: "100%",
+          aspectRatio: "4 / 5",
+          position: "relative",
+          overflow: "hidden",
+          background: "#ccc",
+          borderRadius: "0 0 16px 16px",
+        } as React.CSSProperties}>
+          {mediaPreview ? (
+            mediaType === "video" ? (
+              <video src={mediaPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline />
+            ) : (
+              <img src={mediaPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            )
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, color: "#aaa" }}>
+              🖼️
+            </div>
+          )}
+
+          {/* Floating glass header */}
+          <div style={{
+            position: "absolute", top: 6, left: 5, right: 5,
+            background: "rgba(11,11,17,0.72)",
+            backdropFilter: "blur(14px)",
+            borderRadius: 8,
+            padding: "4px 8px",
+            display: "flex", alignItems: "center", gap: 5,
+          }}>
+            <div style={{ width: 18, height: 18, borderRadius: 6, background: "#444", flexShrink: 0 }} />
+            <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.3)", borderRadius: 3 }} />
+            <div style={{ width: 12, height: 12, borderRadius: 99, background: "rgba(255,255,255,0.2)" }} />
+          </div>
+
+          {/* Tags + title at bottom */}
+          <div style={{ position: "absolute", bottom: 9, left: 8, right: 8 }}>
+            {visibleTags.length > 0 && (
+              <div style={{ display: "flex", gap: 3, marginBottom: 4, flexWrap: "wrap" }}>
+                {visibleTags.map((tag, i) => {
+                  const c = TAG_COLORS[tag.color] ?? TAG_COLORS.white;
+                  return (
+                    <span key={i} style={{
+                      background: c.bg, color: c.fg,
+                      fontSize: 6, fontWeight: 800,
+                      padding: "2px 5px", borderRadius: 99,
+                      fontFamily: "'Montserrat', system-ui, sans-serif",
+                    }}>{tag.text}</span>
+                  );
+                })}
+              </div>
+            )}
+            {title && (
+              <p style={{
+                color: "#fff", fontWeight: 800, fontSize: 9, margin: 0,
+                textShadow: "0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35)",
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+                lineHeight: 1.3,
+              }}>{title}</p>
+            )}
+            {description && (
+              <p style={{
+                color: "rgba(255,255,255,0.85)", fontWeight: 500, fontSize: 7, margin: "2px 0 0",
+                textShadow: "0 1px 8px rgba(0,0,0,0.65)",
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+              }}>{description}</p>
+            )}
+          </div>
+
+          {/* Slide dots */}
+          <div style={{ position: "absolute", bottom: 9, right: 8, display: "flex", gap: 3, alignItems: "center" }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                width: i === 0 ? 10 : 3, height: 3, borderRadius: 99,
+                background: i === 0 ? "#fff" : "rgba(255,255,255,0.45)",
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Below slider — simulated info cards */}
+        <div style={{ padding: "8px 8px 10px" }}>
+          <div style={{ display: "flex", gap: 5, marginBottom: 7 }}>
+            {["🍽️", "⭐", "🎁"].map((emoji, i) => (
+              <div key={i} style={{
+                flex: 1, background: "#fff", borderRadius: 10, padding: "5px 4px",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                border: "1px solid rgba(0,0,0,0.07)",
+              }}>
+                <span style={{ fontSize: 11 }}>{emoji}</span>
+                <div style={{ width: "70%", height: 3, background: "#e0e0e0", borderRadius: 99 }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+            {[0, 1].map(i => (
+              <div key={i} style={{
+                background: "#fff", borderRadius: 10, overflow: "hidden",
+                border: "1px solid rgba(0,0,0,0.07)",
+              }}>
+                <div style={{ aspectRatio: "1/1", background: "#e8e8e8" } as React.CSSProperties} />
+                <div style={{ padding: "4px 5px" }}>
+                  <div style={{ height: 3, width: "80%", background: "#d0d0d0", borderRadius: 3, marginBottom: 2 }} />
+                  <div style={{ height: 3, width: "50%", background: "#c0c0c0", borderRadius: 3 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Home bar */}
+      <div style={{ width: 62, height: 4, background: "#3a3a3c", borderRadius: 99, margin: "9px auto 0" }} />
     </div>
   );
 }
