@@ -8,6 +8,7 @@ import { useTranslations } from "@/lib/i18n";
 import type { DbHeroSlide, SlideTag, TagColor } from "@/lib/db-types";
 import { uploadMedia } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
+import { ImageCropModal } from "@/components/admin/ImageCropModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,13 +38,14 @@ type SlideForm = {
   tags: SlideTag[];
   is_active: boolean;
   mediaFile: File | null;
+  croppedBlob: Blob | null;
   mediaPreview: string | null;
   mediaType: "image" | "video";
 };
 
 const EMPTY_FORM: SlideForm = {
   title: "", description: "", tags: [], is_active: true,
-  mediaFile: null, mediaPreview: null, mediaType: "image",
+  mediaFile: null, croppedBlob: null, mediaPreview: null, mediaType: "image",
 };
 
 export default function HeroSliderPage() {
@@ -57,6 +59,7 @@ export default function HeroSliderPage() {
   const [form, setForm]           = useState<SlideForm>(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null);
+  const [cropSrc, setCropSrc]     = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -86,6 +89,7 @@ export default function HeroSliderPage() {
       tags: s.tags ?? [],
       is_active: s.is_active,
       mediaFile: null,
+      croppedBlob: null,
       mediaPreview: s.url,
       mediaType: s.type,
     });
@@ -101,13 +105,30 @@ export default function HeroSliderPage() {
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    e.target.value = "";
     const isVideo = f.type.startsWith("video/");
-    setForm(prev => ({
-      ...prev,
-      mediaFile: f,
-      mediaPreview: URL.createObjectURL(f),
-      mediaType: isVideo ? "video" : "image",
-    }));
+    if (isVideo) {
+      setForm(prev => ({
+        ...prev,
+        mediaFile: f,
+        croppedBlob: null,
+        mediaPreview: URL.createObjectURL(f),
+        mediaType: "video",
+      }));
+    } else {
+      setForm(prev => ({ ...prev, mediaFile: f, mediaType: "image" }));
+      setCropSrc(URL.createObjectURL(f));
+    }
+  }
+
+  function onCropApply(blob: Blob, previewUrl: string) {
+    setForm(prev => ({ ...prev, croppedBlob: blob, mediaPreview: previewUrl }));
+    setCropSrc(null);
+  }
+
+  function onCropCancel() {
+    setCropSrc(null);
+    setForm(prev => ({ ...prev, mediaFile: null }));
   }
 
   function addTag() {
@@ -135,7 +156,12 @@ export default function HeroSliderPage() {
         : null;
       let type: "image" | "video" = form.mediaType;
 
-      if (form.mediaFile) {
+      if (form.croppedBlob) {
+        const file = new File([form.croppedBlob], `slide-${Date.now()}.jpg`, { type: "image/jpeg" });
+        const result = await uploadMedia(file, "heroSlides", "slide");
+        url = result.url;
+        type = "image";
+      } else if (form.mediaFile) {
         const result = await uploadMedia(form.mediaFile, "heroSlides", "slide");
         url = result.url;
         type = result.type;
@@ -323,6 +349,16 @@ export default function HeroSliderPage() {
           </div>
         )}
       </div>
+
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          aspect={4 / 5}
+          mimeType="image/jpeg"
+          onApply={onCropApply}
+          onCancel={onCropCancel}
+        />
+      )}
 
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
         <DialogContent className="sm:max-w-md">
