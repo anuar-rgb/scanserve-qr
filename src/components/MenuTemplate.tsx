@@ -2425,7 +2425,7 @@ export function MenuTemplate({
         >
           <div
             ref={stripRef}
-            style={{ overflowX: "auto", scrollbarWidth: "none", padding: `8px ${SP.md}px` } as React.CSSProperties}
+            style={{ overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", touchAction: "pan-x", padding: `8px ${SP.md}px` } as React.CSSProperties}
           >
             <div style={{ display: "flex", gap: 6, width: "fit-content" }}>
               <button
