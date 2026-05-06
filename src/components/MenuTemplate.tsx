@@ -1000,9 +1000,9 @@ function dishBadges(dish: Dish): BadgeItem[] {
 function catalogBadges(dish: Dish): BadgeItem[] {
   const out: BadgeItem[] = [];
   if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
-  if (dish.isNew)         out.push({ text: "NEW", bg: "#FF4D6D", fg: "#fff"    });
-  if (dish.isPopular)     out.push({ text: "TOP", bg: "#F59E0B", fg: "#1C0F00" });
-  if (dish.isSpicy)       out.push({ text: "HOT", bg: "#FFF0F2", fg: "#D62B4B" });
+  if (dish.isNew)         out.push({ text: "NEW",    bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.isPopular)     out.push({ text: "★ TOP",  bg: "#F59E0B", fg: "#1C0F00" });
+  if (dish.isSpicy)       out.push({ text: "🔥 HOT", bg: "#FFF0F2", fg: "#D62B4B" });
   return out;
 }
 
