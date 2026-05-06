@@ -50,6 +50,8 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           badge: p.badge ?? undefined,
           discountLabel: p.discount_label ?? undefined,
           isNew: p.is_new,
+          isPopular: p.is_popular,
+          isSpicy: p.is_spicy,
           isPromo: p.is_promo,
           isRecommended: p.is_recommended,
           name: p.name,

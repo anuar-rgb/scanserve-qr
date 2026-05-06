@@ -32,6 +32,8 @@ export interface Dish {
   currency?: string;
   badge?: string;
   isNew?: boolean;
+  isPopular?: boolean;
+  isSpicy?: boolean;
   isPromo?: boolean;
   isRecommended?: boolean;
 }
@@ -442,17 +444,10 @@ function PromoSlider({
                   textAlign: "left",
                 } as React.CSSProperties}
               >
-                {dish.badge && (
-                  <span style={{
-                    position: "absolute", top: 12, left: 12,
-                    fontSize: 9, fontWeight: 700, padding: "3px 8px",
-                    borderRadius: R.full,
-                    backgroundColor: "rgba(255,255,255,0.20)",
-                    color: "rgba(255,255,255,0.95)",
-                    letterSpacing: "0.04em",
-                  }}>
-                    {dish.badge}
-                  </span>
+                {dishBadges(dish).length > 0 && (
+                  <div style={{ position: "absolute", top: 10, left: 10 }}>
+                    <BadgeStack badges={dishBadges(dish)} size="xs" />
+                  </div>
                 )}
 
                 <span style={{
@@ -514,18 +509,10 @@ function PromoSlider({
                 ) : displayDish.emoji}
               </div>
               <div style={{ flex: 1 }}>
-                {displayDish.badge && (
-                  <span style={{
-                    display: "inline-block", marginBottom: 6,
-                    fontSize: 9, fontWeight: 700, padding: "3px 8px",
-                    borderRadius: R.full,
-                    backgroundColor: "var(--bg-surface)",
-                    color: "var(--text-muted)",
-                    letterSpacing: "0.04em",
-                    border: "1px solid var(--border-color)",
-                  }}>
-                    {displayDish.badge}
-                  </span>
+                {dishBadges(displayDish).length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                    <BadgeStack badges={dishBadges(displayDish)} size="xs" />
+                  </div>
                 )}
                 <p style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>
                   {resolve(displayDish.name, lang)}
@@ -995,6 +982,32 @@ function seedLikes(dishId: string): number {
   return 8 + (Math.abs(h) % 28);
 }
 
+// ── Badge helpers ─────────────────────────────────────────────────────────────
+
+function dishBadges(dish: Dish): { text: string; bg: string; fg: string }[] {
+  const out: { text: string; bg: string; fg: string }[] = [];
+  if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
+  if (dish.isNew)         out.push({ text: "NEW",  bg: "var(--text-color)", fg: "var(--bg-color)" });
+  if (dish.isPopular)     out.push({ text: "★",    bg: "#F59E0B",           fg: "#1C0F00"         });
+  if (dish.isSpicy)       out.push({ text: "🌶",   bg: "#FF4D6D",           fg: "#fff"            });
+  return out;
+}
+
+function BadgeStack({ badges, size = "sm" }: { badges: ReturnType<typeof dishBadges>; size?: "sm" | "xs" }) {
+  if (!badges.length) return null;
+  const fs  = size === "xs" ? 7 : 8;
+  const pad = size === "xs" ? "2px 4px" : "2px 6px";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {badges.map((b, i) => (
+        <span key={i} style={{ fontSize: fs, fontWeight: 800, padding: pad, borderRadius: 6, backgroundColor: b.bg, color: b.fg, letterSpacing: "0.03em", lineHeight: 1.4, whiteSpace: "nowrap", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+          {b.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ── Catalog Dish Card (2-column square grid) ──────────────────────────────────
 
 function CatalogDishCard({
@@ -1021,8 +1034,8 @@ function CatalogDishCard({
   const isLiked = !!liked[dish.id];
   const count   = getLikeCount(dish.id);
   const qty     = cart[dish.id]?.qty ?? 0;
-  const badgeLabel = dish.badge ?? (dish.isNew ? "NEW" : null);
-  const dishPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+  const badges   = dishBadges(dish);
+  const dishPct  = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const discountedPrice = !isNaN(dishPct) && dishPct > 0 && dishPct < 100
     ? Math.round(dish.price * (1 - dishPct / 100))
     : null;
@@ -1061,25 +1074,10 @@ function CatalogDishCard({
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : dish.emoji}
-        {badgeLabel && (
-          <span
-            style={{
-              position: "absolute",
-              top: 6,
-              left: 6,
-              fontSize: 8,
-              fontWeight: 700,
-              padding: "3px 7px",
-              borderRadius: R.sm,
-              backgroundColor: "var(--text-color)",
-              color: "var(--bg-color)",
-              letterSpacing: "0.03em",
-              lineHeight: 1.4,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {badgeLabel}
-          </span>
+        {badges.length > 0 && (
+          <div style={{ position: "absolute", top: 6, left: 6 }}>
+            <BadgeStack badges={badges} />
+          </div>
         )}
         {discountedPrice !== null && (
           <span
@@ -2125,10 +2123,10 @@ export function MenuTemplate({
                         {dish.imageUrl ? (
                           <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : dish.emoji}
-                        {(dish.badge || dish.isNew) && (
-                          <span style={{ position: "absolute", top: 4, left: 4, fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: R.sm, backgroundColor: "var(--text-color)", color: "var(--bg-color)", letterSpacing: "0.03em", lineHeight: 1.4, whiteSpace: "nowrap" }}>
-                            {dish.badge ?? "NEW"}
-                          </span>
+                        {dishBadges(dish).length > 0 && (
+                          <div style={{ position: "absolute", top: 4, left: 4 }}>
+                            <BadgeStack badges={dishBadges(dish)} size="xs" />
+                          </div>
                         )}
                       </div>
 

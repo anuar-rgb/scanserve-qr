@@ -58,12 +58,17 @@ function PhoneMockup({ children }: { children: React.ReactNode }) {
 // ── Product card preview (mirrors CatalogDishCard from MenuTemplate) ──────────
 
 function ProductCardPreview({
-  name, price, imagePreview, emoji, badge, isNew, isPromo, discountPct,
+  name, price, imagePreview, emoji, badge, isNew, isPopular, isSpicy, isPromo, discountPct,
 }: {
   name: string; price: string; imagePreview: string | null;
-  emoji: string; badge: string; isNew: boolean; isPromo: boolean; discountPct: string;
+  emoji: string; badge: string; isNew: boolean; isPopular: boolean; isSpicy: boolean; isPromo: boolean; discountPct: string;
 }) {
-  const badgeLabel = badge.trim() || (isNew ? "NEW" : null);
+  type BadgeItem = { text: string; bg: string; fg: string };
+  const badges: BadgeItem[] = [];
+  if (badge.trim())  badges.push({ text: badge.trim(), bg: "#111", fg: "#fff" });
+  if (isNew)         badges.push({ text: "NEW",        bg: "#111", fg: "#fff" });
+  if (isPopular)     badges.push({ text: "★",          bg: "#F59E0B", fg: "#1C0F00" });
+  if (isSpicy)       badges.push({ text: "🌶",         bg: "#FF4D6D", fg: "#fff" });
   const priceNum   = parseInt(price, 10);
   const pct        = parseInt(discountPct, 10);
   const discountedPrice = isPromo && !isNaN(pct) && pct > 0 && pct < 100 && !isNaN(priceNum)
@@ -89,15 +94,14 @@ function ProductCardPreview({
           ? <img src={imagePreview} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
           : (emoji || "🍽️")
         }
-        {badgeLabel && (
-          <span style={{
-            position: "absolute", top: 5, left: 5,
-            fontSize: 7, fontWeight: 700, padding: "2px 6px",
-            borderRadius: 8, background: "#111", color: "#fff",
-            letterSpacing: "0.03em", lineHeight: 1.4,
-          }}>
-            {badgeLabel}
-          </span>
+        {badges.length > 0 && (
+          <div style={{ position: "absolute", top: 5, left: 5, display: "flex", flexDirection: "column", gap: 2 }}>
+            {badges.map((b, i) => (
+              <span key={i} style={{ fontSize: 7, fontWeight: 800, padding: "2px 5px", borderRadius: 6, backgroundColor: b.bg, color: b.fg, letterSpacing: "0.03em", lineHeight: 1.4, whiteSpace: "nowrap" }}>
+                {b.text}
+              </span>
+            ))}
+          </div>
         )}
         {discountedPrice !== null && (
           <span style={{
@@ -496,6 +500,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   emoji={emoji}
                   badge={badge}
                   isNew={isNew}
+                  isPopular={isPopular}
+                  isSpicy={isSpicy}
                   isPromo={isPromo}
                   discountPct={discountPct}
                 />
