@@ -996,13 +996,13 @@ function dishBadges(dish: Dish): BadgeItem[] {
   return out;
 }
 
-/** Full text pill badges for the catalog card content area */
+/** Text pill badges for catalog card photo overlay (top-left) */
 function catalogBadges(dish: Dish): BadgeItem[] {
   const out: BadgeItem[] = [];
   if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
-  if (dish.isNew)         out.push({ text: "NEW",   bg: "#FF4D6D", fg: "#fff"    });
-  if (dish.isPopular)     out.push({ text: "★ TOP", bg: "#F59E0B", fg: "#1C0F00" });
-  if (dish.isSpicy)       out.push({ text: "🔥 HOT", bg: "#FFF0F2", fg: "#D62B4B" });
+  if (dish.isNew)         out.push({ text: "NEW", bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.isPopular)     out.push({ text: "TOP", bg: "#F59E0B", fg: "#1C0F00" });
+  if (dish.isSpicy)       out.push({ text: "HOT", bg: "#FFF0F2", fg: "#D62B4B" });
   return out;
 }
 
@@ -1087,6 +1087,20 @@ function CatalogDishCard({
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : dish.emoji}
+        {catBadges.length > 0 && (
+          <div style={{ position: "absolute", top: 6, left: 6, display: "flex", flexDirection: "column", gap: 3, zIndex: 2 }}>
+            {catBadges.map((b, i) => (
+              <span key={i} style={{
+                fontSize: 9, fontWeight: 800, padding: "2px 8px",
+                borderRadius: 999, backgroundColor: b.bg, color: b.fg,
+                letterSpacing: "0.05em", lineHeight: 1.5, whiteSpace: "nowrap",
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+              }}>
+                {b.text}
+              </span>
+            ))}
+          </div>
+        )}
         {discountedPrice !== null && (
           <span
             style={{
@@ -1134,21 +1148,6 @@ function CatalogDishCard({
         >
           {resolve(dish.name, lang)}
         </p>
-
-        {catBadges.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {catBadges.map((b, i) => (
-              <span key={i} style={{
-                fontSize: 8, fontWeight: 800, padding: "2px 7px",
-                borderRadius: 999, backgroundColor: b.bg, color: b.fg,
-                letterSpacing: "0.04em", lineHeight: 1.5, whiteSpace: "nowrap",
-                fontFamily: "'Montserrat', system-ui, sans-serif",
-              }}>
-                {b.text}
-              </span>
-            ))}
-          </div>
-        )}
 
         {discountedPrice !== null ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
