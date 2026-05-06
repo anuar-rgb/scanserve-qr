@@ -307,6 +307,12 @@ export default function HallPage() {
             data={selectedData}
             onClose={() => setSelected(null)}
             onRefresh={load}
+            onOrderTransferred={(orderId, newTableNumber) => {
+              setOrders((prev) =>
+                prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
+              );
+              setSelected(null);
+            }}
             allTables={tablesWithStatus}
           />
         )}
@@ -511,11 +517,13 @@ function TablePanel({
   data,
   onClose,
   onRefresh,
+  onOrderTransferred,
   allTables,
 }: {
   data: TableWithStatus;
   onClose: () => void;
   onRefresh: () => void;
+  onOrderTransferred: (orderId: string, newTableNumber: string) => void;
   allTables: TableWithStatus[];
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
@@ -573,8 +581,7 @@ function TablePanel({
     if (error) { toast.error(`Ошибка переноса: ${error.message}`); return; }
     toast.success(`Заказ перенесён: стол ${table.label} → стол ${targetLabel}`);
     setChangingTable(false);
-    onRefresh();
-    onClose();
+    onOrderTransferred(order.id, targetLabel);
   }
 
   async function copyId(id: string) {
