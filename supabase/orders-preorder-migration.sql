@@ -1,6 +1,6 @@
 -- ── Orders table (create if missing) ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orders (
-  id                TEXT        PRIMARY KEY,
+  id                TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
   restaurant_id     TEXT        NOT NULL,
   table_number      TEXT,
   items_json        JSONB       NOT NULL DEFAULT '[]',
