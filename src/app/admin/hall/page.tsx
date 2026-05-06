@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCw, Plus, Clock, Calendar,
-  X, Copy, Edit2, Users, Check, ChevronRight,
+  X, Copy, Edit2, Users, Check, ChevronRight, Printer, ShoppingCart,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable } from "@/lib/db-types";
@@ -21,6 +21,39 @@ interface TableWithStatus {
   order: DbOrder | null;
   preorderOrder: DbOrder | null;
   elapsed: number;
+}
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+
+function playNewOrderSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.12);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.24);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+  } catch { /* audio context unavailable */ }
+}
+
+// ── Print stub ────────────────────────────────────────────────────────────────
+
+function handlePrint(order: DbOrder) {
+  console.log("[PRINT RECEIPT]", {
+    orderId: order.id,
+    table: order.table_number,
+    items: order.items_json,
+    total: `${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`,
+    createdAt: new Date(order.created_at).toLocaleString("ru-RU"),
+  });
+  toast.info("Чек отправлен на принтер (в разработке)");
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -43,12 +76,16 @@ function todayISO(): string {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function HallPage() {
-  const [tables, setTables]   = useState<DbRestaurantTable[]>([]);
-  const [orders, setOrders]   = useState<DbOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [addOpen, setAddOpen]   = useState(false);
-  const [editTable, setEditTable] = useState<DbRestaurantTable | null>(null);
+  const [tables, setTables]         = useState<DbRestaurantTable[]>([]);
+  const [orders, setOrders]         = useState<DbOrder[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [realtimeOk, setRealtimeOk] = useState(false);
+  const [selected, setSelected]     = useState<string | null>(null);
+  const [addOpen, setAddOpen]       = useState(false);
+  const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
+
+  // Track known order IDs to detect new arrivals for sound
+  const knownOrderIds = useRef(new Set<string>());
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -66,15 +103,44 @@ export default function HallPage() {
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
     ]);
+
+    const newOrders = (ordersRes.data as DbOrder[]) ?? [];
+
+    // Play sound only after initial load when a genuinely new order arrives
+    if (knownOrderIds.current.size > 0) {
+      const incoming = newOrders.filter((o) => !knownOrderIds.current.has(o.id));
+      if (incoming.length > 0) {
+        playNewOrderSound();
+        const tableLabel = incoming[0].table_number ?? "—";
+        toast.success(`Новый заказ · Стол ${tableLabel}`, { duration: 6000 });
+      }
+    }
+
+    knownOrderIds.current = new Set(newOrders.map((o) => o.id));
     setTables((tablesRes.data as DbRestaurantTable[]) ?? []);
-    setOrders((ordersRes.data as DbOrder[]) ?? []);
+    setOrders(newOrders);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 30_000);
-    return () => clearInterval(id);
+    if (!isConfigured) return;
+
+    const channel = supabase
+      .channel(`hall-pos-${RESTAURANT_ID}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: DB_TABLES.orders },
+        () => load()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: DB_TABLES.restaurantTables },
+        () => load()
+      )
+      .subscribe((status) => setRealtimeOk(status === "SUBSCRIBED"));
+
+    return () => { supabase.removeChannel(channel); };
   }, [load]);
 
   const today = todayISO();
@@ -104,9 +170,16 @@ export default function HallPage() {
       <header className="px-8 py-5 border-b border-border shrink-0 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-semibold">План зала</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Интерактивная карта столов · статус обновляется автоматически каждые 30 сек
-          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${
+                realtimeOk ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"
+              }`}
+            />
+            <p className="text-xs text-muted-foreground">
+              {realtimeOk ? "Realtime · обновляется мгновенно" : "Подключение к Realtime…"}
+            </p>
+          </div>
         </div>
         <button
           onClick={load}
@@ -267,19 +340,15 @@ function TableCard({
         ${isSelected ? "ring-2 ring-violet-500 ring-offset-2" : "hover:opacity-90"}
       `}
     >
-      {/* Status dot */}
       <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${dotColors[status]}`} />
 
-      {/* Table number */}
       <p className="text-3xl font-black text-foreground leading-none mb-1">{table.label}</p>
 
-      {/* Seats */}
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-3">
         <Users size={11} />
         {table.seats} мест
       </div>
 
-      {/* Status info */}
       {status === "occupied" && order && (
         <div className="mt-auto space-y-0.5">
           <p className="text-sm font-bold text-foreground">
@@ -328,15 +397,28 @@ function TablePanel({
   onDeactivate: () => void;
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
-  const [closing, setClosing]           = useState(false);
-  const [copiedId, setCopiedId]         = useState(false);
-  const [changingTable, setChangingTable] = useState(false);
-  const [newLabel, setNewLabel]         = useState("");
+  const [closing, setClosing]               = useState(false);
+  const [copiedId, setCopiedId]             = useState(false);
+  const [changingTable, setChangingTable]   = useState(false);
+  const [newLabel, setNewLabel]             = useState("");
+  const [creatingOrder, setCreatingOrder]   = useState(false);
+  const [addingItem, setAddingItem]         = useState(false);
+  const [itemName, setItemName]             = useState("");
+  const [itemPrice, setItemPrice]           = useState("");
+  const [itemQty, setItemQty]               = useState("1");
+  const [itemSaving, setItemSaving]         = useState(false);
 
   const activeOrder = order ?? preorderOrder;
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
     ? (activeOrder!.items_json as OrderItem[])
     : [];
+
+  // Reset quick-add form when selected table changes
+  useEffect(() => {
+    setAddingItem(false);
+    setItemName(""); setItemPrice(""); setItemQty("1");
+    setChangingTable(false); setNewLabel("");
+  }, [table.id]);
 
   async function closeOrder() {
     if (!order) return;
@@ -374,8 +456,50 @@ function TablePanel({
     } catch { /* clipboard unavailable */ }
   }
 
+  async function createWalkInOrder() {
+    setCreatingOrder(true);
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .insert({
+        restaurant_id: RESTAURANT_ID,
+        status: "pending",
+        type: "dine-in",
+        table_number: table.label,
+        items_json: [],
+        total_price: 0,
+        order_type: "asap",
+      });
+    setCreatingOrder(false);
+    if (error) { toast.error("Ошибка создания заказа"); return; }
+    toast.success(`Заказ для стола ${table.label} создан!`);
+    onRefresh();
+  }
+
+  async function addItemToOrder() {
+    if (!order || !itemName.trim() || !itemPrice) return;
+    setItemSaving(true);
+    const newItem: OrderItem = {
+      name: itemName.trim(),
+      qty: Math.max(1, parseInt(itemQty) || 1),
+      price: parseFloat(itemPrice) || 0,
+      currency: "₸",
+    };
+    const updatedItems = [...items, newItem];
+    const newTotal = updatedItems.reduce((sum, it) => sum + it.price * it.qty, 0);
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ items_json: updatedItems, total_price: newTotal })
+      .eq("id", order.id);
+    setItemSaving(false);
+    if (error) { toast.error("Ошибка добавления блюда"); return; }
+    toast.success(`${newItem.name} добавлено в чек!`);
+    setItemName(""); setItemPrice(""); setItemQty("1");
+    setAddingItem(false);
+    onRefresh();
+  }
+
   return (
-    <aside className="w-80 shrink-0 border-l border-border flex flex-col bg-background overflow-y-auto">
+    <aside className="w-80 shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
       {/* Panel header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div>
@@ -383,8 +507,7 @@ function TablePanel({
           <p className="text-[11px] text-muted-foreground flex items-center gap-1">
             <Users size={10} />
             {table.seats} мест ·{" "}
-            {status === "free"     ? "Свободен"  :
-             status === "occupied" ? "Занят"     : "Предзаказ"}
+            {status === "free" ? "Свободен" : status === "occupied" ? "Занят" : "Предзаказ"}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -404,48 +527,65 @@ function TablePanel({
         </div>
       </div>
 
-      {/* Content */}
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
+        {/* ── Free table ── */}
         {status === "free" && (
           <div className="p-4 flex flex-col items-center gap-3 text-center text-muted-foreground">
             <span className="text-4xl mt-4 select-none">🟢</span>
             <p className="text-sm font-medium text-foreground">Стол свободен</p>
             <p className="text-xs max-w-[200px]">
-              Гости делают заказ самостоятельно через QR-код на столе
+              Гости могут заказать через QR-код или кассир принимает заказ вручную
             </p>
+            <button
+              onClick={createWalkInOrder}
+              disabled={creatingOrder}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+            >
+              {creatingOrder
+                ? <><Loader2 size={13} className="animate-spin" /> Создаём…</>
+                : <><ShoppingCart size={13} /> Принять заказ</>
+              }
+            </button>
           </div>
         )}
 
+        {/* ── Occupied / Preorder ── */}
         {(status === "occupied" || status === "preorder") && activeOrder && (
           <div className="p-4 space-y-4">
-            {/* Order ID row */}
+            {/* Order ID + print */}
             <div className="flex items-center justify-between">
               <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wide">
                 Заказ
               </p>
-              <button
-                onClick={() => copyId(activeOrder.id)}
-                className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span>{activeOrder.id}</span>
-                {copiedId
-                  ? <Check size={11} className="text-emerald-500" />
-                  : <Copy size={11} />
-                }
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePrint(activeOrder)}
+                  className="p-1 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  title="Печать чека"
+                >
+                  <Printer size={13} />
+                </button>
+                <button
+                  onClick={() => copyId(activeOrder.id)}
+                  className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="max-w-[90px] truncate">{activeOrder.id}</span>
+                  {copiedId
+                    ? <Check size={11} className="text-emerald-500" />
+                    : <Copy size={11} />
+                  }
+                </button>
+              </div>
             </div>
 
-            {/* Elapsed / preorder time */}
+            {/* Elapsed / preorder badge */}
             {status === "occupied" && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-700/30">
                 <Clock size={14} className="text-red-500 shrink-0" />
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
-                    Сидят
-                  </p>
-                  <p className="text-sm font-bold text-red-800 dark:text-red-200">
-                    {formatElapsed(elapsed)}
-                  </p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">Сидят</p>
+                  <p className="text-sm font-bold text-red-800 dark:text-red-200">{formatElapsed(elapsed)}</p>
                 </div>
               </div>
             )}
@@ -454,9 +594,7 @@ function TablePanel({
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30">
                 <Calendar size={14} className="text-amber-500 shrink-0" />
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                    Предзаказ на
-                  </p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Предзаказ на</p>
                   <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
                     {[activeOrder.preorder_date, activeOrder.preorder_time?.slice(0, 5)].filter(Boolean).join(" в ")}
                   </p>
@@ -467,19 +605,15 @@ function TablePanel({
             {/* Guest comments */}
             {activeOrder.customer_comments && (
               <div className="px-3 py-2 rounded-lg bg-muted/50 border border-border">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                  Пожелания гостя
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Пожелания гостя</p>
                 <p className="text-sm">{activeOrder.customer_comments}</p>
               </div>
             )}
 
-            {/* Items */}
+            {/* Items list */}
             {items.length > 0 && (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                  Состав заказа
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав заказа</p>
                 <div className="space-y-1.5">
                   {items.map((item, i) => (
                     <div key={i} className="flex justify-between text-sm">
@@ -492,6 +626,70 @@ function TablePanel({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ── Quick-add item form ── */}
+            {status === "occupied" && (
+              <div>
+                {addingItem ? (
+                  <div className="space-y-2 p-3 rounded-lg border border-violet-200 dark:border-violet-700/40 bg-violet-50/50 dark:bg-violet-900/10">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+                      Добавить блюдо
+                    </p>
+                    <input
+                      type="text"
+                      value={itemName}
+                      onChange={(e) => setItemName(e.target.value)}
+                      placeholder="Название блюда"
+                      className="w-full h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={itemPrice}
+                        onChange={(e) => setItemPrice(e.target.value)}
+                        placeholder="Цена ₸"
+                        min={0}
+                        className="flex-1 h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="number"
+                        value={itemQty}
+                        onChange={(e) => setItemQty(e.target.value)}
+                        placeholder="Кол."
+                        min={1}
+                        max={99}
+                        className="w-16 h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        onKeyDown={(e) => e.key === "Enter" && addItemToOrder()}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={addItemToOrder}
+                        disabled={itemSaving || !itemName.trim() || !itemPrice}
+                        className="flex-1 h-8 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-40 transition-colors"
+                      >
+                        {itemSaving ? <Loader2 size={12} className="animate-spin mx-auto" /> : "Добавить в чек"}
+                      </button>
+                      <button
+                        onClick={() => { setAddingItem(false); setItemName(""); setItemPrice(""); setItemQty("1"); }}
+                        className="h-8 px-3 rounded-lg border border-border text-xs hover:bg-accent transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingItem(true)}
+                    className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                  >
+                    <Plus size={12} />
+                    Добавить блюдо в чек
+                  </button>
+                )}
               </div>
             )}
 
@@ -550,11 +748,10 @@ function TablePanel({
                 disabled={closing}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
-                {closing ? (
-                  <><Loader2 size={14} className="animate-spin" /> Закрытие…</>
-                ) : (
-                  <><Check size={14} /> Оплачен / Закрыть заказ</>
-                )}
+                {closing
+                  ? <><Loader2 size={14} className="animate-spin" /> Закрытие…</>
+                  : <><Check size={14} /> Оплачен / Закрыть заказ</>
+                }
               </button>
             )}
           </div>
@@ -585,8 +782,8 @@ function TableFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [label, setLabel] = useState(table?.label ?? "");
-  const [seats, setSeats] = useState(String(table?.seats ?? 4));
+  const [label, setLabel]   = useState(table?.label ?? "");
+  const [seats, setSeats]   = useState(String(table?.seats ?? 4));
   const [saving, setSaving] = useState(false);
 
   async function save() {
