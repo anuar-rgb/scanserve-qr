@@ -80,3 +80,75 @@ from `src/components/MenuTemplate.tsx`.
 ## Deployment
 Railway — `git push origin master` triggers auto-deploy.
 Always run `npx tsc --noEmit` before committing.
+
+---
+
+## Multi-tenancy — фундаментальные правила SaaS-шаблона
+
+ScanServe — это шаблон для сотен заведений (ресторанов, кафе, кондитерских). Каждое правило ниже обязательно к исполнению.
+
+### Контент строго по `restaurant_id`
+- Меню, цены, логотипы, баннеры, инфо-витрина, настройки предзаказа — всё из Supabase по `restaurant_id`.
+- Никакого hardcode для конкретного заведения — названия, телефоны, адреса только из данных.
+- Перед добавлением любой фичи: «Будет ли это корректно работать для Кондитерского дома с другим `restaurant_id`?»
+
+---
+
+## UI/UX — Mobile First (золотые правила)
+
+### Нижняя навигация (BottomNav)
+- BottomNav: `height: 60px` + `env(safe-area-inset-bottom)`, всегда видна поверх контента.
+- **Все модальные окна, корзина, длинные списки** обязаны иметь нижний паддинг:
+  ```
+  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)"
+  ```
+  (60px nav + 16px зазор + safe area)
+- Никогда не размещай кнопки «Закрыть», «Оформить», «Отправить» без учёта этого отступа.
+
+### Safe Areas (iPhone с вырезом)
+- `env(safe-area-inset-bottom, 0px)` — для элементов у нижнего края.
+- `env(safe-area-inset-top, 0px)` — для элементов у верхнего края вне header.
+
+### Z-Index иерархия
+| Слой                      | z-index |
+|---------------------------|---------|
+| Обычный контент           | 0–9     |
+| Sticky / pill-strip       | 10–29   |
+| Header (floating glass)   | 50      |
+| BottomNav                 | 70      |
+| Drawer / Sheet (фон)      | 80      |
+| Drawer / Sheet (панель)   | 90      |
+| Overlay (backdrop)        | 100     |
+| Modal (панель)            | 101     |
+| Toast / уведомления       | 200     |
+
+---
+
+## Стандарты функционала
+
+### SQL-миграции
+- При добавлении новых полей в UI всегда создавай/обновляй миграцию в `supabase/`.
+- `CREATE TABLE IF NOT EXISTS` + `ADD COLUMN IF NOT EXISTS` — миграции идемпотентны.
+- RLS: гости → `INSERT` + `SELECT` на `orders`, но не `UPDATE`/`DELETE`.
+
+### Копирование данных
+- Для важных данных (номер заказа, промокод) всегда добавляй `<Copy>` (lucide-react).
+- Паттерн: `copiedId` state → `navigator.clipboard.writeText()` → иконка зеленеет 2 сек → `toast.success(...)`.
+
+### Предзаказы
+- Поля `order_type`, `preorder_date`, `preorder_time` обязательны в схеме.
+- Предзаказы: amber-блок с иконкой Calendar, сортируются первыми в списке.
+
+### Превью в админке
+- Изменения фото, баннеров, инфо-витрины — мобильное превью (≤ 390px) прямо в форме.
+
+---
+
+## Чек-лист перед завершением задачи
+
+- [ ] Не перекрывает ли BottomNav кнопку «Закрыть» или «Подтвердить»?
+- [ ] Учтён ли `env(safe-area-inset-bottom)` для элементов у нижнего края?
+- [ ] Контент привязан к `restaurant_id`, не захардкожен?
+- [ ] Будет ли это работать при добавлении Кондитерского дома с другим меню?
+- [ ] Пройден ли `npx tsc --noEmit` без ошибок?
+- [ ] Нет горизонтального скролла (`overflow-x: hidden` на `html` и `body`)?
