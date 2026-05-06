@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronLeft, Download, Share2, Minus, Plus } from "lucide-react";
+import { X, ChevronLeft, Download, Share2, Minus, Plus, Copy, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import type { Lang } from "./MenuTemplate";
 import type { StoredOrder } from "./MenuTemplate";
@@ -42,6 +42,7 @@ export function OrdersModal({
   } | null>(null);
   const [partialConfirmed, setPartialConfirmed] = useState(false);
   const [refundSent,       setRefundSent]       = useState(false);
+  const [copiedId,         setCopiedId]         = useState<string | null>(null);
 
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -82,6 +83,8 @@ export function OrdersModal({
     backBtn:         lang === "kz" ? "Тапсырыстарға оралу"                      : lang === "ru" ? "Вернуться к заказам"                       : "Back to Orders",
     refundConfirmed: lang === "kz" ? "Өтінім расталды ✓"                        : lang === "ru" ? "Возврат подтверждён ✓"                     : "Refund Confirmed ✓",
     refundExpired:   lang === "kz" ? "⏱ Қайтару мерзімі аяқталды"               : lang === "ru" ? "⏱ Время возврата истекло"                   : "⏱ Refund window expired",
+    idCopied:        lang === "kz" ? "Тапсырыс нөмірі көшірілді"                : lang === "ru" ? "Номер заказа скопирован"                     : "Order ID copied",
+    preorderLabel:   lang === "kz" ? "Алдын ала тапсырыс уақыты"                : lang === "ru" ? "Дата и время выдачи"                        : "Scheduled for",
   };
 
   const WA: Record<string, Record<Lang, string>> = {
@@ -109,7 +112,23 @@ export function OrdersModal({
       day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
     });
 
-  const sorted = [...orders].sort((a, b) => b.timestamp - a.timestamp);
+  const handleCopyId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((c) => c === id ? null : c), 2000);
+      toast.success(t.idCopied);
+    } catch {
+      // clipboard not available
+    }
+  };
+
+  const sorted = [...orders].sort((a, b) => {
+    const ap = a.timingMode === "preorder" ? 0 : 1;
+    const bp = b.timingMode === "preorder" ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return b.timestamp - a.timestamp;
+  });
   const refundingOrder = refundingOrderId ? sorted.find((o) => o.id === refundingOrderId) ?? null : null;
   const isPartial      = refundItemIndex !== null;
   const refundingItem  = (refundingOrder && isPartial) ? refundingOrder.items[refundItemIndex!] : null;
@@ -432,7 +451,23 @@ export function OrdersModal({
                         padding: "10px 14px", background: surface, borderBottom: `1px solid ${border}`,
                       }}>
                         <div>
-                          <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 2px" }}>{order.id}</p>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>{order.id}</p>
+                            <button
+                              onClick={() => handleCopyId(order.id)}
+                              title="Copy order ID"
+                              style={{
+                                width: 20, height: 20, borderRadius: 6,
+                                border: "none", background: "transparent",
+                                color: copiedId === order.id ? (isDark ? "#6DB86D" : "#2E7D32") : muted,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                cursor: "pointer", padding: 0, flexShrink: 0,
+                                transition: "color 0.2s",
+                              }}
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
                           <p style={{ fontSize: 11, color: muted, margin: 0 }}>{formatDate(order.timestamp)}</p>
                         </div>
 
@@ -486,6 +521,28 @@ export function OrdersModal({
                           </span>
                         </div>
                       </div>
+
+                      {/* Preorder highlight block */}
+                      {order.timingMode === "preorder" && (order.preorderDate || order.preorderTime) && (
+                        <div style={{
+                          margin: "10px 14px 0",
+                          padding: "10px 12px",
+                          borderRadius: R.sm,
+                          background: isDark ? "rgba(251,191,36,0.12)" : "rgba(245,158,11,0.10)",
+                          border: `1px solid ${isDark ? "rgba(251,191,36,0.35)" : "rgba(217,119,6,0.35)"}`,
+                          display: "flex", alignItems: "center", gap: 10,
+                        }}>
+                          <Calendar size={18} style={{ color: isDark ? "#FCD34D" : "#B45309", flexShrink: 0 }} />
+                          <div>
+                            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: isDark ? "#FCD34D" : "#B45309", margin: "0 0 2px" }}>
+                              {t.preorderLabel}
+                            </p>
+                            <p style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#FDE68A" : "#92400E", margin: 0 }}>
+                              {[order.preorderDate, order.preorderTime?.slice(0, 5)].filter(Boolean).join(lang === "en" ? " at " : " в ")}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Items — each with a per-item partial refund button */}
                       <div style={{ padding: "10px 14px 6px" }}>
