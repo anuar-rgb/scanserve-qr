@@ -984,16 +984,29 @@ function seedLikes(dishId: string): number {
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
-function dishBadges(dish: Dish): { text: string; bg: string; fg: string }[] {
-  const out: { text: string; bg: string; fg: string }[] = [];
+type BadgeItem = { text: string; bg: string; fg: string };
+
+/** Small icon-only badges for menu list & popular section (overlaid on photo) */
+function dishBadges(dish: Dish): BadgeItem[] {
+  const out: BadgeItem[] = [];
   if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
-  if (dish.isNew)         out.push({ text: "NEW",  bg: "var(--text-color)", fg: "var(--bg-color)" });
-  if (dish.isPopular)     out.push({ text: "★",    bg: "#F59E0B",           fg: "#1C0F00"         });
-  if (dish.isSpicy)       out.push({ text: "🌶",   bg: "#FF4D6D",           fg: "#fff"            });
+  if (dish.isNew)         out.push({ text: "NEW", bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.isPopular)     out.push({ text: "★",   bg: "#F59E0B", fg: "#1C0F00" });
+  if (dish.isSpicy)       out.push({ text: "🌶",  bg: "#FF4D6D", fg: "#fff"    });
   return out;
 }
 
-function BadgeStack({ badges, size = "sm" }: { badges: ReturnType<typeof dishBadges>; size?: "sm" | "xs" }) {
+/** Full text pill badges for the catalog card content area */
+function catalogBadges(dish: Dish): BadgeItem[] {
+  const out: BadgeItem[] = [];
+  if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
+  if (dish.isNew)         out.push({ text: "NEW",   bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.isPopular)     out.push({ text: "★ TOP", bg: "#F59E0B", fg: "#1C0F00" });
+  if (dish.isSpicy)       out.push({ text: "🔥 HOT", bg: "#FFF0F2", fg: "#D62B4B" });
+  return out;
+}
+
+function BadgeStack({ badges, size = "sm" }: { badges: BadgeItem[]; size?: "sm" | "xs" }) {
   if (!badges.length) return null;
   const fs  = size === "xs" ? 7 : 8;
   const pad = size === "xs" ? "2px 4px" : "2px 6px";
@@ -1034,8 +1047,8 @@ function CatalogDishCard({
   const isLiked = !!liked[dish.id];
   const count   = getLikeCount(dish.id);
   const qty     = cart[dish.id]?.qty ?? 0;
-  const badges   = dishBadges(dish);
-  const dishPct  = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+  const catBadges = catalogBadges(dish);
+  const dishPct   = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const discountedPrice = !isNaN(dishPct) && dishPct > 0 && dishPct < 100
     ? Math.round(dish.price * (1 - dishPct / 100))
     : null;
@@ -1074,11 +1087,6 @@ function CatalogDishCard({
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : dish.emoji}
-        {badges.length > 0 && (
-          <div style={{ position: "absolute", top: 6, left: 6 }}>
-            <BadgeStack badges={badges} />
-          </div>
-        )}
         {discountedPrice !== null && (
           <span
             style={{
@@ -1126,6 +1134,21 @@ function CatalogDishCard({
         >
           {resolve(dish.name, lang)}
         </p>
+
+        {catBadges.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {catBadges.map((b, i) => (
+              <span key={i} style={{
+                fontSize: 8, fontWeight: 800, padding: "2px 7px",
+                borderRadius: 999, backgroundColor: b.bg, color: b.fg,
+                letterSpacing: "0.04em", lineHeight: 1.5, whiteSpace: "nowrap",
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+              }}>
+                {b.text}
+              </span>
+            ))}
+          </div>
+        )}
 
         {discountedPrice !== null ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
