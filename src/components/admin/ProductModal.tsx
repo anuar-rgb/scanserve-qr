@@ -219,7 +219,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         image_url: imageUrl,
         emoji: emoji.trim() || null,
         badge: badge.trim() || null,
-        ingredients: ingredients.trim() || null,
+        ...(ingredients.trim() ? { ingredients: ingredients.trim() } : {}),
         is_new: isNew,
         is_popular: isPopular,
         is_spicy: isSpicy,
