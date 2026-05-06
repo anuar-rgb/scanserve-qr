@@ -75,6 +75,18 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatOrderTime(createdAt: string): string {
+  const d = new Date(createdAt);
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  const time = `${hh}:${mm}`;
+  const isToday = d.toISOString().slice(0, 10) === todayISO();
+  if (isToday) return time;
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  return `${day}.${month} · ${time}`;
+}
+
 function productName(p: DbProduct): string {
   return p.name.ru || p.name.en || p.name.kz || "";
 }
@@ -697,9 +709,16 @@ function TablePanel({
                 <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
                   <Clock size={15} className="text-red-500" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-red-500">Время за столом</p>
-                  <p className="text-base font-black text-red-800 dark:text-red-200">{formatElapsed(elapsed)}</p>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <p className="text-base font-black text-red-800 dark:text-red-200 tabular-nums">
+                      {formatOrderTime(activeOrder.created_at)}
+                    </p>
+                    <p className="text-xs font-semibold text-red-500/80 tabular-nums">
+                      {formatElapsed(elapsed)}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
