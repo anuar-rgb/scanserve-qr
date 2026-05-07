@@ -707,13 +707,9 @@ function OrderSlotPanel({
   onRefresh: () => void;
   onOrderClosed: (orderId: string) => void;
 }) {
-  const [closing, setClosing]       = useState(false);
-  const [copiedId, setCopiedId]     = useState(false);
-  const [addingItem, setAddingItem] = useState(false);
-  const [itemName, setItemName]     = useState("");
-  const [itemPrice, setItemPrice]   = useState("");
-  const [itemQty, setItemQty]       = useState("1");
-  const [itemSaving, setItemSaving] = useState(false);
+  const [closing, setClosing]             = useState(false);
+  const [copiedId, setCopiedId]           = useState(false);
+  const [showMenuPicker, setShowMenuPicker] = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -748,20 +744,6 @@ function OrderSlotPanel({
   async function copyId(id: string) {
     try { await navigator.clipboard.writeText(id); setCopiedId(true); setTimeout(() => setCopiedId(false), 2000); }
     catch { /* clipboard unavailable */ }
-  }
-
-  async function addItemToOrder() {
-    if (!itemName.trim() || !itemPrice) return;
-    setItemSaving(true);
-    const newItem: OrderItem = { name: itemName.trim(), qty: Math.max(1, parseInt(itemQty) || 1), price: parseFloat(itemPrice) || 0, currency: "₸" };
-    const updatedItems = [...items, newItem];
-    const newTotal = updatedItems.reduce((s, it) => s + it.price * it.qty, 0);
-    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updatedItems, total_price: newTotal }).eq("id", order.id);
-    setItemSaving(false);
-    if (error) { toast.error("Ошибка добавления"); return; }
-    toast.success(`${newItem.name} — добавлено в чек`);
-    setItemName(""); setItemPrice(""); setItemQty("1"); setAddingItem(false);
-    onRefresh();
   }
 
   return (
@@ -836,27 +818,19 @@ function OrderSlotPanel({
           )}
 
           <div>
-            {addingItem ? (
-              <div className="space-y-2 p-3.5 rounded-xl border border-violet-200 dark:border-violet-700/40 bg-violet-50/60 dark:bg-violet-900/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">Добавить позицию</p>
-                <input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="Название блюда / напитка" className="w-full h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" autoFocus />
-                <div className="flex gap-2">
-                  <input type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} placeholder="Цена, ₸" min={0} className="flex-1 h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                  <input type="number" value={itemQty} onChange={(e) => setItemQty(e.target.value)} placeholder="Кол." min={1} max={99} className="w-14 h-8 px-2.5 rounded-lg border border-border bg-background text-sm text-center focus:outline-none focus:ring-2 focus:ring-violet-500" onKeyDown={(e) => e.key === "Enter" && addItemToOrder()} />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={addItemToOrder} disabled={itemSaving || !itemName.trim() || !itemPrice} className="flex-1 h-8 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-40 transition-colors">
-                    {itemSaving ? <Loader2 size={12} className="animate-spin mx-auto" /> : "Добавить в чек"}
-                  </button>
-                  <button onClick={() => { setAddingItem(false); setItemName(""); setItemPrice(""); setItemQty("1"); }} className="h-8 px-3 rounded-lg border border-border text-xs hover:bg-accent transition-colors">
-                    <X size={12} />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setAddingItem(true)} className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors">
-                <Plus size={12} /> Добавить позицию в чек
-              </button>
+            <button
+              onClick={() => setShowMenuPicker(true)}
+              className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+            >
+              <Plus size={12} /> Выбрать из меню
+            </button>
+            {showMenuPicker && (
+              <MenuPickerModal
+                orderId={order.id}
+                existingItems={items}
+                onDone={() => { setShowMenuPicker(false); onRefresh(); }}
+                onClose={() => setShowMenuPicker(false)}
+              />
             )}
           </div>
 
@@ -1007,15 +981,11 @@ function TablePanel({
   allTables: TableWithStatus[];
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
-  const [panelMode, setPanelMode]             = useState<"info" | "order">("info");
-  const [closing, setClosing]                 = useState(false);
-  const [copiedId, setCopiedId]               = useState(false);
-  const [changingTable, setChangingTable]     = useState(false);
-  const [addingItem, setAddingItem]           = useState(false);
-  const [itemName, setItemName]               = useState("");
-  const [itemPrice, setItemPrice]             = useState("");
-  const [itemQty, setItemQty]                 = useState("1");
-  const [itemSaving, setItemSaving]           = useState(false);
+  const [panelMode, setPanelMode]               = useState<"info" | "order">("info");
+  const [closing, setClosing]                   = useState(false);
+  const [copiedId, setCopiedId]                 = useState(false);
+  const [changingTable, setChangingTable]       = useState(false);
+  const [showMenuPicker, setShowMenuPicker]     = useState(false);
 
   const activeOrder = order ?? preorderOrder;
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
@@ -1082,28 +1052,6 @@ function TablePanel({
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
     } catch { /* clipboard unavailable */ }
-  }
-
-  async function addItemToOrder() {
-    if (!order || !itemName.trim() || !itemPrice) return;
-    setItemSaving(true);
-    const newItem: OrderItem = {
-      name: itemName.trim(),
-      qty: Math.max(1, parseInt(itemQty) || 1),
-      price: parseFloat(itemPrice) || 0,
-      currency: "₸",
-    };
-    const updatedItems = [...items, newItem];
-    const newTotal = updatedItems.reduce((sum, it) => sum + it.price * it.qty, 0);
-    const { error } = await supabase
-      .from(DB_TABLES.orders)
-      .update({ items_json: updatedItems, total_price: newTotal })
-      .eq("id", order.id);
-    setItemSaving(false);
-    if (error) { toast.error("Ошибка добавления"); return; }
-    toast.success(`${newItem.name} — добавлено в чек`);
-    setItemName(""); setItemPrice(""); setItemQty("1"); setAddingItem(false);
-    onRefresh();
   }
 
   return (
@@ -1259,66 +1207,23 @@ function TablePanel({
               </div>
             )}
 
-            {/* Quick-add item — occupied only */}
-            {status === "occupied" && (
+            {/* Add from menu — occupied only */}
+            {status === "occupied" && activeOrder && (
               <div>
-                {addingItem ? (
-                  <div className="space-y-2 p-3.5 rounded-xl border border-violet-200 dark:border-violet-700/40 bg-violet-50/60 dark:bg-violet-900/10">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
-                      Добавить позицию
-                    </p>
-                    <input
-                      type="text"
-                      value={itemName}
-                      onChange={(e) => setItemName(e.target.value)}
-                      placeholder="Название блюда / напитка"
-                      className="w-full h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={itemPrice}
-                        onChange={(e) => setItemPrice(e.target.value)}
-                        placeholder="Цена, ₸"
-                        min={0}
-                        className="flex-1 h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="number"
-                        value={itemQty}
-                        onChange={(e) => setItemQty(e.target.value)}
-                        placeholder="Кол."
-                        min={1}
-                        max={99}
-                        className="w-14 h-8 px-2.5 rounded-lg border border-border bg-background text-sm text-center focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        onKeyDown={(e) => e.key === "Enter" && addItemToOrder()}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={addItemToOrder}
-                        disabled={itemSaving || !itemName.trim() || !itemPrice}
-                        className="flex-1 h-8 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-40 transition-colors"
-                      >
-                        {itemSaving ? <Loader2 size={12} className="animate-spin mx-auto" /> : "Добавить в чек"}
-                      </button>
-                      <button
-                        onClick={() => { setAddingItem(false); setItemName(""); setItemPrice(""); setItemQty("1"); }}
-                        className="h-8 px-3 rounded-lg border border-border text-xs hover:bg-accent transition-colors"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setAddingItem(true)}
-                    className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
-                  >
-                    <Plus size={12} />
-                    Добавить позицию в чек
-                  </button>
+                <button
+                  onClick={() => setShowMenuPicker(true)}
+                  className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                >
+                  <Plus size={12} />
+                  Выбрать из меню
+                </button>
+                {showMenuPicker && (
+                  <MenuPickerModal
+                    orderId={activeOrder.id}
+                    existingItems={items}
+                    onDone={() => { setShowMenuPicker(false); onRefresh(); }}
+                    onClose={() => setShowMenuPicker(false)}
+                  />
                 )}
               </div>
             )}
@@ -1746,6 +1651,290 @@ function OrderPanel({
               : <><Check size={15} /> Отправить на кухню</>
             }
           </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── MenuPickerModal ───────────────────────────────────────────────────────────
+
+function MenuPickerModal({
+  orderId,
+  existingItems,
+  onDone,
+  onClose,
+}: {
+  orderId: string;
+  existingItems: OrderItem[];
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const [categories, setCategories]         = useState<DbCategory[]>([]);
+  const [products, setProducts]             = useState<DbProduct[]>([]);
+  const [catLoading, setCatLoading]         = useState(true);
+  const [selectedCatId, setSelectedCatId]   = useState<string | null>(null);
+  const [search, setSearch]                 = useState("");
+  const [cart, setCart]                     = useState<Map<string, CartItem>>(new Map());
+  const [saving, setSaving]                 = useState(false);
+  const [canScrollLeft, setCanScrollLeft]   = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const catTabsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = catTabsRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => { if (e.deltaY === 0) return; e.preventDefault(); el.scrollLeft += e.deltaY; };
+    function onScroll() {
+      if (!el) return;
+      setCanScrollLeft(el.scrollLeft > 2);
+      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", onScroll);
+    return () => { el.removeEventListener("wheel", onWheel); el.removeEventListener("scroll", onScroll); };
+  }, []);
+
+  useEffect(() => {
+    const el = catTabsRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  }, [categories]);
+
+  useEffect(() => {
+    async function fetchCatalog() {
+      const [catsRes, prodsRes] = await Promise.all([
+        supabase.from(DB_TABLES.categories).select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
+        supabase.from(DB_TABLES.products).select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
+      ]);
+      const cats = (catsRes.data as DbCategory[]) ?? [];
+      setCategories(cats);
+      setProducts((prodsRes.data as DbProduct[]) ?? []);
+      setSelectedCatId(cats[0]?.id ?? null);
+      setCatLoading(false);
+    }
+    fetchCatalog();
+  }, []);
+
+  function scrollCats(dir: "left" | "right") {
+    catTabsRef.current?.scrollBy({ left: dir === "left" ? -180 : 180, behavior: "smooth" });
+  }
+
+  function effPrice(product: DbProduct): number {
+    if (!product.is_promo || !product.discount_label) return product.price;
+    const pct = parseInt(product.discount_label, 10);
+    if (isNaN(pct) || pct <= 0 || pct >= 100) return product.price;
+    return Math.round(product.price * (1 - pct / 100));
+  }
+
+  function addToCart(product: DbProduct) {
+    const name  = productName(product);
+    const price = effPrice(product);
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(product.id);
+      next.set(product.id, existing
+        ? { ...existing, qty: existing.qty + 1 }
+        : { productId: product.id, name, price, qty: 1 }
+      );
+      return next;
+    });
+  }
+
+  function decrementCart(productId: string) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(productId);
+      if (!existing) return prev;
+      if (existing.qty <= 1) next.delete(productId);
+      else next.set(productId, { ...existing, qty: existing.qty - 1 });
+      return next;
+    });
+  }
+
+  const cartItems = Array.from(cart.values());
+  const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
+  const newTotal  = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const trimmed = search.trim().toLowerCase();
+  const visibleProducts = products.filter((p) => {
+    if (!p.is_available) return false;
+    if (trimmed) return p.name.ru.toLowerCase().includes(trimmed) || p.name.en.toLowerCase().includes(trimmed) || p.name.kz.toLowerCase().includes(trimmed);
+    return !selectedCatId || p.category_id === selectedCatId;
+  });
+
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  async function confirmAdd() {
+    if (cartItems.length === 0) return;
+    setSaving(true);
+    const newItems: OrderItem[] = cartItems.map((ci) => {
+      const prod = productMap.get(ci.productId);
+      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸" };
+      if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
+      return item;
+    });
+    const merged = [...existingItems, ...newItems];
+    const total  = merged.reduce((s, it) => s + it.price * it.qty, 0);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: merged, total_price: total }).eq("id", orderId);
+    setSaving(false);
+    if (error) { toast.error("Ошибка добавления"); return; }
+    toast.success(`${cartCount} позиц. добавлено в чек`);
+    onDone();
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="w-full max-w-2xl h-[80vh] bg-background rounded-2xl shadow-2xl border border-border pointer-events-auto flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Выбрать из меню</p>
+              <p className="text-[11px] text-muted-foreground">Нажмите на блюдо, чтобы добавить в чек</p>
+            </div>
+            <div className="relative shrink-0">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск…"
+                className="h-8 pl-7 pr-3 w-32 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Category tabs */}
+          {!trimmed && categories.length > 0 && (
+            <div className="relative border-b border-border shrink-0">
+              {canScrollLeft && (
+                <button onClick={() => scrollCats("left")} className="absolute left-0 top-0 bottom-[5px] z-10 flex items-center pl-1 pr-2.5 bg-gradient-to-r from-background via-background/70 to-transparent">
+                  <ChevronLeft size={14} className="text-zinc-400 dark:text-zinc-500 hover:text-foreground transition-colors shrink-0" />
+                </button>
+              )}
+              <div
+                ref={catTabsRef}
+                className="flex gap-1.5 py-2 overflow-x-auto admin-scroll-x"
+                style={{ paddingLeft: canScrollLeft ? 28 : 12, paddingRight: canScrollRight ? 28 : 12, scrollbarWidth: "thin", scrollbarColor: "rgba(120,120,130,0.4) transparent" } as React.CSSProperties}
+              >
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCatId(cat.id)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                      selectedCatId === cat.id
+                        ? "bg-violet-600 text-white"
+                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {cat.icon && <span>{cat.icon}</span>}
+                    {cat.name.ru || cat.name.en}
+                  </button>
+                ))}
+              </div>
+              {canScrollRight && (
+                <button onClick={() => scrollCats("right")} className="absolute right-0 top-0 bottom-[5px] z-10 flex items-center pr-1 pl-2.5 bg-gradient-to-l from-background via-background/70 to-transparent">
+                  <ChevronRight size={14} className="text-zinc-400 dark:text-zinc-500 hover:text-foreground transition-colors shrink-0" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Product grid */}
+          <div className="flex-1 overflow-y-auto p-2.5 min-h-0 admin-scroll">
+            {catLoading ? (
+              <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
+                <Loader2 size={14} className="animate-spin" /> Загрузка меню…
+              </div>
+            ) : visibleProducts.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-10">
+                {trimmed ? "Ничего не найдено" : "Нет доступных позиций"}
+              </p>
+            ) : (
+              <div className="grid grid-cols-4 gap-1.5">
+                {visibleProducts.map((product) => {
+                  const inCart = cart.get(product.id);
+                  const name   = productName(product);
+                  const ep     = effPrice(product);
+                  const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => addToCart(product)}
+                      className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
+                    >
+                      {inCart && (
+                        <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                          {inCart.qty}
+                        </span>
+                      )}
+                      <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">{name}</p>
+                      <div className="flex items-center justify-between mt-1.5 gap-0.5">
+                        <div className="flex flex-col leading-tight">
+                          {hasDiscount && (
+                            <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
+                              {product.price.toLocaleString("ru-RU")} ₸
+                            </span>
+                          )}
+                          <span className={`text-[11px] font-black tabular-nums ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
+                            {ep.toLocaleString("ru-RU")} ₸
+                          </span>
+                        </div>
+                        <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
+                          <Plus size={11} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Cart summary + confirm */}
+          <div className="shrink-0 border-t border-border bg-background">
+            {cartItems.length > 0 && (
+              <div className="px-3 pt-2 pb-1 max-h-28 overflow-y-auto space-y-1 admin-scroll">
+                {cartItems.map((item) => (
+                  <div key={item.productId} className="flex items-center gap-1.5 text-xs">
+                    <button
+                      onClick={() => decrementCart(item.productId)}
+                      className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                    >
+                      <Minus size={9} />
+                    </button>
+                    <span className="flex-1 truncate text-foreground">{item.name}</span>
+                    <span className="shrink-0 text-muted-foreground">×{item.qty}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="px-3 pb-3 pt-2 flex items-center gap-3">
+              <span className="flex-1 text-xs text-muted-foreground">
+                {cartItems.length === 0 ? "Выберите блюда из меню" : `${cartCount} позиц. · ${newTotal.toLocaleString("ru-RU")} ₸`}
+              </span>
+              <button
+                onClick={confirmAdd}
+                disabled={saving || cartItems.length === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+              >
+                {saving
+                  ? <><Loader2 size={13} className="animate-spin" /> Добавление…</>
+                  : <><Check size={14} /> Добавить в чек</>
+                }
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </>
