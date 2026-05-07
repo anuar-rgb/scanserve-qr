@@ -2077,6 +2077,16 @@ function MenuPickerModal({
     });
   }
 
+  function incrementCart(productId: string) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(productId);
+      if (!existing) return prev;
+      next.set(productId, { ...existing, qty: existing.qty + 1 });
+      return next;
+    });
+  }
+
   function decrementCart(productId: string) {
     setCart((prev) => {
       const next = new Map(prev);
@@ -2092,9 +2102,8 @@ function MenuPickerModal({
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const newTotal  = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
 
-  const trimmed    = search.trim().toLowerCase();
+  const trimmed     = search.trim().toLowerCase();
   const isSearching = trimmed.length > 0;
-  // Show products view when searching (bypass category screen) or when category is picked
   const showProducts = isSearching || currentCatId !== null;
   const currentCat   = categories.find((c) => c.id === currentCatId);
 
@@ -2130,15 +2139,100 @@ function MenuPickerModal({
     onDone();
   }
 
+  /* ── Shared sub-components ── */
+
+  // Product card used in the left catalog panel
+  function ProductCard({ product }: { product: DbProduct }) {
+    const inCart = cart.get(product.id);
+    const name   = productName(product);
+    const ep     = effPrice(product);
+    const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
+    return (
+      <button
+        onClick={() => addToCart(product)}
+        className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
+      >
+        {product.image_url && (
+          <div className="w-full aspect-square rounded-md overflow-hidden mb-1.5 bg-muted shrink-0">
+            <img src={product.image_url} alt={name} className="w-full h-full object-cover" />
+          </div>
+        )}
+        {inCart && (
+          <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+            {inCart.qty}
+          </span>
+        )}
+        <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">{name}</p>
+        <div className="flex items-center justify-between mt-1.5 gap-0.5">
+          <div className="flex flex-col leading-tight">
+            {hasDiscount && (
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
+                  {product.price.toLocaleString("ru-RU")} ₸
+                </span>
+                <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
+                  {product.discount_label}
+                </span>
+              </div>
+            )}
+            <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
+              {ep.toLocaleString("ru-RU")} ₸
+            </span>
+          </div>
+          <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
+            <Plus size={11} />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // Right-panel cart content (shared between desktop panel and mobile footer)
+  function CartItemsList() {
+    if (cartItems.length === 0) {
+      return (
+        <p className="text-center text-xs text-muted-foreground py-6 px-3">
+          Добавьте блюда из меню слева
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-1 p-3">
+        {cartItems.map((item) => (
+          <div key={item.productId} className="flex items-center gap-1">
+            <button
+              onClick={() => decrementCart(item.productId)}
+              className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+            >
+              <Minus size={9} />
+            </button>
+            <span className="flex-1 min-w-0 text-[11px] leading-tight truncate text-foreground">{item.name}</span>
+            <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">×{item.qty}</span>
+            <span className="shrink-0 text-[11px] font-bold tabular-nums text-right min-w-[52px]">
+              {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+            </span>
+            <button
+              onClick={() => incrementCart(item.productId)}
+              className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
+            >
+              <Plus size={9} />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 pointer-events-none">
+        {/* Modal — wide on desktop for two-panel, narrower on mobile */}
         <div
-          className="w-full max-w-2xl h-[85vh] bg-background rounded-2xl shadow-2xl border border-border pointer-events-auto flex flex-col overflow-hidden"
+          className="w-full max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[85vh] bg-background rounded-2xl shadow-2xl border border-border pointer-events-auto flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
+          {/* ── Unified header ── */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
             {showProducts && !isSearching ? (
               <button
@@ -2146,7 +2240,7 @@ function MenuPickerModal({
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 mr-1"
               >
                 <ChevronLeft size={14} />
-                <span className="hidden sm:inline">Категории</span>
+                <span>Категории</span>
               </button>
             ) : null}
             <div className="flex-1 min-w-0">
@@ -2166,7 +2260,7 @@ function MenuPickerModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Поиск…"
-                className="h-8 pl-7 pr-3 w-32 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="h-8 pl-7 pr-3 w-28 sm:w-36 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
@@ -2174,124 +2268,119 @@ function MenuPickerModal({
             </button>
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto min-h-0 admin-scroll">
-            {catLoading ? (
-              <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
-                <Loader2 size={14} className="animate-spin" /> Загрузка меню…
-              </div>
-            ) : !showProducts ? (
-              /* ── Экран 1: Категории ── */
-              <div className="p-3 grid grid-cols-3 gap-2.5">
-                {categories.map((cat) => {
-                  const catProductCount = products.filter((p) => p.category_id === cat.id && p.is_available).length;
-                  const cartInCat = products
-                    .filter((p) => p.category_id === cat.id)
-                    .reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => setCurrentCatId(cat.id)}
-                      className="relative flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left group"
-                    >
-                      {/* Image or icon area */}
-                      <div className="w-full aspect-[16/9] bg-muted flex items-center justify-center overflow-hidden relative">
-                        {cat.image_url ? (
-                          <img
-                            src={cat.image_url}
-                            alt={cat.name.ru || cat.name.en}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <span className="text-3xl select-none">{cat.icon || "🍽️"}</span>
-                        )}
-                        {catProductCount > 0 && (
-                          <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[9px] font-semibold leading-none backdrop-blur-sm">
-                            {catProductCount}
-                          </span>
-                        )}
-                      </div>
-                      {/* Name */}
-                      <div className="px-2.5 py-2 flex items-center justify-between gap-1">
-                        <p className="text-xs font-semibold leading-tight line-clamp-2 text-foreground flex-1">
-                          {cat.name.ru || cat.name.en}
-                        </p>
-                        {cartInCat > 0 && (
-                          <span className="shrink-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                            {cartInCat}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              /* ── Экран 2: Блюда категории / результаты поиска ── */
-              <div className="p-2.5">
-                {visibleProducts.length === 0 ? (
-                  <p className="text-center text-xs text-muted-foreground py-10">
-                    {isSearching ? "Ничего не найдено" : "Нет доступных позиций"}
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {visibleProducts.map((product) => {
-                      const inCart = cart.get(product.id);
-                      const name   = productName(product);
-                      const ep     = effPrice(product);
-                      const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
-                      return (
-                        <button
-                          key={product.id}
-                          onClick={() => addToCart(product)}
-                          className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
-                        >
-                          {product.image_url && (
-                            <div className="w-full aspect-square rounded-md overflow-hidden mb-1.5 bg-muted shrink-0">
-                              <img src={product.image_url} alt={name} className="w-full h-full object-cover" />
-                            </div>
+          {/* ── Body: two-panel on sm+, single-column on mobile ── */}
+          <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
+
+            {/* LEFT PANEL — catalog (flex-1 takes ~70%) */}
+            <div className="flex-1 min-w-0 overflow-y-auto admin-scroll">
+              {catLoading ? (
+                <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
+                  <Loader2 size={14} className="animate-spin" /> Загрузка меню…
+                </div>
+              ) : !showProducts ? (
+                /* Экран 1: Сетка категорий */
+                <div className="p-3 grid grid-cols-3 gap-2.5">
+                  {categories.map((cat) => {
+                    const catProductCount = products.filter((p) => p.category_id === cat.id && p.is_available).length;
+                    const cartInCat = products
+                      .filter((p) => p.category_id === cat.id)
+                      .reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setCurrentCatId(cat.id)}
+                        className="relative flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left group"
+                      >
+                        <div className="w-full aspect-[16/9] bg-muted flex items-center justify-center overflow-hidden relative">
+                          {cat.image_url ? (
+                            <img
+                              src={cat.image_url}
+                              alt={cat.name.ru || cat.name.en}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <span className="text-3xl select-none">{cat.icon || "🍽️"}</span>
                           )}
-                          {inCart && (
-                            <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                              {inCart.qty}
+                          {catProductCount > 0 && (
+                            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[9px] font-semibold leading-none backdrop-blur-sm">
+                              {catProductCount}
                             </span>
                           )}
-                          <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">{name}</p>
-                          <div className="flex items-center justify-between mt-1.5 gap-0.5">
-                            <div className="flex flex-col leading-tight">
-                              {hasDiscount && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
-                                    {product.price.toLocaleString("ru-RU")} ₸
-                                  </span>
-                                  <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
-                                    {product.discount_label}
-                                  </span>
-                                </div>
-                              )}
-                              <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
-                                {ep.toLocaleString("ru-RU")} ₸
-                              </span>
-                            </div>
-                            <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
-                              <Plus size={11} />
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </div>
+                        <div className="px-2.5 py-2 flex items-center justify-between gap-1">
+                          <p className="text-xs font-semibold leading-tight line-clamp-2 text-foreground flex-1">
+                            {cat.name.ru || cat.name.en}
+                          </p>
+                          {cartInCat > 0 && (
+                            <span className="shrink-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                              {cartInCat}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Экран 2: Список блюд */
+                <div className="p-2.5">
+                  {visibleProducts.length === 0 ? (
+                    <p className="text-center text-xs text-muted-foreground py-10">
+                      {isSearching ? "Ничего не найдено" : "Нет доступных позиций"}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-1.5">
+                      {visibleProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT PANEL — cart (fixed ~280px, desktop only) */}
+            <div className="hidden sm:flex w-64 lg:w-72 shrink-0 border-l border-border flex-col bg-card/30">
+              {/* Cart header */}
+              <div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center gap-2">
+                <ShoppingCart size={13} className="text-muted-foreground" />
+                <span className="text-xs font-semibold text-foreground flex-1">Текущий чек</span>
+                {cartCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-violet-600 text-white text-[10px] font-bold leading-none">
+                    {cartCount}
+                  </span>
                 )}
               </div>
-            )}
+              {/* Scrollable cart items */}
+              <div className="flex-1 overflow-y-auto admin-scroll min-h-0">
+                <CartItemsList />
+              </div>
+              {/* Fixed footer: total + confirm */}
+              <div className="shrink-0 border-t border-border p-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground text-xs">Итого</span>
+                  <span className="font-black tabular-nums">{newTotal.toLocaleString("ru-RU")} ₸</span>
+                </div>
+                <button
+                  onClick={confirmAdd}
+                  disabled={saving || cartItems.length === 0}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                >
+                  {saving
+                    ? <><Loader2 size={13} className="animate-spin" /> Добавление…</>
+                    : <><Check size={14} /> Добавить в чек</>
+                  }
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Cart summary + confirm */}
-          <div className="shrink-0 border-t border-border bg-background">
+          {/* Mobile-only bottom cart summary */}
+          <div className="sm:hidden shrink-0 border-t border-border bg-background">
             {cartItems.length > 0 && (
-              <div className="px-3 pt-2 pb-1 max-h-28 overflow-y-auto space-y-1 admin-scroll">
+              <div className="px-3 pt-2 pb-1 max-h-24 overflow-y-auto admin-scroll">
                 {cartItems.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-1.5 text-xs">
+                  <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
                     <button
                       onClick={() => decrementCart(item.productId)}
                       className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
@@ -2301,13 +2390,19 @@ function MenuPickerModal({
                     <span className="flex-1 truncate text-foreground">{item.name}</span>
                     <span className="shrink-0 text-muted-foreground">×{item.qty}</span>
                     <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
+                    <button
+                      onClick={() => incrementCart(item.productId)}
+                      className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
+                    >
+                      <Plus size={9} />
+                    </button>
                   </div>
                 ))}
               </div>
             )}
             <div className="px-3 pb-3 pt-2 flex items-center gap-3">
               <span className="flex-1 text-xs text-muted-foreground">
-                {cartItems.length === 0 ? "Выберите блюда из меню" : `${cartCount} позиц. · ${newTotal.toLocaleString("ru-RU")} ₸`}
+                {cartItems.length === 0 ? "Выберите блюда" : `${cartCount} позиц. · ${newTotal.toLocaleString("ru-RU")} ₸`}
               </span>
               <button
                 onClick={confirmAdd}
