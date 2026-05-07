@@ -1395,14 +1395,22 @@ function OrderPanel({
     catTabsRef.current?.scrollBy({ left: dir === "left" ? -180 : 180, behavior: "smooth" });
   }
 
+  function effPrice(product: DbProduct): number {
+    if (!product.is_promo || !product.discount_label) return product.price;
+    const pct = parseInt(product.discount_label, 10);
+    if (isNaN(pct) || pct <= 0 || pct >= 100) return product.price;
+    return Math.round(product.price * (1 - pct / 100));
+  }
+
   function addToCart(product: DbProduct) {
-    const name = productName(product);
+    const name  = productName(product);
+    const price = effPrice(product);
     setCart((prev) => {
       const next = new Map(prev);
       const existing = next.get(product.id);
       next.set(product.id, existing
         ? { ...existing, qty: existing.qty + 1 }
-        : { productId: product.id, name, price: product.price, qty: 1 }
+        : { productId: product.id, name, price, qty: 1 }
       );
       return next;
     });
@@ -1419,6 +1427,7 @@ function OrderPanel({
     });
   }
 
+  const productMap = new Map(products.map((p) => [p.id, p]));
   const cartItems = Array.from(cart.values());
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const total     = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
@@ -1439,9 +1448,12 @@ function OrderPanel({
   async function submitOrder() {
     if (cartItems.length === 0) { toast.error("Добавьте хотя бы одно блюдо"); return; }
     setSubmitting(true);
-    const items: OrderItem[] = cartItems.map((i) => ({
-      name: i.name, qty: i.qty, price: i.price, currency: "₸",
-    }));
+    const items: OrderItem[] = cartItems.map((i) => {
+      const prod = productMap.get(i.productId);
+      const item: OrderItem = { name: i.name, qty: i.qty, price: i.price, currency: "₸" };
+      if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
+      return item;
+    });
     const tableNumber = orderType === "dine-in"
       ? (table?.label ?? null)
       : (customerName.trim() || null);
@@ -1574,6 +1586,8 @@ function OrderPanel({
             {visibleProducts.map((product) => {
               const inCart = cart.get(product.id);
               const name   = productName(product);
+              const ep     = effPrice(product);
+              const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
               return (
                 <button
                   key={product.id}
@@ -1594,9 +1608,21 @@ function OrderPanel({
 
                   {/* Price + add */}
                   <div className="flex items-center justify-between mt-1.5 gap-0.5">
-                    <span className="text-[11px] font-black tabular-nums text-foreground leading-none">
-                      {product.price.toLocaleString("ru-RU")} ₸
-                    </span>
+                    <div className="flex flex-col leading-tight">
+                      {hasDiscount && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
+                            {product.price.toLocaleString("ru-RU")} ₸
+                          </span>
+                          <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
+                            {product.discount_label}
+                          </span>
+                        </div>
+                      )}
+                      <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
+                        {ep.toLocaleString("ru-RU")} ₸
+                      </span>
+                    </div>
                     <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
                       <Plus size={11} />
                     </div>
@@ -1881,11 +1907,16 @@ function MenuPickerModal({
                       <div className="flex items-center justify-between mt-1.5 gap-0.5">
                         <div className="flex flex-col leading-tight">
                           {hasDiscount && (
-                            <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
-                              {product.price.toLocaleString("ru-RU")} ₸
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
+                                {product.price.toLocaleString("ru-RU")} ₸
+                              </span>
+                              <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
+                                {product.discount_label}
+                              </span>
+                            </div>
                           )}
-                          <span className={`text-[11px] font-black tabular-nums ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
+                          <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
                             {ep.toLocaleString("ru-RU")} ₸
                           </span>
                         </div>
