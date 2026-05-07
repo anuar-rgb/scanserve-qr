@@ -10,8 +10,27 @@ import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 import { RESTAURANT_ID } from "@/constants";
 
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string };
 type HistoryTab = "dine-in" | "takeaway" | "delivery";
+
+function groupOrderItems<T extends { created_at?: string }>(
+  items: T[],
+  fallbackTimestamp: string,
+): Array<{ label: string; timeMs: number; items: T[] }> {
+  const withMs = items.map((it) => ({ it, ms: new Date(it.created_at || fallbackTimestamp).getTime() }));
+  withMs.sort((a, b) => a.ms - b.ms);
+  const groups: Array<{ label: string; timeMs: number; items: T[] }> = [];
+  for (const { it, ms } of withMs) {
+    const g = groups.find((gr) => ms - gr.timeMs < 2 * 60 * 1000);
+    if (g) { g.items.push(it); }
+    else {
+      const d = new Date(ms);
+      const label = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      groups.push({ label, timeMs: ms, items: [it] });
+    }
+  }
+  return groups;
+}
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("ru-RU", {
@@ -302,37 +321,54 @@ function HistoryCard({ order }: { order: DbOrder }) {
             </div>
           )}
 
-          {/* Items */}
+          {/* Items — grouped chronologically */}
           {items.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
                 Состав заказа
               </p>
-              <div className="rounded-xl border border-border overflow-hidden bg-card">
-                {items.map((item, i) => (
-                  <div
-                    key={i}
-                    className={`flex justify-between items-start px-3 py-2 text-sm ${
-                      i < items.length - 1 ? "border-b border-border" : ""
-                    }`}
-                  >
-                    <span className="text-muted-foreground">
-                      {item.name}
-                      <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
-                    </span>
-                    <div className="flex flex-col items-end shrink-0">
-                      {item.original_price != null && (
-                        <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                          {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                        </span>
-                      )}
-                      <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+              {groupOrderItems(items, order.created_at).map((group, gi) => (
+                <div key={gi}>
+                  {gi === 0 ? (
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1">
+                      Заказ · {group.label}
+                    </p>
+                  ) : (
+                    <div className="flex items-center gap-2 my-2.5">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">
+                        Дозаказ — {group.label}
                       </span>
+                      <div className="flex-1 h-px bg-border" />
                     </div>
+                  )}
+                  <div className="rounded-xl border border-border overflow-hidden bg-card mb-2">
+                    {group.items.map((item, i) => (
+                      <div
+                        key={i}
+                        className={`flex justify-between items-start px-3 py-2 text-sm ${
+                          i < group.items.length - 1 ? "border-b border-border" : ""
+                        }`}
+                      >
+                        <span className="text-muted-foreground">
+                          {item.name}
+                          <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
+                        </span>
+                        <div className="flex flex-col items-end shrink-0">
+                          {item.original_price != null && (
+                            <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                              {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            </span>
+                          )}
+                          <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                            {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
 

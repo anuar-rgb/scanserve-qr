@@ -15,7 +15,7 @@ import { toast } from "sonner";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TableStatus = "free" | "occupied" | "preorder";
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; added_at?: string };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string };
 type CartItem  = { productId: string; name: string; price: number; qty: number; addedAt: string };
 
 interface TableWithStatus {
@@ -835,6 +835,7 @@ function OrderSlotPanel({
               <MenuPickerModal
                 orderId={order.id}
                 existingItems={items}
+                orderCreatedAt={order.created_at}
                 onDone={() => { setShowMenuPicker(false); onRefresh(); }}
                 onClose={() => setShowMenuPicker(false)}
               />
@@ -1267,6 +1268,7 @@ function TablePanel({
                     <MenuPickerModal
                       orderId={activeOrder.id}
                       existingItems={items}
+                      orderCreatedAt={activeOrder.created_at}
                       onDone={() => { setShowMenuPicker(false); onRefresh(); }}
                       onClose={() => setShowMenuPicker(false)}
                     />
@@ -1392,22 +1394,30 @@ function TablePanel({
   );
 }
 
-// Groups CartItems by addedAt with a 2-minute tolerance per group.
-function groupCartByTime(items: CartItem[]): Array<{ label: string; items: CartItem[] }> {
-  const sorted = [...items].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
-  const groups: Array<{ label: string; items: CartItem[]; startMs: number }> = [];
-  for (const item of sorted) {
-    const ms = new Date(item.addedAt).getTime();
-    const existing = groups.find((g) => ms - g.startMs < 2 * 60 * 1000);
-    if (existing) {
-      existing.items.push(item);
-    } else {
-      const d = new Date(item.addedAt);
+// Groups any items with an optional created_at by time, with 2-min tolerance.
+// Items missing created_at fall back to fallbackTimestamp (e.g. order.created_at).
+function groupOrderItems<T extends { created_at?: string }>(
+  items: T[],
+  fallbackTimestamp: string,
+): Array<{ label: string; timeMs: number; items: T[] }> {
+  const withMs = items.map((it) => ({ it, ms: new Date(it.created_at || fallbackTimestamp).getTime() }));
+  withMs.sort((a, b) => a.ms - b.ms);
+  const groups: Array<{ label: string; timeMs: number; items: T[] }> = [];
+  for (const { it, ms } of withMs) {
+    const g = groups.find((gr) => ms - gr.timeMs < 2 * 60 * 1000);
+    if (g) { g.items.push(it); }
+    else {
+      const d = new Date(ms);
       const label = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-      groups.push({ label, items: [item], startMs: ms });
+      groups.push({ label, timeMs: ms, items: [it] });
     }
   }
   return groups;
+}
+
+// Convenience wrapper for CartItem (uses addedAt as created_at).
+function groupCartByTime(items: CartItem[]): Array<{ label: string; timeMs: number; items: CartItem[] }> {
+  return groupOrderItems(items.map((ci) => ({ ...ci, created_at: ci.addedAt })), new Date().toISOString());
 }
 
 // ── PosMenuBrowser ────────────────────────────────────────────────────────────
@@ -1421,6 +1431,7 @@ function PosMenuBrowser({
   onBack,
   extraHeader,
   existingItems,
+  orderCreatedAt,
   confirmLabel,
   onConfirm,
 }: {
@@ -1429,6 +1440,7 @@ function PosMenuBrowser({
   onBack: () => void;
   extraHeader?: ReactNode;
   existingItems?: OrderItem[];
+  orderCreatedAt?: string;
   confirmLabel: string;
   onConfirm: (items: OrderItem[]) => Promise<void>;
 }) {
@@ -1498,6 +1510,11 @@ function PosMenuBrowser({
   const cartItems = Array.from(cart.values());
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const existingTotal = (existingItems ?? []).reduce((s, i) => s + i.price * i.qty, 0);
+  const existingGroups = existingItems?.length
+    ? groupOrderItems(existingItems, orderCreatedAt ?? new Date().toISOString())
+    : [];
+  const newGroups = groupCartByTime(cartItems);
 
   const trimmed      = search.trim().toLowerCase();
   const isSearching  = trimmed.length > 0;
@@ -1523,7 +1540,7 @@ function PosMenuBrowser({
     setConfirming(true);
     const items: OrderItem[] = cartItems.map((ci) => {
       const prod = productMap.get(ci.productId);
-      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", added_at: ci.addedAt };
+      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", created_at: ci.addedAt };
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
       return item;
     });
@@ -1713,42 +1730,58 @@ function PosMenuBrowser({
             )}
           </div>
           <div className="flex-1 overflow-y-auto admin-scroll min-h-0">
-            {/* Existing items from DB — muted, read-only */}
-            {existingItems && existingItems.length > 0 && (
-              <div className="px-3 pt-3 pb-2">
-                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">
-                  Уже в заказе
-                </p>
-                <div className="space-y-1">
-                  {existingItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-1 opacity-55">
-                      <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
-                      <span className="flex-1 min-w-0 text-[10px] leading-tight truncate text-foreground">{item.name}</span>
-                      <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
-                      <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
-                        {(item.price * item.qty).toLocaleString("ru-RU")} ₸
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* New items grouped by time */}
-            {cartItems.length === 0 ? (
-              !existingItems?.length && (
-                <p className="text-center text-xs text-muted-foreground py-6 px-3">Добавьте блюда из меню</p>
-              )
+            {existingGroups.length === 0 && newGroups.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-6 px-3">Добавьте блюда из меню</p>
             ) : (
-              <div className="px-3 pt-2 pb-2">
-                {existingItems && existingItems.length > 0 && (
-                  <div className="border-t border-dashed border-border/60 mb-2" />
-                )}
-                {groupCartByTime(cartItems).map((group, gi) => (
-                  <div key={gi} className="mb-2">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-violet-500 mb-1.5">
-                      Добавлено в {group.label}
-                    </p>
-                    <div className="space-y-1">
+              <div className="px-3 pt-3 pb-2">
+                {/* Existing items — chronologically grouped, read-only */}
+                {existingGroups.map((group, gi) => (
+                  <div key={gi}>
+                    {gi === 0 ? (
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">
+                        Заказ · {group.label}
+                      </p>
+                    ) : (
+                      <div className="flex items-center gap-2 my-2.5">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">
+                          Дозаказ — {group.label}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    <div className="space-y-1 mb-2">
+                      {group.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-1 opacity-55">
+                          <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+                          <span className="flex-1 min-w-0 text-[10px] leading-tight truncate text-foreground">{item.name}</span>
+                          <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
+                          <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
+                            {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* New items — each group gets a "Дозаказ — HH:MM" divider */}
+                {newGroups.map((group, gi) => (
+                  <div key={gi}>
+                    {(existingGroups.length > 0 || gi > 0) && (
+                      <div className="flex items-center gap-2 my-2.5">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">
+                          Дозаказ — {group.label}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    {gi === 0 && existingGroups.length === 0 && (
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">
+                        Добавлено в {group.label}
+                      </p>
+                    )}
+                    <div className="space-y-1 mb-2">
                       {group.items.map((item) => (
                         <div key={item.productId} className="flex items-center gap-1">
                           <button
@@ -1780,7 +1813,7 @@ function PosMenuBrowser({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-xs">Итого</span>
               <span className="font-black tabular-nums">
-                {(cartTotal + (existingItems?.reduce((s, i) => s + i.price * i.qty, 0) ?? 0)).toLocaleString("ru-RU")} ₸
+                {(cartTotal + existingTotal).toLocaleString("ru-RU")} ₸
               </span>
             </div>
             <button
@@ -1801,15 +1834,15 @@ function PosMenuBrowser({
       <div className="sm:hidden shrink-0 border-t border-border bg-background">
         {cartItems.length > 0 && (
           <div className="px-3 pt-2 pb-1 max-h-28 overflow-y-auto admin-scroll space-y-1">
-            {existingItems && existingItems.length > 0 && (
+            {existingGroups.length > 0 && (
               <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60 pb-0.5">
-                Уже в заказе ({existingItems.reduce((s, i) => s + i.qty, 0)} поз.)
+                Уже в заказе ({existingItems!.reduce((s, i) => s + i.qty, 0)} поз.)
               </p>
             )}
-            {groupCartByTime(cartItems).map((group, gi) => (
+            {newGroups.map((group, gi) => (
               <div key={gi}>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-violet-500 py-0.5">
-                  + в {group.label}
+                  {existingGroups.length > 0 || gi > 0 ? `Дозаказ — ${group.label}` : `+ ${group.label}`}
                 </p>
                 {group.items.map((item) => (
                   <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
@@ -1832,7 +1865,7 @@ function PosMenuBrowser({
           <span className="flex-1 text-xs text-muted-foreground">
             {cartItems.length === 0
               ? (existingItems?.length ? `${existingItems.reduce((s, i) => s + i.qty, 0)} поз. в заказе` : "Выберите блюда")
-              : `+${cartCount} новых · ${(cartTotal + (existingItems?.reduce((s, i) => s + i.price * i.qty, 0) ?? 0)).toLocaleString("ru-RU")} ₸`
+              : `+${cartCount} новых · ${(cartTotal + existingTotal).toLocaleString("ru-RU")} ₸`
             }
           </span>
           <button
@@ -2181,11 +2214,13 @@ function ChangeOrderTypeModal({
 function MenuPickerModal({
   orderId,
   existingItems,
+  orderCreatedAt,
   onDone,
   onClose,
 }: {
   orderId: string;
   existingItems: OrderItem[];
+  orderCreatedAt?: string;
   onDone: () => void;
   onClose: () => void;
 }) {
@@ -2211,6 +2246,7 @@ function MenuPickerModal({
             panelTitle="Выбрать из меню"
             onBack={onClose}
             existingItems={existingItems}
+            orderCreatedAt={orderCreatedAt}
             confirmLabel="Добавить в чек"
             onConfirm={handleConfirm}
           />
