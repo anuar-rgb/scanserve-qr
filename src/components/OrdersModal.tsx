@@ -123,12 +123,7 @@ export function OrdersModal({
     }
   };
 
-  const sorted = [...orders].sort((a, b) => {
-    const ap = a.timingMode === "preorder" ? 0 : 1;
-    const bp = b.timingMode === "preorder" ? 0 : 1;
-    if (ap !== bp) return ap - bp;
-    return b.timestamp - a.timestamp;
-  });
+  const sorted = [...orders].sort((a, b) => b.timestamp - a.timestamp);
   const refundingOrder = refundingOrderId ? sorted.find((o) => o.id === refundingOrderId) ?? null : null;
   const isPartial      = refundItemIndex !== null;
   const refundingItem  = (refundingOrder && isPartial) ? refundingOrder.items[refundItemIndex!] : null;
