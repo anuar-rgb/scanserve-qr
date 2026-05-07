@@ -176,8 +176,20 @@ export default function HallPage() {
           toast.success(`Новый заказ · ${label}`, { duration: 6000 });
         }
       )
-      // UPDATE / DELETE: re-fetch to stay in sync (status changes, table transfers, etc.)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: DB_TABLES.orders }, () => load())
+      // UPDATE: completed orders are removed from state instantly; other changes trigger full re-fetch
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        (payload) => {
+          const updated = payload.new as DbOrder;
+          if (updated.status === "completed") {
+            knownOrderIds.current.delete(updated.id);
+            setOrders((prev) => prev.filter((o) => o.id !== updated.id));
+          } else {
+            load();
+          }
+        }
+      )
       .on("postgres_changes", { event: "DELETE", schema: "public", table: DB_TABLES.orders }, () => load())
       .on("postgres_changes", { event: "*",      schema: "public", table: DB_TABLES.restaurantTables }, () => load())
       .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
@@ -982,10 +994,12 @@ function TablePanel({
     const { error } = await supabase
       .from(DB_TABLES.orders)
       .update({ status: "completed" })
-      .eq("id", order.id);
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID);
     setClosing(false);
     if (error) { toast.error("Ошибка закрытия заказа"); return; }
     toast.success("Заказ закрыт, стол освобождён!");
+    onClose();
     onRefresh();
   }
 
