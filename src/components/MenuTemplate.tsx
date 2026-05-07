@@ -583,6 +583,10 @@ function PopularDishesSection({
         {sorted.map((dish) => {
           const likeCount = getLikeCount(dish.id);
           const isLiked = !!liked[dish.id];
+          const popPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+          const popDiscountedPrice = !isNaN(popPct) && popPct > 0 && popPct < 100
+            ? Math.round(dish.price * (1 - popPct / 100))
+            : null;
 
           return (
             <div
@@ -613,6 +617,18 @@ function PopularDishesSection({
                 {dish.imageUrl ? (
                   <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : dish.emoji}
+                {popDiscountedPrice !== null && (
+                  <span style={{
+                    position: "absolute", top: 6, right: 6,
+                    fontSize: 9, fontWeight: 800,
+                    padding: "3px 7px", borderRadius: R.full,
+                    backgroundColor: "#FF6B2B", color: "#fff",
+                    letterSpacing: "0.04em", lineHeight: 1.4, whiteSpace: "nowrap",
+                    fontFamily: "'Montserrat', system-ui, sans-serif",
+                  }}>
+                    −{popPct}%
+                  </span>
+                )}
               </div>
 
               <div style={{ padding: "10px 12px 12px" }}>
@@ -1207,17 +1223,19 @@ function CatalogDishCard({
           <span
             style={{
               position: "absolute",
-              bottom: 6,
-              left: 6,
-              fontSize: 9,
-              fontWeight: 700,
-              padding: "3px 7px",
-              borderRadius: R.sm,
-              backgroundColor: "#E05555",
+              top: 6,
+              right: 6,
+              fontSize: 10,
+              fontWeight: 800,
+              padding: "3px 8px",
+              borderRadius: R.full,
+              backgroundColor: "#FF6B2B",
               color: "#fff",
-              letterSpacing: "0.03em",
+              letterSpacing: "0.04em",
               lineHeight: 1.4,
               whiteSpace: "nowrap",
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+              zIndex: 2,
             }}
           >
             −{dishPct}%
@@ -1256,7 +1274,7 @@ function CatalogDishCard({
             <p style={{ fontSize: 11, fontWeight: 500, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
               {dish.price.toLocaleString()} {currency}
             </p>
-            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "#E05555" }}>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "#FF6B2B" }}>
               {discountedPrice.toLocaleString()} {currency}
             </p>
           </div>
@@ -1394,6 +1412,10 @@ function MenuDishRow({
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const qty    = cart[dish.id]?.qty ?? 0;
   const badges = dishBadges(dish);
+  const rowPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+  const rowDiscountedPrice = !isNaN(rowPct) && rowPct > 0 && rowPct < 100
+    ? Math.round(dish.price * (1 - rowPct / 100))
+    : null;
 
   return (
     <div style={{
@@ -1415,6 +1437,18 @@ function MenuDishRow({
               <BadgeStack badges={badges} size="xs" />
             </div>
           )}
+          {rowDiscountedPrice !== null && (
+            <span style={{
+              position: "absolute", bottom: 4, right: 4,
+              fontSize: 8, fontWeight: 800,
+              padding: "2px 5px", borderRadius: R.full,
+              backgroundColor: "#FF6B2B", color: "#fff",
+              letterSpacing: "0.04em", lineHeight: 1.4, whiteSpace: "nowrap",
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+            }}>
+              −{rowPct}%
+            </span>
+          )}
         </div>
 
         {/* Info column */}
@@ -1425,9 +1459,20 @@ function MenuDishRow({
           <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 4px", lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
             {resolve(dish.desc, lang)}
           </p>
-          <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
-            {dish.price.toLocaleString()} {currency}
-          </p>
+          {rowDiscountedPrice !== null ? (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+              <p style={{ fontSize: 11, fontWeight: 500, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
+                {dish.price.toLocaleString()} {currency}
+              </p>
+              <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "#FF6B2B" }}>
+                {rowDiscountedPrice.toLocaleString()} {currency}
+              </p>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
+              {dish.price.toLocaleString()} {currency}
+            </p>
+          )}
 
           {dish.ingredients && (
             <>
