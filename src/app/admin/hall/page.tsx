@@ -5,6 +5,7 @@ import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
+  Percent, ArrowLeftRight,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
@@ -425,6 +426,7 @@ export default function HallPage() {
           orderType="takeaway"
           onRefresh={load}
           onOrderClosed={handleOrderClosed}
+          allTables={tablesWithStatus}
         />
       )}
 
@@ -436,6 +438,7 @@ export default function HallPage() {
           orderType="delivery"
           onRefresh={load}
           onOrderClosed={handleOrderClosed}
+          allTables={tablesWithStatus}
         />
       )}
 
@@ -701,15 +704,19 @@ function OrderSlotPanel({
   onClose,
   onRefresh,
   onOrderClosed,
+  allTables,
 }: {
   order: DbOrder;
   onClose: () => void;
   onRefresh: () => void;
   onOrderClosed: (orderId: string) => void;
+  allTables: TableWithStatus[];
 }) {
-  const [closing, setClosing]             = useState(false);
-  const [copiedId, setCopiedId]           = useState(false);
-  const [showMenuPicker, setShowMenuPicker] = useState(false);
+  const [closing, setClosing]                   = useState(false);
+  const [copiedId, setCopiedId]                 = useState(false);
+  const [showMenuPicker, setShowMenuPicker]     = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showTypeModal, setShowTypeModal]       = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -834,6 +841,39 @@ function OrderSlotPanel({
             )}
           </div>
 
+          {/* Discount + type change */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowDiscountModal(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+            >
+              <Percent size={12} /> Скидка %
+            </button>
+            <button
+              onClick={() => setShowTypeModal(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+            >
+              <ArrowLeftRight size={12} /> Изменить тип
+            </button>
+          </div>
+          {showDiscountModal && (
+            <DiscountModal
+              orderId={order.id}
+              existingItems={items}
+              onDone={() => { setShowDiscountModal(false); onRefresh(); }}
+              onClose={() => setShowDiscountModal(false)}
+            />
+          )}
+          {showTypeModal && (
+            <ChangeOrderTypeModal
+              orderId={order.id}
+              currentType={order.type}
+              allTables={allTables}
+              onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
+              onClose={() => setShowTypeModal(false)}
+            />
+          )}
+
           <div className="flex items-center justify-between px-1">
             <div>
               <p className="text-sm font-semibold">Итого</p>
@@ -864,12 +904,14 @@ function PickupDeliveryGrid({
   orderType,
   onRefresh,
   onOrderClosed,
+  allTables,
 }: {
   orders: DbOrder[];
   loading: boolean;
   orderType: "takeaway" | "delivery";
   onRefresh: () => void;
   onOrderClosed: (orderId: string) => void;
+  allTables: TableWithStatus[];
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -957,6 +999,7 @@ function PickupDeliveryGrid({
           onClose={() => setSelected(null)}
           onRefresh={onRefresh}
           onOrderClosed={onOrderClosed}
+          allTables={allTables}
         />
       )}
     </div>
@@ -981,11 +1024,13 @@ function TablePanel({
   allTables: TableWithStatus[];
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
-  const [panelMode, setPanelMode]               = useState<"info" | "order">("info");
-  const [closing, setClosing]                   = useState(false);
-  const [copiedId, setCopiedId]                 = useState(false);
-  const [changingTable, setChangingTable]       = useState(false);
-  const [showMenuPicker, setShowMenuPicker]     = useState(false);
+  const [panelMode, setPanelMode]                 = useState<"info" | "order">("info");
+  const [closing, setClosing]                     = useState(false);
+  const [copiedId, setCopiedId]                   = useState(false);
+  const [changingTable, setChangingTable]         = useState(false);
+  const [showMenuPicker, setShowMenuPicker]       = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showTypeModal, setShowTypeModal]         = useState(false);
 
   const activeOrder = order ?? preorderOrder;
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
@@ -1209,23 +1254,58 @@ function TablePanel({
 
             {/* Add from menu — occupied only */}
             {status === "occupied" && activeOrder && (
-              <div>
-                <button
-                  onClick={() => setShowMenuPicker(true)}
-                  className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
-                >
-                  <Plus size={12} />
-                  Выбрать из меню
-                </button>
-                {showMenuPicker && (
-                  <MenuPickerModal
+              <>
+                <div>
+                  <button
+                    onClick={() => setShowMenuPicker(true)}
+                    className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                  >
+                    <Plus size={12} />
+                    Выбрать из меню
+                  </button>
+                  {showMenuPicker && (
+                    <MenuPickerModal
+                      orderId={activeOrder.id}
+                      existingItems={items}
+                      onDone={() => { setShowMenuPicker(false); onRefresh(); }}
+                      onClose={() => setShowMenuPicker(false)}
+                    />
+                  )}
+                </div>
+
+                {/* Discount + type change */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDiscountModal(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                  >
+                    <Percent size={12} /> Скидка %
+                  </button>
+                  <button
+                    onClick={() => setShowTypeModal(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                  >
+                    <ArrowLeftRight size={12} /> Изменить тип
+                  </button>
+                </div>
+                {showDiscountModal && (
+                  <DiscountModal
                     orderId={activeOrder.id}
                     existingItems={items}
-                    onDone={() => { setShowMenuPicker(false); onRefresh(); }}
-                    onClose={() => setShowMenuPicker(false)}
+                    onDone={() => { setShowDiscountModal(false); onRefresh(); }}
+                    onClose={() => setShowDiscountModal(false)}
                   />
                 )}
-              </div>
+                {showTypeModal && (
+                  <ChangeOrderTypeModal
+                    orderId={activeOrder.id}
+                    currentType="dine-in"
+                    allTables={allTables}
+                    onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
+                    onClose={() => setShowTypeModal(false)}
+                  />
+                )}
+              </>
             )}
 
             {/* Total */}
@@ -1677,6 +1757,265 @@ function OrderPanel({
               : <><Check size={15} /> Отправить на кухню</>
             }
           </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── DiscountModal ─────────────────────────────────────────────────────────────
+
+function DiscountModal({
+  orderId,
+  existingItems,
+  onDone,
+  onClose,
+}: {
+  orderId: string;
+  existingItems: OrderItem[];
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const [pct, setPct]         = useState<number | "">("");
+  const [applying, setApplying] = useState(false);
+
+  const PRESETS = [5, 10, 15, 20, 50];
+
+  const baseItems  = existingItems.filter((it) => !it.name.startsWith("Скидка на чек"));
+  const baseTotal  = baseItems.reduce((s, it) => s + it.price * it.qty, 0);
+  const pctNum     = typeof pct === "number" ? pct : 0;
+  const discountAmount = pctNum > 0 ? Math.round(baseTotal * pctNum / 100) : 0;
+  const newTotal   = baseTotal - discountAmount;
+  const isValid    = pctNum >= 1 && pctNum <= 99;
+
+  async function apply() {
+    if (!isValid) return;
+    setApplying(true);
+    const discountItem: OrderItem = {
+      name: `Скидка на чек (${pctNum}%)`,
+      qty: 1,
+      price: -discountAmount,
+      currency: "₸",
+    };
+    const newItems = [...baseItems, discountItem];
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ items_json: newItems, total_price: newTotal })
+      .eq("id", orderId);
+    setApplying(false);
+    if (error) { toast.error("Ошибка применения скидки"); return; }
+    toast.success(`Скидка ${pctNum}% применена`);
+    onDone();
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="w-full max-w-sm bg-background rounded-2xl shadow-2xl border border-border pointer-events-auto flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+            <div className="flex-1">
+              <p className="font-semibold text-sm">Скидка на чек</p>
+              <p className="text-[11px] text-muted-foreground">
+                База: {baseTotal.toLocaleString("ru-RU")} ₸
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="p-4 space-y-4">
+            <div className="flex gap-2 flex-wrap">
+              {PRESETS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPct(p)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
+                    pct === p
+                      ? "bg-violet-600 text-white"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {p}%
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={99}
+                value={pct}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  setPct(isNaN(v) ? "" : v);
+                }}
+                placeholder="Свой %"
+                className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+            </div>
+
+            {isValid && (
+              <div className="rounded-xl bg-muted/40 px-4 py-3 space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Скидка {pctNum}%</span>
+                  <span>−{discountAmount.toLocaleString("ru-RU")} ₸</span>
+                </div>
+                <div className="flex justify-between text-sm font-black">
+                  <span>Итого</span>
+                  <span>{newTotal.toLocaleString("ru-RU")} ₸</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 pb-4">
+            <button
+              onClick={apply}
+              disabled={!isValid || applying}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 disabled:opacity-40 transition-colors"
+            >
+              {applying
+                ? <><Loader2 size={14} className="animate-spin" /> Применяю…</>
+                : <><Check size={14} /> Применить</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── ChangeOrderTypeModal ──────────────────────────────────────────────────────
+
+function ChangeOrderTypeModal({
+  orderId,
+  currentType,
+  allTables,
+  onDone,
+  onClose,
+}: {
+  orderId: string;
+  currentType: string;
+  allTables: TableWithStatus[];
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const [targetType, setTargetType]       = useState<string | null>(null);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [saving, setSaving]               = useState(false);
+
+  const OPTIONS = [
+    { type: "dine-in",  label: "В заведении", icon: "🍽️" },
+    { type: "takeaway", label: "С собой",      icon: "🛍️" },
+    { type: "delivery", label: "Доставка",     icon: "🛵" },
+  ].filter((o) => o.type !== currentType);
+
+  const freeTables = allTables.filter((tws) => tws.status === "free");
+  const isValid = targetType !== null && (targetType !== "dine-in" || selectedTable !== null);
+
+  async function confirm() {
+    if (!isValid || !targetType) return;
+    setSaving(true);
+    const newTableNumber = targetType === "dine-in" ? selectedTable : null;
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ type: targetType, table_number: newTableNumber })
+      .eq("id", orderId);
+    setSaving(false);
+    if (error) { toast.error("Ошибка изменения типа"); return; }
+    const label = OPTIONS.find((o) => o.type === targetType)?.label ?? targetType;
+    toast.success(`Заказ переведён → ${label}`);
+    onDone();
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="w-full max-w-sm bg-background rounded-2xl shadow-2xl border border-border pointer-events-auto flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+            <div className="flex-1">
+              <p className="font-semibold text-sm">Изменить тип заказа</p>
+              <p className="text-[11px] text-muted-foreground">Выберите куда перевести заказ</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="p-4 space-y-3">
+            <div className="flex gap-2">
+              {OPTIONS.map((opt) => (
+                <button
+                  key={opt.type}
+                  onClick={() => { setTargetType(opt.type); setSelectedTable(null); }}
+                  className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                    targetType === opt.type
+                      ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                      : "border-border hover:border-violet-300 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="text-xl">{opt.icon}</span>
+                  <span className="text-xs">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {targetType === "dine-in" && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Выберите свободный стол:
+                </p>
+                {freeTables.length === 0 ? (
+                  <p className="text-xs text-center text-muted-foreground py-4">Нет свободных столов</p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-1 max-h-40 overflow-y-auto admin-scroll">
+                    {freeTables.map((tws) => (
+                      <button
+                        key={tws.table.id}
+                        onClick={() => setSelectedTable(tws.table.label)}
+                        className={`h-10 rounded-lg text-xs font-bold border transition-colors ${
+                          selectedTable === tws.table.label
+                            ? "border-violet-500 bg-violet-600 text-white"
+                            : "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        }`}
+                      >
+                        {tws.table.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 pb-4">
+            <button
+              onClick={confirm}
+              disabled={!isValid || saving}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 disabled:opacity-40 transition-colors"
+            >
+              {saving
+                ? <><Loader2 size={14} className="animate-spin" /> Перевожу…</>
+                : <><Check size={14} /> Подтвердить</>}
+            </button>
+          </div>
         </div>
       </div>
     </>
