@@ -15,8 +15,8 @@ import { toast } from "sonner";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TableStatus = "free" | "occupied" | "preorder";
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number };
-type CartItem  = { productId: string; name: string; price: number; qty: number };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; added_at?: string };
+type CartItem  = { productId: string; name: string; price: number; qty: number; addedAt: string };
 
 interface TableWithStatus {
   table: DbRestaurantTable;
@@ -1392,6 +1392,24 @@ function TablePanel({
   );
 }
 
+// Groups CartItems by addedAt with a 2-minute tolerance per group.
+function groupCartByTime(items: CartItem[]): Array<{ label: string; items: CartItem[] }> {
+  const sorted = [...items].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+  const groups: Array<{ label: string; items: CartItem[]; startMs: number }> = [];
+  for (const item of sorted) {
+    const ms = new Date(item.addedAt).getTime();
+    const existing = groups.find((g) => ms - g.startMs < 2 * 60 * 1000);
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      const d = new Date(item.addedAt);
+      const label = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      groups.push({ label, items: [item], startMs: ms });
+    }
+  }
+  return groups;
+}
+
 // ── PosMenuBrowser ────────────────────────────────────────────────────────────
 // Shared POS catalog browser used by both OrderPanel (creation) and
 // MenuPickerModal (add-to-existing). Renders as a fragment filling
@@ -1402,6 +1420,7 @@ function PosMenuBrowser({
   panelTitle = "Выбрать из меню",
   onBack,
   extraHeader,
+  existingItems,
   confirmLabel,
   onConfirm,
 }: {
@@ -1409,6 +1428,7 @@ function PosMenuBrowser({
   panelTitle?: string;
   onBack: () => void;
   extraHeader?: ReactNode;
+  existingItems?: OrderItem[];
   confirmLabel: string;
   onConfirm: (items: OrderItem[]) => Promise<void>;
 }) {
@@ -1448,7 +1468,7 @@ function PosMenuBrowser({
       const existing = next.get(product.id);
       next.set(product.id, existing
         ? { ...existing, qty: existing.qty + 1 }
-        : { productId: product.id, name, price, qty: 1 }
+        : { productId: product.id, name, price, qty: 1, addedAt: new Date().toISOString() }
       );
       return next;
     });
@@ -1503,7 +1523,7 @@ function PosMenuBrowser({
     setConfirming(true);
     const items: OrderItem[] = cartItems.map((ci) => {
       const prod = productMap.get(ci.productId);
-      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸" };
+      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", added_at: ci.addedAt };
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
       return item;
     });
@@ -1686,36 +1706,71 @@ function PosMenuBrowser({
             <span className="text-xs font-semibold text-foreground flex-1">
               {mode === "panel" ? "Заказ" : "Чек"}
             </span>
-            {cartCount > 0 && (
+            {(cartCount + (existingItems?.reduce((s, i) => s + i.qty, 0) ?? 0)) > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-violet-600 text-white text-[10px] font-bold leading-none">
-                {cartCount}
+                {cartCount + (existingItems?.reduce((s, i) => s + i.qty, 0) ?? 0)}
               </span>
             )}
           </div>
           <div className="flex-1 overflow-y-auto admin-scroll min-h-0">
+            {/* Existing items from DB — muted, read-only */}
+            {existingItems && existingItems.length > 0 && (
+              <div className="px-3 pt-3 pb-2">
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">
+                  Уже в заказе
+                </p>
+                <div className="space-y-1">
+                  {existingItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1 opacity-55">
+                      <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+                      <span className="flex-1 min-w-0 text-[10px] leading-tight truncate text-foreground">{item.name}</span>
+                      <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
+                      <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
+                        {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* New items grouped by time */}
             {cartItems.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-6 px-3">Добавьте блюда из меню</p>
+              !existingItems?.length && (
+                <p className="text-center text-xs text-muted-foreground py-6 px-3">Добавьте блюда из меню</p>
+              )
             ) : (
-              <div className="space-y-1 p-3">
-                {cartItems.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-1">
-                    <button
-                      onClick={() => decrementCart(item.productId)}
-                      className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
-                    >
-                      <Minus size={9} />
-                    </button>
-                    <span className="flex-1 min-w-0 text-[11px] leading-tight truncate text-foreground">{item.name}</span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
-                    <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
-                      {(item.price * item.qty).toLocaleString("ru-RU")} ₸
-                    </span>
-                    <button
-                      onClick={() => incrementCart(item.productId)}
-                      className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
-                    >
-                      <Plus size={9} />
-                    </button>
+              <div className="px-3 pt-2 pb-2">
+                {existingItems && existingItems.length > 0 && (
+                  <div className="border-t border-dashed border-border/60 mb-2" />
+                )}
+                {groupCartByTime(cartItems).map((group, gi) => (
+                  <div key={gi} className="mb-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-violet-500 mb-1.5">
+                      Добавлено в {group.label}
+                    </p>
+                    <div className="space-y-1">
+                      {group.items.map((item) => (
+                        <div key={item.productId} className="flex items-center gap-1">
+                          <button
+                            onClick={() => decrementCart(item.productId)}
+                            className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                          >
+                            <Minus size={9} />
+                          </button>
+                          <span className="flex-1 min-w-0 text-[11px] leading-tight truncate text-foreground">{item.name}</span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
+                          <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
+                            {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                          </span>
+                          <button
+                            onClick={() => incrementCart(item.productId)}
+                            className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
+                          >
+                            <Plus size={9} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1724,7 +1779,9 @@ function PosMenuBrowser({
           <div className="shrink-0 border-t border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-xs">Итого</span>
-              <span className="font-black tabular-nums">{cartTotal.toLocaleString("ru-RU")} ₸</span>
+              <span className="font-black tabular-nums">
+                {(cartTotal + (existingItems?.reduce((s, i) => s + i.price * i.qty, 0) ?? 0)).toLocaleString("ru-RU")} ₸
+              </span>
             </div>
             <button
               onClick={handleConfirm}
@@ -1733,7 +1790,7 @@ function PosMenuBrowser({
             >
               {confirming
                 ? <><Loader2 size={13} className="animate-spin" /> Обработка…</>
-                : <><Check size={14} /> {confirmLabel}</>
+                : <><Check size={14} /> {cartItems.length > 0 && existingItems?.length ? "Дозаказать" : confirmLabel}</>
               }
             </button>
           </div>
@@ -1743,25 +1800,40 @@ function PosMenuBrowser({
       {/* Mobile: bottom cart */}
       <div className="sm:hidden shrink-0 border-t border-border bg-background">
         {cartItems.length > 0 && (
-          <div className="px-3 pt-2 pb-1 max-h-24 overflow-y-auto admin-scroll space-y-1">
-            {cartItems.map((item) => (
-              <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
-                <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
-                  <Minus size={9} />
-                </button>
-                <span className="flex-1 truncate text-foreground">{item.name}</span>
-                <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
-                <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
-                <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
-                  <Plus size={9} />
-                </button>
+          <div className="px-3 pt-2 pb-1 max-h-28 overflow-y-auto admin-scroll space-y-1">
+            {existingItems && existingItems.length > 0 && (
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60 pb-0.5">
+                Уже в заказе ({existingItems.reduce((s, i) => s + i.qty, 0)} поз.)
+              </p>
+            )}
+            {groupCartByTime(cartItems).map((group, gi) => (
+              <div key={gi}>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-violet-500 py-0.5">
+                  + в {group.label}
+                </p>
+                {group.items.map((item) => (
+                  <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
+                    <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
+                      <Minus size={9} />
+                    </button>
+                    <span className="flex-1 truncate text-foreground">{item.name}</span>
+                    <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
+                    <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
+                      <Plus size={9} />
+                    </button>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
         )}
         <div className="px-3 pb-3 pt-2 flex items-center gap-3">
           <span className="flex-1 text-xs text-muted-foreground">
-            {cartItems.length === 0 ? "Выберите блюда" : `${cartCount} позиц. · ${cartTotal.toLocaleString("ru-RU")} ₸`}
+            {cartItems.length === 0
+              ? (existingItems?.length ? `${existingItems.reduce((s, i) => s + i.qty, 0)} поз. в заказе` : "Выберите блюда")
+              : `+${cartCount} новых · ${(cartTotal + (existingItems?.reduce((s, i) => s + i.price * i.qty, 0) ?? 0)).toLocaleString("ru-RU")} ₸`
+            }
           </span>
           <button
             onClick={handleConfirm}
@@ -1770,7 +1842,7 @@ function PosMenuBrowser({
           >
             {confirming
               ? <><Loader2 size={13} className="animate-spin" /> Обработка…</>
-              : <><Check size={14} /> {confirmLabel}</>
+              : <><Check size={14} /> {cartItems.length > 0 && existingItems?.length ? "Дозаказать" : confirmLabel}</>
             }
           </button>
         </div>
@@ -2138,6 +2210,7 @@ function MenuPickerModal({
             mode="modal"
             panelTitle="Выбрать из меню"
             onBack={onClose}
+            existingItems={existingItems}
             confirmLabel="Добавить в чек"
             onConfirm={handleConfirm}
           />
