@@ -270,3 +270,6 @@ body {
 .dark .admin-scroll-x::-webkit-scrollbar-track       { background: rgba(255,255,255,0.06); }
 .dark .admin-scroll-x::-webkit-scrollbar-thumb       { background: rgba(200,200,220,0.28); }
 .dark .admin-scroll-x::-webkit-scrollbar-thumb:hover { background: rgba(200,200,220,0.5); }
+
+/* Guest menu — hidden horizontal scrollbar */
+.menu-scroll-x::-webkit-scrollbar { display: none; }

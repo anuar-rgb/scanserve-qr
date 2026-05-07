@@ -903,13 +903,22 @@ function InfoShowcaseSection({
 
   return (
     <div
+      className="menu-scroll-x"
       style={{
         display: "flex",
-        flexWrap: "wrap",
+        flexWrap: "nowrap",
         gap: 8,
-        justifyContent: "center",
+        overflowX: "auto",
+        marginLeft: -SP.md,
+        marginRight: -SP.md,
+        paddingLeft: SP.md,
+        paddingRight: SP.md,
+        paddingBottom: 4,
         marginBottom: SP.lg,
-      }}
+        scrollbarWidth: "none",
+        scrollSnapType: "x mandatory",
+        WebkitOverflowScrolling: "touch",
+      } as React.CSSProperties}
     >
       {items.map((item) => (
         <div
@@ -924,6 +933,8 @@ function InfoShowcaseSection({
             border: isDark ? "1px solid var(--border-color)" : "1px solid rgba(0,0,0,0.10)",
             background: isDark ? "var(--bg-card)" : "#FFFFFF",
             boxShadow: "none",
+            flexShrink: 0,
+            scrollSnapAlign: "start",
           }}
         >
           <span style={{ fontSize: 18, lineHeight: 1 }}>{item.emoji}</span>
