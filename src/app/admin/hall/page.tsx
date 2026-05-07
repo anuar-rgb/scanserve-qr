@@ -5,7 +5,7 @@ import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight,
+  Percent, ArrowLeftRight, ChevronDown,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
@@ -1447,10 +1447,19 @@ function PosMenuBrowser({
   const [categories, setCategories]      = useState<DbCategory[]>([]);
   const [products, setProducts]          = useState<DbProduct[]>([]);
   const [catLoading, setCatLoading]      = useState(true);
-  const [currentCatId, setCurrentCatId] = useState<string | null>(null);
-  const [search, setSearch]             = useState("");
-  const [cart, setCart]                 = useState<Map<string, CartItem>>(new Map());
-  const [confirming, setConfirming]     = useState(false);
+  const [currentCatId, setCurrentCatId]     = useState<string | null>(null);
+  const [search, setSearch]                 = useState("");
+  const [cart, setCart]                     = useState<Map<string, CartItem>>(new Map());
+  const [confirming, setConfirming]         = useState(false);
+  const [openIngredients, setOpenIngredients] = useState<Set<string>>(new Set());
+
+  function toggleIngredients(id: string) {
+    setOpenIngredients((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     async function fetchCatalog() {
@@ -1549,7 +1558,7 @@ function PosMenuBrowser({
   }
 
   const headerTitle = (mode === "modal" && showProducts && !isSearching && currentCat)
-    ? (currentCat.icon ? `${currentCat.icon} ` : "") + (currentCat.name.ru || currentCat.name.en)
+    ? (currentCat.name.ru || currentCat.name.en)
     : panelTitle;
 
   return (
@@ -1611,8 +1620,8 @@ function PosMenuBrowser({
               <Loader2 size={14} className="animate-spin" /> Загрузка меню…
             </div>
           ) : !showProducts ? (
-            /* Screen 1: category grid */
-            <div className="p-3 grid grid-cols-3 gap-2.5">
+            /* Screen 1: category grid — text-only, no images/icons for instant load */
+            <div className="p-3 grid grid-cols-3 gap-2">
               {categories.map((cat) => {
                 const count = products.filter((p) => p.category_id === cat.id && p.is_available).length;
                 const cartInCat = products.filter((p) => p.category_id === cat.id).reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
@@ -1620,26 +1629,15 @@ function PosMenuBrowser({
                   <button
                     key={cat.id}
                     onClick={() => setCurrentCatId(cat.id)}
-                    className="relative flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left group"
+                    className="relative flex flex-col justify-between rounded-xl border border-border bg-card p-3 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left min-h-[56px]"
                   >
-                    <div className="w-full aspect-[16/9] bg-muted flex items-center justify-center overflow-hidden relative">
-                      {cat.image_url ? (
-                        <img src={cat.image_url} alt={cat.name.ru || cat.name.en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <span className="text-3xl select-none">{cat.icon || "🍽️"}</span>
-                      )}
-                      {count > 0 && (
-                        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[9px] font-semibold leading-none backdrop-blur-sm">
-                          {count}
-                        </span>
-                      )}
-                    </div>
-                    <div className="px-2.5 py-2 flex items-center justify-between gap-1">
-                      <p className="text-xs font-semibold leading-tight line-clamp-2 text-foreground flex-1">
-                        {cat.name.ru || cat.name.en}
-                      </p>
+                    <p className="text-xs font-semibold leading-tight line-clamp-3 text-foreground pr-5">
+                      {cat.name.ru || cat.name.en}
+                    </p>
+                    <div className="flex items-center justify-between mt-1.5 gap-1">
+                      <span className="text-[10px] text-muted-foreground">{count} поз.</span>
                       {cartInCat > 0 && (
-                        <span className="shrink-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
                           {cartInCat}
                         </span>
                       )}
@@ -1649,65 +1647,93 @@ function PosMenuBrowser({
               })}
             </div>
           ) : (
-            /* Screen 2: product list */
-            <div className="p-2.5">
+            /* Screen 2: product list — flat rows, no images, with ingredient accordion */
+            <div>
               {mode === "panel" && !isSearching && (
-                <button
-                  onClick={() => setCurrentCatId(null)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-2.5 transition-colors"
-                >
-                  <ChevronLeft size={13} /> Все категории
-                </button>
+                <div className="px-3 pt-2.5 pb-1">
+                  <button
+                    onClick={() => setCurrentCatId(null)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronLeft size={13} /> Все категории
+                  </button>
+                </div>
               )}
               {visibleProducts.length === 0 ? (
                 <p className="text-center text-xs text-muted-foreground py-10">
                   {isSearching ? "Ничего не найдено" : "Нет доступных позиций"}
                 </p>
               ) : (
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="divide-y divide-border">
                   {visibleProducts.map((product) => {
                     const inCart = cart.get(product.id);
                     const name   = productName(product);
                     const ep     = effPrice(product);
                     const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
+                    const compositionText = product.ingredients || product.description?.ru || product.description?.en || "";
+                    const isOpen = openIngredients.has(product.id);
                     return (
-                      <button
-                        key={product.id}
-                        onClick={() => addToCart(product)}
-                        className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
-                      >
-                        {product.image_url && (
-                          <div className="w-full aspect-square rounded-md overflow-hidden mb-1.5 bg-muted shrink-0">
-                            <img src={product.image_url} alt={name} className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        {inCart && (
-                          <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                            {inCart.qty}
-                          </span>
-                        )}
-                        <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">{name}</p>
-                        <div className="flex items-center justify-between mt-1.5 gap-0.5">
-                          <div className="flex flex-col leading-tight">
-                            {hasDiscount && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
-                                  {product.price.toLocaleString("ru-RU")} ₸
-                                </span>
-                                <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
-                                  {product.discount_label}
-                                </span>
-                              </div>
+                      <div key={product.id} className="px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          {/* Name + состав toggle */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight text-foreground">{name}</p>
+                            {compositionText && (
+                              <button
+                                onClick={() => toggleIngredients(product.id)}
+                                className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-violet-500 transition-colors mt-0.5"
+                              >
+                                <span>Состав</span>
+                                <ChevronDown size={10} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                              </button>
                             )}
-                            <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
-                              {ep.toLocaleString("ru-RU")} ₸
-                            </span>
                           </div>
-                          <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
-                            <Plus size={11} />
+                          {/* Price */}
+                          <div className="shrink-0 text-right min-w-[60px]">
+                            {hasDiscount && (
+                              <p className="text-[10px] text-muted-foreground/60 line-through tabular-nums">
+                                {product.price.toLocaleString("ru-RU")} ₸
+                              </p>
+                            )}
+                            <p className={`text-sm font-black tabular-nums ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
+                              {ep.toLocaleString("ru-RU")} ₸
+                            </p>
+                          </div>
+                          {/* +/- control */}
+                          <div className="shrink-0 flex items-center gap-1">
+                            {inCart ? (
+                              <>
+                                <button
+                                  onClick={() => decrementCart(product.id)}
+                                  className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors"
+                                >
+                                  <Minus size={11} />
+                                </button>
+                                <span className="w-5 text-center text-sm font-bold tabular-nums">{inCart.qty}</span>
+                                <button
+                                  onClick={() => incrementCart(product.id)}
+                                  className="w-7 h-7 rounded-lg bg-violet-600 text-white flex items-center justify-center hover:bg-violet-700 transition-colors"
+                                >
+                                  <Plus size={11} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => addToCart(product)}
+                                className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center hover:bg-violet-600 hover:text-white transition-colors"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            )}
                           </div>
                         </div>
-                      </button>
+                        {/* Ingredient accordion */}
+                        {isOpen && compositionText && (
+                          <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                            {compositionText}
+                          </p>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
