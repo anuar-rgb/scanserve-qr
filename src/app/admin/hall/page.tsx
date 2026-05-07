@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
@@ -1041,7 +1041,7 @@ function TablePanel({
   // ── Order creation mode ──────────────────────────────────────────────────────
   if (panelMode === "order") {
     return (
-      <aside className="w-[500px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+      <aside className="w-[640px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
         <OrderPanel
           table={table}
           onBack={() => setPanelMode("info")}
@@ -1392,88 +1392,46 @@ function TablePanel({
   );
 }
 
-// ── OrderPanel ────────────────────────────────────────────────────────────────
+// ── PosMenuBrowser ────────────────────────────────────────────────────────────
+// Shared POS catalog browser used by both OrderPanel (creation) and
+// MenuPickerModal (add-to-existing). Renders as a fragment filling
+// whatever flex-col container the caller provides.
 
-function OrderPanel({
-  table,
-  orderType = "dine-in",
+function PosMenuBrowser({
+  mode,
+  panelTitle = "Выбрать из меню",
   onBack,
-  onDone,
+  extraHeader,
+  confirmLabel,
+  onConfirm,
 }: {
-  table?: DbRestaurantTable;
-  orderType?: "dine-in" | "takeaway" | "delivery";
+  mode: "panel" | "modal";
+  panelTitle?: string;
   onBack: () => void;
-  onDone: () => void;
+  extraHeader?: ReactNode;
+  confirmLabel: string;
+  onConfirm: (items: OrderItem[]) => Promise<void>;
 }) {
-  const [categories, setCategories]       = useState<DbCategory[]>([]);
-  const [products, setProducts]           = useState<DbProduct[]>([]);
-  const [catLoading, setCatLoading]       = useState(true);
-  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
-  const [search, setSearch]               = useState("");
-  const [cart, setCart]                   = useState<Map<string, CartItem>>(new Map());
-  const [submitting, setSubmitting]       = useState(false);
-  const [customerName, setCustomerName]   = useState("");
-  const [canScrollLeft, setCanScrollLeft]   = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const catTabsRef = useRef<HTMLDivElement>(null);
-
-  // Wheel → horizontal scroll + arrow visibility
-  useEffect(() => {
-    const el = catTabsRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-    function onScroll() {
-      if (!el) return;
-      setCanScrollLeft(el.scrollLeft > 2);
-      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
-    }
-    el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("scroll", onScroll);
-    return () => {
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("scroll", onScroll);
-    };
-  }, []);
-
-  // Recheck arrows when categories load
-  useEffect(() => {
-    const el = catTabsRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 2);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
-  }, [categories]);
+  const [categories, setCategories]      = useState<DbCategory[]>([]);
+  const [products, setProducts]          = useState<DbProduct[]>([]);
+  const [catLoading, setCatLoading]      = useState(true);
+  const [currentCatId, setCurrentCatId] = useState<string | null>(null);
+  const [search, setSearch]             = useState("");
+  const [cart, setCart]                 = useState<Map<string, CartItem>>(new Map());
+  const [confirming, setConfirming]     = useState(false);
 
   useEffect(() => {
     async function fetchCatalog() {
       const [catsRes, prodsRes] = await Promise.all([
-        supabase
-          .from(DB_TABLES.categories)
-          .select("*")
-          .eq("restaurant_id", RESTAURANT_ID)
-          .order("order_index"),
-        supabase
-          .from(DB_TABLES.products)
-          .select("*")
-          .eq("restaurant_id", RESTAURANT_ID)
-          .eq("is_archived", false)
-          .order("order_index"),
+        supabase.from(DB_TABLES.categories).select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
+        supabase.from(DB_TABLES.products).select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
       ]);
-      const cats = (catsRes.data as DbCategory[]) ?? [];
-      setCategories(cats);
+      setCategories((catsRes.data as DbCategory[]) ?? []);
       setProducts((prodsRes.data as DbProduct[]) ?? []);
-      setSelectedCatId(cats[0]?.id ?? null);
       setCatLoading(false);
     }
     fetchCatalog();
   }, []);
-
-  function scrollCats(dir: "left" | "right") {
-    catTabsRef.current?.scrollBy({ left: dir === "left" ? -180 : 180, behavior: "smooth" });
-  }
 
   function effPrice(product: DbProduct): number {
     if (!product.is_promo || !product.discount_label) return product.price;
@@ -1496,6 +1454,16 @@ function OrderPanel({
     });
   }
 
+  function incrementCart(productId: string) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(productId);
+      if (!existing) return prev;
+      next.set(productId, { ...existing, qty: existing.qty + 1 });
+      return next;
+    });
+  }
+
   function decrementCart(productId: string) {
     setCart((prev) => {
       const next = new Map(prev);
@@ -1507,33 +1475,344 @@ function OrderPanel({
     });
   }
 
-  const productMap = new Map(products.map((p) => [p.id, p]));
   const cartItems = Array.from(cart.values());
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
-  const total     = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const cartTotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
 
-  const trimmed = search.trim().toLowerCase();
+  const trimmed      = search.trim().toLowerCase();
+  const isSearching  = trimmed.length > 0;
+  const showProducts = isSearching || currentCatId !== null;
+  const currentCat   = categories.find((c) => c.id === currentCatId);
+
   const visibleProducts = products.filter((p) => {
     if (!p.is_available) return false;
-    if (trimmed) {
+    if (isSearching) {
       return (
         p.name.ru.toLowerCase().includes(trimmed) ||
         p.name.en.toLowerCase().includes(trimmed) ||
         p.name.kz.toLowerCase().includes(trimmed)
       );
     }
-    return !selectedCatId || p.category_id === selectedCatId;
+    return p.category_id === currentCatId;
   });
 
-  async function submitOrder() {
-    if (cartItems.length === 0) { toast.error("Добавьте хотя бы одно блюдо"); return; }
-    setSubmitting(true);
-    const items: OrderItem[] = cartItems.map((i) => {
-      const prod = productMap.get(i.productId);
-      const item: OrderItem = { name: i.name, qty: i.qty, price: i.price, currency: "₸" };
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  async function handleConfirm() {
+    if (cartItems.length === 0) return;
+    setConfirming(true);
+    const items: OrderItem[] = cartItems.map((ci) => {
+      const prod = productMap.get(ci.productId);
+      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸" };
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
       return item;
     });
+    await onConfirm(items);
+    setConfirming(false);
+  }
+
+  const headerTitle = (mode === "modal" && showProducts && !isSearching && currentCat)
+    ? (currentCat.icon ? `${currentCat.icon} ` : "") + (currentCat.name.ru || currentCat.name.en)
+    : panelTitle;
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+        {mode === "panel" && (
+          <button
+            onClick={onBack}
+            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <ArrowLeft size={15} />
+          </button>
+        )}
+        {mode === "modal" && showProducts && !isSearching && (
+          <button
+            onClick={() => setCurrentCatId(null)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 mr-1"
+          >
+            <ChevronLeft size={14} /><span>Категории</span>
+          </button>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm leading-tight truncate">{headerTitle}</p>
+          {mode === "modal" && !showProducts && (
+            <p className="text-[11px] text-muted-foreground">Выберите категорию</p>
+          )}
+        </div>
+        <div className="relative shrink-0">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск…"
+            className="h-8 pl-7 pr-3 w-28 sm:w-36 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+        {mode === "modal" && (
+          <button
+            onClick={onBack}
+            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
+      {/* Extra header slot (e.g. customer name input) */}
+      {extraHeader}
+
+      {/* Two-panel body */}
+      <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
+
+        {/* LEFT: catalog */}
+        <div className="flex-1 min-w-0 overflow-y-auto admin-scroll">
+          {catLoading ? (
+            <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
+              <Loader2 size={14} className="animate-spin" /> Загрузка меню…
+            </div>
+          ) : !showProducts ? (
+            /* Screen 1: category grid */
+            <div className="p-3 grid grid-cols-3 gap-2.5">
+              {categories.map((cat) => {
+                const count = products.filter((p) => p.category_id === cat.id && p.is_available).length;
+                const cartInCat = products.filter((p) => p.category_id === cat.id).reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCurrentCatId(cat.id)}
+                    className="relative flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left group"
+                  >
+                    <div className="w-full aspect-[16/9] bg-muted flex items-center justify-center overflow-hidden relative">
+                      {cat.image_url ? (
+                        <img src={cat.image_url} alt={cat.name.ru || cat.name.en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <span className="text-3xl select-none">{cat.icon || "🍽️"}</span>
+                      )}
+                      {count > 0 && (
+                        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[9px] font-semibold leading-none backdrop-blur-sm">
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                    <div className="px-2.5 py-2 flex items-center justify-between gap-1">
+                      <p className="text-xs font-semibold leading-tight line-clamp-2 text-foreground flex-1">
+                        {cat.name.ru || cat.name.en}
+                      </p>
+                      {cartInCat > 0 && (
+                        <span className="shrink-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                          {cartInCat}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            /* Screen 2: product list */
+            <div className="p-2.5">
+              {mode === "panel" && !isSearching && (
+                <button
+                  onClick={() => setCurrentCatId(null)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-2.5 transition-colors"
+                >
+                  <ChevronLeft size={13} /> Все категории
+                </button>
+              )}
+              {visibleProducts.length === 0 ? (
+                <p className="text-center text-xs text-muted-foreground py-10">
+                  {isSearching ? "Ничего не найдено" : "Нет доступных позиций"}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {visibleProducts.map((product) => {
+                    const inCart = cart.get(product.id);
+                    const name   = productName(product);
+                    const ep     = effPrice(product);
+                    const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
+                    return (
+                      <button
+                        key={product.id}
+                        onClick={() => addToCart(product)}
+                        className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
+                      >
+                        {product.image_url && (
+                          <div className="w-full aspect-square rounded-md overflow-hidden mb-1.5 bg-muted shrink-0">
+                            <img src={product.image_url} alt={name} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        {inCart && (
+                          <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                            {inCart.qty}
+                          </span>
+                        )}
+                        <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">{name}</p>
+                        <div className="flex items-center justify-between mt-1.5 gap-0.5">
+                          <div className="flex flex-col leading-tight">
+                            {hasDiscount && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
+                                  {product.price.toLocaleString("ru-RU")} ₸
+                                </span>
+                                <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
+                                  {product.discount_label}
+                                </span>
+                              </div>
+                            )}
+                            <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
+                              {ep.toLocaleString("ru-RU")} ₸
+                            </span>
+                          </div>
+                          <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
+                            <Plus size={11} />
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: cart panel — desktop only */}
+        <div className="hidden sm:flex w-64 lg:w-72 shrink-0 border-l border-border flex-col bg-card/30">
+          <div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center gap-2">
+            <ShoppingCart size={13} className="text-muted-foreground" />
+            <span className="text-xs font-semibold text-foreground flex-1">
+              {mode === "panel" ? "Заказ" : "Чек"}
+            </span>
+            {cartCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-violet-600 text-white text-[10px] font-bold leading-none">
+                {cartCount}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto admin-scroll min-h-0">
+            {cartItems.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-6 px-3">Добавьте блюда из меню</p>
+            ) : (
+              <div className="space-y-1 p-3">
+                {cartItems.map((item) => (
+                  <div key={item.productId} className="flex items-center gap-1">
+                    <button
+                      onClick={() => decrementCart(item.productId)}
+                      className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                    >
+                      <Minus size={9} />
+                    </button>
+                    <span className="flex-1 min-w-0 text-[11px] leading-tight truncate text-foreground">{item.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
+                    <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
+                      {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                    </span>
+                    <button
+                      onClick={() => incrementCart(item.productId)}
+                      className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
+                    >
+                      <Plus size={9} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 border-t border-border p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-xs">Итого</span>
+              <span className="font-black tabular-nums">{cartTotal.toLocaleString("ru-RU")} ₸</span>
+            </div>
+            <button
+              onClick={handleConfirm}
+              disabled={confirming || cartItems.length === 0}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+            >
+              {confirming
+                ? <><Loader2 size={13} className="animate-spin" /> Обработка…</>
+                : <><Check size={14} /> {confirmLabel}</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile: bottom cart */}
+      <div className="sm:hidden shrink-0 border-t border-border bg-background">
+        {cartItems.length > 0 && (
+          <div className="px-3 pt-2 pb-1 max-h-24 overflow-y-auto admin-scroll space-y-1">
+            {cartItems.map((item) => (
+              <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
+                <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
+                  <Minus size={9} />
+                </button>
+                <span className="flex-1 truncate text-foreground">{item.name}</span>
+                <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
+                <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
+                <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
+                  <Plus size={9} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="px-3 pb-3 pt-2 flex items-center gap-3">
+          <span className="flex-1 text-xs text-muted-foreground">
+            {cartItems.length === 0 ? "Выберите блюда" : `${cartCount} позиц. · ${cartTotal.toLocaleString("ru-RU")} ₸`}
+          </span>
+          <button
+            onClick={handleConfirm}
+            disabled={confirming || cartItems.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+          >
+            {confirming
+              ? <><Loader2 size={13} className="animate-spin" /> Обработка…</>
+              : <><Check size={14} /> {confirmLabel}</>
+            }
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── OrderPanel ────────────────────────────────────────────────────────────────
+// Thin wrapper: builds the submit handler and delegates all UI to PosMenuBrowser.
+
+function OrderPanel({
+  table,
+  orderType = "dine-in",
+  onBack,
+  onDone,
+}: {
+  table?: DbRestaurantTable;
+  orderType?: "dine-in" | "takeaway" | "delivery";
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const [customerName, setCustomerName] = useState("");
+
+  const title =
+    orderType === "dine-in"  ? `Стол ${table?.label ?? "?"} · Новый заказ` :
+    orderType === "delivery" ? "Доставка · Новый заказ"                     :
+                               "С собой · Новый заказ";
+
+  const extraHeader = orderType !== "dine-in" ? (
+    <div className="px-4 py-2.5 border-b border-border shrink-0">
+      <input
+        type="text"
+        value={customerName}
+        onChange={(e) => setCustomerName(e.target.value)}
+        placeholder="Имя клиента (необязательно)"
+        className="w-full h-8 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+  ) : undefined;
+
+  async function handleConfirm(items: OrderItem[]) {
     const tableNumber = orderType === "dine-in"
       ? (table?.label ?? null)
       : (customerName.trim() || null);
@@ -1543,223 +1822,26 @@ function OrderPanel({
       type: orderType,
       table_number: tableNumber,
       items_json: items,
-      total_price: total,
+      total_price: items.reduce((s, it) => s + it.price * it.qty, 0),
       order_type: "asap",
     });
-    setSubmitting(false);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-    const dest = orderType === "dine-in"
-      ? `стола ${table?.label}`
-      : orderType === "delivery" ? "доставки" : "самовывоза";
+    const dest =
+      orderType === "dine-in"  ? `стола ${table?.label}` :
+      orderType === "delivery" ? "доставки"               : "самовывоза";
     toast.success(`Заказ для ${dest} отправлен на кухню!`);
     onDone();
   }
 
   return (
-    <>
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-        <button
-          onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          <ArrowLeft size={15} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm leading-tight truncate">
-            {orderType === "dine-in"
-              ? `Стол ${table?.label} · Новый заказ`
-              : orderType === "delivery" ? "Доставка · Новый заказ" : "С собой · Новый заказ"}
-          </p>
-        </div>
-        <div className="relative shrink-0">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск…"
-            className="h-8 pl-7 pr-3 w-28 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 focus:w-36 transition-all"
-          />
-        </div>
-      </div>
-
-      {/* ── Customer name (pickup / delivery only) ── */}
-      {orderType !== "dine-in" && (
-        <div className="px-4 py-2.5 border-b border-border shrink-0">
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Имя клиента (необязательно)"
-            className="w-full h-8 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
-      )}
-
-      {/* ── Category tabs ── */}
-      {!trimmed && categories.length > 0 && (
-        <div className="relative border-b border-border shrink-0">
-
-          {/* Left arrow */}
-          {canScrollLeft && (
-            <button
-              onClick={() => scrollCats("left")}
-              className="absolute left-0 top-0 bottom-[5px] z-10 flex items-center pl-1 pr-2.5 bg-gradient-to-r from-background via-background/70 to-transparent"
-            >
-              <ChevronLeft size={14} className="text-zinc-400 dark:text-zinc-500 hover:text-foreground transition-colors shrink-0" />
-            </button>
-          )}
-
-          {/* Scrollable strip */}
-          <div
-            ref={catTabsRef}
-            className="flex gap-1.5 py-2 overflow-x-auto admin-scroll-x"
-            style={{
-              paddingLeft:  canScrollLeft  ? 28 : 12,
-              paddingRight: canScrollRight ? 28 : 12,
-              scrollbarWidth: "thin",
-              scrollbarColor: "rgba(120,120,130,0.4) transparent",
-            } as React.CSSProperties}
-          >
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCatId(cat.id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
-                  selectedCatId === cat.id
-                    ? "bg-violet-600 text-white"
-                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                }`}
-              >
-                {cat.icon && <span>{cat.icon}</span>}
-                {cat.name.ru || cat.name.en}
-              </button>
-            ))}
-          </div>
-
-          {/* Right arrow */}
-          {canScrollRight && (
-            <button
-              onClick={() => scrollCats("right")}
-              className="absolute right-0 top-0 bottom-[5px] z-10 flex items-center pr-1 pl-2.5 bg-gradient-to-l from-background via-background/70 to-transparent"
-            >
-              <ChevronRight size={14} className="text-zinc-400 dark:text-zinc-500 hover:text-foreground transition-colors shrink-0" />
-            </button>
-          )}
-
-        </div>
-      )}
-
-      {/* ── Product grid (scrollable) ── */}
-      <div className="flex-1 overflow-y-auto p-2.5 min-h-0 admin-scroll">
-        {catLoading ? (
-          <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
-            <Loader2 size={14} className="animate-spin" /> Загрузка меню…
-          </div>
-        ) : visibleProducts.length === 0 ? (
-          <p className="text-center text-xs text-muted-foreground py-10">
-            {trimmed ? "Ничего не найдено" : "Нет доступных позиций"}
-          </p>
-        ) : (
-          <div className="grid grid-cols-4 gap-1.5">
-            {visibleProducts.map((product) => {
-              const inCart = cart.get(product.id);
-              const name   = productName(product);
-              const ep     = effPrice(product);
-              const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
-              return (
-                <button
-                  key={product.id}
-                  onClick={() => addToCart(product)}
-                  className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
-                >
-                  {/* Qty badge */}
-                  {inCart && (
-                    <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                      {inCart.qty}
-                    </span>
-                  )}
-
-                  {/* Name */}
-                  <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">
-                    {name}
-                  </p>
-
-                  {/* Price + add */}
-                  <div className="flex items-center justify-between mt-1.5 gap-0.5">
-                    <div className="flex flex-col leading-tight">
-                      {hasDiscount && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
-                            {product.price.toLocaleString("ru-RU")} ₸
-                          </span>
-                          <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
-                            {product.discount_label}
-                          </span>
-                        </div>
-                      )}
-                      <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
-                        {ep.toLocaleString("ru-RU")} ₸
-                      </span>
-                    </div>
-                    <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
-                      <Plus size={11} />
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Cart + Submit (pinned to bottom) ── */}
-      <div className="shrink-0 border-t border-border bg-background">
-        {/* Cart items */}
-        {cartItems.length > 0 && (
-          <div className="px-3 pt-2 pb-1 max-h-32 overflow-y-auto space-y-1">
-            {cartItems.map((item) => (
-              <div key={item.productId} className="flex items-center gap-1.5 text-xs">
-                <button
-                  onClick={() => decrementCart(item.productId)}
-                  className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
-                >
-                  <Minus size={9} />
-                </button>
-                <span className="flex-1 truncate text-foreground">{item.name}</span>
-                <span className="shrink-0 text-muted-foreground">×{item.qty}</span>
-                <span className="shrink-0 font-semibold tabular-nums">
-                  {(item.price * item.qty).toLocaleString("ru-RU")} ₸
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Total + button */}
-        <div className="px-3 pb-3 pt-2 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {cartItems.length === 0 ? "Корзина пуста" : `${cartCount} позиц.`}
-            </span>
-            <span className="text-xl font-black tabular-nums">
-              {total.toLocaleString("ru-RU")} ₸
-            </span>
-          </div>
-          <button
-            onClick={submitOrder}
-            disabled={submitting || cartItems.length === 0}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
-          >
-            {submitting
-              ? <><Loader2 size={14} className="animate-spin" /> Отправка…</>
-              : <><Check size={15} /> Отправить на кухню</>
-            }
-          </button>
-        </div>
-      </div>
-    </>
+    <PosMenuBrowser
+      mode="panel"
+      panelTitle={title}
+      onBack={onBack}
+      extraHeader={extraHeader}
+      confirmLabel="Отправить на кухню"
+      onConfirm={handleConfirm}
+    />
   );
 }
 
@@ -2035,393 +2117,35 @@ function MenuPickerModal({
   onDone: () => void;
   onClose: () => void;
 }) {
-  const [categories, setCategories] = useState<DbCategory[]>([]);
-  const [products, setProducts]     = useState<DbProduct[]>([]);
-  const [catLoading, setCatLoading] = useState(true);
-  const [currentCatId, setCurrentCatId] = useState<string | null>(null);
-  const [search, setSearch]         = useState("");
-  const [cart, setCart]             = useState<Map<string, CartItem>>(new Map());
-  const [saving, setSaving]         = useState(false);
-
-  useEffect(() => {
-    async function fetchCatalog() {
-      const [catsRes, prodsRes] = await Promise.all([
-        supabase.from(DB_TABLES.categories).select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
-        supabase.from(DB_TABLES.products).select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
-      ]);
-      setCategories((catsRes.data as DbCategory[]) ?? []);
-      setProducts((prodsRes.data as DbProduct[]) ?? []);
-      setCatLoading(false);
-    }
-    fetchCatalog();
-  }, []);
-
-  function effPrice(product: DbProduct): number {
-    if (!product.is_promo || !product.discount_label) return product.price;
-    const pct = parseInt(product.discount_label, 10);
-    if (isNaN(pct) || pct <= 0 || pct >= 100) return product.price;
-    return Math.round(product.price * (1 - pct / 100));
-  }
-
-  function addToCart(product: DbProduct) {
-    const name  = productName(product);
-    const price = effPrice(product);
-    setCart((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(product.id);
-      next.set(product.id, existing
-        ? { ...existing, qty: existing.qty + 1 }
-        : { productId: product.id, name, price, qty: 1 }
-      );
-      return next;
-    });
-  }
-
-  function incrementCart(productId: string) {
-    setCart((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(productId);
-      if (!existing) return prev;
-      next.set(productId, { ...existing, qty: existing.qty + 1 });
-      return next;
-    });
-  }
-
-  function decrementCart(productId: string) {
-    setCart((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(productId);
-      if (!existing) return prev;
-      if (existing.qty <= 1) next.delete(productId);
-      else next.set(productId, { ...existing, qty: existing.qty - 1 });
-      return next;
-    });
-  }
-
-  const cartItems = Array.from(cart.values());
-  const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
-  const newTotal  = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
-
-  const trimmed     = search.trim().toLowerCase();
-  const isSearching = trimmed.length > 0;
-  const showProducts = isSearching || currentCatId !== null;
-  const currentCat   = categories.find((c) => c.id === currentCatId);
-
-  const visibleProducts = products.filter((p) => {
-    if (!p.is_available) return false;
-    if (isSearching) {
-      return (
-        p.name.ru.toLowerCase().includes(trimmed) ||
-        p.name.en.toLowerCase().includes(trimmed) ||
-        p.name.kz.toLowerCase().includes(trimmed)
-      );
-    }
-    return p.category_id === currentCatId;
-  });
-
-  const productMap = new Map(products.map((p) => [p.id, p]));
-
-  async function confirmAdd() {
-    if (cartItems.length === 0) return;
-    setSaving(true);
-    const newItems: OrderItem[] = cartItems.map((ci) => {
-      const prod = productMap.get(ci.productId);
-      const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸" };
-      if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
-      return item;
-    });
+  async function handleConfirm(newItems: OrderItem[]) {
     const merged = [...existingItems, ...newItems];
     const total  = merged.reduce((s, it) => s + it.price * it.qty, 0);
     const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: merged, total_price: total }).eq("id", orderId);
-    setSaving(false);
     if (error) { toast.error("Ошибка добавления"); return; }
-    toast.success(`${cartCount} позиц. добавлено в чек`);
+    toast.success(`${newItems.reduce((s, it) => s + it.qty, 0)} позиц. добавлено в чек`);
     onDone();
-  }
-
-  /* ── Shared sub-components ── */
-
-  // Product card used in the left catalog panel
-  function ProductCard({ product }: { product: DbProduct }) {
-    const inCart = cart.get(product.id);
-    const name   = productName(product);
-    const ep     = effPrice(product);
-    const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
-    return (
-      <button
-        onClick={() => addToCart(product)}
-        className="relative flex flex-col text-left rounded-lg border border-border bg-card p-2 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all group"
-      >
-        {product.image_url && (
-          <div className="w-full aspect-square rounded-md overflow-hidden mb-1.5 bg-muted shrink-0">
-            <img src={product.image_url} alt={name} className="w-full h-full object-cover" />
-          </div>
-        )}
-        {inCart && (
-          <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-            {inCart.qty}
-          </span>
-        )}
-        <p className="text-[10px] font-semibold leading-tight line-clamp-3 pr-4 min-h-[2.8rem] text-foreground">{name}</p>
-        <div className="flex items-center justify-between mt-1.5 gap-0.5">
-          <div className="flex flex-col leading-tight">
-            {hasDiscount && (
-              <div className="flex items-center gap-1">
-                <span className="text-[9px] text-muted-foreground/60 line-through tabular-nums">
-                  {product.price.toLocaleString("ru-RU")} ₸
-                </span>
-                <span className="px-1 py-0.5 rounded bg-orange-500 text-white text-[8px] font-black leading-none">
-                  {product.discount_label}
-                </span>
-              </div>
-            )}
-            <span className={`text-[11px] font-black tabular-nums leading-none ${hasDiscount ? "text-orange-500" : "text-foreground"}`}>
-              {ep.toLocaleString("ru-RU")} ₸
-            </span>
-          </div>
-          <div className="w-5 h-5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
-            <Plus size={11} />
-          </div>
-        </div>
-      </button>
-    );
-  }
-
-  // Right-panel cart content (shared between desktop panel and mobile footer)
-  function CartItemsList() {
-    if (cartItems.length === 0) {
-      return (
-        <p className="text-center text-xs text-muted-foreground py-6 px-3">
-          Добавьте блюда из меню слева
-        </p>
-      );
-    }
-    return (
-      <div className="space-y-1 p-3">
-        {cartItems.map((item) => (
-          <div key={item.productId} className="flex items-center gap-1">
-            <button
-              onClick={() => decrementCart(item.productId)}
-              className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
-            >
-              <Minus size={9} />
-            </button>
-            <span className="flex-1 min-w-0 text-[11px] leading-tight truncate text-foreground">{item.name}</span>
-            <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">×{item.qty}</span>
-            <span className="shrink-0 text-[11px] font-bold tabular-nums text-right min-w-[52px]">
-              {(item.price * item.qty).toLocaleString("ru-RU")} ₸
-            </span>
-            <button
-              onClick={() => incrementCart(item.productId)}
-              className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
-            >
-              <Plus size={9} />
-            </button>
-          </div>
-        ))}
-      </div>
-    );
   }
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 pointer-events-none">
-        {/* Modal — wide on desktop for two-panel, narrower on mobile */}
         <div
           className="w-full max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[85vh] bg-background rounded-2xl shadow-2xl border border-border pointer-events-auto flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ── Unified header ── */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-            {showProducts && !isSearching ? (
-              <button
-                onClick={() => setCurrentCatId(null)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 mr-1"
-              >
-                <ChevronLeft size={14} />
-                <span>Категории</span>
-              </button>
-            ) : null}
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm leading-tight">
-                {showProducts && !isSearching && currentCat
-                  ? (currentCat.icon ? `${currentCat.icon} ` : "") + (currentCat.name.ru || currentCat.name.en)
-                  : "Выбрать из меню"}
-              </p>
-              {!showProducts && (
-                <p className="text-[11px] text-muted-foreground">Выберите категорию</p>
-              )}
-            </div>
-            <div className="relative shrink-0">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Поиск…"
-                className="h-8 pl-7 pr-3 w-28 sm:w-36 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
-              />
-            </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <X size={15} />
-            </button>
-          </div>
-
-          {/* ── Body: two-panel on sm+, single-column on mobile ── */}
-          <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
-
-            {/* LEFT PANEL — catalog (flex-1 takes ~70%) */}
-            <div className="flex-1 min-w-0 overflow-y-auto admin-scroll">
-              {catLoading ? (
-                <div className="flex items-center justify-center h-24 gap-2 text-muted-foreground text-xs">
-                  <Loader2 size={14} className="animate-spin" /> Загрузка меню…
-                </div>
-              ) : !showProducts ? (
-                /* Экран 1: Сетка категорий */
-                <div className="p-3 grid grid-cols-3 gap-2.5">
-                  {categories.map((cat) => {
-                    const catProductCount = products.filter((p) => p.category_id === cat.id && p.is_available).length;
-                    const cartInCat = products
-                      .filter((p) => p.category_id === cat.id)
-                      .reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => setCurrentCatId(cat.id)}
-                        className="relative flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left group"
-                      >
-                        <div className="w-full aspect-[16/9] bg-muted flex items-center justify-center overflow-hidden relative">
-                          {cat.image_url ? (
-                            <img
-                              src={cat.image_url}
-                              alt={cat.name.ru || cat.name.en}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <span className="text-3xl select-none">{cat.icon || "🍽️"}</span>
-                          )}
-                          {catProductCount > 0 && (
-                            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[9px] font-semibold leading-none backdrop-blur-sm">
-                              {catProductCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="px-2.5 py-2 flex items-center justify-between gap-1">
-                          <p className="text-xs font-semibold leading-tight line-clamp-2 text-foreground flex-1">
-                            {cat.name.ru || cat.name.en}
-                          </p>
-                          {cartInCat > 0 && (
-                            <span className="shrink-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                              {cartInCat}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Экран 2: Список блюд */
-                <div className="p-2.5">
-                  {visibleProducts.length === 0 ? (
-                    <p className="text-center text-xs text-muted-foreground py-10">
-                      {isSearching ? "Ничего не найдено" : "Нет доступных позиций"}
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-1.5">
-                      {visibleProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* RIGHT PANEL — cart (fixed ~280px, desktop only) */}
-            <div className="hidden sm:flex w-64 lg:w-72 shrink-0 border-l border-border flex-col bg-card/30">
-              {/* Cart header */}
-              <div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center gap-2">
-                <ShoppingCart size={13} className="text-muted-foreground" />
-                <span className="text-xs font-semibold text-foreground flex-1">Текущий чек</span>
-                {cartCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-violet-600 text-white text-[10px] font-bold leading-none">
-                    {cartCount}
-                  </span>
-                )}
-              </div>
-              {/* Scrollable cart items */}
-              <div className="flex-1 overflow-y-auto admin-scroll min-h-0">
-                <CartItemsList />
-              </div>
-              {/* Fixed footer: total + confirm */}
-              <div className="shrink-0 border-t border-border p-3 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground text-xs">Итого</span>
-                  <span className="font-black tabular-nums">{newTotal.toLocaleString("ru-RU")} ₸</span>
-                </div>
-                <button
-                  onClick={confirmAdd}
-                  disabled={saving || cartItems.length === 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
-                >
-                  {saving
-                    ? <><Loader2 size={13} className="animate-spin" /> Добавление…</>
-                    : <><Check size={14} /> Добавить в чек</>
-                  }
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile-only bottom cart summary */}
-          <div className="sm:hidden shrink-0 border-t border-border bg-background">
-            {cartItems.length > 0 && (
-              <div className="px-3 pt-2 pb-1 max-h-24 overflow-y-auto admin-scroll">
-                {cartItems.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
-                    <button
-                      onClick={() => decrementCart(item.productId)}
-                      className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
-                    >
-                      <Minus size={9} />
-                    </button>
-                    <span className="flex-1 truncate text-foreground">{item.name}</span>
-                    <span className="shrink-0 text-muted-foreground">×{item.qty}</span>
-                    <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
-                    <button
-                      onClick={() => incrementCart(item.productId)}
-                      className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
-                    >
-                      <Plus size={9} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="px-3 pb-3 pt-2 flex items-center gap-3">
-              <span className="flex-1 text-xs text-muted-foreground">
-                {cartItems.length === 0 ? "Выберите блюда" : `${cartCount} позиц. · ${newTotal.toLocaleString("ru-RU")} ₸`}
-              </span>
-              <button
-                onClick={confirmAdd}
-                disabled={saving || cartItems.length === 0}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
-              >
-                {saving
-                  ? <><Loader2 size={13} className="animate-spin" /> Добавление…</>
-                  : <><Check size={14} /> Добавить в чек</>
-                }
-              </button>
-            </div>
-          </div>
+          <PosMenuBrowser
+            mode="modal"
+            panelTitle="Выбрать из меню"
+            onBack={onClose}
+            confirmLabel="Добавить в чек"
+            onConfirm={handleConfirm}
+          />
         </div>
       </div>
     </>
   );
 }
-
 // ── TableFormModal ────────────────────────────────────────────────────────────
 
 function TableFormModal({
