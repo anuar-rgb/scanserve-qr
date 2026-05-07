@@ -107,6 +107,11 @@ export default function HallPage() {
   const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
   const knownOrderIds               = useRef(new Set<string>());
 
+  const handleOrderClosed = useCallback((orderId: string) => {
+    knownOrderIds.current.delete(orderId);
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+  }, []);
+
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     const [tablesRes, ordersRes] = await Promise.all([
@@ -398,6 +403,7 @@ export default function HallPage() {
                 data={selectedData}
                 onClose={() => setSelected(null)}
                 onRefresh={load}
+                onOrderClosed={handleOrderClosed}
                 onOrderTransferred={(orderId, newTableNumber) => {
                   setOrders((prev) =>
                     prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
@@ -418,6 +424,7 @@ export default function HallPage() {
           loading={loading}
           orderType="takeaway"
           onRefresh={load}
+          onOrderClosed={handleOrderClosed}
         />
       )}
 
@@ -428,6 +435,7 @@ export default function HallPage() {
           loading={loading}
           orderType="delivery"
           onRefresh={load}
+          onOrderClosed={handleOrderClosed}
         />
       )}
 
@@ -692,10 +700,12 @@ function OrderSlotPanel({
   order,
   onClose,
   onRefresh,
+  onOrderClosed,
 }: {
   order: DbOrder;
   onClose: () => void;
   onRefresh: () => void;
+  onOrderClosed: (orderId: string) => void;
 }) {
   const [closing, setClosing]       = useState(false);
   const [copiedId, setCopiedId]     = useState(false);
@@ -713,13 +723,22 @@ function OrderSlotPanel({
   async function close() {
     if (!confirm(`Завершить и выдать заказ?\n${typeLabel} · ${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`)) return;
     setClosing(true);
-    const { error } = await supabase
+    console.log("[OrderSlotPanel.close] UPDATE order", order.id, "→ status=completed");
+    const { error, data } = await supabase
       .from(DB_TABLES.orders)
       .update({ status: "completed" })
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select();
     setClosing(false);
-    if (error) { toast.error("Ошибка закрытия заказа"); return; }
+    console.log("[OrderSlotPanel.close] response:", { error, data });
+    if (error) { toast.error(`Ошибка закрытия: ${error.message}`); return; }
+    if (!data || data.length === 0) {
+      console.warn("[OrderSlotPanel.close] 0 rows updated — возможна блокировка RLS");
+      toast.error("Заказ не обновлён — проверьте RLS в Supabase Dashboard");
+      return;
+    }
+    onOrderClosed(order.id);
     toast.success("Заказ выдан!");
     onClose();
     onRefresh();
@@ -853,22 +872,33 @@ function PickupDeliveryGrid({
   loading,
   orderType,
   onRefresh,
+  onOrderClosed,
 }: {
   orders: DbOrder[];
   loading: boolean;
   orderType: "takeaway" | "delivery";
   onRefresh: () => void;
+  onOrderClosed: (orderId: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   async function completeOrder(orderId: string) {
-    const { error } = await supabase
+    console.log("[completeOrder] UPDATE order", orderId, "→ status=completed");
+    const { error, data } = await supabase
       .from(DB_TABLES.orders)
       .update({ status: "completed" })
       .eq("id", orderId)
-      .eq("restaurant_id", RESTAURANT_ID);
-    if (error) { toast.error("Ошибка закрытия заказа"); return; }
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select();
+    console.log("[completeOrder] response:", { error, data });
+    if (error) { toast.error(`Ошибка закрытия: ${error.message}`); return; }
+    if (!data || data.length === 0) {
+      console.warn("[completeOrder] 0 rows updated — возможна блокировка RLS");
+      toast.error("Заказ не обновлён — проверьте RLS в Supabase Dashboard");
+      return;
+    }
+    onOrderClosed(orderId);
     toast.success("Заказ выдан!");
     if (selected === orderId) setSelected(null);
     onRefresh();
@@ -935,6 +965,7 @@ function PickupDeliveryGrid({
           order={selectedOrder}
           onClose={() => setSelected(null)}
           onRefresh={onRefresh}
+          onOrderClosed={onOrderClosed}
         />
       )}
     </div>
@@ -947,12 +978,14 @@ function TablePanel({
   data,
   onClose,
   onRefresh,
+  onOrderClosed,
   onOrderTransferred,
   allTables,
 }: {
   data: TableWithStatus;
   onClose: () => void;
   onRefresh: () => void;
+  onOrderClosed: (orderId: string) => void;
   onOrderTransferred: (orderId: string, newTableNumber: string) => void;
   allTables: TableWithStatus[];
 }) {
@@ -991,13 +1024,22 @@ function TablePanel({
     if (!order) return;
     if (!confirm(`Закрыть заказ и принять оплату?\n\nСтол: ${table.label} · Итого: ${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`)) return;
     setClosing(true);
-    const { error } = await supabase
+    console.log("[closeOrder] UPDATE order", order.id, "→ status=completed");
+    const { error, data } = await supabase
       .from(DB_TABLES.orders)
       .update({ status: "completed" })
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select();
     setClosing(false);
-    if (error) { toast.error("Ошибка закрытия заказа"); return; }
+    console.log("[closeOrder] response:", { error, data });
+    if (error) { toast.error(`Ошибка закрытия: ${error.message}`); return; }
+    if (!data || data.length === 0) {
+      console.warn("[closeOrder] 0 rows updated — возможна блокировка RLS");
+      toast.error("Заказ не обновлён — проверьте RLS в Supabase Dashboard");
+      return;
+    }
+    onOrderClosed(order.id);
     toast.success("Заказ закрыт, стол освобождён!");
     onClose();
     onRefresh();
