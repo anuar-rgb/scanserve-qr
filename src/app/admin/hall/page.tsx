@@ -159,8 +159,27 @@ export default function HallPage() {
 
     const channel = supabase
       .channel(`hall-pos-${RESTAURANT_ID}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: DB_TABLES.orders }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: DB_TABLES.restaurantTables }, () => load())
+      // INSERT: immediately update local state from payload — no round-trip needed
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        (payload) => {
+          const newOrder = payload.new as DbOrder;
+          if (newOrder.status !== "pending" || knownOrderIds.current.has(newOrder.id)) return;
+          knownOrderIds.current.add(newOrder.id);
+          setOrders((prev) => [newOrder, ...prev]);
+          playNewOrderSound();
+          const label =
+            newOrder.type === "delivery"   ? "Доставка" :
+            newOrder.type === "dine-in"    ? `Стол ${newOrder.table_number ?? "—"}` :
+            "С собой";
+          toast.success(`Новый заказ · ${label}`, { duration: 6000 });
+        }
+      )
+      // UPDATE / DELETE: re-fetch to stay in sync (status changes, table transfers, etc.)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: DB_TABLES.orders }, () => load())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: DB_TABLES.orders }, () => load())
+      .on("postgres_changes", { event: "*",      schema: "public", table: DB_TABLES.restaurantTables }, () => load())
       .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
 
     return () => { supabase.removeChannel(channel); };
