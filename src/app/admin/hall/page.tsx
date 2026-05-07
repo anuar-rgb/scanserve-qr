@@ -200,17 +200,6 @@ export default function HallPage() {
     load();
   }
 
-  async function closeOrderById(orderId: string) {
-    const { error } = await supabase
-      .from(DB_TABLES.orders)
-      .update({ status: "completed" })
-      .eq("id", orderId)
-      .eq("restaurant_id", RESTAURANT_ID);
-    if (error) { toast.error("Ошибка закрытия заказа"); return; }
-    setOrders((prev) => prev.filter((o) => o.id !== orderId));
-    toast.success("Заказ выдан!");
-  }
-
   function enterEditMode() {
     setEditMode(true);
     setSelected(null);
@@ -412,23 +401,21 @@ export default function HallPage() {
 
       {/* ── С собой ─────────────────────────────────────────────────────────── */}
       {activeTab === "takeaway" && (
-        <OrderQueue
+        <PickupDeliveryGrid
           orders={takeawayOrders}
           loading={loading}
-          emptyIcon="🛍️"
-          emptyText="Нет активных заказов с собой"
-          onIssue={closeOrderById}
+          orderType="takeaway"
+          onRefresh={load}
         />
       )}
 
       {/* ── Доставка ────────────────────────────────────────────────────────── */}
       {activeTab === "delivery" && (
-        <OrderQueue
+        <PickupDeliveryGrid
           orders={deliveryOrders}
           loading={loading}
-          emptyIcon="🛵"
-          emptyText="Нет активных заказов на доставку"
-          onIssue={closeOrderById}
+          orderType="delivery"
+          onRefresh={load}
         />
       )}
 
@@ -452,120 +439,6 @@ function LegendDot({ color, label }: { color: "emerald" | "red" | "amber"; label
     <div className="flex items-center gap-1.5 text-muted-foreground">
       <div className={`w-2 h-2 rounded-full ${cls}`} />
       {label}
-    </div>
-  );
-}
-
-// ── OrderQueue ────────────────────────────────────────────────────────────────
-
-function OrderQueue({
-  orders,
-  loading,
-  emptyIcon,
-  emptyText,
-  onIssue,
-}: {
-  orders: DbOrder[];
-  loading: boolean;
-  emptyIcon: string;
-  emptyText: string;
-  onIssue: (orderId: string) => void;
-}) {
-  const [issuing, setIssuing] = useState<string | null>(null);
-
-  async function handleIssue(orderId: string) {
-    setIssuing(orderId);
-    await onIssue(orderId);
-    setIssuing(null);
-  }
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground text-sm">
-        <Loader2 size={16} className="animate-spin" /> Загрузка…
-      </div>
-    );
-  }
-
-  if (orders.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-        <span className="text-5xl select-none">{emptyIcon}</span>
-        <p className="text-sm">{emptyText}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto admin-scroll p-5">
-      <div className="max-w-4xl mx-auto grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
-        {orders.map((order) => {
-          const items: OrderItem[] = Array.isArray(order.items_json)
-            ? (order.items_json as OrderItem[])
-            : [];
-          const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
-          const issuingThis = issuing === order.id;
-
-          return (
-            <div
-              key={order.id}
-              className="flex flex-col rounded-xl border border-border bg-card overflow-hidden"
-            >
-              {/* Card header */}
-              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-semibold text-foreground">{shortId}</span>
-                  <span className="text-muted-foreground text-xs">·</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{formatOrderTime(order.created_at)}</span>
-                </div>
-                <span className="text-lg font-black tabular-nums text-foreground">
-                  {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
-                </span>
-              </div>
-
-              {/* Comments */}
-              {order.customer_comments && (
-                <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-50/60 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-800/30">
-                  <MessageSquare size={12} className="text-amber-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-800 dark:text-amber-300 leading-snug">{order.customer_comments}</p>
-                </div>
-              )}
-
-              {/* Items */}
-              {items.length > 0 && (
-                <div className="px-4 py-3 space-y-1.5 flex-1">
-                  {items.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm gap-3">
-                      <span className="text-muted-foreground truncate">
-                        {item.name}
-                        <span className="text-muted-foreground/60 ml-1">× {item.qty}</span>
-                      </span>
-                      <span className="font-semibold shrink-0 tabular-nums text-xs">
-                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Issue button */}
-              <div className="px-4 py-3 border-t border-border">
-                <button
-                  onClick={() => handleIssue(order.id)}
-                  disabled={issuingThis}
-                  className="w-full flex items-center justify-center gap-2 h-9 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                >
-                  {issuingThis
-                    ? <Loader2 size={14} className="animate-spin" />
-                    : <CheckCircle2 size={14} />
-                  }
-                  Готов / Выдан
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -734,6 +607,323 @@ function TableCard({
             </>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── OrderSlotCard ─────────────────────────────────────────────────────────────
+
+function OrderSlotCard({
+  order,
+  isSelected,
+  onClick,
+  onComplete,
+}: {
+  order: DbOrder;
+  isSelected: boolean;
+  onClick: () => void;
+  onComplete: () => void;
+}) {
+  const elapsed = getElapsed(order.created_at);
+  const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
+  const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
+
+  return (
+    <div
+      onClick={onClick}
+      className={`
+        relative flex flex-col rounded-xl border-2 select-none cursor-pointer
+        transition-all duration-150
+        bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700/40
+        hover:shadow-md hover:-translate-y-0.5
+        ${isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
+      `}
+    >
+      <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+
+      <div className="p-4 pb-3 flex-1">
+        <p className="text-[11px] font-mono font-semibold text-muted-foreground mb-1">{shortId}</p>
+        {order.table_number && (
+          <p className="text-sm font-bold text-foreground truncate mb-1">{order.table_number}</p>
+        )}
+        <p className="text-xl font-black text-foreground">
+          {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+        </p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <Clock size={11} className="text-amber-500 shrink-0" />
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+            {formatElapsed(elapsed)}
+          </span>
+        </div>
+        {items.length > 0 && (
+          <p className="text-[11px] text-muted-foreground mt-1">{items.length} позиц.</p>
+        )}
+      </div>
+
+      <div className="border-t border-amber-200/60 dark:border-amber-700/30 px-3 py-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); onComplete(); }}
+          className="w-full flex items-center justify-center gap-1.5 h-7 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
+        >
+          <CheckCircle2 size={11} />
+          Выдан
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── OrderSlotPanel ────────────────────────────────────────────────────────────
+
+function OrderSlotPanel({
+  order,
+  onClose,
+  onRefresh,
+}: {
+  order: DbOrder;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const [closing, setClosing]       = useState(false);
+  const [copiedId, setCopiedId]     = useState(false);
+  const [addingItem, setAddingItem] = useState(false);
+  const [itemName, setItemName]     = useState("");
+  const [itemPrice, setItemPrice]   = useState("");
+  const [itemQty, setItemQty]       = useState("1");
+  const [itemSaving, setItemSaving] = useState(false);
+
+  const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
+  const elapsed  = getElapsed(order.created_at);
+  const typeLabel = order.type === "delivery" ? "Доставка" : "С собой";
+  const typeIcon  = order.type === "delivery" ? "🛵" : "🛍️";
+
+  async function close() {
+    if (!confirm(`Завершить и выдать заказ?\n${typeLabel} · ${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`)) return;
+    setClosing(true);
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ status: "completed" })
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    setClosing(false);
+    if (error) { toast.error("Ошибка закрытия заказа"); return; }
+    toast.success("Заказ выдан!");
+    onClose();
+    onRefresh();
+  }
+
+  async function copyId(id: string) {
+    try { await navigator.clipboard.writeText(id); setCopiedId(true); setTimeout(() => setCopiedId(false), 2000); }
+    catch { /* clipboard unavailable */ }
+  }
+
+  async function addItemToOrder() {
+    if (!itemName.trim() || !itemPrice) return;
+    setItemSaving(true);
+    const newItem: OrderItem = { name: itemName.trim(), qty: Math.max(1, parseInt(itemQty) || 1), price: parseFloat(itemPrice) || 0, currency: "₸" };
+    const updatedItems = [...items, newItem];
+    const newTotal = updatedItems.reduce((s, it) => s + it.price * it.qty, 0);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updatedItems, total_price: newTotal }).eq("id", order.id);
+    setItemSaving(false);
+    if (error) { toast.error("Ошибка добавления"); return; }
+    toast.success(`${newItem.name} — добавлено в чек`);
+    setItemName(""); setItemPrice(""); setItemQty("1"); setAddingItem(false);
+    onRefresh();
+  }
+
+  return (
+    <aside className="w-[500px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+        <div>
+          <div className="flex items-center gap-2">
+            <span>{typeIcon}</span>
+            <p className="font-semibold text-sm">{typeLabel}</p>
+          </div>
+          {order.table_number && <p className="text-[11px] text-muted-foreground mt-0.5">{order.table_number}</p>}
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-5 space-y-5">
+
+          <div className="flex items-center justify-between">
+            <button onClick={() => copyId(order.id)} className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors" title="Скопировать ID">
+              <span className="max-w-[140px] truncate">#{order.id}</span>
+              {copiedId ? <Check size={11} className="text-emerald-500 shrink-0" /> : <Copy size={11} className="shrink-0" />}
+            </button>
+            <button onClick={() => handlePrint(order)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+              <Printer size={12} /> Чек
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+              <Clock size={15} className="text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Время ожидания</p>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className="text-base font-black text-amber-800 dark:text-amber-200 tabular-nums">{formatOrderTime(order.created_at)}</p>
+                <p className="text-xs font-semibold text-amber-500/80 tabular-nums">{formatElapsed(elapsed)}</p>
+              </div>
+            </div>
+          </div>
+
+          {order.customer_comments && (
+            <div className="px-3 py-2.5 rounded-xl bg-muted/50 border border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Пожелания</p>
+              <p className="text-sm leading-snug">{order.customer_comments}</p>
+            </div>
+          )}
+
+          {items.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав · {items.length} позиц.</p>
+              <div className="space-y-1.5 rounded-xl border border-border overflow-hidden">
+                {items.map((item, i) => (
+                  <div key={i} className={`flex justify-between items-center px-3 py-2 text-sm ${i < items.length - 1 ? "border-b border-border" : ""}`}>
+                    <span className="text-muted-foreground truncate mr-3">{item.name}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
+                    <span className="font-semibold shrink-0 tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            {addingItem ? (
+              <div className="space-y-2 p-3.5 rounded-xl border border-violet-200 dark:border-violet-700/40 bg-violet-50/60 dark:bg-violet-900/10">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">Добавить позицию</p>
+                <input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="Название блюда / напитка" className="w-full h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" autoFocus />
+                <div className="flex gap-2">
+                  <input type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} placeholder="Цена, ₸" min={0} className="flex-1 h-8 px-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <input type="number" value={itemQty} onChange={(e) => setItemQty(e.target.value)} placeholder="Кол." min={1} max={99} className="w-14 h-8 px-2.5 rounded-lg border border-border bg-background text-sm text-center focus:outline-none focus:ring-2 focus:ring-violet-500" onKeyDown={(e) => e.key === "Enter" && addItemToOrder()} />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={addItemToOrder} disabled={itemSaving || !itemName.trim() || !itemPrice} className="flex-1 h-8 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-40 transition-colors">
+                    {itemSaving ? <Loader2 size={12} className="animate-spin mx-auto" /> : "Добавить в чек"}
+                  </button>
+                  <button onClick={() => { setAddingItem(false); setItemName(""); setItemPrice(""); setItemQty("1"); }} className="h-8 px-3 rounded-lg border border-border text-xs hover:bg-accent transition-colors">
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setAddingItem(true)} className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors">
+                <Plus size={12} /> Добавить позицию в чек
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between px-1">
+            <p className="text-sm font-semibold">Итого</p>
+            <p className="text-2xl font-black tabular-nums">{(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</p>
+          </div>
+
+          <button onClick={close} disabled={closing} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+            {closing ? <><Loader2 size={14} className="animate-spin" /> Закрытие…</> : <><Check size={15} /> Выдан · Закрыть заказ</>}
+          </button>
+
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ── PickupDeliveryGrid ────────────────────────────────────────────────────────
+
+function PickupDeliveryGrid({
+  orders,
+  loading,
+  orderType,
+  onRefresh,
+}: {
+  orders: DbOrder[];
+  loading: boolean;
+  orderType: "takeaway" | "delivery";
+  onRefresh: () => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  async function completeOrder(orderId: string) {
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ status: "completed" })
+      .eq("id", orderId)
+      .eq("restaurant_id", RESTAURANT_ID);
+    if (error) { toast.error("Ошибка закрытия заказа"); return; }
+    toast.success("Заказ выдан!");
+    if (selected === orderId) setSelected(null);
+    onRefresh();
+  }
+
+  const selectedOrder = selected ? orders.find((o) => o.id === selected) ?? null : null;
+  const emptyIcon = orderType === "delivery" ? "🛵" : "🛍️";
+  const emptyText = orderType === "delivery" ? "Нет активных заказов на доставку" : "Нет активных заказов с собой";
+
+  if (creating) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <OrderPanel
+          orderType={orderType}
+          onBack={() => setCreating(false)}
+          onDone={() => { setCreating(false); onRefresh(); }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-5">
+        {loading ? (
+          <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
+            <Loader2 size={16} className="animate-spin" /> Загрузка…
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => setCreating(true)}
+              className="mb-5 w-full flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-700 hover:border-violet-500 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 text-sm font-semibold text-violet-600 dark:text-violet-400 transition-colors"
+            >
+              <Plus size={16} />
+              Новый заказ
+            </button>
+
+            {orders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
+                <span className="text-5xl select-none">{emptyIcon}</span>
+                <p className="text-sm">{emptyText}</p>
+              </div>
+            ) : (
+              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+                {orders.map((order) => (
+                  <OrderSlotCard
+                    key={order.id}
+                    order={order}
+                    isSelected={selected === order.id}
+                    onClick={() => setSelected(selected === order.id ? null : order.id)}
+                    onComplete={() => completeOrder(order.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {selectedOrder && (
+        <OrderSlotPanel
+          key={selectedOrder.id}
+          order={selectedOrder}
+          onClose={() => setSelected(null)}
+          onRefresh={onRefresh}
+        />
       )}
     </div>
   );
@@ -1133,10 +1323,12 @@ function TablePanel({
 
 function OrderPanel({
   table,
+  orderType = "dine-in",
   onBack,
   onDone,
 }: {
-  table: DbRestaurantTable;
+  table?: DbRestaurantTable;
+  orderType?: "dine-in" | "takeaway" | "delivery";
   onBack: () => void;
   onDone: () => void;
 }) {
@@ -1147,6 +1339,7 @@ function OrderPanel({
   const [search, setSearch]               = useState("");
   const [cart, setCart]                   = useState<Map<string, CartItem>>(new Map());
   const [submitting, setSubmitting]       = useState(false);
+  const [customerName, setCustomerName]   = useState("");
   const [canScrollLeft, setCanScrollLeft]   = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const catTabsRef = useRef<HTMLDivElement>(null);
@@ -1256,18 +1449,24 @@ function OrderPanel({
     const items: OrderItem[] = cartItems.map((i) => ({
       name: i.name, qty: i.qty, price: i.price, currency: "₸",
     }));
+    const tableNumber = orderType === "dine-in"
+      ? (table?.label ?? null)
+      : (customerName.trim() || null);
     const { error } = await supabase.from(DB_TABLES.orders).insert({
       restaurant_id: RESTAURANT_ID,
       status: "pending",
-      type: "dine-in",
-      table_number: table.label,
+      type: orderType,
+      table_number: tableNumber,
       items_json: items,
       total_price: total,
       order_type: "asap",
     });
     setSubmitting(false);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-    toast.success(`Заказ для стола ${table.label} отправлен на кухню!`);
+    const dest = orderType === "dine-in"
+      ? `стола ${table?.label}`
+      : orderType === "delivery" ? "доставки" : "самовывоза";
+    toast.success(`Заказ для ${dest} отправлен на кухню!`);
     onDone();
   }
 
@@ -1282,7 +1481,11 @@ function OrderPanel({
           <ArrowLeft size={15} />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm leading-tight truncate">Стол {table.label} · Новый заказ</p>
+          <p className="font-semibold text-sm leading-tight truncate">
+            {orderType === "dine-in"
+              ? `Стол ${table?.label} · Новый заказ`
+              : orderType === "delivery" ? "Доставка · Новый заказ" : "С собой · Новый заказ"}
+          </p>
         </div>
         <div className="relative shrink-0">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -1295,6 +1498,19 @@ function OrderPanel({
           />
         </div>
       </div>
+
+      {/* ── Customer name (pickup / delivery only) ── */}
+      {orderType !== "dine-in" && (
+        <div className="px-4 py-2.5 border-b border-border shrink-0">
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="Имя клиента (необязательно)"
+            className="w-full h-8 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+      )}
 
       {/* ── Category tabs ── */}
       {!trimmed && categories.length > 0 && (
