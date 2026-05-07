@@ -1223,8 +1223,8 @@ function CatalogDishCard({
           <span
             style={{
               position: "absolute",
-              top: 6,
-              right: 6,
+              bottom: 6,
+              left: 6,
               fontSize: 10,
               fontWeight: 800,
               padding: "3px 8px",
