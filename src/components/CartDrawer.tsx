@@ -566,12 +566,16 @@ export function CartDrawer({
   const handlePlaceOrder = async () => {
     if (!canPlaceOrder || loading) return;
     setLoading(true);
-    const orderItems = items.map(({ dish, qty, currency: c }) => ({
-      name: resolve(dish.name, lang),
-      qty,
-      price: effPrice(dish),
-      currency: c || currency,
-    }));
+    const orderItems = items.map(({ dish, qty, currency: c }) => {
+      const finalPrice = effPrice(dish);
+      return {
+        name: resolve(dish.name, lang),
+        qty,
+        price: finalPrice,
+        currency: c || currency,
+        ...(finalPrice < dish.price ? { original_price: dish.price } : {}),
+      };
+    });
     const foundCity = KZ_CITIES.find((c) => c.id === city);
     const order: PlacedOrder = {
       restaurantName,

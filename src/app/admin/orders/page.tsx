@@ -10,7 +10,7 @@ import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 import { RESTAURANT_ID } from "@/constants";
 
-type OrderItem = { name: string; qty: number; price: number; currency: string };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number };
 type HistoryTab = "dine-in" | "takeaway" | "delivery";
 
 function formatDateTime(iso: string): string {
@@ -207,6 +207,7 @@ export default function OrderHistoryPage() {
 function HistoryCard({ order }: { order: DbOrder }) {
   const [expanded, setExpanded] = useState(false);
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
+  const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
 
   const typeLabel =
     order.type === "dine-in"  ? "В заведении" :
@@ -311,7 +312,7 @@ function HistoryCard({ order }: { order: DbOrder }) {
                 {items.map((item, i) => (
                   <div
                     key={i}
-                    className={`flex justify-between items-center px-3 py-2 text-sm ${
+                    className={`flex justify-between items-start px-3 py-2 text-sm ${
                       i < items.length - 1 ? "border-b border-border" : ""
                     }`}
                   >
@@ -319,9 +320,16 @@ function HistoryCard({ order }: { order: DbOrder }) {
                       {item.name}
                       <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
                     </span>
-                    <span className="font-semibold tabular-nums shrink-0">
-                      {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                    </span>
+                    <div className="flex flex-col items-end shrink-0">
+                      {item.original_price != null && (
+                        <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                          {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                        </span>
+                      )}
+                      <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -330,7 +338,14 @@ function HistoryCard({ order }: { order: DbOrder }) {
 
           {/* Total row */}
           <div className="flex items-center justify-between pt-1 border-t border-border">
-            <p className="text-sm font-semibold text-muted-foreground">Итого</p>
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground">Итого</p>
+              {savedAmount > 0 && (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                </p>
+              )}
+            </div>
             <p className="text-lg font-black tabular-nums">
               {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
             </p>

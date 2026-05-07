@@ -14,7 +14,7 @@ import { toast } from "sonner";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TableStatus = "free" | "occupied" | "preorder";
-type OrderItem = { name: string; qty: number; price: number; currency: string };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number };
 type CartItem  = { productId: string; name: string; price: number; qty: number };
 
 interface TableWithStatus {
@@ -716,6 +716,7 @@ function OrderSlotPanel({
   const [itemSaving, setItemSaving] = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
+  const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
   const elapsed  = getElapsed(order.created_at);
   const typeLabel = order.type === "delivery" ? "Доставка" : "С собой";
   const typeIcon  = order.type === "delivery" ? "🛵" : "🛍️";
@@ -816,9 +817,18 @@ function OrderSlotPanel({
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав · {items.length} позиц.</p>
               <div className="space-y-1.5 rounded-xl border border-border overflow-hidden">
                 {items.map((item, i) => (
-                  <div key={i} className={`flex justify-between items-center px-3 py-2 text-sm ${i < items.length - 1 ? "border-b border-border" : ""}`}>
+                  <div key={i} className={`flex justify-between items-start px-3 py-2 text-sm ${i < items.length - 1 ? "border-b border-border" : ""}`}>
                     <span className="text-muted-foreground truncate mr-3">{item.name}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
-                    <span className="font-semibold shrink-0 tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}</span>
+                    <div className="flex flex-col items-end shrink-0">
+                      {item.original_price != null && (
+                        <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                          {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                        </span>
+                      )}
+                      <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -851,7 +861,14 @@ function OrderSlotPanel({
           </div>
 
           <div className="flex items-center justify-between px-1">
-            <p className="text-sm font-semibold">Итого</p>
+            <div>
+              <p className="text-sm font-semibold">Итого</p>
+              {savedAmount > 0 && (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                </p>
+              )}
+            </div>
             <p className="text-2xl font-black tabular-nums">{(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</p>
           </div>
 
@@ -1004,6 +1021,7 @@ function TablePanel({
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
     ? (activeOrder!.items_json as OrderItem[])
     : [];
+  const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
 
   // ── Order creation mode ──────────────────────────────────────────────────────
   if (panelMode === "order") {
@@ -1217,7 +1235,7 @@ function TablePanel({
                   {items.map((item, i) => (
                     <div
                       key={i}
-                      className={`flex justify-between items-center px-3 py-2 text-sm ${
+                      className={`flex justify-between items-start px-3 py-2 text-sm ${
                         i < items.length - 1 ? "border-b border-border" : ""
                       }`}
                     >
@@ -1225,9 +1243,16 @@ function TablePanel({
                         {item.name}
                         <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                       </span>
-                      <span className="font-semibold shrink-0 tabular-nums">
-                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                      </span>
+                      <div className="flex flex-col items-end shrink-0">
+                        {item.original_price != null && (
+                          <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                            {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                          </span>
+                        )}
+                        <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                          {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1300,7 +1325,14 @@ function TablePanel({
 
             {/* Total */}
             <div className="flex items-center justify-between px-1">
-              <p className="text-sm font-semibold">Итого</p>
+              <div>
+                <p className="text-sm font-semibold">Итого</p>
+                {savedAmount > 0 && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                  </p>
+                )}
+              </div>
               <p className="text-2xl font-black tabular-nums">
                 {(activeOrder.total_price ?? 0).toLocaleString("ru-RU")} ₸
               </p>
