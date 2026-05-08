@@ -770,7 +770,7 @@ function OrderSlotPanel({
   allTables: TableWithStatus[];
   width?: number;
 }) {
-  const [closing, setClosing]                   = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [copiedId, setCopiedId]                 = useState(false);
   const [showMenuPicker, setShowMenuPicker]     = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
@@ -781,30 +781,6 @@ function OrderSlotPanel({
   const elapsed  = getElapsed(order.created_at);
   const typeLabel = order.type === "delivery" ? "Доставка" : "С собой";
   const typeIcon  = order.type === "delivery" ? "🛵" : "🛍️";
-
-  async function close() {
-    if (!confirm(`Завершить и выдать заказ?\n${typeLabel} · ${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`)) return;
-    setClosing(true);
-    console.log("[OrderSlotPanel.close] UPDATE order", order.id, "→ status=completed");
-    const { error, data } = await supabase
-      .from(DB_TABLES.orders)
-      .update({ status: "completed" })
-      .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID)
-      .select();
-    setClosing(false);
-    console.log("[OrderSlotPanel.close] response:", { error, data });
-    if (error) { toast.error(`Ошибка закрытия: ${error.message}`); return; }
-    if (!data || data.length === 0) {
-      console.warn("[OrderSlotPanel.close] 0 rows updated — возможна блокировка RLS");
-      toast.error("Заказ не обновлён — проверьте RLS в Supabase Dashboard");
-      return;
-    }
-    onOrderClosed(order.id);
-    toast.success("Заказ выдан!");
-    onClose();
-    onRefresh();
-  }
 
   async function copyId(id: string) {
     try { await navigator.clipboard.writeText(id); setCopiedId(true); setTimeout(() => setCopiedId(false), 2000); }
@@ -959,12 +935,19 @@ function OrderSlotPanel({
             <p className="text-2xl font-black tabular-nums">{(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</p>
           </div>
 
-          <button onClick={close} disabled={closing} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors">
-            {closing ? <><Loader2 size={14} className="animate-spin" /> Закрытие…</> : <><Check size={15} /> Выдан · Закрыть заказ</>}
+          <button onClick={() => setShowPaymentModal(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
+            <Check size={15} /> Оплатить
           </button>
 
         </div>
       </div>
+      {showPaymentModal && (
+        <PaymentModal
+          order={order}
+          onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
+          onClose={() => setShowPaymentModal(false)}
+        />
+      )}
     </aside>
   );
 }
@@ -1085,6 +1068,114 @@ function PickupDeliveryGrid({
   );
 }
 
+// ── PaymentModal ──────────────────────────────────────────────────────────────
+
+const PAYMENT_METHODS = [
+  { id: "cash",     label: "Наличные",        icon: "💵" },
+  { id: "kaspi",    label: "Kaspi",            icon: "🔴" },
+  { id: "halyk",    label: "Halyk",            icon: "🟢" },
+  { id: "terminal", label: "Карта (Терминал)", icon: "💳" },
+] as const;
+
+type PaymentMethodId = typeof PAYMENT_METHODS[number]["id"];
+
+function PaymentModal({
+  order,
+  tableName,
+  onDone,
+  onClose,
+}: {
+  order: DbOrder;
+  tableName?: string;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const [method, setMethod] = useState<PaymentMethodId | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
+  const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
+  const total = order.total_price ?? 0;
+
+  async function confirm() {
+    if (!method) return;
+    setSaving(true);
+    const { data, error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ status: "completed", payment_method: method, closed_at: new Date().toISOString() })
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select("id");
+    setSaving(false);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    if (!data || data.length === 0) { toast.error("Заказ не обновлён — проверьте RLS в Supabase"); return; }
+    toast.success("Оплата принята!");
+    onDone();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-background rounded-2xl shadow-2xl w-[380px] max-w-[95vw] overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <p className="font-semibold text-sm">Завершение заказа</p>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Total */}
+        <div className="px-5 pt-6 pb-5 text-center">
+          {tableName && <p className="text-xs text-muted-foreground mb-2">Стол {tableName}</p>}
+          <p className="text-5xl font-black tabular-nums leading-none">{total.toLocaleString("ru-RU")} ₸</p>
+          {savedAmount > 0 && (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-2">
+              Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground mt-2">К оплате</p>
+        </div>
+
+        {/* Payment methods */}
+        <div className="px-5 pb-6 space-y-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Способ оплаты</p>
+          <div className="grid grid-cols-2 gap-2">
+            {PAYMENT_METHODS.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setMethod(m.id)}
+                className={`flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  method === m.id
+                    ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 scale-[1.02]"
+                    : "border-border hover:border-violet-300 hover:bg-accent/60 text-foreground"
+                }`}
+              >
+                <span className="text-xl leading-none">{m.icon}</span>
+                <span>{m.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={confirm}
+            disabled={!method || saving}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+          >
+            {saving
+              ? <><Loader2 size={14} className="animate-spin" /> Сохранение…</>
+              : <><Check size={15} /> Подтвердить оплату</>}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── TablePanel ────────────────────────────────────────────────────────────────
 
 function TablePanel({
@@ -1106,7 +1197,7 @@ function TablePanel({
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
   const [panelMode, setPanelMode]                 = useState<"info" | "order">("info");
-  const [closing, setClosing]                     = useState(false);
+  const [showPaymentModal, setShowPaymentModal]   = useState(false);
   const [copiedId, setCopiedId]                   = useState(false);
   const [changingTable, setChangingTable]         = useState(false);
   const [showMenuPicker, setShowMenuPicker]       = useState(false);
@@ -1133,31 +1224,6 @@ function TablePanel({
   }
 
   // ── Info mode ────────────────────────────────────────────────────────────────
-
-  async function closeOrder() {
-    if (!order) return;
-    if (!confirm(`Закрыть заказ и принять оплату?\n\nСтол: ${table.label} · Итого: ${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`)) return;
-    setClosing(true);
-    console.log("[closeOrder] UPDATE order", order.id, "→ status=completed");
-    const { error, data } = await supabase
-      .from(DB_TABLES.orders)
-      .update({ status: "completed" })
-      .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID)
-      .select();
-    setClosing(false);
-    console.log("[closeOrder] response:", { error, data });
-    if (error) { toast.error(`Ошибка закрытия: ${error.message}`); return; }
-    if (!data || data.length === 0) {
-      console.warn("[closeOrder] 0 rows updated — возможна блокировка RLS");
-      toast.error("Заказ не обновлён — проверьте RLS в Supabase Dashboard");
-      return;
-    }
-    onOrderClosed(order.id);
-    toast.success("Заказ закрыт, стол освобождён!");
-    onClose();
-    onRefresh();
-  }
 
   async function changeTable(targetLabel: string) {
     if (!order || !targetLabel) return;
@@ -1466,19 +1532,24 @@ function TablePanel({
             {/* Close order */}
             {status === "occupied" && (
               <button
-                onClick={closeOrder}
-                disabled={closing}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                onClick={() => setShowPaymentModal(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
               >
-                {closing
-                  ? <><Loader2 size={14} className="animate-spin" /> Закрытие…</>
-                  : <><Check size={15} /> Оплачен · Закрыть заказ</>}
+                <Check size={15} /> Оплатить
               </button>
             )}
 
           </div>
         )}
       </div>
+      {showPaymentModal && order && (
+        <PaymentModal
+          order={order}
+          tableName={table.label}
+          onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
+          onClose={() => setShowPaymentModal(false)}
+        />
+      )}
     </aside>
   );
 }

@@ -65,6 +65,8 @@ export interface DbOrder {
   preorder_time: string | null;
   customer_comments: string | null;
   created_at: string;
+  payment_method: string | null;
+  closed_at: string | null;
 }
 
 export interface DbReview {
