@@ -281,8 +281,12 @@ export default function HallPage() {
   const selectedData   = selected ? tablesWithStatus.find((t) => t.table.id === selected) ?? null : null;
   const { width: tablePanelW, startResize: startTableResize } = usePanelResize("hall:tablePanel", 500, 280, 720);
 
-  const takeawayOrders = orders.filter((o) => o.type !== "dine-in" && o.type !== "delivery");
-  const deliveryOrders = orders.filter((o) => o.type === "delivery");
+  const takeawayOrders = orders
+    .filter((o) => o.type !== "dine-in" && o.type !== "delivery")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const deliveryOrders = orders
+    .filter((o) => o.type === "delivery")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
@@ -690,6 +694,7 @@ function OrderSlotCard({
   const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const queueNum = String(index).padStart(2, "0");
+  const isOverdue = elapsed >= 30;
 
   return (
     <div
@@ -702,12 +707,12 @@ function OrderSlotCard({
         ${isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
       `}
     >
-      <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+      <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full animate-pulse ${isOverdue ? "bg-red-500" : "bg-amber-400"}`} />
 
       <div className="p-4 pb-3 flex-1">
         {/* Queue number + order ID */}
         <div className="flex items-end gap-2 mb-2">
-          <span className="text-4xl font-black tabular-nums leading-none text-amber-500 dark:text-amber-400">
+          <span className={`text-4xl font-black tabular-nums leading-none ${isOverdue ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`}>
             {queueNum}
           </span>
           <p className="text-[10px] font-mono text-muted-foreground/60 mb-0.5 pr-4">{shortId}</p>
