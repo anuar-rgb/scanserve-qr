@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 type TableStatus = "free" | "occupied" | "preorder";
 type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string };
-type CartItem  = { productId: string; name: string; price: number; qty: number; addedAt: string };
+type CartItem  = { productId: string; name: string; price: number; qty: number; addedAt: string; note?: string };
 
 interface TableWithStatus {
   table: DbRestaurantTable;
@@ -80,14 +80,54 @@ function playNewOrderSound() {
 // ── Print stub ────────────────────────────────────────────────────────────────
 
 function handlePrint(order: DbOrder) {
-  console.log("[PRINT RECEIPT]", {
-    orderId: order.id,
-    table: order.table_number,
-    items: order.items_json,
-    total: `${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸`,
-    createdAt: new Date(order.created_at).toLocaleString("ru-RU"),
-  });
-  toast.info("Чек отправлен на принтер (в разработке)");
+  const items = (Array.isArray(order.items_json) ? order.items_json : []) as OrderItem[];
+  const time  = new Date(order.created_at).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+  const tableLabel = order.type === "dine-in" ? `Стол ${order.table_number ?? "—"}` : order.type === "delivery" ? "Доставка" : "С собой";
+
+  const rows = items.map((it) => `
+    <tr>
+      <td class="name">${capFirst(it.name)}<br/>${it.note ? `<span class="note">✎ ${it.note}</span>` : ""}</td>
+      <td class="qty">× ${it.qty}</td>
+      <td class="price">${(it.price * it.qty).toLocaleString("ru-RU")} ₸</td>
+    </tr>
+  `).join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Чек</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 14px; padding: 16px; max-width: 380px; margin: auto; }
+    h1 { font-size: 20px; text-align: center; margin-bottom: 4px; }
+    .sub { text-align: center; font-size: 12px; color: #555; margin-bottom: 12px; }
+    .divider { border-top: 2px dashed #000; margin: 10px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { vertical-align: top; padding: 5px 2px; font-size: 13px; }
+    td.name { width: 55%; font-weight: bold; }
+    td.qty  { width: 12%; text-align: center; color: #333; }
+    td.price{ width: 33%; text-align: right; font-weight: bold; }
+    .note { display: block; font-size: 13px; font-weight: bold; font-style: italic; color: #000; background: #ffe; border-left: 3px solid #f90; padding: 2px 6px; margin-top: 3px; }
+    .total-row td { font-size: 16px; font-weight: bold; padding-top: 8px; border-top: 2px solid #000; }
+    .footer { text-align: center; font-size: 11px; color: #777; margin-top: 12px; }
+    @media print { body { padding: 0; } button { display: none; } }
+  </style></head><body>
+  <h1>🍽️ Кухонный чек</h1>
+  <div class="sub">${tableLabel} &nbsp;·&nbsp; ${time}</div>
+  <div class="divider"></div>
+  <table>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="2">Итого</td>
+        <td>${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="footer">ID: ${order.id.slice(0, 8).toUpperCase()}</div>
+  <script>window.onload = () => { window.print(); }<\/script>
+  </body></html>`;
+
+  const w = window.open("", "_blank", "width=420,height=600");
+  if (w) { w.document.write(html); w.document.close(); }
+  else    { toast.error("Заблокировано браузером — разрешите всплывающие окна"); }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1849,6 +1889,8 @@ function PosMenuBrowser({
   const [cart, setCart]                     = useState<Map<string, CartItem>>(new Map());
   const [confirming, setConfirming]         = useState(false);
   const [openIngredients, setOpenIngredients]                = useState<Set<string>>(new Set());
+  const [editingNoteId, setEditingNoteId]   = useState<string | null>(null);
+  const [noteInput, setNoteInput]           = useState("");
   const { width: cartW, startResize: startCartResize }       = usePanelResize("hall:cartPanel", 360, 260, 520);
 
   function toggleIngredients(id: string) {
@@ -1914,6 +1956,16 @@ function PosMenuBrowser({
     });
   }
 
+  function setNoteForItem(productId: string, note: string) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const item = next.get(productId);
+      if (!item) return prev;
+      next.set(productId, { ...item, note: note.trim() || undefined });
+      return next;
+    });
+  }
+
   const cartItems = Array.from(cart.values());
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
@@ -1949,6 +2001,7 @@ function PosMenuBrowser({
       const prod = productMap.get(ci.productId);
       const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", created_at: ci.addedAt };
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
+      if (ci.note) item.note = ci.note;
       return item;
     });
     await onConfirm(items);
@@ -2206,26 +2259,65 @@ function PosMenuBrowser({
                         Добавлено в {group.label}
                       </p>
                     )}
-                    <div className="space-y-1 mb-2">
+                    <div className="space-y-1.5 mb-2">
                       {group.items.map((item) => (
-                        <div key={item.productId} className="flex items-center gap-1">
-                          <button
-                            onClick={() => decrementCart(item.productId)}
-                            className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
-                          >
-                            <Minus size={9} />
-                          </button>
-                          <span className="flex-1 min-w-0 text-[11px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
-                          <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
-                          <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
-                            {(item.price * item.qty).toLocaleString("ru-RU")} ₸
-                          </span>
-                          <button
-                            onClick={() => incrementCart(item.productId)}
-                            className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
-                          >
-                            <Plus size={9} />
-                          </button>
+                        <div key={item.productId}>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => decrementCart(item.productId)}
+                              className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                            >
+                              <Minus size={9} />
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="flex-1 min-w-0 text-[11px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
+                                <button
+                                  onClick={() => { setEditingNoteId(item.productId); setNoteInput(item.note ?? ""); }}
+                                  className={`shrink-0 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
+                                  title={item.note ? "Изменить заметку" : "Добавить заметку"}
+                                >
+                                  <MessageSquare size={10} />
+                                </button>
+                              </div>
+                              {item.note && editingNoteId !== item.productId && (
+                                <p className="text-[10px] italic text-amber-600 dark:text-amber-400 leading-tight mt-0.5">✎ {item.note}</p>
+                              )}
+                              {editingNoteId === item.productId && (
+                                <div className="mt-1 flex items-center gap-1">
+                                  <input
+                                    autoFocus
+                                    value={noteInput}
+                                    onChange={(e) => setNoteInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }
+                                      if (e.key === "Escape") { setEditingNoteId(null); }
+                                    }}
+                                    placeholder="Пожелание к блюду…"
+                                    className="flex-1 min-w-0 text-[10px] px-1.5 py-0.5 rounded border border-violet-400 bg-background focus:outline-none"
+                                  />
+                                  <button
+                                    onClick={() => { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }}
+                                    className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                                  >OK</button>
+                                  <button
+                                    onClick={() => setEditingNoteId(null)}
+                                    className="shrink-0 text-[9px] px-1 py-0.5 rounded text-muted-foreground hover:bg-accent transition-colors"
+                                  >✕</button>
+                                </div>
+                              )}
+                            </div>
+                            <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
+                            <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
+                              {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                            </span>
+                            <button
+                              onClick={() => incrementCart(item.productId)}
+                              className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
+                            >
+                              <Plus size={9} />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2270,16 +2362,47 @@ function PosMenuBrowser({
                   {existingGroups.length > 0 || gi > 0 ? `Дозаказ — ${group.label}` : `+ ${group.label}`}
                 </p>
                 {group.items.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-1.5 text-xs py-0.5">
-                    <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
-                      <Minus size={9} />
-                    </button>
-                    <span className="flex-1 truncate text-foreground">{capFirst(item.name)}</span>
-                    <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
-                    <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
-                    <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
-                      <Plus size={9} />
-                    </button>
+                  <div key={item.productId} className="py-0.5">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
+                        <Minus size={9} />
+                      </button>
+                      <span className="flex-1 truncate text-foreground">{capFirst(item.name)}</span>
+                      <button
+                        onClick={() => { setEditingNoteId(item.productId); setNoteInput(item.note ?? ""); }}
+                        className={`shrink-0 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
+                      >
+                        <MessageSquare size={10} />
+                      </button>
+                      <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
+                      <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
+                      <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
+                        <Plus size={9} />
+                      </button>
+                    </div>
+                    {item.note && editingNoteId !== item.productId && (
+                      <p className="text-[10px] italic text-amber-600 dark:text-amber-400 pl-6 leading-tight mt-0.5">✎ {item.note}</p>
+                    )}
+                    {editingNoteId === item.productId && (
+                      <div className="mt-1 pl-6 flex items-center gap-1">
+                        <input
+                          autoFocus
+                          value={noteInput}
+                          onChange={(e) => setNoteInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }
+                            if (e.key === "Escape") { setEditingNoteId(null); }
+                          }}
+                          placeholder="Пожелание…"
+                          className="flex-1 min-w-0 text-[10px] px-1.5 py-0.5 rounded border border-violet-400 bg-background focus:outline-none"
+                        />
+                        <button
+                          onClick={() => { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }}
+                          className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white"
+                        >OK</button>
+                        <button onClick={() => setEditingNoteId(null)} className="shrink-0 text-[9px] px-1 py-0.5 rounded text-muted-foreground">✕</button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
