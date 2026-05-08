@@ -675,11 +675,13 @@ function TableCard({
 
 function OrderSlotCard({
   order,
+  index,
   isSelected,
   onClick,
   onComplete,
 }: {
   order: DbOrder;
+  index: number;
   isSelected: boolean;
   onClick: () => void;
   onComplete: () => void;
@@ -687,6 +689,7 @@ function OrderSlotCard({
   const elapsed = getElapsed(order.created_at);
   const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
+  const queueNum = String(index).padStart(2, "0");
 
   return (
     <div
@@ -702,11 +705,18 @@ function OrderSlotCard({
       <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
 
       <div className="p-4 pb-3 flex-1">
-        <p className="text-[11px] font-mono font-semibold text-muted-foreground mb-1">{shortId}</p>
+        {/* Queue number + order ID */}
+        <div className="flex items-end gap-2 mb-2">
+          <span className="text-4xl font-black tabular-nums leading-none text-amber-500 dark:text-amber-400">
+            {queueNum}
+          </span>
+          <p className="text-[10px] font-mono text-muted-foreground/60 mb-0.5 pr-4">{shortId}</p>
+        </div>
+
         {order.table_number && (
           <p className="text-sm font-bold text-foreground truncate mb-1">{order.table_number}</p>
         )}
-        <p className="text-xl font-black text-foreground">
+        <p className="text-lg font-black text-foreground">
           {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
         </p>
         <div className="flex items-center gap-1.5 mt-1">
@@ -1031,10 +1041,11 @@ function PickupDeliveryGrid({
               </div>
             ) : (
               <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
-                {orders.map((order) => (
+                {orders.map((order, i) => (
                   <OrderSlotCard
                     key={order.id}
                     order={order}
+                    index={i + 1}
                     isSelected={selected === order.id}
                     onClick={() => setSelected(selected === order.id ? null : order.id)}
                     onComplete={() => completeOrder(order.id)}
