@@ -8,6 +8,7 @@ import {
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
+import { capFirst } from "@/lib/utils";
 import { RESTAURANT_ID } from "@/constants";
 
 type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string };
@@ -351,7 +352,7 @@ function HistoryCard({ order }: { order: DbOrder }) {
                         }`}
                       >
                         <span className="text-muted-foreground">
-                          {item.name}
+                          {capFirst(item.name)}
                           <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
                         </span>
                         <div className="flex flex-col items-end shrink-0">

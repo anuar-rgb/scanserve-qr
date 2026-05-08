@@ -10,6 +10,7 @@ import {
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -844,7 +845,7 @@ function OrderSlotPanel({
               <div className="space-y-1.5 rounded-xl border border-border overflow-hidden">
                 {items.map((item, i) => (
                   <div key={i} className={`flex justify-between items-start px-3 py-2 text-sm ${i < items.length - 1 ? "border-b border-border" : ""}`}>
-                    <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">{item.name}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
+                    <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">{capFirst(item.name)}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
                     <div className="flex flex-col items-end shrink-0">
                       {item.original_price != null && (
                         <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
@@ -1278,7 +1279,7 @@ function TablePanel({
                       }`}
                     >
                       <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">
-                        {item.name}
+                        {capFirst(item.name)}
                         <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                       </span>
                       <div className="flex flex-col items-end shrink-0">
@@ -1826,7 +1827,7 @@ function PosMenuBrowser({
                       {group.items.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-1 opacity-55">
                           <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
-                          <span className="flex-1 min-w-0 text-[10px] leading-tight break-words text-foreground">{item.name}</span>
+                          <span className="flex-1 min-w-0 text-[10px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
                           <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
                           <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
                             {(item.price * item.qty).toLocaleString("ru-RU")} ₸
@@ -1862,7 +1863,7 @@ function PosMenuBrowser({
                           >
                             <Minus size={9} />
                           </button>
-                          <span className="flex-1 min-w-0 text-[11px] leading-tight break-words text-foreground">{item.name}</span>
+                          <span className="flex-1 min-w-0 text-[11px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
                           <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
                           <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
                             {(item.price * item.qty).toLocaleString("ru-RU")} ₸
@@ -1921,7 +1922,7 @@ function PosMenuBrowser({
                     <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
                       <Minus size={9} />
                     </button>
-                    <span className="flex-1 truncate text-foreground">{item.name}</span>
+                    <span className="flex-1 truncate text-foreground">{capFirst(item.name)}</span>
                     <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
                     <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
                     <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">

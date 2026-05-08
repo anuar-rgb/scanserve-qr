@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { SlideTag } from "@/lib/db-types";
+import { capFirst } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sun, Moon, ChevronDown, Heart, Search, X, Clock } from "lucide-react";
 import { BottomNav } from "./BottomNav";
@@ -465,7 +466,7 @@ function PromoSlider({
                   overflow: "hidden", display: "-webkit-box",
                   WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
                 }}>
-                  {resolve(dish.name, lang)}
+                  {capFirst(resolve(dish.name, lang))}
                 </p>
               </button>
             );
@@ -517,7 +518,7 @@ function PromoSlider({
                   </div>
                 )}
                 <p style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>
-                  {resolve(displayDish.name, lang)}
+                  {capFirst(resolve(displayDish.name, lang))}
                 </p>
                 <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
                   {resolve(displayDish.desc, lang)}
@@ -642,7 +643,7 @@ function PopularDishesSection({
                   WebkitBoxOrient: "vertical" as const,
                   lineHeight: 1.3,
                 }}>
-                  {resolve(dish.name, lang)}
+                  {capFirst(resolve(dish.name, lang))}
                 </p>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -1039,7 +1040,7 @@ function CategoryGrid({
                   lineHeight: 1.25,
                   letterSpacing: "0.01em",
                 }}>
-                  {resolve(cat.name, lang)}
+                  {capFirst(resolve(cat.name, lang))}
                 </p>
                 <p style={{
                   color: "rgba(255,255,255,0.42)",

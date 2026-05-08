@@ -5,6 +5,7 @@ import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2, Star } from "l
 import { resolve, type Lang, type Dish, type PaymentInfo } from "./MenuTemplate";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { capFirst } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -857,7 +858,7 @@ export function CartDrawer({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
                           <p style={{ fontSize: 14, fontWeight: 600, margin: 0, lineHeight: 1.3 }}>
-                            {resolve(dish.name, lang)}
+                            {capFirst(resolve(dish.name, lang))}
                           </p>
                           {effPrice(dish) < dish.price && (
                             <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 7px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", flexShrink: 0 }}>
@@ -1451,7 +1452,7 @@ export function CartDrawer({
                   <div key={dish.id} style={{ marginBottom: 5 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                       <span style={{ color: muted }}>
-                        {resolve(dish.name, lang)} × {qty}
+                        {capFirst(resolve(dish.name, lang))} × {qty}
                         {effPrice(dish) < dish.price && (
                           <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", verticalAlign: "middle" }}>
                             -{dish.discountLabel}%
@@ -1600,7 +1601,7 @@ export function CartDrawer({
                 </p>
                 {placedOrder.items.map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
-                    <span style={{ color: muted }}>{item.name} × {item.qty}</span>
+                    <span style={{ color: muted }}>{capFirst(item.name)} × {item.qty}</span>
                     <span style={{ fontWeight: 600 }}>{(item.price * item.qty).toLocaleString()} {item.currency}</span>
                   </div>
                 ))}
