@@ -2102,7 +2102,7 @@ function PosMenuBrowser({
             /* Screen 2: product list — flat rows, no images, with ingredient accordion */
             <div>
               {mode === "panel" && !isSearching && (
-                <div className="px-3 pt-2.5 pb-2">
+                <div className="sticky top-0 z-10 bg-background px-3 pt-2.5 pb-2 border-b border-border/50 shadow-[0_2px_8px_rgba(0,0,0,0.18)]">
                   <button
                     onClick={() => setCurrentCatId(null)}
                     className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 active:scale-[0.98] text-sm font-semibold text-foreground transition-all min-h-[42px]"
