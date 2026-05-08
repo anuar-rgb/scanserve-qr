@@ -177,6 +177,7 @@ export default function HallPage() {
   const [addOpen, setAddOpen]       = useState(false);
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
   const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
+  const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
 
   const handleOrderClosed = useCallback((orderId: string) => {
@@ -442,59 +443,67 @@ export default function HallPage() {
 
           {/* Body */}
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-5">
-              {loading ? (
-                <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
-                  <Loader2 size={16} className="animate-spin" /> Загрузка…
-                </div>
-              ) : tables.length === 0 ? (
-                <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
-              ) : (
-                <div
-                  className="grid gap-3"
-                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
-                >
-                  {tablesWithStatus.map((tws) => (
-                    <TableCard
-                      key={tws.table.id}
-                      tws={tws}
-                      isSelected={!editMode && selected === tws.table.id}
-                      editMode={editMode}
-                      onClick={() => {
-                        if (editMode) return;
-                        setSelected(selected === tws.table.id ? null : tws.table.id);
-                      }}
-                      onEdit={() => {
-                        if (tws.status !== "free") {
-                          toast.error("Нельзя редактировать занятый стол");
-                          return;
-                        }
-                        setEditTable(tws.table);
-                      }}
-                      onDelete={() => deleteTable(tws)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Table grid — hidden while creating a new order to give full space to POS */}
+            {!tableCreatingOrder && (
+              <div className="flex-1 overflow-y-auto p-5">
+                {loading ? (
+                  <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
+                    <Loader2 size={16} className="animate-spin" /> Загрузка…
+                  </div>
+                ) : tables.length === 0 ? (
+                  <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
+                ) : (
+                  <div
+                    className="grid gap-3"
+                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
+                  >
+                    {tablesWithStatus.map((tws) => (
+                      <TableCard
+                        key={tws.table.id}
+                        tws={tws}
+                        isSelected={!editMode && selected === tws.table.id}
+                        editMode={editMode}
+                        onClick={() => {
+                          if (editMode) return;
+                          const next = selected === tws.table.id ? null : tws.table.id;
+                          setSelected(next);
+                          if (!next) setTableCreatingOrder(false);
+                        }}
+                        onEdit={() => {
+                          if (tws.status !== "free") {
+                            toast.error("Нельзя редактировать занятый стол");
+                            return;
+                          }
+                          setEditTable(tws.table);
+                        }}
+                        onDelete={() => deleteTable(tws)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {!editMode && selectedData && (
               <>
-                <ResizeHandle onMouseDown={startTableResize} />
+                {!tableCreatingOrder && <ResizeHandle onMouseDown={startTableResize} />}
                 <TablePanel
                   key={selectedData.table.id}
                   data={selectedData}
-                  width={tablePanelW}
-                  onClose={() => setSelected(null)}
+                  width={tableCreatingOrder ? undefined : tablePanelW}
+                  onClose={() => { setSelected(null); setTableCreatingOrder(false); }}
                   onRefresh={load}
-                  onOrderClosed={handleOrderClosed}
+                  onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); }}
                   onOrderTransferred={(orderId, newTableNumber) => {
                     setOrders((prev) =>
                       prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
                     );
                     setSelected(null);
+                    setTableCreatingOrder(false);
                   }}
                   allTables={tablesWithStatus}
+                  onEnterOrderMode={() => setTableCreatingOrder(true)}
+                  onExitOrderMode={() => setTableCreatingOrder(false)}
                 />
               </>
             )}
@@ -1399,6 +1408,8 @@ function TablePanel({
   onOrderTransferred,
   allTables,
   width,
+  onEnterOrderMode,
+  onExitOrderMode,
 }: {
   data: TableWithStatus;
   onClose: () => void;
@@ -1407,6 +1418,8 @@ function TablePanel({
   onOrderTransferred: (orderId: string, newTableNumber: string) => void;
   allTables: TableWithStatus[];
   width?: number;
+  onEnterOrderMode?: () => void;
+  onExitOrderMode?: () => void;
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
   const [panelMode, setPanelMode]                 = useState<"info" | "order">("info");
@@ -1429,11 +1442,11 @@ function TablePanel({
   // ── Order creation mode ──────────────────────────────────────────────────────
   if (panelMode === "order") {
     return (
-      <aside className="w-[640px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+      <aside className="flex-1 border-l border-border flex flex-col bg-background overflow-hidden">
         <OrderPanel
           table={table}
-          onBack={() => setPanelMode("info")}
-          onDone={() => { setPanelMode("info"); onRefresh(); }}
+          onBack={() => { setPanelMode("info"); onExitOrderMode?.(); }}
+          onDone={() => { setPanelMode("info"); onExitOrderMode?.(); onRefresh(); }}
         />
       </aside>
     );
@@ -1521,7 +1534,7 @@ function TablePanel({
               </p>
             </div>
             <button
-              onClick={() => setPanelMode("order")}
+              onClick={() => { setPanelMode("order"); onEnterOrderMode?.(); }}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors"
             >
               <ShoppingCart size={14} /> Принять заказ
@@ -2019,9 +2032,10 @@ function PosMenuBrowser({
         {mode === "panel" && (
           <button
             onClick={onBack}
-            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0 text-xs font-medium"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={14} />
+            К столам
           </button>
         )}
         {mode === "modal" && showProducts && !isSearching && (
@@ -2073,7 +2087,7 @@ function PosMenuBrowser({
             </div>
           ) : !showProducts ? (
             /* Screen 1: category grid — text-only, no images/icons for instant load */
-            <div className="p-3 grid grid-cols-3 gap-2">
+            <div className="p-3 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
               {categories.map((cat) => {
                 const count = products.filter((p) => p.category_id === cat.id && p.is_available).length;
                 const cartInCat = products.filter((p) => p.category_id === cat.id).reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
