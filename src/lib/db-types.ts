@@ -4,6 +4,7 @@ export interface DbRestaurant {
   id: string;
   slug: string | null;
   name: string;
+  description: string | null;
   logo: string | null;
   cover_url: string | null;
   wa_number: string | null;

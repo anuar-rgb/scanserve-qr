@@ -21,6 +21,7 @@ export default function BrandingPage() {
   const [restaurant, setRestaurant] = useState<DbRestaurant | null>(null);
   const [loading, setLoading]       = useState(true);
   const [name, setName]             = useState("");
+  const [description, setDescription] = useState("");
   const [waNumber, setWaNumber]     = useState("");
 
   const [logoFile, setLogoFile]       = useState<File | null>(null);
@@ -42,6 +43,7 @@ export default function BrandingPage() {
       const r = data as DbRestaurant;
       setRestaurant(r);
       setName(r.name ?? "");
+      setDescription(r.description ?? "");
       setWaNumber(r.wa_number ?? "");
     }
     setLoading(false);
@@ -69,8 +71,9 @@ export default function BrandingPage() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
-      const updateData: { name: string; wa_number: string | null; logo?: string | null } = {
+      const updateData: { name: string; description: string | null; wa_number: string | null; logo?: string | null } = {
         name: name.trim(),
+        description: description.trim() || null,
         wa_number: waNumber.trim() || null,
       };
 
@@ -145,6 +148,18 @@ export default function BrandingPage() {
                   <p className="text-xs text-muted-foreground">{t.admin.restaurantNameDesc}</p>
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="rest-desc">Описание</Label>
+                  <textarea
+                    id="rest-desc"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Короткое описание ресторана для гостей…"
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">Отображается под названием в меню гостей.</p>
+                </div>
+                <div className="space-y-1.5">
                   <Label htmlFor="wa-number">{t.admin.waNumber}</Label>
                   <Input
                     id="wa-number"
@@ -183,6 +198,7 @@ export default function BrandingPage() {
             </p>
             <BrandingPhoneMockup
               name={name}
+              description={description}
               logoPreview={logoPreview ?? restaurant?.logo ?? null}
             />
             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
@@ -260,9 +276,9 @@ function UploadField({
 // ── Branding phone mockup ─────────────────────────────────────────────────────
 
 function BrandingPhoneMockup({
-  name, logoPreview,
+  name, description, logoPreview,
 }: {
-  name: string; logoPreview: string | null;
+  name: string; description: string; logoPreview: string | null;
 }) {
   return (
     <div style={{
@@ -320,6 +336,16 @@ function BrandingPhoneMockup({
 
         {/* Content below */}
         <div style={{ padding: "8px 8px 10px" }}>
+          {/* Description */}
+          {description && (
+            <p style={{
+              fontSize: 6.5, color: "#666", marginBottom: 7, lineHeight: 1.4,
+              fontFamily: "system-ui", overflow: "hidden",
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+            } as React.CSSProperties}>
+              {description}
+            </p>
+          )}
           {/* Category pills */}
           <div style={{ display: "flex", gap: 4, marginBottom: 8, overflow: "hidden" }}>
             {["Всё", "Пицца", "Бургеры", "Напитки"].map((cat, i) => (
