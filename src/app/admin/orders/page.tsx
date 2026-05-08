@@ -50,6 +50,13 @@ function shortId(id: string): string {
   return id.startsWith("ORD-") ? id : `#${id.slice(0, 8).toUpperCase()}`;
 }
 
+const METHOD_META: Record<string, { label: string; icon: string }> = {
+  cash:     { label: "Наличные",         icon: "💵" },
+  kaspi:    { label: "Kaspi",            icon: "🔴" },
+  halyk:    { label: "Halyk",            icon: "🟢" },
+  terminal: { label: "Карта (Терминал)", icon: "💳" },
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OrderHistoryPage() {
@@ -82,6 +89,13 @@ export default function OrderHistoryPage() {
     if (o.id.toLowerCase().includes(q)) return true;
     if (formatDateOnly(o.created_at).includes(q)) return true;
     if (o.table_number?.toLowerCase().includes(q)) return true;
+    const pm = o.payment_method;
+    if (pm && pm !== "mixed" && METHOD_META[pm]?.label.toLowerCase().includes(q)) return true;
+    if (pm === "mixed" && o.payment_details) {
+      for (const key of Object.keys(o.payment_details)) {
+        if (METHOD_META[key]?.label.toLowerCase().includes(q)) return true;
+      }
+    }
     return false;
   }
 
@@ -288,6 +302,17 @@ function HistoryCard({ order }: { order: DbOrder }) {
                 {[order.preorder_date, order.preorder_time?.slice(0, 5)].filter(Boolean).join(" · ")}
               </div>
             )}
+            {/* Payment method badge */}
+            {order.payment_method && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="text-[11px] leading-none">
+                  {order.payment_method === "mixed" ? "💳" : (METHOD_META[order.payment_method]?.icon ?? "💳")}
+                </span>
+                {order.payment_method === "mixed"
+                  ? "Смешанная"
+                  : (METHOD_META[order.payment_method]?.label ?? capFirst(order.payment_method))}
+              </span>
+            )}
           </div>
         </div>
 
@@ -387,6 +412,31 @@ function HistoryCard({ order }: { order: DbOrder }) {
               {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
             </p>
           </div>
+
+          {/* Payment details */}
+          {order.payment_method && (
+            <div className="pt-2.5 border-t border-border space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Оплата</p>
+              {order.payment_method !== "mixed" ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-base leading-none">{METHOD_META[order.payment_method]?.icon ?? "💳"}</span>
+                  <span className="font-medium">{METHOD_META[order.payment_method]?.label ?? capFirst(order.payment_method)}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {order.payment_details && Object.entries(order.payment_details).map(([key, amount]) => (
+                    <div key={key} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base leading-none">{METHOD_META[key]?.icon ?? "💳"}</span>
+                        <span className="text-muted-foreground">{METHOD_META[key]?.label ?? capFirst(key)}</span>
+                      </div>
+                      <span className="font-semibold tabular-nums">{(amount as number).toLocaleString("ru-RU")} ₸</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       )}
