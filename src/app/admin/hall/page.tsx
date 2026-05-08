@@ -842,23 +842,36 @@ function OrderSlotPanel({
           {items.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав · {items.length} позиц.</p>
-              <div className="space-y-1.5 rounded-xl border border-border overflow-hidden">
-                {items.map((item, i) => (
-                  <div key={i} className={`flex justify-between items-start px-3 py-2 text-sm ${i < items.length - 1 ? "border-b border-border" : ""}`}>
-                    <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">{capFirst(item.name)}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
-                    <div className="flex flex-col items-end shrink-0">
-                      {item.original_price != null && (
-                        <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                          {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                        </span>
-                      )}
-                      <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                        {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                      </span>
+              {groupOrderItems(items, order.created_at).map((group, gi) => (
+                <div key={gi}>
+                  {gi === 0 ? (
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
+                  ) : (
+                    <div className="flex items-center gap-2 my-2.5">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">Дозаказ в {group.label}</span>
+                      <div className="flex-1 h-px bg-border" />
                     </div>
+                  )}
+                  <div className="rounded-xl border border-border overflow-hidden mb-1">
+                    {group.items.map((item, i) => (
+                      <div key={i} className={`flex justify-between items-start px-3 py-2 text-sm ${i < group.items.length - 1 ? "border-b border-border" : ""}`}>
+                        <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">{capFirst(item.name)}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
+                        <div className="flex flex-col items-end shrink-0">
+                          {item.original_price != null && (
+                            <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                              {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            </span>
+                          )}
+                          <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                            {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -1271,31 +1284,44 @@ function TablePanel({
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Состав · {items.length} позиц.
                 </p>
-                <div className="space-y-1.5 rounded-xl border border-border overflow-hidden">
-                  {items.map((item, i) => (
-                    <div
-                      key={i}
-                      className={`flex justify-between items-start px-3 py-2 text-sm ${
-                        i < items.length - 1 ? "border-b border-border" : ""
-                      }`}
-                    >
-                      <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">
-                        {capFirst(item.name)}
-                        <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
-                      </span>
-                      <div className="flex flex-col items-end shrink-0">
-                        {item.original_price != null && (
-                          <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                            {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                          </span>
-                        )}
-                        <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                          {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                        </span>
+                {groupOrderItems(items, activeOrder.created_at).map((group, gi) => (
+                  <div key={gi}>
+                    {gi === 0 ? (
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
+                    ) : (
+                      <div className="flex items-center gap-2 my-2.5">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">Дозаказ в {group.label}</span>
+                        <div className="flex-1 h-px bg-border" />
                       </div>
+                    )}
+                    <div className="rounded-xl border border-border overflow-hidden mb-1">
+                      {group.items.map((item, i) => (
+                        <div
+                          key={i}
+                          className={`flex justify-between items-start px-3 py-2 text-sm ${
+                            i < group.items.length - 1 ? "border-b border-border" : ""
+                          }`}
+                        >
+                          <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">
+                            {capFirst(item.name)}
+                            <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
+                          </span>
+                          <div className="flex flex-col items-end shrink-0">
+                            {item.original_price != null && (
+                              <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                              </span>
+                            )}
+                            <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                              {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
 
