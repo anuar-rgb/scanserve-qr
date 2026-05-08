@@ -35,7 +35,7 @@ export default function BrandingPage() {
     if (!isConfigured) { setLoading(false); return; }
     const { data } = await supabase
       .from("restaurants")
-      .select("id, name, logo, cover_url, wa_number")
+      .select("*")
       .eq("id", RESTAURANT_ID)
       .single();
     if (data) {
