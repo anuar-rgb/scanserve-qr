@@ -120,7 +120,7 @@ function formatOrderTime(createdAt: string): string {
 }
 
 function productName(p: DbProduct): string {
-  return p.name.ru || p.name.en || p.name.kz || "";
+  return capFirst(p.name.ru || p.name.en || p.name.kz || "");
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -1678,7 +1678,7 @@ function PosMenuBrowser({
                     className="relative flex flex-col justify-between rounded-xl border border-border bg-card p-3 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left min-h-[56px]"
                   >
                     <p className="text-xs font-semibold leading-tight line-clamp-3 text-foreground pr-5">
-                      {cat.name.ru || cat.name.en}
+                      {capFirst(cat.name.ru || cat.name.en)}
                     </p>
                     <div className="flex items-center justify-between mt-1.5 gap-1">
                       <span className="text-[10px] text-muted-foreground">{count} поз.</span>
