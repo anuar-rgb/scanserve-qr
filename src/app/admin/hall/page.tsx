@@ -1078,6 +1078,9 @@ const PAYMENT_METHODS = [
 ] as const;
 
 type PaymentMethodId = typeof PAYMENT_METHODS[number]["id"];
+type AmountsMap = Record<PaymentMethodId, string>;
+
+const EMPTY_AMOUNTS: AmountsMap = { cash: "", kaspi: "", halyk: "", terminal: "" };
 
 function PaymentModal({
   order,
@@ -1090,19 +1093,57 @@ function PaymentModal({
   onDone: () => void;
   onClose: () => void;
 }) {
-  const [method, setMethod] = useState<PaymentMethodId | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [mixed, setMixed]               = useState(false);
+  const [singleMethod, setSingleMethod] = useState<PaymentMethodId | null>(null);
+  const [amounts, setAmounts]           = useState<AmountsMap>(EMPTY_AMOUNTS);
+  const [saving, setSaving]             = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
   const total = order.total_price ?? 0;
 
+  const totalEntered = PAYMENT_METHODS.reduce((s, m) => s + (parseFloat(amounts[m.id]) || 0), 0);
+  const remaining    = total - totalEntered;
+  const isOverpaid   = totalEntered > total + 0.01;
+  const isExact      = Math.abs(remaining) < 0.01;
+  const canConfirm   = mixed ? (isExact && !isOverpaid) : singleMethod !== null;
+
+  function setAmount(id: PaymentMethodId, value: string) {
+    const clean = value.replace(/[^\d.]/g, "").replace(/(\.\d*)\.+/g, "$1");
+    setAmounts(prev => ({ ...prev, [id]: clean }));
+  }
+
+  function fillRemainder(id: PaymentMethodId) {
+    const others = PAYMENT_METHODS.filter(m => m.id !== id).reduce((s, m) => s + (parseFloat(amounts[m.id]) || 0), 0);
+    const rem = total - others;
+    if (rem > 0) setAmounts(prev => ({ ...prev, [id]: String(Math.round(rem)) }));
+  }
+
   async function confirm() {
-    if (!method) return;
+    if (!canConfirm || saving) return;
     setSaving(true);
+
+    const updatePayload: Record<string, unknown> = {
+      status: "completed",
+      closed_at: new Date().toISOString(),
+    };
+
+    if (mixed) {
+      const details: Record<string, number> = {};
+      for (const m of PAYMENT_METHODS) {
+        const v = parseFloat(amounts[m.id]) || 0;
+        if (v > 0) details[m.id] = v;
+      }
+      updatePayload.payment_method  = "mixed";
+      updatePayload.payment_details = details;
+    } else {
+      updatePayload.payment_method  = singleMethod;
+      updatePayload.payment_details = null;
+    }
+
     const { data, error } = await supabase
       .from(DB_TABLES.orders)
-      .update({ status: "completed", payment_method: method, closed_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq("id", order.id)
       .eq("restaurant_id", RESTAURANT_ID)
       .select("id");
@@ -1115,54 +1156,118 @@ function PaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-background rounded-2xl shadow-2xl w-[380px] max-w-[95vw] overflow-hidden">
+      <div className="bg-background rounded-2xl shadow-2xl w-[400px] max-w-[95vw] overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <p className="font-semibold text-sm">Завершение заказа</p>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
             <X size={15} />
           </button>
         </div>
 
         {/* Total */}
-        <div className="px-5 pt-6 pb-5 text-center">
-          {tableName && <p className="text-xs text-muted-foreground mb-2">Стол {tableName}</p>}
+        <div className="px-5 pt-5 pb-4 text-center">
+          {tableName && <p className="text-xs text-muted-foreground mb-1.5">Стол {tableName}</p>}
           <p className="text-5xl font-black tabular-nums leading-none">{total.toLocaleString("ru-RU")} ₸</p>
           {savedAmount > 0 && (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-2">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-1.5">
               Скидка {savedAmount.toLocaleString("ru-RU")} ₸
             </p>
           )}
-          <p className="text-xs text-muted-foreground mt-2">К оплате</p>
+          <p className="text-xs text-muted-foreground mt-1.5">К оплате</p>
         </div>
 
-        {/* Payment methods */}
-        <div className="px-5 pb-6 space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Способ оплаты</p>
-          <div className="grid grid-cols-2 gap-2">
-            {PAYMENT_METHODS.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setMethod(m.id)}
-                className={`flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 text-sm font-semibold transition-all ${
-                  method === m.id
-                    ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 scale-[1.02]"
-                    : "border-border hover:border-violet-300 hover:bg-accent/60 text-foreground"
-                }`}
-              >
-                <span className="text-xl leading-none">{m.icon}</span>
-                <span>{m.label}</span>
-              </button>
-            ))}
+        {/* Mode toggle */}
+        <div className="px-5 pb-3">
+          <div className="flex gap-1 p-1 bg-muted rounded-xl">
+            <button
+              onClick={() => { setMixed(false); setSingleMethod(null); setAmounts(EMPTY_AMOUNTS); }}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${!mixed ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Один способ
+            </button>
+            <button
+              onClick={() => { setMixed(true); setSingleMethod(null); setAmounts(EMPTY_AMOUNTS); }}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${mixed ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Смешанная оплата
+            </button>
           </div>
+        </div>
+
+        <div className="px-5 pb-6 space-y-3">
+          {!mixed ? (
+            <>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Способ оплаты</p>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSingleMethod(m.id)}
+                    className={`flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      singleMethod === m.id
+                        ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 scale-[1.02]"
+                        : "border-border hover:border-violet-300 hover:bg-accent/60 text-foreground"
+                    }`}
+                  >
+                    <span className="text-xl leading-none">{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Распределите сумму</p>
+              <div className="space-y-2">
+                {PAYMENT_METHODS.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2.5">
+                    <span className="text-lg leading-none shrink-0 w-6 text-center">{m.icon}</span>
+                    <span className="text-sm font-medium w-32 shrink-0">{m.label}</span>
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={amounts[m.id]}
+                        onChange={e => setAmount(m.id, e.target.value)}
+                        className="w-full pr-6 pl-2.5 py-2 text-sm font-semibold rounded-lg border border-border bg-background focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 tabular-nums text-right"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₸</span>
+                    </div>
+                    <button
+                      onClick={() => fillRemainder(m.id)}
+                      title="Заполнить остаток"
+                      className="shrink-0 text-[9px] font-bold px-1.5 py-1.5 rounded-md bg-accent hover:bg-violet-100 dark:hover:bg-violet-900/30 text-muted-foreground hover:text-violet-600 transition-colors leading-none"
+                    >
+                      ↙ ост.
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Remainder indicator */}
+              <div className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
+                isOverpaid
+                  ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
+                  : isExact
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
+                  : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+              }`}>
+                <span>
+                  {isOverpaid ? "Введено лишнее" : isExact ? "Сумма совпадает ✓" : "Осталось оплатить"}
+                </span>
+                {!isExact && (
+                  <span className="tabular-nums">{Math.abs(remaining).toLocaleString("ru-RU")} ₸</span>
+                )}
+              </div>
+            </>
+          )}
 
           <button
             onClick={confirm}
-            disabled={!method || saving}
+            disabled={!canConfirm || saving}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
           >
             {saving
