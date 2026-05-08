@@ -240,14 +240,21 @@ export default function HallPage() {
       return;
     }
     if (!confirm(`Удалить стол «${tws.table.label}»?`)) return;
-    const { error } = await supabase
+    const { data: deleted, error } = await supabase
       .from(DB_TABLES.restaurantTables)
-      .update({ is_active: false })
+      .delete()
       .eq("id", tws.table.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select("id");
     if (error) {
       console.error("[deleteTable] error:", error);
       toast.error(`Ошибка удаления: ${error.message}`);
+      return;
+    }
+    if (!deleted || deleted.length === 0) {
+      // RLS silently blocked the DELETE — no error, but 0 rows affected
+      console.error("[deleteTable] 0 rows deleted — add DELETE policy on restaurant_tables in Supabase Dashboard");
+      toast.error("Нет доступа. Добавьте политику DELETE для таблицы restaurant_tables в Supabase");
       return;
     }
     setTables((prev) => prev.filter((t) => t.id !== tws.table.id));
@@ -2388,19 +2395,27 @@ function TableFormModal({
   async function save() {
     if (!label.trim()) return;
     setSaving(true);
-    const { error } = table
+    const { data: saved, error } = table
       ? await supabase
           .from(DB_TABLES.restaurantTables)
           .update({ label: label.trim(), seats: Number(seats) || 4 })
           .eq("id", table.id)
           .eq("restaurant_id", RESTAURANT_ID)
+          .select("id")
       : await supabase
           .from(DB_TABLES.restaurantTables)
-          .insert({ restaurant_id: RESTAURANT_ID, label: label.trim(), seats: Number(seats) || 4 });
+          .insert({ restaurant_id: RESTAURANT_ID, label: label.trim(), seats: Number(seats) || 4 })
+          .select("id");
     setSaving(false);
     if (error) {
       console.error("[TableFormModal] save error:", error);
       toast.error(`Ошибка сохранения: ${error.message}`);
+      return;
+    }
+    if (!saved || saved.length === 0) {
+      // RLS silently blocked the UPDATE — no error, but 0 rows affected
+      console.error("[TableFormModal] 0 rows updated — add UPDATE policy on restaurant_tables in Supabase Dashboard");
+      toast.error("Нет доступа. Добавьте политику UPDATE для таблицы restaurant_tables в Supabase");
       return;
     }
     toast.success(table ? "Стол обновлён" : "Стол добавлен");
