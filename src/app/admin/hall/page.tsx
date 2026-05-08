@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
@@ -24,6 +24,36 @@ interface TableWithStatus {
   order: DbOrder | null;
   preorderOrder: DbOrder | null;
   elapsed: number;
+}
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+
+function usePanelResize(key: string, defaultWidth: number, min: number, max: number) {
+  const [width, setWidth] = useState<number>(() => {
+    try { const v = localStorage.getItem(key); return v ? parseInt(v, 10) : defaultWidth; } catch { return defaultWidth; }
+  });
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    const onMove = (me: MouseEvent) => setWidth(Math.max(min, Math.min(max, startW + startX - me.clientX)));
+    const onUp   = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [width, min, max]);
+  useEffect(() => { try { localStorage.setItem(key, String(width)); } catch {} }, [key, width]);
+  return { width, startResize };
+}
+
+function ResizeHandle({ onMouseDown, className = "" }: { onMouseDown: React.MouseEventHandler<HTMLDivElement>; className?: string }) {
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className={`group relative w-2 shrink-0 cursor-col-resize z-10 hover:bg-violet-400/10 transition-colors ${className}`}
+    >
+      <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border group-hover:bg-violet-400 transition-colors" />
+    </div>
+  );
 }
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
@@ -248,6 +278,7 @@ export default function HallPage() {
   const freeCount      = tablesWithStatus.filter((t) => t.status === "free").length;
   const preorderCount  = tablesWithStatus.filter((t) => t.status === "preorder").length;
   const selectedData   = selected ? tablesWithStatus.find((t) => t.table.id === selected) ?? null : null;
+  const { width: tablePanelW, startResize: startTableResize } = usePanelResize("hall:tablePanel", 500, 280, 720);
 
   const takeawayOrders = orders.filter((o) => o.type !== "dine-in" && o.type !== "delivery");
   const deliveryOrders = orders.filter((o) => o.type === "delivery");
@@ -399,20 +430,24 @@ export default function HallPage() {
             </div>
 
             {!editMode && selectedData && (
-              <TablePanel
-                key={selectedData.table.id}
-                data={selectedData}
-                onClose={() => setSelected(null)}
-                onRefresh={load}
-                onOrderClosed={handleOrderClosed}
-                onOrderTransferred={(orderId, newTableNumber) => {
-                  setOrders((prev) =>
-                    prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
-                  );
-                  setSelected(null);
-                }}
-                allTables={tablesWithStatus}
-              />
+              <>
+                <ResizeHandle onMouseDown={startTableResize} />
+                <TablePanel
+                  key={selectedData.table.id}
+                  data={selectedData}
+                  width={tablePanelW}
+                  onClose={() => setSelected(null)}
+                  onRefresh={load}
+                  onOrderClosed={handleOrderClosed}
+                  onOrderTransferred={(orderId, newTableNumber) => {
+                    setOrders((prev) =>
+                      prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
+                    );
+                    setSelected(null);
+                  }}
+                  allTables={tablesWithStatus}
+                />
+              </>
             )}
           </div>
         </>
@@ -705,12 +740,14 @@ function OrderSlotPanel({
   onRefresh,
   onOrderClosed,
   allTables,
+  width,
 }: {
   order: DbOrder;
   onClose: () => void;
   onRefresh: () => void;
   onOrderClosed: (orderId: string) => void;
   allTables: TableWithStatus[];
+  width?: number;
 }) {
   const [closing, setClosing]                   = useState(false);
   const [copiedId, setCopiedId]                 = useState(false);
@@ -754,7 +791,7 @@ function OrderSlotPanel({
   }
 
   return (
-    <aside className="w-[500px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+    <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: width ?? 500 }}>
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
         <div>
           <div className="flex items-center gap-2">
@@ -916,6 +953,7 @@ function PickupDeliveryGrid({
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const { width: slotPanelW, startResize: startSlotResize } = usePanelResize("hall:orderSlotPanel", 500, 280, 720);
 
   async function completeOrder(orderId: string) {
     console.log("[completeOrder] UPDATE order", orderId, "→ status=completed");
@@ -994,14 +1032,18 @@ function PickupDeliveryGrid({
       </div>
 
       {selectedOrder && (
-        <OrderSlotPanel
-          key={selectedOrder.id}
-          order={selectedOrder}
-          onClose={() => setSelected(null)}
-          onRefresh={onRefresh}
-          onOrderClosed={onOrderClosed}
-          allTables={allTables}
-        />
+        <>
+          <ResizeHandle onMouseDown={startSlotResize} />
+          <OrderSlotPanel
+            key={selectedOrder.id}
+            order={selectedOrder}
+            width={slotPanelW}
+            onClose={() => setSelected(null)}
+            onRefresh={onRefresh}
+            onOrderClosed={onOrderClosed}
+            allTables={allTables}
+          />
+        </>
       )}
     </div>
   );
@@ -1016,6 +1058,7 @@ function TablePanel({
   onOrderClosed,
   onOrderTransferred,
   allTables,
+  width,
 }: {
   data: TableWithStatus;
   onClose: () => void;
@@ -1023,6 +1066,7 @@ function TablePanel({
   onOrderClosed: (orderId: string) => void;
   onOrderTransferred: (orderId: string, newTableNumber: string) => void;
   allTables: TableWithStatus[];
+  width?: number;
 }) {
   const { table, status, order, preorderOrder, elapsed } = data;
   const [panelMode, setPanelMode]                 = useState<"info" | "order">("info");
@@ -1101,7 +1145,7 @@ function TablePanel({
   }
 
   return (
-    <aside className="w-[500px] shrink-0 border-l border-border flex flex-col bg-background overflow-hidden">
+    <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: width ?? 500 }}>
 
       {/* Panel header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
@@ -1451,7 +1495,8 @@ function PosMenuBrowser({
   const [search, setSearch]                 = useState("");
   const [cart, setCart]                     = useState<Map<string, CartItem>>(new Map());
   const [confirming, setConfirming]         = useState(false);
-  const [openIngredients, setOpenIngredients] = useState<Set<string>>(new Set());
+  const [openIngredients, setOpenIngredients]                = useState<Set<string>>(new Set());
+  const { width: cartW, startResize: startCartResize }       = usePanelResize("hall:cartPanel", 360, 260, 520);
 
   function toggleIngredients(id: string) {
     setOpenIngredients((prev) => {
@@ -1743,7 +1788,8 @@ function PosMenuBrowser({
         </div>
 
         {/* RIGHT: cart panel — desktop only */}
-        <div className="hidden sm:flex w-80 lg:w-96 shrink-0 border-l border-border flex-col bg-card/30">
+        <ResizeHandle onMouseDown={startCartResize} className="hidden sm:block" />
+        <div className="hidden sm:flex shrink-0 flex-col bg-card/30" style={{ width: cartW }}>
           <div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center gap-2">
             <ShoppingCart size={13} className="text-muted-foreground" />
             <span className="text-xs font-semibold text-foreground flex-1">
