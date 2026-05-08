@@ -1,6 +1,6 @@
 import { MenuTemplate, type HeroBanner, type Banner, type HeroSlide, type ShowcaseItem } from "@/components/MenuTemplate";
 import { restaurant } from "@/data/as-tori";
-import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchRestaurantBySlug } from "@/lib/fetch-menu";
+import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchPaymentBanks, fetchRestaurantBySlug } from "@/lib/fetch-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +24,13 @@ export default async function AsToriPage({
   const initialTableNumber = params.table?.trim() || undefined;
   const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
-  const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase] = await Promise.all([
+  const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks] = await Promise.all([
     fetchMenuCategories(restaurantId).then(r => r ?? []),
     fetchBanners(restaurantId).then(r => r ?? []),
     fetchRestaurantBySlug("as-tori"),
     fetchHeroSlides(restaurantId).then(r => r ?? []),
     fetchInfoShowcase(restaurantId).then(r => r ?? []),
+    fetchPaymentBanks(restaurantId).then(r => r ?? []),
   ]);
 
   const heroBanner: HeroBanner = dbRestaurant?.cover_url
@@ -59,12 +60,17 @@ export default async function AsToriPage({
     title: c.title,
   }));
 
+  const cardTransferOptions = dbPaymentBanks.length > 0
+    ? dbPaymentBanks.map(b => ({ bankName: b.bank_name, phone: b.phone, recipientName: b.recipient_name ?? undefined }))
+    : restaurant.cardTransferOptions;
+
   return (
     <MenuTemplate
       restaurant={{
         ...restaurant,
         // Prefer wa_number from Supabase so Branding page changes take effect
         whatsappPhone: dbRestaurant?.wa_number ?? restaurant.whatsappPhone,
+        cardTransferOptions,
       }}
       categories={categories}
       lang="kz"

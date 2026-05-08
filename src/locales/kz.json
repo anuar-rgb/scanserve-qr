@@ -275,7 +275,21 @@
     "newTableLabelField": "Жаңа үстел атауы",
     "freeTableMsg": "Үстел бос. Қонақтар QR-код арқылы тапсырыс береді.",
     "orderElapsed": "Отырған уақыты",
-    "orderIdCopied": "Тапсырыс нөмірі көшірілді!"
+    "orderIdCopied": "Тапсырыс нөмірі көшірілді!",
+    "navPaymentBanks": "Төлем деректемелері",
+    "descPaymentBanks": "Картаға аудару үшін банк деректемелері.",
+    "addPaymentBank": "Банк қосу",
+    "editPaymentBank": "Өңдеу",
+    "noPaymentBanks": "Деректемелер жоқ",
+    "paymentBankSaved": "Деректемелер сақталды!",
+    "paymentBankDeleted": "Жойылды",
+    "bankNameLabel": "Банк атауы",
+    "bankNamePlaceholder": "Kaspi.kz",
+    "bankPhoneLabel": "Карта / телефон нөмірі",
+    "bankPhonePlaceholder": "+7 778 965 13 12",
+    "bankRecipientLabel": "Алушы (міндетті емес)",
+    "bankRecipientPlaceholder": "Байтанов Ә.",
+    "bankActive": "Белсенді"
   },
   "receipt": {
     "title": "ТҮБІРТЕК",

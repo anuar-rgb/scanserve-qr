@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Sparkles, Monitor, Palette,
-  Layers, QrCode, BookOpen, Settings, LogOut, Sun, Moon, Film, Info, ShoppingBag, LayoutGrid,
+  Layers, QrCode, BookOpen, Settings, LogOut, Sun, Moon, Film, Info, ShoppingBag, LayoutGrid, CreditCard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -61,6 +61,7 @@ const NAV: NavSection[] = [
   {
     titleKey: "sectionSettings",
     items: [
+      { labelKey: "navPaymentBanks", icon: CreditCard, href: "/admin/payment-banks" },
       { labelKey: "navProfile", icon: Settings, href: "/admin/settings" },
     ],
   },

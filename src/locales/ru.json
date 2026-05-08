@@ -275,7 +275,21 @@
     "newTableLabelField": "Новое название стола",
     "freeTableMsg": "Стол свободен. Гости делают заказ через QR-код.",
     "orderElapsed": "Сидят",
-    "orderIdCopied": "Номер заказа скопирован!"
+    "orderIdCopied": "Номер заказа скопирован!",
+    "navPaymentBanks": "Реквизиты для оплаты",
+    "descPaymentBanks": "Номера карт и реквизиты для перевода на карту.",
+    "addPaymentBank": "Добавить банк",
+    "editPaymentBank": "Редактировать",
+    "noPaymentBanks": "Реквизитов пока нет",
+    "paymentBankSaved": "Реквизиты сохранены!",
+    "paymentBankDeleted": "Удалено",
+    "bankNameLabel": "Название банка",
+    "bankNamePlaceholder": "Kaspi.kz",
+    "bankPhoneLabel": "Номер карты / телефона",
+    "bankPhonePlaceholder": "+7 778 965 13 12",
+    "bankRecipientLabel": "Получатель (необязательно)",
+    "bankRecipientPlaceholder": "Байтанов Ә.",
+    "bankActive": "Активен"
   },
   "receipt": {
     "title": "ЧЕК",

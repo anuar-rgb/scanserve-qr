@@ -1,6 +1,6 @@
 import { supabase, isConfigured } from "./supabase";
 import type { MenuCategory } from "@/components/MenuTemplate";
-import type { DbBanner, DbCategory, DbHeroSlide, DbInfoShowcase, DbProduct, DbRestaurant } from "./db-types";
+import type { DbBanner, DbCategory, DbHeroSlide, DbInfoShowcase, DbPaymentBank, DbProduct, DbRestaurant } from "./db-types";
 
 export async function fetchRestaurantBySlug(slug: string): Promise<DbRestaurant | null> {
   if (!isConfigured || !slug) return null;
@@ -97,4 +97,16 @@ export async function fetchInfoShowcase(restaurantId: string): Promise<DbInfoSho
     .order("order_index");
   if (error || !data) return null;
   return data as DbInfoShowcase[];
+}
+
+export async function fetchPaymentBanks(restaurantId: string): Promise<DbPaymentBank[] | null> {
+  if (!isConfigured || !restaurantId) return null;
+  const { data, error } = await supabase
+    .from("payment_banks")
+    .select("*")
+    .eq("restaurant_id", restaurantId)
+    .eq("is_active", true)
+    .order("order_index");
+  if (error || !data) return null;
+  return data as DbPaymentBank[];
 }

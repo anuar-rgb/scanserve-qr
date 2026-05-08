@@ -275,7 +275,21 @@
     "newTableLabelField": "New table label",
     "freeTableMsg": "This table is free. Guests order via QR code.",
     "orderElapsed": "Seated for",
-    "orderIdCopied": "Order ID copied!"
+    "orderIdCopied": "Order ID copied!",
+    "navPaymentBanks": "Payment Banks",
+    "descPaymentBanks": "Card transfer recipients and bank details.",
+    "addPaymentBank": "Add bank",
+    "editPaymentBank": "Edit",
+    "noPaymentBanks": "No payment banks yet",
+    "paymentBankSaved": "Bank saved!",
+    "paymentBankDeleted": "Deleted",
+    "bankNameLabel": "Bank name",
+    "bankNamePlaceholder": "Kaspi.kz",
+    "bankPhoneLabel": "Card / phone number",
+    "bankPhonePlaceholder": "+7 778 965 13 12",
+    "bankRecipientLabel": "Recipient (optional)",
+    "bankRecipientPlaceholder": "Байтанов Ә.",
+    "bankActive": "Active"
   },
   "receipt": {
     "title": "RECEIPT",

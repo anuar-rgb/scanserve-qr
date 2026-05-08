@@ -1574,17 +1574,24 @@ export function CartDrawer({
                     )}
                   </div>
                 )}
-                {/* Show card transfer details on success */}
-                {placedOrder.paymentMethod === "card-transfer" && cardTransferOptions?.length && (
-                  <div style={{ marginBottom: SP.sm, paddingBottom: SP.sm, borderBottom: `1px solid ${border}` }}>
-                    {cardTransferOptions.map((opt, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
-                        <span style={{ color: muted }}>{opt.bankName}</span>
-                        <span style={{ fontWeight: 600 }}>{opt.phone}{opt.recipientName ? ` · ${opt.recipientName}` : ""}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Show card transfer details on success — only the selected bank */}
+                {placedOrder.paymentMethod === "card-transfer" && cardTransferOptions?.length && (() => {
+                  const selectedOpt =
+                    placedOrder.selectedBankIdx != null
+                      ? cardTransferOptions[placedOrder.selectedBankIdx]
+                      : null;
+                  const optsToShow = selectedOpt ? [selectedOpt] : cardTransferOptions;
+                  return (
+                    <div style={{ marginBottom: SP.sm, paddingBottom: SP.sm, borderBottom: `1px solid ${border}` }}>
+                      {optsToShow.map((opt, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                          <span style={{ color: muted }}>{opt.bankName}</span>
+                          <span style={{ fontWeight: 600 }}>{opt.phone}{opt.recipientName ? ` · ${opt.recipientName}` : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {placedOrder.notes && (
                   <OrderRow label={tn("notesLabel", lang)} value={placedOrder.notes} border={border} muted={muted} />
                 )}

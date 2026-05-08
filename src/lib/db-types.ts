@@ -110,3 +110,14 @@ export interface DbRestaurantTable {
   is_active: boolean;
   created_at: string;
 }
+
+export interface DbPaymentBank {
+  id: string;
+  restaurant_id: string;
+  bank_name: string;
+  phone: string;
+  recipient_name: string | null;
+  is_active: boolean;
+  order_index: number;
+  created_at: string;
+}
