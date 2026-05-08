@@ -5,7 +5,7 @@ import {
   Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown,
+  Percent, ArrowLeftRight, ChevronDown, Move,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
@@ -880,19 +880,20 @@ function OrderSlotPanel({
             )}
           </div>
 
-          {/* Discount + type change */}
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setShowDiscountModal(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+              className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
             >
-              <Percent size={12} /> Скидка %
+              <Percent size={14} />
+              <span className="text-[10px] font-medium">Скидка</span>
             </button>
             <button
               onClick={() => setShowTypeModal(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+              className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
             >
-              <ArrowLeftRight size={12} /> Изменить тип
+              <ArrowLeftRight size={14} />
+              <span className="text-[10px] font-medium">Изменить тип</span>
             </button>
           </div>
           {showDiscountModal && (
@@ -1298,7 +1299,7 @@ function TablePanel({
               </div>
             )}
 
-            {/* Add from menu — occupied only */}
+            {/* Add from menu + action buttons */}
             {status === "occupied" && activeOrder && (
               <>
                 <div>
@@ -1320,21 +1321,66 @@ function TablePanel({
                   )}
                 </div>
 
-                {/* Discount + type change */}
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setShowDiscountModal(true)}
-                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                    className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
                   >
-                    <Percent size={12} /> Скидка %
+                    <Percent size={14} />
+                    <span className="text-[10px] font-medium">Скидка</span>
                   </button>
                   <button
                     onClick={() => setShowTypeModal(true)}
-                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                    className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
                   >
-                    <ArrowLeftRight size={12} /> Изменить тип
+                    <ArrowLeftRight size={14} />
+                    <span className="text-[10px] font-medium">Тип заказа</span>
+                  </button>
+                  <button
+                    onClick={() => setChangingTable(true)}
+                    className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
+                  >
+                    <Move size={14} />
+                    <span className="text-[10px] font-medium">Перенести</span>
                   </button>
                 </div>
+
+                {changingTable && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Выберите стол для переноса:
+                    </p>
+                    <div className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto admin-scroll">
+                      {allTables
+                        .filter((tws) => tws.table.id !== table.id)
+                        .map((tws) => {
+                          const isFree = tws.status === "free";
+                          return (
+                            <button
+                              key={tws.table.id}
+                              onClick={() => changeTable(tws.table.label)}
+                              disabled={!isFree}
+                              title={isFree ? `Перенести на стол ${tws.table.label}` : "Стол занят"}
+                              className={`h-10 rounded-lg text-xs font-bold border transition-colors ${
+                                isFree
+                                  ? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                  : "border-border text-muted-foreground opacity-40 cursor-not-allowed"
+                              }`}
+                            >
+                              {tws.table.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <button
+                      onClick={() => setChangingTable(false)}
+                      className="w-full h-8 rounded-lg border border-border text-xs text-muted-foreground hover:bg-accent transition-colors"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                )}
+
                 {showDiscountModal && (
                   <DiscountModal
                     orderId={activeOrder.id}
@@ -1369,55 +1415,6 @@ function TablePanel({
                 {(activeOrder.total_price ?? 0).toLocaleString("ru-RU")} ₸
               </p>
             </div>
-
-            {/* Change table */}
-            {status === "occupied" && (
-              <>
-                {changingTable ? (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Выберите стол для переноса:
-                    </p>
-                    <div className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto admin-scroll">
-                      {allTables
-                        .filter((tws) => tws.table.id !== table.id)
-                        .map((tws) => {
-                          const isFree = tws.status === "free";
-                          return (
-                            <button
-                              key={tws.table.id}
-                              onClick={() => changeTable(tws.table.label)}
-                              disabled={!isFree}
-                              title={isFree ? `Перенести на стол ${tws.table.label}` : "Стол занят"}
-                              className={`h-10 rounded-lg text-xs font-bold border transition-colors ${
-                                isFree
-                                  ? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                                  : "border-border text-muted-foreground opacity-40 cursor-not-allowed"
-                              }`}
-                            >
-                              {tws.table.label}
-                            </button>
-                          );
-                        })}
-                    </div>
-                    <button
-                      onClick={() => setChangingTable(false)}
-                      className="w-full h-8 rounded-lg border border-border text-xs text-muted-foreground hover:bg-accent transition-colors"
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setChangingTable(true)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-border hover:bg-accent text-sm transition-colors"
-                  >
-                    <span className="text-muted-foreground">Перенести на другой стол</span>
-                    <ChevronRight size={14} className="text-muted-foreground" />
-                  </button>
-                )}
-              </>
-            )}
 
             {/* Close order */}
             {status === "occupied" && (
