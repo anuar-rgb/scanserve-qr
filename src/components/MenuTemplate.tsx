@@ -293,7 +293,7 @@ function FeaturedSection({
                   WebkitBoxOrient: "vertical" as const,
                 }}
               >
-                {resolve(item.name, lang)}
+                {capFirst(resolve(item.name, lang))}
               </p>
               {item.desc && (
                 <p
@@ -1267,7 +1267,7 @@ function CatalogDishCard({
             WebkitBoxOrient: "vertical" as const,
           }}
         >
-          {resolve(dish.name, lang)}
+          {capFirst(resolve(dish.name, lang))}
         </p>
 
         {discountedPrice !== null ? (
@@ -1455,7 +1455,7 @@ function MenuDishRow({
         {/* Info column */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 14, fontWeight: 600, margin: "0 0 2px", color: "var(--text-color)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" as const }}>
-            {resolve(dish.name, lang)}
+            {capFirst(resolve(dish.name, lang))}
           </p>
           <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 4px", lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
             {resolve(dish.desc, lang)}
@@ -2417,7 +2417,7 @@ export function MenuTemplate({
                 <div style={{ display: "flex", alignItems: "center", gap: SP.sm + 2, marginBottom: SP.sm, paddingBottom: SP.sm, borderBottom: "1px solid var(--border-color)" }}>
                   <span style={{ fontSize: 22 }}>{cat.icon}</span>
                   <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "0.01em", color: "var(--text-color)" }}>
-                    {resolve(cat.name, lang)}
+                    {capFirst(resolve(cat.name, lang))}
                   </h2>
                   <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
                     {cat.dishes.length}
@@ -2519,7 +2519,7 @@ export function MenuTemplate({
                     }}
                   >
                     <span>{cat.icon}</span>
-                    <span>{resolve(cat.name, lang)}</span>
+                    <span>{capFirst(resolve(cat.name, lang))}</span>
                   </button>
                 );
               })}
