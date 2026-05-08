@@ -2,7 +2,7 @@
 
 import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
-  Loader2, RefreshCw, Plus, Clock, Calendar, X, Copy, Edit2, Users,
+  Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
   Percent, ArrowLeftRight, ChevronDown, Move,
@@ -311,15 +311,6 @@ export default function HallPage() {
           </div>
         </div>
 
-        <button
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-accent transition-colors disabled:opacity-50 shrink-0"
-        >
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          Обновить
-        </button>
-
         {activeTab === "dine-in" && editMode && (
           <button
             onClick={() => setAddOpen(true)}
@@ -485,6 +476,7 @@ export default function HallPage() {
       {/* Modals */}
       {(addOpen || editTable) && (
         <TableFormModal
+          key={editTable?.id ?? "new"}
           table={editTable}
           onClose={() => { setAddOpen(false); setEditTable(null); }}
           onSaved={() => { setAddOpen(false); setEditTable(null); load(); }}
@@ -2381,6 +2373,11 @@ function TableFormModal({
   const [label, setLabel]   = useState(table?.label ?? "");
   const [seats, setSeats]   = useState(String(table?.seats ?? 4));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLabel(table?.label ?? "");
+    setSeats(String(table?.seats ?? 4));
+  }, [table?.id]);
 
   async function save() {
     if (!label.trim()) return;
