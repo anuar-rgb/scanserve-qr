@@ -2027,9 +2027,10 @@ function PosMenuBrowser({
         {mode === "modal" && showProducts && !isSearching && (
           <button
             onClick={() => setCurrentCatId(null)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 mr-1"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 text-sm font-semibold text-foreground transition-colors shrink-0 mr-1 min-h-[36px]"
           >
-            <ChevronLeft size={14} /><span>Категории</span>
+            <ChevronLeft size={15} className="text-violet-500 shrink-0" />
+            <span>Все категории</span>
           </button>
         )}
         <div className="flex-1 min-w-0">
@@ -2101,12 +2102,13 @@ function PosMenuBrowser({
             /* Screen 2: product list — flat rows, no images, with ingredient accordion */
             <div>
               {mode === "panel" && !isSearching && (
-                <div className="px-3 pt-2.5 pb-1">
+                <div className="px-3 pt-2.5 pb-2">
                   <button
                     onClick={() => setCurrentCatId(null)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 active:scale-[0.98] text-sm font-semibold text-foreground transition-all min-h-[42px]"
                   >
-                    <ChevronLeft size={13} /> Все категории
+                    <ChevronLeft size={16} className="text-violet-500 shrink-0" />
+                    Все категории
                   </button>
                 </div>
               )}
