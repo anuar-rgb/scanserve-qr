@@ -240,13 +240,19 @@ export default function HallPage() {
       return;
     }
     if (!confirm(`Удалить стол «${tws.table.label}»?`)) return;
-    await supabase
+    const { error } = await supabase
       .from(DB_TABLES.restaurantTables)
       .update({ is_active: false })
-      .eq("id", tws.table.id);
-    toast.success(`Стол ${tws.table.label} удалён`);
+      .eq("id", tws.table.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    if (error) {
+      console.error("[deleteTable] error:", error);
+      toast.error(`Ошибка удаления: ${error.message}`);
+      return;
+    }
+    setTables((prev) => prev.filter((t) => t.id !== tws.table.id));
     if (selected === tws.table.id) setSelected(null);
-    load();
+    toast.success(`Стол ${tws.table.label} удалён`);
   }
 
   function enterEditMode() {
@@ -2387,6 +2393,7 @@ function TableFormModal({
           .from(DB_TABLES.restaurantTables)
           .update({ label: label.trim(), seats: Number(seats) || 4 })
           .eq("id", table.id)
+          .eq("restaurant_id", RESTAURANT_ID)
       : await supabase
           .from(DB_TABLES.restaurantTables)
           .insert({ restaurant_id: RESTAURANT_ID, label: label.trim(), seats: Number(seats) || 4 });
