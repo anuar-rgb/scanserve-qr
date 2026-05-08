@@ -33,9 +33,7 @@ export default async function AsToriPage({
     fetchPaymentBanks(restaurantId).then(r => r ?? []),
   ]);
 
-  const heroBanner: HeroBanner = dbRestaurant?.cover_url
-    ? { imageUrl: dbRestaurant.cover_url, title: "АС ТӨРІ", subtitle: FALLBACK_HERO.subtitle }
-    : FALLBACK_HERO;
+  const heroBanner: HeroBanner = FALLBACK_HERO;
 
   const banners: Banner[] = dbBanners.map(b => ({
     id: b.id,

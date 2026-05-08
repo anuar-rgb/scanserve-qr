@@ -17,23 +17,19 @@ import { ImageCropModal } from "@/components/admin/ImageCropModal";
 export default function BrandingPage() {
   const { t } = useTranslations();
   const logoRef  = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
 
   const [restaurant, setRestaurant] = useState<DbRestaurant | null>(null);
   const [loading, setLoading]       = useState(true);
   const [name, setName]             = useState("");
   const [waNumber, setWaNumber]     = useState("");
 
-  const [logoFile, setLogoFile]         = useState<File | null>(null);
-  const [logoPreview, setLogoPreview]   = useState<string | null>(null);
-  const [coverFile, setCoverFile]       = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [saving, setSaving]             = useState(false);
+  const [logoFile, setLogoFile]       = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [saving, setSaving]           = useState(false);
 
   // Crop state
-  const [cropSrc, setCropSrc]           = useState<string | null>(null);
-  const [cropTarget, setCropTarget]     = useState<"logo" | "cover" | null>(null);
-  const [cropAspect, setCropAspect]     = useState(1);
+  const [cropSrc, setCropSrc]       = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<"logo" | null>(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -57,29 +53,14 @@ export default function BrandingPage() {
     const f = e.target.files?.[0];
     if (!f) return;
     setCropTarget("logo");
-    setCropAspect(1);
-    setCropSrc(URL.createObjectURL(f));
-    e.target.value = "";
-  }
-
-  function onCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setCropTarget("cover");
-    setCropAspect(2);
     setCropSrc(URL.createObjectURL(f));
     e.target.value = "";
   }
 
   function handleCropApply(blob: Blob, url: string) {
-    const file = new File([blob], `branding-${cropTarget}-${Date.now()}.jpg`, { type: blob.type });
-    if (cropTarget === "logo") {
-      setLogoFile(file);
-      setLogoPreview(url);
-    } else if (cropTarget === "cover") {
-      setCoverFile(file);
-      setCoverPreview(url);
-    }
+    const file = new File([blob], `branding-logo-${Date.now()}.jpg`, { type: blob.type });
+    setLogoFile(file);
+    setLogoPreview(url);
     setCropSrc(null);
     setCropTarget(null);
   }
@@ -88,46 +69,34 @@ export default function BrandingPage() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
-      const payload: Partial<DbRestaurant> & { id: string } = {
-        id: RESTAURANT_ID,
+      const updateData: { name: string; wa_number: string | null; logo?: string | null } = {
         name: name.trim(),
         wa_number: waNumber.trim() || null,
       };
 
       if (logoFile) {
-        payload.logo = await uploadImage(logoFile, "branding", "logo");
-        setLogoPreview(payload.logo ?? null);
+        updateData.logo = await uploadImage(logoFile, "branding", "logo");
+        setLogoPreview(updateData.logo ?? null);
         setLogoFile(null);
       }
-      if (coverFile) {
-        payload.cover_url = await uploadImage(coverFile, "branding", "cover");
-        setCoverPreview(payload.cover_url ?? null);
-        setCoverFile(null);
-      }
 
-      console.log("Saving for ID:", RESTAURANT_ID);
-      console.log("Payload:", payload);
-
-      const { error: dbErr } = await supabase
+      const { data, error: dbErr } = await supabase
         .from("restaurants")
-        .upsert(payload);
+        .update(updateData)
+        .eq("id", RESTAURANT_ID)
+        .select("id");
 
       if (dbErr) {
-        console.error("Full Supabase Error:", dbErr);
         throw new Error(`${dbErr.code}: ${dbErr.message} — ${dbErr.details ?? dbErr.hint ?? ""}`);
       }
+      if (!data || data.length === 0) {
+        throw new Error("Запись не найдена или нет прав на изменение");
+      }
 
-      setRestaurant((prev) =>
-        prev
-          ? { ...prev, ...payload }
-          : ({ slug: null, logo: null, cover_url: null, ...payload } as DbRestaurant),
-      );
-
+      setRestaurant((prev) => prev ? { ...prev, ...updateData } : null);
       toast.success(t.admin.brandingSaved);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("handleSave caught:", e);
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -192,7 +161,7 @@ export default function BrandingPage() {
               <CardHeader>
                 <CardTitle>{t.admin.imagesSection}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6 pt-5">
+              <CardContent className="pt-5">
                 <UploadField
                   label={t.admin.logoLabel}
                   description={t.admin.logoDesc}
@@ -200,17 +169,6 @@ export default function BrandingPage() {
                   currentUrl={logoPreview ?? restaurant?.logo ?? null}
                   fileRef={logoRef}
                   onChange={onLogoChange}
-                  uploadLabel={t.admin.uploadPhoto}
-                  changeLabel={t.admin.changePhoto}
-                />
-                <div className="border-t border-border" />
-                <UploadField
-                  label={t.admin.coverLabel}
-                  description={t.admin.coverDesc}
-                  aspect="wide"
-                  currentUrl={coverPreview ?? restaurant?.cover_url ?? null}
-                  fileRef={coverRef}
-                  onChange={onCoverChange}
                   uploadLabel={t.admin.uploadPhoto}
                   changeLabel={t.admin.changePhoto}
                 />
@@ -226,7 +184,6 @@ export default function BrandingPage() {
             <BrandingPhoneMockup
               name={name}
               logoPreview={logoPreview ?? restaurant?.logo ?? null}
-              coverPreview={coverPreview ?? restaurant?.cover_url ?? null}
             />
             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
               Так выглядит шапка в меню гостя
@@ -239,7 +196,7 @@ export default function BrandingPage() {
       {cropSrc && (
         <ImageCropModal
           src={cropSrc}
-          aspect={cropAspect}
+          aspect={1}
           mimeType="image/jpeg"
           onApply={handleCropApply}
           onCancel={() => { setCropSrc(null); setCropTarget(null); }}
@@ -303,9 +260,9 @@ function UploadField({
 // ── Branding phone mockup ─────────────────────────────────────────────────────
 
 function BrandingPhoneMockup({
-  name, logoPreview, coverPreview,
+  name, logoPreview,
 }: {
-  name: string; logoPreview: string | null; coverPreview: string | null;
+  name: string; logoPreview: string | null;
 }) {
   return (
     <div style={{
@@ -320,15 +277,12 @@ function BrandingPhoneMockup({
       <div style={{ width: 52, height: 7, background: "#2c2c2e", borderRadius: 99, margin: "0 auto 10px" }} />
       {/* Screen */}
       <div style={{ background: "#F5F5F7", borderRadius: 20, overflow: "hidden" }}>
-        {/* Cover / hero area */}
-        <div style={{ position: "relative", height: 100, overflow: "hidden", background: "#d8d8d8" }}>
-          {coverPreview ? (
-            <img src={coverPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, color: "#aaa" }}>
-              🖼️
-            </div>
-          )}
+        {/* Hero slider area (placeholder) */}
+        <div style={{ position: "relative", height: 100, overflow: "hidden", background: "linear-gradient(135deg, #3b1f6e 0%, #1a1a2e 60%, #16213e 100%)" }}>
+          <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <div style={{ fontSize: 20, opacity: 0.6 }}>▶</div>
+            <div style={{ fontSize: 7, color: "rgba(255,255,255,0.45)", fontFamily: "system-ui", letterSpacing: 1 }}>СЛАЙДЕР</div>
+          </div>
 
           {/* Floating glass header */}
           <div style={{

@@ -34,7 +34,6 @@ export default async function TenantMenuPage({
         logoUrl: dbRestaurant.logo ?? undefined,
         whatsappPhone: dbRestaurant.wa_number ?? undefined,
       }}
-      heroBanner={dbRestaurant.cover_url ? { imageUrl: dbRestaurant.cover_url } : undefined}
       categories={categories}
       banners={banners}
     />
