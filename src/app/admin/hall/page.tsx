@@ -807,7 +807,7 @@ function OrderSlotPanel({
               <div className="space-y-1.5 rounded-xl border border-border overflow-hidden">
                 {items.map((item, i) => (
                   <div key={i} className={`flex justify-between items-start px-3 py-2 text-sm ${i < items.length - 1 ? "border-b border-border" : ""}`}>
-                    <span className="text-muted-foreground truncate mr-3">{item.name}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
+                    <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">{item.name}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
                     <div className="flex flex-col items-end shrink-0">
                       {item.original_price != null && (
                         <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
@@ -1233,7 +1233,7 @@ function TablePanel({
                         i < items.length - 1 ? "border-b border-border" : ""
                       }`}
                     >
-                      <span className="text-muted-foreground truncate mr-3">
+                      <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">
                         {item.name}
                         <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                       </span>
@@ -1743,7 +1743,7 @@ function PosMenuBrowser({
         </div>
 
         {/* RIGHT: cart panel — desktop only */}
-        <div className="hidden sm:flex w-64 lg:w-72 shrink-0 border-l border-border flex-col bg-card/30">
+        <div className="hidden sm:flex w-80 lg:w-96 shrink-0 border-l border-border flex-col bg-card/30">
           <div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center gap-2">
             <ShoppingCart size={13} className="text-muted-foreground" />
             <span className="text-xs font-semibold text-foreground flex-1">
@@ -1780,7 +1780,7 @@ function PosMenuBrowser({
                       {group.items.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-1 opacity-55">
                           <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
-                          <span className="flex-1 min-w-0 text-[10px] leading-tight truncate text-foreground">{item.name}</span>
+                          <span className="flex-1 min-w-0 text-[10px] leading-tight break-words text-foreground">{item.name}</span>
                           <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
                           <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
                             {(item.price * item.qty).toLocaleString("ru-RU")} ₸
@@ -1816,7 +1816,7 @@ function PosMenuBrowser({
                           >
                             <Minus size={9} />
                           </button>
-                          <span className="flex-1 min-w-0 text-[11px] leading-tight truncate text-foreground">{item.name}</span>
+                          <span className="flex-1 min-w-0 text-[11px] leading-tight break-words text-foreground">{item.name}</span>
                           <span className="shrink-0 text-[10px] text-muted-foreground w-5 text-center">{"×"}{item.qty}</span>
                           <span className="shrink-0 text-[11px] font-bold tabular-nums min-w-[52px] text-right">
                             {(item.price * item.qty).toLocaleString("ru-RU")} ₸
