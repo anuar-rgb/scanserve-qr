@@ -16,7 +16,7 @@ import { toast } from "sonner";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TableStatus = "free" | "occupied" | "preorder";
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string };
 type CartItem  = { productId: string; name: string; price: number; qty: number; addedAt: string };
 
 interface TableWithStatus {
@@ -775,6 +775,9 @@ function OrderSlotPanel({
   const [showMenuPicker, setShowMenuPicker]     = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showTypeModal, setShowTypeModal]       = useState(false);
+  const [editingNoteIdx, setEditingNoteIdx]     = useState<number | null>(null);
+  const [noteInput, setNoteInput]               = useState("");
+  const [savingNote, setSavingNote]             = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -785,6 +788,22 @@ function OrderSlotPanel({
   async function copyId(id: string) {
     try { await navigator.clipboard.writeText(id); setCopiedId(true); setTimeout(() => setCopiedId(false), 2000); }
     catch { /* clipboard unavailable */ }
+  }
+
+  async function saveNote(idx: number, note: string) {
+    setSavingNote(true);
+    const updated = items.map((it, i) => i === idx ? { ...it, note: note.trim() || undefined } : it);
+    const { data, error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ items_json: updated })
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select("id");
+    setSavingNote(false);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    if (!data || data.length === 0) { toast.error("Не сохранено — проверьте RLS"); return; }
+    setEditingNoteIdx(null);
+    onRefresh();
   }
 
   return (
@@ -838,7 +857,7 @@ function OrderSlotPanel({
           {items.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав · {items.length} позиц.</p>
-              {groupOrderItems(items, order.created_at).map((group, gi) => (
+              {groupOrderItems(items.map((it, i) => ({ ...it, _idx: i })), order.created_at).map((group, gi) => (
                 <div key={gi}>
                   {gi === 0 ? (
                     <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
@@ -851,17 +870,66 @@ function OrderSlotPanel({
                   )}
                   <div className="rounded-xl border border-border overflow-hidden mb-1">
                     {group.items.map((item, i) => (
-                      <div key={i} className={`flex justify-between items-start px-3 py-2 text-sm ${i < group.items.length - 1 ? "border-b border-border" : ""}`}>
-                        <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">{capFirst(item.name)}<span className="ml-1 text-muted-foreground/60">× {item.qty}</span></span>
-                        <div className="flex flex-col items-end shrink-0">
-                          {item.original_price != null && (
-                            <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                              {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                      <div key={i} className={`px-3 py-2 text-sm ${i < group.items.length - 1 ? "border-b border-border" : ""}`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0 mr-3">
+                            <div className="flex items-start gap-1.5 flex-wrap">
+                              <span className="text-muted-foreground break-words">
+                                {capFirst(item.name)}
+                                <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
+                              </span>
+                              <button
+                                onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
+                                className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
+                                title={item.note ? "Изменить заметку" : "Добавить заметку"}
+                              >
+                                <MessageSquare size={11} />
+                              </button>
+                            </div>
+                            {item.note && editingNoteIdx !== item._idx && (
+                              <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                                ✎ {item.note}
+                              </p>
+                            )}
+                            {editingNoteIdx === item._idx && (
+                              <div className="mt-1.5 flex items-center gap-1">
+                                <input
+                                  autoFocus
+                                  value={noteInput}
+                                  onChange={e => setNoteInput(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") { void saveNote(item._idx, noteInput); }
+                                    if (e.key === "Escape") { setEditingNoteIdx(null); }
+                                  }}
+                                  placeholder="Пожелание к блюду…"
+                                  className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded-md border border-violet-400 bg-background focus:outline-none"
+                                />
+                                <button
+                                  onClick={() => { void saveNote(item._idx, noteInput); }}
+                                  disabled={savingNote}
+                                  className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                                >
+                                  {savingNote ? "…" : "OK"}
+                                </button>
+                                <button
+                                  onClick={() => setEditingNoteIdx(null)}
+                                  className="shrink-0 text-[10px] px-1.5 py-1 rounded-md text-muted-foreground hover:bg-accent transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end shrink-0">
+                            {item.original_price != null && (
+                              <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                              </span>
+                            )}
+                            <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                              {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
                             </span>
-                          )}
-                          <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                            {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                          </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1308,6 +1376,9 @@ function TablePanel({
   const [showMenuPicker, setShowMenuPicker]       = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showTypeModal, setShowTypeModal]         = useState(false);
+  const [editingNoteIdx, setEditingNoteIdx]       = useState<number | null>(null);
+  const [noteInput, setNoteInput]                 = useState("");
+  const [savingNote, setSavingNote]               = useState(false);
 
   const activeOrder = order ?? preorderOrder;
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
@@ -1349,6 +1420,23 @@ function TablePanel({
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
     } catch { /* clipboard unavailable */ }
+  }
+
+  async function saveNote(idx: number, note: string) {
+    if (!activeOrder) return;
+    setSavingNote(true);
+    const updated = items.map((it, i) => i === idx ? { ...it, note: note.trim() || undefined } : it);
+    const { data, error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ items_json: updated })
+      .eq("id", activeOrder.id)
+      .eq("restaurant_id", RESTAURANT_ID)
+      .select("id");
+    setSavingNote(false);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    if (!data || data.length === 0) { toast.error("Не сохранено — проверьте RLS"); return; }
+    setEditingNoteIdx(null);
+    onRefresh();
   }
 
   return (
@@ -1476,7 +1564,7 @@ function TablePanel({
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Состав · {items.length} позиц.
                 </p>
-                {groupOrderItems(items, activeOrder.created_at).map((group, gi) => (
+                {groupOrderItems(items.map((it, i) => ({ ...it, _idx: i })), activeOrder.created_at).map((group, gi) => (
                   <div key={gi}>
                     {gi === 0 ? (
                       <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
@@ -1491,23 +1579,67 @@ function TablePanel({
                       {group.items.map((item, i) => (
                         <div
                           key={i}
-                          className={`flex justify-between items-start px-3 py-2 text-sm ${
-                            i < group.items.length - 1 ? "border-b border-border" : ""
-                          }`}
+                          className={`px-3 py-2 text-sm ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
                         >
-                          <span className="text-muted-foreground break-words flex-1 min-w-0 mr-3">
-                            {capFirst(item.name)}
-                            <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
-                          </span>
-                          <div className="flex flex-col items-end shrink-0">
-                            {item.original_price != null && (
-                              <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                                {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 min-w-0 mr-3">
+                              <div className="flex items-start gap-1.5 flex-wrap">
+                                <span className="text-muted-foreground break-words">
+                                  {capFirst(item.name)}
+                                  <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
+                                </span>
+                                <button
+                                  onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
+                                  className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
+                                  title={item.note ? "Изменить заметку" : "Добавить заметку"}
+                                >
+                                  <MessageSquare size={11} />
+                                </button>
+                              </div>
+                              {item.note && editingNoteIdx !== item._idx && (
+                                <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                                  ✎ {item.note}
+                                </p>
+                              )}
+                              {editingNoteIdx === item._idx && (
+                                <div className="mt-1.5 flex items-center gap-1">
+                                  <input
+                                    autoFocus
+                                    value={noteInput}
+                                    onChange={e => setNoteInput(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === "Enter") { void saveNote(item._idx, noteInput); }
+                                      if (e.key === "Escape") { setEditingNoteIdx(null); }
+                                    }}
+                                    placeholder="Пожелание к блюду…"
+                                    className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded-md border border-violet-400 bg-background focus:outline-none"
+                                  />
+                                  <button
+                                    onClick={() => { void saveNote(item._idx, noteInput); }}
+                                    disabled={savingNote}
+                                    className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                                  >
+                                    {savingNote ? "…" : "OK"}
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingNoteIdx(null)}
+                                    className="shrink-0 text-[10px] px-1.5 py-1 rounded-md text-muted-foreground hover:bg-accent transition-colors"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end shrink-0">
+                              {item.original_price != null && (
+                                <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                  {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                                </span>
+                              )}
+                              <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                                {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
                               </span>
-                            )}
-                            <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                              {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                            </span>
+                            </div>
                           </div>
                         </div>
                       ))}

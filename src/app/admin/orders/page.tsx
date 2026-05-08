@@ -11,7 +11,7 @@ import { useTranslations } from "@/lib/i18n";
 import { capFirst } from "@/lib/utils";
 import { RESTAURANT_ID } from "@/constants";
 
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string };
 type HistoryTab = "dine-in" | "takeaway" | "delivery";
 
 function groupOrderItems<T extends { created_at?: string }>(
@@ -376,10 +376,17 @@ function HistoryCard({ order }: { order: DbOrder }) {
                           i < group.items.length - 1 ? "border-b border-border" : ""
                         }`}
                       >
-                        <span className="text-muted-foreground">
-                          {capFirst(item.name)}
-                          <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
-                        </span>
+                        <div>
+                          <span className="text-muted-foreground">
+                            {capFirst(item.name)}
+                            <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
+                          </span>
+                          {item.note && (
+                            <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                              ✎ {item.note}
+                            </p>
+                          )}
+                        </div>
                         <div className="flex flex-col items-end shrink-0">
                           {item.original_price != null && (
                             <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
