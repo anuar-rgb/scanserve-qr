@@ -226,7 +226,6 @@ function buildWhatsAppUrl(
   kaspiPhone?: string,
   cardTransferOptions?: PaymentInfo[],
   orderId?: string,
-  comments?: string,
 ): string {
   // Message-only translations (not shown in the UI, only in the WA message)
   const MSG: Record<string, Record<Lang, string>> = {
@@ -338,7 +337,6 @@ function buildWhatsAppUrl(
       `• ${m("preorderTimeLabel")}: ${order.preorderTime ?? ""}`,
     ] : []),
     ...(order.notes ? [`• ${m("notesLabel")}: ${order.notes}`] : []),
-    ...(comments ? [`• ${m("commentsLabel")}: ${comments}`] : []),
   ];
 
   // encodeURIComponent correctly percent-encodes Kazakh/Cyrillic characters (UTF-8)
@@ -626,7 +624,7 @@ export function CartDrawer({
       }
     } else {
       // pickup/delivery: redirect to WhatsApp + fire-and-forget DB insert
-      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId, notes.trim() || undefined);
+      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
       if (isMobile) {
         window.location.href = url;
       } else {
@@ -1449,15 +1447,10 @@ export function CartDrawer({
                   {tn("summary", lang)}
                 </p>
                 {items.map(({ dish, qty, currency: ic }) => (
-                  <div key={dish.id} style={{ marginBottom: 5 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                      <span style={{ color: muted }}>
+                  <div key={dish.id} style={{ marginBottom: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13 }}>
+                      <span style={{ color: muted, flex: 1, minWidth: 0 }}>
                         {capFirst(resolve(dish.name, lang))} × {qty}
-                        {effPrice(dish) < dish.price && (
-                          <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", verticalAlign: "middle" }}>
-                            -{dish.discountLabel}%
-                          </span>
-                        )}
                       </span>
                       <span style={{ fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
                         {effPrice(dish) < dish.price && (
@@ -1468,6 +1461,11 @@ export function CartDrawer({
                         {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
                       </span>
                     </div>
+                    {effPrice(dish) < dish.price && (
+                      <span style={{ display: "inline-block", marginTop: 2, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em" }}>
+                        -{dish.discountLabel}%
+                      </span>
+                    )}
                   </div>
                 ))}
                 {deliveryFee > 0 && (
