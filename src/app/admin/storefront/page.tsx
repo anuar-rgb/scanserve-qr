@@ -136,77 +136,47 @@ export default function StorefrontPage() {
 // Tab 1 — Branding
 // ═══════════════════════════════════════════════════════════════════════════════
 
+const ACCENT_PRESETS = [
+  "#8B5CF6", "#6D28D9", "#0EA5E9", "#10B981",
+  "#F59E0B", "#EF4444", "#EC4899", "#111111",
+];
+
 function BrandingSection() {
   const { t } = useTranslations();
-  const logoRef = useRef<HTMLInputElement>(null);
 
-  const [restaurant, setRestaurant] = useState<DbRestaurant | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [name, setName]             = useState("");
-  const [description, setDescription] = useState("");
-  const [waNumber, setWaNumber]     = useState("");
-  const [logoFile, setLogoFile]     = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [saving, setSaving]         = useState(false);
-  const [cropSrc, setCropSrc]       = useState<string | null>(null);
+  const [primaryColor, setPrimaryColor] = useState("#8B5CF6");
+  const [savedColor, setSavedColor]     = useState("#8B5CF6");
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(false);
+  const [pickerOpen, setPickerOpen]     = useState(false);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     const { data } = await supabase
-      .from("restaurants").select("*").eq("id", RESTAURANT_ID).single();
-    if (data) {
-      const r = data as DbRestaurant;
-      setRestaurant(r);
-      setName(r.name ?? "");
-      setDescription(r.description ?? "");
-      setWaNumber(r.wa_number ?? "");
+      .from("restaurants").select("primary_color").eq("id", RESTAURANT_ID).single();
+    if (data?.primary_color) {
+      setPrimaryColor(data.primary_color);
+      setSavedColor(data.primary_color);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  function onLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setCropSrc(URL.createObjectURL(f));
-    e.target.value = "";
-  }
-
-  function handleCropApply(blob: Blob, url: string) {
-    const file = new File([blob], `branding-logo-${Date.now()}.jpg`, { type: blob.type });
-    setLogoFile(file);
-    setLogoPreview(url);
-    setCropSrc(null);
-  }
-
   async function handleSave() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
-      const updateData: {
-        name: string; description: string | null; wa_number: string | null; logo?: string | null;
-      } = {
-        name: name.trim(),
-        description: description.trim() || null,
-        wa_number: waNumber.trim() || null,
-      };
-
-      if (logoFile) {
-        updateData.logo = await uploadImage(logoFile, "branding", "logo");
-        setLogoPreview(updateData.logo ?? null);
-        setLogoFile(null);
-      }
-
       const { data, error: dbErr } = await supabase
-        .from("restaurants").update(updateData).eq("id", RESTAURANT_ID).select("id");
+        .from("restaurants")
+        .update({ primary_color: primaryColor })
+        .eq("id", RESTAURANT_ID)
+        .select("id");
 
-      if (dbErr)
-        throw new Error(`${dbErr.code}: ${dbErr.message} — ${dbErr.details ?? dbErr.hint ?? ""}`);
-      if (!data || data.length === 0)
-        throw new Error("Запись не найдена или нет прав на изменение");
+      if (dbErr) throw new Error(`${dbErr.code}: ${dbErr.message}`);
+      if (!data || data.length === 0) throw new Error("Запись не найдена или нет прав");
 
-      setRestaurant((prev) => prev ? { ...prev, ...updateData } : null);
+      setSavedColor(primaryColor);
       toast.success(t.admin.brandingSaved);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -223,13 +193,14 @@ function BrandingSection() {
     );
   }
 
+  const isDirty = primaryColor !== savedColor;
+
   return (
     <div className="p-8">
       <div className="flex gap-8 items-start" style={{ maxWidth: 920 }}>
-        {/* Left: form cards */}
         <div className="flex-1 space-y-6 min-w-0">
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving} size="sm">
+            <Button onClick={handleSave} disabled={saving || !isDirty} size="sm">
               {saving ? <Loader2 className="animate-spin" /> : <Upload />}
               {saving ? t.admin.saving : t.admin.save}
             </Button>
@@ -237,60 +208,59 @@ function BrandingSection() {
 
           <Card>
             <CardHeader>
-              <CardTitle>{t.admin.identitySection}</CardTitle>
-              <CardDescription>{t.admin.descProfile}</CardDescription>
+              <CardTitle>Акцентный цвет</CardTitle>
+              <CardDescription>
+                Используется для активных кнопок, категорий и акцентных элементов меню гостя.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 pt-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="rest-name">{t.admin.restaurantName}</Label>
-                <Input
-                  id="rest-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={restaurant?.name ?? ""}
-                />
-                <p className="text-xs text-muted-foreground">{t.admin.restaurantNameDesc}</p>
+              {/* Presets */}
+              <div className="space-y-2">
+                <Label>Готовые цвета</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {ACCENT_PRESETS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setPrimaryColor(c)}
+                      title={c}
+                      style={{ background: c }}
+                      className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                        primaryColor === c
+                          ? "border-foreground scale-110 shadow-md"
+                          : "border-transparent hover:scale-105"
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="rest-desc">Описание</Label>
-                <textarea
-                  id="rest-desc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Короткое описание ресторана для гостей…"
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                />
-                <p className="text-xs text-muted-foreground">Отображается под названием в меню гостей.</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="wa-number">{t.admin.waNumber}</Label>
-                <Input
-                  id="wa-number"
-                  value={waNumber}
-                  onChange={(e) => setWaNumber(e.target.value)}
-                  placeholder="+7 700 000 0000"
-                />
-                <p className="text-xs text-muted-foreground">{t.admin.waNumberDesc}</p>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.admin.imagesSection}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-5">
-              <UploadField
-                label={t.admin.logoLabel}
-                description={t.admin.logoDesc}
-                aspect="square"
-                currentUrl={logoPreview ?? restaurant?.logo ?? null}
-                fileRef={logoRef}
-                onChange={onLogoChange}
-                uploadLabel={t.admin.uploadPhoto}
-                changeLabel={t.admin.changePhoto}
-              />
+              {/* Custom picker */}
+              <div className="space-y-2">
+                <Label>Произвольный цвет</Label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen((v) => !v)}
+                    style={{ background: primaryColor }}
+                    className="w-10 h-10 rounded-xl border border-border shadow-sm shrink-0"
+                  />
+                  <Input
+                    value={primaryColor}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setPrimaryColor(v);
+                    }}
+                    className="font-mono w-36"
+                    placeholder="#8B5CF6"
+                  />
+                </div>
+                {pickerOpen && (
+                  <div className="mt-2">
+                    <HexColorPicker color={primaryColor} onChange={setPrimaryColor} />
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -300,90 +270,19 @@ function BrandingSection() {
           <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
             Preview
           </p>
-          <BrandingPhoneMockup
-            name={name}
-            description={description}
-            logoPreview={logoPreview ?? restaurant?.logo ?? null}
-          />
+          <AccentColorMockup primaryColor={primaryColor} />
           <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
-            Так выглядит шапка в меню гостя
+            Так выглядят акцентные элементы в меню
           </p>
         </div>
       </div>
-
-      {cropSrc && (
-        <ImageCropModal
-          src={cropSrc}
-          aspect={1}
-          mimeType="image/jpeg"
-          onApply={handleCropApply}
-          onCancel={() => setCropSrc(null)}
-        />
-      )}
     </div>
   );
 }
 
-// ── Upload field ──────────────────────────────────────────────────────────────
+// ── Accent color phone mockup ─────────────────────────────────────────────────
 
-function UploadField({
-  label, description, aspect, currentUrl, fileRef, onChange, uploadLabel, changeLabel,
-}: {
-  label: string;
-  description: string;
-  aspect: "square" | "wide";
-  currentUrl: string | null;
-  fileRef: React.RefObject<HTMLInputElement | null>;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  uploadLabel: string;
-  changeLabel: string;
-}) {
-  const isWide = aspect === "wide";
-  return (
-    <div className="flex gap-5 items-start">
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        className={`shrink-0 rounded-xl overflow-hidden border-2 border-dashed border-border hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer transition-colors bg-muted/40 flex items-center justify-center ${
-          isWide ? "w-52 h-28" : "w-24 h-24"
-        }`}
-      >
-        {currentUrl ? (
-          <img src={currentUrl} alt={label} className="w-full h-full object-cover" />
-        ) : (
-          <div className="flex flex-col items-center gap-1.5 text-muted-foreground pointer-events-none">
-            <ImageIcon size={20} />
-            <span className="text-[11px]">{uploadLabel}</span>
-          </div>
-        )}
-      </button>
-      <div className="flex-1 pt-1 space-y-2">
-        <Label>{label}</Label>
-        <p className="text-xs text-muted-foreground">{description}</p>
-        <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-          <Upload />
-          {currentUrl ? changeLabel : uploadLabel}
-        </Button>
-        <p className="text-[11px] text-muted-foreground">PNG, JPG, WebP — max 5 MB</p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={onChange}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ── Branding phone mockup ─────────────────────────────────────────────────────
-
-function BrandingPhoneMockup({
-  name, description, logoPreview,
-}: {
-  name: string; description: string; logoPreview: string | null;
-}) {
+function AccentColorMockup({ primaryColor }: { primaryColor: string }) {
   return (
     <div style={{
       width: 196,
@@ -400,53 +299,18 @@ function BrandingPhoneMockup({
             <div style={{ fontSize: 20, opacity: 0.6 }}>▶</div>
             <div style={{ fontSize: 7, color: "rgba(255,255,255,0.45)", fontFamily: "system-ui", letterSpacing: 1 }}>СЛАЙДЕР</div>
           </div>
-          <div style={{
-            position: "absolute", top: 6, left: 5, right: 5,
-            background: "rgba(11,11,17,0.72)",
-            backdropFilter: "blur(14px)",
-            borderRadius: 8, padding: "5px 8px",
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: 7, overflow: "hidden",
-              background: "#3a3a3c", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              {logoPreview
-                ? <img src={logoPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 11, lineHeight: 1 }}>🍽</span>
-              }
-            </div>
-            <p style={{
-              flex: 1, margin: 0, color: "#fff",
-              fontSize: 8, fontWeight: 700,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              fontFamily: "'Montserrat', system-ui, sans-serif",
-            }}>
-              {name || "Название ресторана"}
-            </p>
-            <div style={{ width: 14, height: 14, borderRadius: 99, background: "rgba(255,255,255,0.2)", flexShrink: 0 }} />
-          </div>
         </div>
         <div style={{ padding: "8px 8px 10px" }}>
-          {description && (
-            <p style={{
-              fontSize: 6.5, color: "#666", marginBottom: 7, lineHeight: 1.4,
-              fontFamily: "system-ui", overflow: "hidden",
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-            } as React.CSSProperties}>
-              {description}
-            </p>
-          )}
           <div style={{ display: "flex", gap: 4, marginBottom: 8, overflow: "hidden" }}>
             {["Всё", "Пицца", "Бургеры", "Напитки"].map((cat, i) => (
               <div key={i} style={{
                 padding: "3px 8px", borderRadius: 99,
-                background: i === 0 ? "#8B5CF6" : "#e0e0e0",
+                background: i === 0 ? primaryColor : "#e0e0e0",
                 fontSize: 6, fontWeight: 700,
                 color: i === 0 ? "#fff" : "#666",
                 whiteSpace: "nowrap",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
+                transition: "background 0.2s",
               }}>{cat}</div>
             ))}
           </div>
@@ -456,10 +320,15 @@ function BrandingPhoneMockup({
                 <div style={{ aspectRatio: "1/1", background: "#e8e8e8" } as React.CSSProperties} />
                 <div style={{ padding: "4px 5px" }}>
                   <div style={{ height: 3, width: "80%", background: "#d0d0d0", borderRadius: 3, marginBottom: 2 }} />
-                  <div style={{ height: 3, width: "50%", background: "#c0c0c0", borderRadius: 3 }} />
+                  <div style={{ height: 3, width: "50%", background: primaryColor, borderRadius: 3, opacity: 0.4 }} />
                 </div>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 8, padding: "5px 10px", background: primaryColor, borderRadius: 99, textAlign: "center" }}>
+            <span style={{ fontSize: 7, color: "#fff", fontWeight: 700, fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+              В корзину
+            </span>
           </div>
         </div>
       </div>
