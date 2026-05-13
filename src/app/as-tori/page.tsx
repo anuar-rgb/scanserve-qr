@@ -86,6 +86,7 @@ export default async function AsToriPage({
         banners={banners}
         showcaseItems={showcaseItems}
         initialTableNumber={initialTableNumber}
+        accentColor={dbRestaurant?.primary_color ?? undefined}
       />
     </>
   );
