@@ -442,10 +442,9 @@ function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
   return (
     <div
       style={{
-        marginLeft: -SP.md, marginRight: -SP.md,
-        marginBottom: SP.lg + 8,
+        marginBottom: SP.lg + 4,
         position: "relative", overflow: "hidden",
-        borderRadius: R.lg, height: 188,
+        borderRadius: 18, height: 130,
         userSelect: "none",
       } as React.CSSProperties}
       onTouchStart={onTouchStart}
@@ -461,14 +460,14 @@ function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
             transition: "opacity 0.55s ease",
             pointerEvents: i === cur ? "auto" : "none",
             display: "flex", alignItems: "center",
-            padding: "0 28px", gap: 20,
+            padding: "0 20px", gap: 14,
           }}
         >
           <div style={{
-            width: 82, height: 82, borderRadius: R.full, flexShrink: 0,
+            width: 64, height: 64, borderRadius: R.full, flexShrink: 0,
             background: "rgba(255,255,255,0.12)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 42,
+            fontSize: 32,
           }}>
             {s.emoji}
           </div>
@@ -478,17 +477,17 @@ function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
               fontSize: 10, fontWeight: 800,
               padding: "3px 9px", borderRadius: R.full,
               background: s.badgeBg, color: "#fff",
-              marginBottom: 7, letterSpacing: "0.05em",
+              marginBottom: 5, letterSpacing: "0.05em",
               fontFamily: "'Montserrat', system-ui, sans-serif",
             }}>{s.badge}</span>
             <p style={{
-              color: "#fff", fontWeight: 800, fontSize: 19,
-              margin: "0 0 5px", lineHeight: 1.2,
+              color: "#fff", fontWeight: 800, fontSize: 16,
+              margin: "0 0 3px", lineHeight: 1.2,
               fontFamily: "'Montserrat', system-ui, sans-serif",
               textShadow: "0 1px 8px rgba(0,0,0,0.35)",
             }}>{s.title}</p>
             <p style={{
-              color: "rgba(255,255,255,0.72)", fontSize: 12,
+              color: "rgba(255,255,255,0.72)", fontSize: 11,
               margin: 0, fontWeight: 500,
               fontFamily: "'Montserrat', system-ui, sans-serif",
             }}>{s.sub}</p>
@@ -497,14 +496,14 @@ function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
       ))}
 
       <div style={{
-        position: "absolute", bottom: 10, left: 0, right: 0,
+        position: "absolute", bottom: 8, left: 0, right: 0,
         display: "flex", justifyContent: "center", gap: 5, pointerEvents: "none",
       }}>
         {PROMO_SLIDES.map((_, i) => (
           <div
             key={i}
             style={{
-              width: i === cur ? 22 : 6, height: 6,
+              width: i === cur ? 18 : 5, height: 5,
               borderRadius: R.full,
               background: i === cur ? "#fff" : "rgba(255,255,255,0.35)",
               transition: "width 0.3s ease, background 0.3s ease",
