@@ -122,7 +122,6 @@ export interface MenuTemplateProps {
   featuredTitle?: string | LS;
   ctaLabel?: string;
   initialTableNumber?: string;
-  accentColor?: string;
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -2005,13 +2004,6 @@ function HeroSlider({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-function isLightColor(hex: string): boolean {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
-}
-
 export function MenuTemplate({
   restaurant,
   categories,
@@ -2023,7 +2015,6 @@ export function MenuTemplate({
   featuredItems,
   featuredTitle,
   initialTableNumber,
-  accentColor,
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -2354,12 +2345,6 @@ export function MenuTemplate({
 
   const themeVars = {
     ...(theme === "dark" ? DARK_VARS : LIGHT_VARS),
-    ...(accentColor ? {
-      "--pill-active-bg": accentColor,
-      "--pill-active-fg": isLightColor(accentColor) ? "#111111" : "#FFFFFF",
-      "--cta-bg": accentColor,
-      "--cta-fg": isLightColor(accentColor) ? "#111111" : "#FFFFFF",
-    } : {}),
   } as React.CSSProperties;
 
   const onImage  = !!heroBanner?.imageUrl;
@@ -2874,7 +2859,6 @@ export function MenuTemplate({
         clientId={clientId}
         onOrderPlaced={saveOrder}
         initialTableNumber={initialTableNumber}
-        accentColor={accentColor}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}

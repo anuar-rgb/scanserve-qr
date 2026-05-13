@@ -92,7 +92,7 @@ const EMPTY_BANNER: BannerForm = {
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type TabKey = "branding" | "slider" | "showcase" | "banners" | "recommendations";
+type TabKey = "slider" | "showcase" | "banners" | "recommendations";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main page export
@@ -100,7 +100,7 @@ type TabKey = "branding" | "slider" | "showcase" | "banners" | "recommendations"
 
 export default function StorefrontPage() {
   const { t } = useTranslations();
-  const [tab, setTab] = useState<TabKey>("branding");
+  const [tab, setTab] = useState<TabKey>("slider");
 
   return (
     <div className="flex flex-col h-full">
@@ -112,7 +112,6 @@ export default function StorefrontPage() {
       <div className="px-8 pt-4 pb-0 border-b border-border shrink-0">
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
           <TabsList variant="line">
-            <TabsTrigger value="branding">{t.admin.navBranding}</TabsTrigger>
             <TabsTrigger value="slider">{t.admin.navHeroSlider}</TabsTrigger>
             <TabsTrigger value="showcase">{t.admin.navInfoShowcase}</TabsTrigger>
             <TabsTrigger value="banners">{t.admin.navBanners}</TabsTrigger>
@@ -122,7 +121,6 @@ export default function StorefrontPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        {tab === "branding"         && <BrandingSection />}
         {tab === "slider"           && <HeroSliderSection />}
         {tab === "showcase"         && <InfoShowcaseSection />}
         {tab === "banners"          && <BannersSection />}
@@ -133,212 +131,7 @@ export default function StorefrontPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Tab 1 — Branding
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const ACCENT_PRESETS = [
-  "#8B5CF6", "#6D28D9", "#0EA5E9", "#10B981",
-  "#F59E0B", "#EF4444", "#EC4899", "#111111",
-];
-
-function BrandingSection() {
-  const { t } = useTranslations();
-
-  const [primaryColor, setPrimaryColor] = useState("#8B5CF6");
-  const [savedColor, setSavedColor]     = useState("#8B5CF6");
-  const [loading, setLoading]           = useState(true);
-  const [saving, setSaving]             = useState(false);
-  const [pickerOpen, setPickerOpen]     = useState(false);
-
-  const load = useCallback(async () => {
-    if (!isConfigured) { setLoading(false); return; }
-    const { data } = await supabase
-      .from("restaurants").select("primary_color").eq("id", RESTAURANT_ID).single();
-    if (data?.primary_color) {
-      setPrimaryColor(data.primary_color);
-      setSavedColor(data.primary_color);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function handleSave() {
-    if (!isConfigured) { toast.error("Database not configured"); return; }
-    setSaving(true);
-    try {
-      const { data, error: dbErr } = await supabase
-        .from("restaurants")
-        .update({ primary_color: primaryColor })
-        .eq("id", RESTAURANT_ID)
-        .select("id");
-
-      if (dbErr) throw new Error(`${dbErr.code}: ${dbErr.message}`);
-      if (!data || data.length === 0) throw new Error("Запись не найдена или нет прав");
-
-      setSavedColor(primaryColor);
-      toast.success(t.admin.brandingSaved);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full gap-2 text-muted-foreground text-sm">
-        <Loader2 size={16} className="animate-spin" /> Loading…
-      </div>
-    );
-  }
-
-  const isDirty = primaryColor !== savedColor;
-
-  return (
-    <div className="p-8">
-      <div className="flex gap-8 items-start" style={{ maxWidth: 920 }}>
-        <div className="flex-1 space-y-6 min-w-0">
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving || !isDirty} size="sm">
-              {saving ? <Loader2 className="animate-spin" /> : <Upload />}
-              {saving ? t.admin.saving : t.admin.save}
-            </Button>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Акцентный цвет</CardTitle>
-              <CardDescription>
-                Используется для активных кнопок, категорий и акцентных элементов меню гостя.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-5">
-              {/* Presets */}
-              <div className="space-y-2">
-                <Label>Готовые цвета</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {ACCENT_PRESETS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setPrimaryColor(c)}
-                      title={c}
-                      style={{ background: c }}
-                      className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                        primaryColor === c
-                          ? "border-foreground scale-110 shadow-md"
-                          : "border-transparent hover:scale-105"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Custom picker */}
-              <div className="space-y-2">
-                <Label>Произвольный цвет</Label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen((v) => !v)}
-                    style={{ background: primaryColor }}
-                    className="w-10 h-10 rounded-xl border border-border shadow-sm shrink-0"
-                  />
-                  <Input
-                    value={primaryColor}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setPrimaryColor(v);
-                    }}
-                    className="font-mono w-36"
-                    placeholder="#8B5CF6"
-                  />
-                </div>
-                {pickerOpen && (
-                  <div className="mt-2">
-                    <HexColorPicker color={primaryColor} onChange={setPrimaryColor} />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right: phone preview */}
-        <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-11">
-          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
-            Preview
-          </p>
-          <AccentColorMockup primaryColor={primaryColor} />
-          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
-            Так выглядят акцентные элементы в меню
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Accent color phone mockup ─────────────────────────────────────────────────
-
-function AccentColorMockup({ primaryColor }: { primaryColor: string }) {
-  return (
-    <div style={{
-      width: 196,
-      background: "#1C1C1E",
-      borderRadius: 36,
-      padding: "18px 9px 14px",
-      boxShadow: "inset 0 0 0 1.5px #3a3a3c, 0 12px 32px rgba(0,0,0,0.4)",
-      flexShrink: 0,
-    }}>
-      <div style={{ width: 52, height: 7, background: "#2c2c2e", borderRadius: 99, margin: "0 auto 10px" }} />
-      <div style={{ background: "#F5F5F7", borderRadius: 20, overflow: "hidden" }}>
-        <div style={{ position: "relative", height: 100, overflow: "hidden", background: "linear-gradient(135deg, #3b1f6e 0%, #1a1a2e 60%, #16213e 100%)" }}>
-          <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-            <div style={{ fontSize: 20, opacity: 0.6 }}>▶</div>
-            <div style={{ fontSize: 7, color: "rgba(255,255,255,0.45)", fontFamily: "system-ui", letterSpacing: 1 }}>СЛАЙДЕР</div>
-          </div>
-        </div>
-        <div style={{ padding: "8px 8px 10px" }}>
-          <div style={{ display: "flex", gap: 4, marginBottom: 8, overflow: "hidden" }}>
-            {["Всё", "Пицца", "Бургеры", "Напитки"].map((cat, i) => (
-              <div key={i} style={{
-                padding: "3px 8px", borderRadius: 99,
-                background: i === 0 ? primaryColor : "#e0e0e0",
-                fontSize: 6, fontWeight: 700,
-                color: i === 0 ? "#fff" : "#666",
-                whiteSpace: "nowrap",
-                fontFamily: "'Montserrat', system-ui, sans-serif",
-                transition: "background 0.2s",
-              }}>{cat}</div>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
-                <div style={{ aspectRatio: "1/1", background: "#e8e8e8" } as React.CSSProperties} />
-                <div style={{ padding: "4px 5px" }}>
-                  <div style={{ height: 3, width: "80%", background: "#d0d0d0", borderRadius: 3, marginBottom: 2 }} />
-                  <div style={{ height: 3, width: "50%", background: primaryColor, borderRadius: 3, opacity: 0.4 }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 8, padding: "5px 10px", background: primaryColor, borderRadius: 99, textAlign: "center" }}>
-            <span style={{ fontSize: 7, color: "#fff", fontWeight: 700, fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-              В корзину
-            </span>
-          </div>
-        </div>
-      </div>
-      <div style={{ width: 62, height: 4, background: "#3a3a3c", borderRadius: 99, margin: "9px auto 0" }} />
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Tab 2 — Hero Slider
+// Tab 1 — Hero Slider
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function HeroSliderSection() {
