@@ -6,8 +6,8 @@ export interface DbRestaurant {
   name: string;
   description: string | null;
   logo: string | null;
-  cover_url: string | null;
   wa_number: string | null;
+  primary_color: string | null;
 }
 
 export interface DbCategory {
