@@ -387,6 +387,134 @@ function BannerSlider({ banners, lang }: { banners: Banner[]; lang: Lang }) {
   );
 }
 
+// ── Marketing Banner Slider (hardcoded, home view) ────────────────────────────
+
+const PROMO_SLIDES = [
+  {
+    id: "ps1",
+    bg: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
+    emoji: "🍕",
+    badge: "−20%",
+    badgeBg: "#FF4D6D",
+    title: "Скидка 20% на все пиццы",
+    sub: "Только в будни с 12:00 до 16:00",
+  },
+  {
+    id: "ps2",
+    bg: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
+    emoji: "🚗",
+    badge: "FREE",
+    badgeBg: "#10B981",
+    title: "Бесплатная доставка",
+    sub: "При заказе от 3 000 ₸",
+  },
+  {
+    id: "ps3",
+    bg: "linear-gradient(135deg, #3b1f6e 0%, #1a1a2e 100%)",
+    emoji: "⭐",
+    badge: "NEW",
+    badgeBg: "#F59E0B",
+    title: "Новинки сезона",
+    sub: "Попробуй что-то новое уже сегодня",
+  },
+];
+
+function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
+  const [cur, setCur] = useState(0);
+  const dragRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setCur((c) => (c + 1) % PROMO_SLIDES.length), 4200);
+    return () => clearInterval(t);
+  }, []);
+
+  const goTo = (i: number) => setCur((i + PROMO_SLIDES.length) % PROMO_SLIDES.length);
+
+  const onTouchStart = (e: React.TouchEvent) => { dragRef.current = e.touches[0].clientX; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (dragRef.current === null) return;
+    const dx = e.changedTouches[0].clientX - dragRef.current;
+    if (Math.abs(dx) > 44) goTo(cur + (dx < 0 ? 1 : -1));
+    dragRef.current = null;
+  };
+
+  return (
+    <div
+      style={{
+        marginLeft: -SP.md, marginRight: -SP.md,
+        marginBottom: SP.lg + 8,
+        position: "relative", overflow: "hidden",
+        borderRadius: R.lg, height: 188,
+        userSelect: "none",
+      } as React.CSSProperties}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      {PROMO_SLIDES.map((s, i) => (
+        <div
+          key={s.id}
+          style={{
+            position: "absolute", inset: 0,
+            background: s.bg,
+            opacity: i === cur ? 1 : 0,
+            transition: "opacity 0.55s ease",
+            pointerEvents: i === cur ? "auto" : "none",
+            display: "flex", alignItems: "center",
+            padding: "0 28px", gap: 20,
+          }}
+        >
+          <div style={{
+            width: 82, height: 82, borderRadius: R.full, flexShrink: 0,
+            background: "rgba(255,255,255,0.12)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 42,
+          }}>
+            {s.emoji}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{
+              display: "inline-block",
+              fontSize: 10, fontWeight: 800,
+              padding: "3px 9px", borderRadius: R.full,
+              background: s.badgeBg, color: "#fff",
+              marginBottom: 7, letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+            }}>{s.badge}</span>
+            <p style={{
+              color: "#fff", fontWeight: 800, fontSize: 19,
+              margin: "0 0 5px", lineHeight: 1.2,
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+              textShadow: "0 1px 8px rgba(0,0,0,0.35)",
+            }}>{s.title}</p>
+            <p style={{
+              color: "rgba(255,255,255,0.72)", fontSize: 12,
+              margin: 0, fontWeight: 500,
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+            }}>{s.sub}</p>
+          </div>
+        </div>
+      ))}
+
+      <div style={{
+        position: "absolute", bottom: 10, left: 0, right: 0,
+        display: "flex", justifyContent: "center", gap: 5, pointerEvents: "none",
+      }}>
+        {PROMO_SLIDES.map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: i === cur ? 22 : 6, height: 6,
+              borderRadius: R.full,
+              background: i === cur ? "#fff" : "rgba(255,255,255,0.35)",
+              transition: "width 0.3s ease, background 0.3s ease",
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Promo Slider ─────────────────────────────────────────────────────────────
 
 function PromoSlider({
@@ -651,6 +779,125 @@ function PopularDishesSection({
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#FF4D6D" }}>
                     {likeCount}
                   </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── "А вы это пробовали?" horizontal section ──────────────────────────────────
+
+function TryThisSection({
+  dishes,
+  lang,
+  defaultCurrency,
+  onGoToDish,
+}: {
+  dishes: Dish[];
+  lang: Lang;
+  defaultCurrency?: string;
+  onGoToDish: (dishId: string) => void;
+}) {
+  if (!dishes.length) return null;
+
+  const title =
+    lang === "kz" ? "Бұны сынап көрдіңіз бе?"
+    : lang === "ru" ? "А вы это пробовали?"
+    : "Have You Tried This?";
+
+  return (
+    <section style={{ marginBottom: SP.lg + 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: SP.sm, marginBottom: SP.md }}>
+        <div style={{ width: 3, height: 20, borderRadius: R.full, backgroundColor: "var(--text-color)", flexShrink: 0 }} />
+        <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+          {title}
+        </h2>
+        <div style={{ flex: 1, height: 1, backgroundColor: "var(--border-color)" }} />
+      </div>
+
+      <div
+        style={{
+          display: "flex", gap: 12,
+          overflowX: "auto",
+          marginLeft: -SP.md, marginRight: -SP.md,
+          paddingLeft: SP.md, paddingRight: SP.md,
+          paddingBottom: SP.sm,
+          scrollbarWidth: "none",
+        } as React.CSSProperties}
+      >
+        {dishes.map((dish) => {
+          const badges = dishBadges(dish);
+          const discountPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+          const discountedPrice = !isNaN(discountPct) && discountPct > 0 && discountPct < 100
+            ? Math.round(dish.price * (1 - discountPct / 100))
+            : null;
+
+          return (
+            <div
+              key={dish.id}
+              onClick={() => onGoToDish(dish.id)}
+              style={{
+                flexShrink: 0, width: 148,
+                borderRadius: R.lg, overflow: "hidden",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--bg-card)",
+                boxShadow: "var(--card-shadow)",
+                cursor: "pointer",
+                display: "flex", flexDirection: "column",
+              }}
+            >
+              <div style={{
+                height: 148, width: "100%",
+                backgroundColor: "var(--bg-surface)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 50, position: "relative", overflow: "hidden",
+              }}>
+                {dish.imageUrl ? (
+                  <img
+                    src={dish.imageUrl}
+                    alt=""
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : dish.emoji}
+                {badges.length > 0 && (
+                  <div style={{ position: "absolute", top: 6, left: 6 }}>
+                    <BadgeStack badges={badges} size="xs" />
+                  </div>
+                )}
+                <div style={{
+                  position: "absolute", top: 6, right: 6,
+                  fontSize: 8, fontWeight: 800,
+                  padding: "3px 7px", borderRadius: R.full,
+                  backgroundColor: "#8B5CF6", color: "#fff",
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                  letterSpacing: "0.04em", lineHeight: 1.4,
+                }}>ХИТ</div>
+              </div>
+
+              <div style={{ padding: "9px 10px 11px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <p style={{
+                  fontSize: 12, fontWeight: 700, margin: "0 0 6px",
+                  color: "var(--text-color)",
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                  lineHeight: 1.3, overflow: "hidden",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+                }}>
+                  {capFirst(resolve(dish.name, lang))}
+                </p>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+                    {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
+                  </p>
+                  {discountedPrice !== null && (
+                    <p style={{ fontSize: 10, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
+                      {dish.price.toLocaleString()}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1996,6 +2243,11 @@ export function MenuTemplate({
   // Curated home sections
   const allDishes   = categories.flatMap((c) => c.dishes);
   const promoDishes = allDishes.filter((d) => d.isPromo);
+  const hitDishes   = (() => {
+    const tagged = allDishes.filter((d) => d.isPopular || d.isRecommended).slice(0, 8);
+    if (tagged.length >= 3) return tagged;
+    return [...allDishes].sort((a, b) => getLikeCount(b.id) - getLikeCount(a.id)).slice(0, 8);
+  })();
 
   const tAll = lang === "kz" ? "Барлығы" : lang === "ru" ? "Все" : "All";
 
@@ -2327,15 +2579,14 @@ export function MenuTemplate({
             {/* 0. Info showcase cards — dynamic, admin-managed via /admin/info-showcase */}
             <InfoShowcaseSection items={showcaseItems} lang={lang} theme={theme} />
 
-            {/* 2. DB promotional banners */}
-            <BannerSlider banners={banners} lang={lang} />
+            {/* 2. Marketing banner slider (hardcoded promos) */}
+            <MarketingBannerSlider lang={lang} />
 
-            {/* 3. Popular dishes — sorted by like count */}
-            <PopularDishesSection
-              dishes={allDishes}
+            {/* 3. "А вы это пробовали?" — hit products */}
+            <TryThisSection
+              dishes={hitDishes}
               lang={lang}
-              liked={liked}
-              getLikeCount={getLikeCount}
+              defaultCurrency={restaurant.currency}
               onGoToDish={goToDish}
             />
 
