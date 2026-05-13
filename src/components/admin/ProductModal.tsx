@@ -57,18 +57,38 @@ function PhoneMockup({ children }: { children: React.ReactNode }) {
 
 // ── Product card preview (mirrors CatalogDishCard from MenuTemplate) ──────────
 
+const BADGE_COLORS = [
+  { hex: "#F59E0B", label: "Amber"  },
+  { hex: "#00C882", label: "Green"  },
+  { hex: "#FF4D6D", label: "Red"    },
+  { hex: "#00AAFF", label: "Blue"   },
+  { hex: "#FF6B2B", label: "Orange" },
+  { hex: "#A855F7", label: "Purple" },
+];
+
+function fgFromHex(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? "#111111" : "#ffffff";
+}
+
 function ProductCardPreview({
-  name, price, imagePreview, emoji, badge, isNew, isPopular, isSpicy, isPromo, discountPct,
+  name, price, imagePreview, emoji, badge, badgeColor, isNew, isPopular, isSpicy, isPromo, discountPct,
 }: {
   name: string; price: string; imagePreview: string | null;
-  emoji: string; badge: string; isNew: boolean; isPopular: boolean; isSpicy: boolean; isPromo: boolean; discountPct: string;
+  emoji: string; badge: string; badgeColor: string | null;
+  isNew: boolean; isPopular: boolean; isSpicy: boolean; isPromo: boolean; discountPct: string;
 }) {
   type BadgeItem = { text: string; bg: string; fg: string };
   const badges: BadgeItem[] = [];
-  if (badge.trim())  badges.push({ text: badge.trim(), bg: "#111", fg: "#fff" });
-  if (isNew)         badges.push({ text: "NEW",        bg: "#111", fg: "#fff" });
-  if (isPopular)     badges.push({ text: "★",          bg: "#F59E0B", fg: "#1C0F00" });
-  if (isSpicy)       badges.push({ text: "🌶",         bg: "#FF4D6D", fg: "#fff" });
+  if (badge.trim()) {
+    const bg = badgeColor ?? "#111111";
+    const fg = badgeColor ? fgFromHex(badgeColor) : "#fff";
+    badges.push({ text: badge.trim(), bg, fg });
+  }
+  if (isNew)     badges.push({ text: "NEW", bg: "#111", fg: "#fff" });
+  if (isPopular) badges.push({ text: "★",   bg: "#F59E0B", fg: "#1C0F00" });
+  if (isSpicy)   badges.push({ text: "🌶",  bg: "#FF4D6D", fg: "#fff" });
   const priceNum   = parseInt(price, 10);
   const pct        = parseInt(discountPct, 10);
   const discountedPrice = isPromo && !isNaN(pct) && pct > 0 && pct < 100 && !isNaN(priceNum)
@@ -158,6 +178,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const [price, setPrice]         = useState(String(product?.price ?? ""));
   const [emoji, setEmoji]         = useState(product?.emoji ?? "");
   const [badge, setBadge]         = useState(product?.badge ?? "");
+  const [badgeColor, setBadgeColor] = useState<string | null>(product?.badge_color ?? null);
   const [catId, setCatId]         = useState(product?.category_id ?? defaultCategoryId ?? categories[0]?.id ?? "");
   const [ingredients, setIngredients] = useState(product?.ingredients ?? "");
   const [isNew, setIsNew]         = useState(product?.is_new ?? false);
@@ -219,6 +240,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         image_url: imageUrl,
         emoji: emoji.trim() || null,
         badge: badge.trim() || null,
+        badge_color: badge.trim() ? (badgeColor || null) : null,
         ...(ingredients.trim() ? { ingredients: ingredients.trim() } : {}),
         is_new: isNew,
         is_popular: isPopular,
@@ -405,6 +427,27 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   maxLength={24}
                   className={inputCls}
                 />
+                {badge.trim() && (
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-600 uppercase tracking-wide font-semibold shrink-0">Цвет:</span>
+                    <button
+                      type="button"
+                      onClick={() => setBadgeColor(null)}
+                      className={`w-5 h-5 rounded-full border-2 bg-zinc-800 transition-all ${!badgeColor ? "border-violet-500 scale-110" : "border-transparent"}`}
+                      title="По умолчанию"
+                    />
+                    {BADGE_COLORS.map(({ hex, label }) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        onClick={() => setBadgeColor(hex)}
+                        className={`w-5 h-5 rounded-full border-2 transition-all ${badgeColor === hex ? "border-violet-500 scale-110" : "border-transparent"}`}
+                        style={{ backgroundColor: hex }}
+                        title={label}
+                      />
+                    ))}
+                  </div>
+                )}
               </Field>
 
               {/* Badge toggles */}
@@ -512,6 +555,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   imagePreview={previewUrl}
                   emoji={emoji}
                   badge={badge}
+                  badgeColor={badgeColor}
                   isNew={isNew}
                   isPopular={isPopular}
                   isSpicy={isSpicy}

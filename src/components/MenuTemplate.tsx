@@ -32,6 +32,7 @@ export interface Dish {
   price: number;
   currency?: string;
   badge?: string;
+  badgeColor?: string;
   isNew?: boolean;
   isPopular?: boolean;
   isSpicy?: boolean;
@@ -1351,23 +1352,40 @@ function seedLikes(dishId: string): number {
 
 type BadgeItem = { text: string; bg: string; fg: string };
 
+function fgFromHex(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? "#111111" : "#ffffff";
+}
+
+function customBadgeColors(color?: string): { bg: string; fg: string } {
+  if (color?.startsWith("#")) return { bg: color, fg: fgFromHex(color) };
+  return { bg: "var(--text-color)", fg: "var(--bg-color)" };
+}
+
 /** Small icon-only badges for menu list & popular section (overlaid on photo) */
 function dishBadges(dish: Dish): BadgeItem[] {
   const out: BadgeItem[] = [];
-  if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
-  if (dish.isNew)         out.push({ text: "NEW", bg: "#FF4D6D", fg: "#fff"    });
-  if (dish.isPopular)     out.push({ text: "★",   bg: "#F59E0B", fg: "#1C0F00" });
-  if (dish.isSpicy)       out.push({ text: "🌶",  bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.badge?.trim()) {
+    const { bg, fg } = customBadgeColors(dish.badgeColor);
+    out.push({ text: dish.badge.trim(), bg, fg });
+  }
+  if (dish.isNew)     out.push({ text: "NEW", bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.isPopular) out.push({ text: "★",   bg: "#F59E0B", fg: "#1C0F00" });
+  if (dish.isSpicy)   out.push({ text: "🌶",  bg: "#FF4D6D", fg: "#fff"    });
   return out;
 }
 
 /** Text pill badges for catalog card photo overlay (top-left) */
 function catalogBadges(dish: Dish): BadgeItem[] {
   const out: BadgeItem[] = [];
-  if (dish.badge?.trim()) out.push({ text: dish.badge.trim(), bg: "var(--text-color)", fg: "var(--bg-color)" });
-  if (dish.isNew)         out.push({ text: "NEW",    bg: "#FF4D6D", fg: "#fff"    });
-  if (dish.isPopular)     out.push({ text: "★ TOP",  bg: "#F59E0B", fg: "#1C0F00" });
-  if (dish.isSpicy)       out.push({ text: "🔥 HOT", bg: "#FFF0F2", fg: "#D62B4B" });
+  if (dish.badge?.trim()) {
+    const { bg, fg } = customBadgeColors(dish.badgeColor);
+    out.push({ text: dish.badge.trim(), bg, fg });
+  }
+  if (dish.isNew)     out.push({ text: "NEW",    bg: "#FF4D6D", fg: "#fff"    });
+  if (dish.isPopular) out.push({ text: "★ TOP",  bg: "#F59E0B", fg: "#1C0F00" });
+  if (dish.isSpicy)   out.push({ text: "🔥 HOT", bg: "#FFF0F2", fg: "#D62B4B" });
   return out;
 }
 
@@ -2579,8 +2597,8 @@ export function MenuTemplate({
             {/* 0. Info showcase cards — dynamic, admin-managed via /admin/info-showcase */}
             <InfoShowcaseSection items={showcaseItems} lang={lang} theme={theme} />
 
-            {/* 2. Marketing banner slider (hardcoded promos) */}
-            <MarketingBannerSlider lang={lang} />
+            {/* 2. Banner slider (admin-managed via Supabase) */}
+            <BannerSlider banners={banners} lang={lang} />
 
             {/* 3. "А вы это пробовали?" — hit products */}
             <TryThisSection

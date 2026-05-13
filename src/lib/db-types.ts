@@ -39,6 +39,7 @@ export interface DbProduct {
   order_index: number;
   discount_label: string | null;
   ingredients: string | null;
+  badge_color: string | null;
 }
 
 export interface DbBanner {

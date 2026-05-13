@@ -1,4 +1,5 @@
 import { MenuTemplate, type HeroBanner, type Banner, type HeroSlide, type ShowcaseItem } from "@/components/MenuTemplate";
+import { RealtimeRefresher } from "@/components/RealtimeRefresher";
 import { restaurant } from "@/data/as-tori";
 import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchPaymentBanks, fetchRestaurantBySlug } from "@/lib/fetch-menu";
 
@@ -63,20 +64,23 @@ export default async function AsToriPage({
     : restaurant.cardTransferOptions;
 
   return (
-    <MenuTemplate
-      restaurant={{
-        ...restaurant,
-        // Prefer wa_number from Supabase so Branding page changes take effect
-        whatsappPhone: dbRestaurant?.wa_number ?? restaurant.whatsappPhone,
-        cardTransferOptions,
-      }}
-      categories={categories}
-      lang="kz"
-      heroBanner={heroBanner}
-      heroSlides={heroSlides}
-      banners={banners}
-      showcaseItems={showcaseItems}
-      initialTableNumber={initialTableNumber}
-    />
+    <>
+      <RealtimeRefresher restaurantId={restaurantId} />
+      <MenuTemplate
+        restaurant={{
+          ...restaurant,
+          // Prefer wa_number from Supabase so Branding page changes take effect
+          whatsappPhone: dbRestaurant?.wa_number ?? restaurant.whatsappPhone,
+          cardTransferOptions,
+        }}
+        categories={categories}
+        lang="kz"
+        heroBanner={heroBanner}
+        heroSlides={heroSlides}
+        banners={banners}
+        showcaseItems={showcaseItems}
+        initialTableNumber={initialTableNumber}
+      />
+    </>
   );
 }

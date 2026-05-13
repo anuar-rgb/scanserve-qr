@@ -54,6 +54,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           isSpicy: p.is_spicy,
           isPromo: p.is_promo,
           isRecommended: p.is_recommended,
+          badgeColor: p.badge_color ?? undefined,
           name: p.name,
           desc: p.description ?? { en: "", ru: "", kz: "" },
           price: p.price,
