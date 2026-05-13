@@ -21,7 +21,6 @@ export default function SettingsPage() {
   const [restaurant, setRestaurant] = useState<DbRestaurant | null>(null);
   const [loading, setLoading]       = useState(true);
   const [name, setName]             = useState("");
-  const [description, setDescription] = useState("");
   const [waNumber, setWaNumber]     = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [phone, setPhone]           = useState("");
@@ -45,7 +44,6 @@ export default function SettingsPage() {
       const r = data as DbRestaurant;
       setRestaurant(r);
       setName(r.name ?? "");
-      setDescription(r.description ?? "");
       setWaNumber(r.wa_number ?? "");
       setInstagramUrl(r.instagram_url ?? "");
       setPhone(r.phone ?? "");
@@ -77,7 +75,6 @@ export default function SettingsPage() {
     try {
       const updateData: {
         name: string;
-        description: string | null;
         wa_number: string | null;
         instagram_url: string | null;
         phone: string | null;
@@ -86,7 +83,6 @@ export default function SettingsPage() {
         logo?: string | null;
       } = {
         name: name.trim(),
-        description: description.trim() || null,
         wa_number: waNumber.trim() || null,
         instagram_url: instagramUrl.trim() || null,
         phone: phone.trim() || null,
@@ -185,17 +181,6 @@ export default function SettingsPage() {
                   <p className="text-xs text-muted-foreground">{t.admin.restaurantNameDesc}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="rest-desc">Описание</Label>
-                  <textarea
-                    id="rest-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Короткое описание ресторана для гостей…"
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
                   <Label htmlFor="wa-number">{t.admin.waNumber}</Label>
                   <Input
                     id="wa-number"
@@ -264,7 +249,6 @@ export default function SettingsPage() {
             </p>
             <ProfilePhoneMockup
               name={name}
-              description={description}
               logoPreview={logoPreview ?? restaurant?.logo ?? null}
             />
             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
@@ -335,9 +319,9 @@ function UploadField({
 }
 
 function ProfilePhoneMockup({
-  name, description, logoPreview,
+  name, logoPreview,
 }: {
-  name: string; description: string; logoPreview: string | null;
+  name: string; logoPreview: string | null;
 }) {
   return (
     <div style={{
@@ -386,15 +370,6 @@ function ProfilePhoneMockup({
           </div>
         </div>
         <div style={{ padding: "8px 8px 10px" }}>
-          {description && (
-            <p style={{
-              fontSize: 6.5, color: "#666", marginBottom: 7, lineHeight: 1.4,
-              fontFamily: "system-ui", overflow: "hidden",
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-            } as React.CSSProperties}>
-              {description}
-            </p>
-          )}
           <div style={{ display: "flex", gap: 4, marginBottom: 8, overflow: "hidden" }}>
             {["Всё", "Пицца", "Бургеры", "Напитки"].map((cat, i) => (
               <div key={i} style={{
