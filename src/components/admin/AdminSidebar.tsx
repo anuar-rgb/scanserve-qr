@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Sparkles, Monitor,
-  Layers, QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -45,7 +45,6 @@ const NAV: NavSection[] = [
     titleKey: "sectionStorefront",
     items: [
       { labelKey: "navMainScreen", icon: Monitor, href: "/admin/storefront" },
-      { labelKey: "navBanners",    icon: Layers,  href: "/admin/banners"    },
     ],
   },
   {

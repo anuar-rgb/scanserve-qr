@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Upload, Loader2, ImageIcon, Plus, Pencil, Trash2, Film,
-  ChevronUp, ChevronDown, X, LayoutGrid,
+  ChevronUp, ChevronDown, X, LayoutGrid, Search, Star,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
-import type { DbRestaurant, DbHeroSlide, SlideTag, DbInfoShowcase } from "@/lib/db-types";
+import type { DbRestaurant, DbHeroSlide, SlideTag, DbInfoShowcase, DbBanner, DbProduct } from "@/lib/db-types";
 import { uploadImage, uploadMedia } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
@@ -75,9 +75,24 @@ const EMPTY_SLIDE: SlideForm = {
 type ShowcaseForm = { title: string; emoji: string; is_active: boolean };
 const EMPTY_SHOWCASE: ShowcaseForm = { title: "", emoji: "✨", is_active: true };
 
+// ── Banner form ───────────────────────────────────────────────────────────────
+
+type BannerForm = {
+  title: string;
+  link_url: string;
+  is_active: boolean;
+  imageFile: File | null;
+  imagePreview: string | null;
+};
+
+const EMPTY_BANNER: BannerForm = {
+  title: "", link_url: "", is_active: true,
+  imageFile: null, imagePreview: null,
+};
+
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type TabKey = "branding" | "slider" | "showcase";
+type TabKey = "branding" | "slider" | "showcase" | "banners" | "recommendations";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main page export
@@ -100,14 +115,18 @@ export default function StorefrontPage() {
             <TabsTrigger value="branding">{t.admin.navBranding}</TabsTrigger>
             <TabsTrigger value="slider">{t.admin.navHeroSlider}</TabsTrigger>
             <TabsTrigger value="showcase">{t.admin.navInfoShowcase}</TabsTrigger>
+            <TabsTrigger value="banners">{t.admin.navBanners}</TabsTrigger>
+            <TabsTrigger value="recommendations">{t.admin.navRecommendations}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        {tab === "branding"  && <BrandingSection />}
-        {tab === "slider"    && <HeroSliderSection />}
-        {tab === "showcase"  && <InfoShowcaseSection />}
+        {tab === "branding"         && <BrandingSection />}
+        {tab === "slider"           && <HeroSliderSection />}
+        {tab === "showcase"         && <InfoShowcaseSection />}
+        {tab === "banners"          && <BannersSection />}
+        {tab === "recommendations"  && <RecommendationsSection />}
       </div>
     </div>
   );
@@ -1062,6 +1081,432 @@ function SliderPhoneMockup({
         </div>
       </div>
       <div style={{ width: 62, height: 4, background: "#3a3a3c", borderRadius: 99, margin: "9px auto 0" }} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tab 4 — Banners
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function BannersSection() {
+  const { t } = useTranslations();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [banners, setBanners]     = useState<DbBanner[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm]           = useState<BannerForm>(EMPTY_BANNER);
+  const [saving, setSaving]       = useState(false);
+  const [deleting, setDeleting]   = useState<string | null>(null);
+  const [cropSrc, setCropSrc]     = useState<string | null>(null);
+  const [rawMimeType, setRawMimeType] = useState("image/jpeg");
+
+  const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from("banners").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index");
+    if (data) setBanners(data as DbBanner[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function openCreate() { setEditingId(null); setForm(EMPTY_BANNER); setModalOpen(true); }
+
+  function openEdit(b: DbBanner) {
+    setEditingId(b.id);
+    setForm({
+      title: b.title?.ru ?? b.title?.en ?? "",
+      link_url: b.link_url ?? "",
+      is_active: b.is_active,
+      imageFile: null,
+      imagePreview: b.image_url,
+    });
+    setModalOpen(true);
+  }
+
+  function closeModal() { setModalOpen(false); setEditingId(null); setForm(EMPTY_BANNER); }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setRawMimeType(f.type || "image/jpeg");
+    setCropSrc(URL.createObjectURL(f));
+    e.target.value = "";
+  }
+
+  function handleCropApply(blob: Blob, url: string) {
+    const ext = rawMimeType === "image/png" ? "png" : rawMimeType === "image/webp" ? "webp" : "jpg";
+    const croppedFile = new File([blob], `cropped.${ext}`, { type: blob.type });
+    setForm(prev => ({ ...prev, imageFile: croppedFile, imagePreview: url }));
+    setCropSrc(null);
+  }
+
+  async function handleSave() {
+    if (!isConfigured) { toast.error("Database not configured"); return; }
+    setSaving(true);
+    try {
+      let imageUrl: string | null = null;
+      if (form.imageFile) imageUrl = await uploadImage(form.imageFile, "banners", "banner");
+      const payload = {
+        restaurant_id: RESTAURANT_ID,
+        title: { en: form.title, ru: form.title, kz: form.title },
+        link_url: form.link_url || null,
+        is_active: form.is_active,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
+      };
+      if (editingId) {
+        await supabase.from("banners").update(payload).eq("id", editingId);
+      } else {
+        const maxOrder = banners.length > 0 ? Math.max(...banners.map(b => b.order_index)) + 1 : 0;
+        await supabase.from("banners").insert({ ...payload, order_index: maxOrder });
+      }
+      await load();
+      closeModal();
+      toast.success(t.admin.bannerSaved);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save banner");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!isConfigured) return;
+    setDeleting(id);
+    const { error } = await supabase.from("banners").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete banner"); }
+    else { setBanners(prev => prev.filter(b => b.id !== id)); toast.success("Banner deleted"); }
+    setDeleting(null);
+  }
+
+  async function move(id: string, direction: "up" | "down") {
+    if (!isConfigured) return;
+    const idx = banners.findIndex(b => b.id === id);
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === banners.length - 1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    const updated = [...banners];
+    [updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]];
+    const reindexed = updated.map((b, i) => ({ ...b, order_index: i }));
+    setBanners(reindexed);
+    await Promise.all(reindexed.map(b => supabase.from("banners").update({ order_index: b.order_index }).eq("id", b.id)));
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-8 py-4 border-b border-border shrink-0 flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">{t.admin.descBanners}</p>
+        <Button onClick={openCreate} size="sm">
+          <Plus />
+          {t.admin.addBanner}
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-8">
+        {loading ? (
+          <div className="flex items-center justify-center h-32 gap-2 text-muted-foreground text-sm">
+            <Loader2 size={16} className="animate-spin" />
+            {t.admin.loadingCatalog}
+          </div>
+        ) : banners.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-zinc-400">
+            <ImageIcon size={32} strokeWidth={1.5} />
+            <p className="text-sm">{t.admin.noBanners}</p>
+            <Button variant="link" onClick={openCreate} className="text-violet-500 hover:text-violet-600 p-0 h-auto">
+              + {t.admin.addBanner}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3 max-w-2xl">
+            {banners.map((b, idx) => (
+              <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+                <div className="w-20 h-12 rounded-lg overflow-hidden bg-muted shrink-0 flex items-center justify-center">
+                  {b.image_url
+                    ? <img src={b.image_url} alt="" className="w-full h-full object-cover" />
+                    : <ImageIcon size={16} className="text-muted-foreground" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{b.title?.ru || b.title?.en || "—"}</p>
+                  {b.link_url && <p className="text-xs text-muted-foreground truncate">{b.link_url}</p>}
+                </div>
+                <Badge className={`shrink-0 border-0 ${b.is_active
+                  ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                  : "bg-muted text-muted-foreground"}`}>
+                  {b.is_active ? t.admin.on : t.admin.off}
+                </Badge>
+                <div className="flex flex-col gap-0.5 shrink-0">
+                  <Button variant="ghost" size="icon-xs" onClick={() => move(b.id, "up")} disabled={idx === 0}>
+                    <ChevronUp size={14} className="text-muted-foreground" />
+                  </Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => move(b.id, "down")} disabled={idx === banners.length - 1}>
+                    <ChevronDown size={14} className="text-muted-foreground" />
+                  </Button>
+                </div>
+                <Button variant="ghost" size="icon-sm" onClick={() => openEdit(b)}>
+                  <Pencil size={14} className="text-muted-foreground" />
+                </Button>
+                <Button
+                  variant="ghost" size="icon-sm"
+                  onClick={() => handleDelete(b.id)}
+                  disabled={deleting === b.id}
+                  className="hover:bg-red-50 dark:hover:bg-red-500/10"
+                >
+                  {deleting === b.id
+                    ? <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                    : <Trash2 size={14} className="text-red-500 dark:text-red-400" />}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingId ? t.admin.editBanner : t.admin.addBanner}</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-6 min-h-0">
+            <div className="flex-1 space-y-4 overflow-y-auto max-h-[60vh] pr-1 min-w-0">
+              <div className="space-y-2">
+                <Label>{t.admin.photoLabel}</Label>
+                <div
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full h-36 rounded-xl border-2 border-dashed border-border hover:border-violet-500 cursor-pointer transition-colors bg-muted/50 flex items-center justify-center overflow-hidden"
+                >
+                  {form.imagePreview
+                    ? <img src={form.imagePreview} alt="" className="w-full h-full object-cover" />
+                    : <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <ImageIcon size={24} />
+                        <span className="text-xs">{t.admin.uploadPhoto}</span>
+                      </div>}
+                </div>
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFileChange} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.admin.bannerTitleLabel}</Label>
+                <Input
+                  value={form.title}
+                  onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Акции этой недели"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.admin.bannerLinkLabel}</Label>
+                <Input
+                  type="url"
+                  value={form.link_url}
+                  onChange={e => setForm(prev => ({ ...prev, link_url: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <Label>{t.admin.bannerActive}</Label>
+                <Switch
+                  checked={form.is_active}
+                  onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
+                />
+              </div>
+            </div>
+            <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-1">
+              <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">Preview</p>
+              <BannerPhoneMockup title={form.title} imagePreview={form.imagePreview} />
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">Так выглядит баннер в меню гостя</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal}>{t.admin.cancel}</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              {saving ? t.admin.saving : t.admin.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          aspect={2}
+          mimeType={rawMimeType}
+          onApply={handleCropApply}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Banner phone mockup ───────────────────────────────────────────────────────
+
+function BannerPhoneMockup({ title, imagePreview }: { title: string; imagePreview: string | null }) {
+  return (
+    <div style={{
+      width: 196, background: "#1C1C1E", borderRadius: 36,
+      padding: "18px 9px 14px",
+      boxShadow: "inset 0 0 0 1.5px #3a3a3c, 0 12px 32px rgba(0,0,0,0.4)",
+      flexShrink: 0,
+    }}>
+      <div style={{ width: 52, height: 7, background: "#2c2c2e", borderRadius: 99, margin: "0 auto 10px" }} />
+      <div style={{ background: "#F5F5F7", borderRadius: 20, overflow: "hidden", padding: "10px 8px" }}>
+        <div style={{ height: 6, width: "60%", background: "#e0e0e0", borderRadius: 4, marginBottom: 8 }} />
+        <div style={{
+          width: "100%", aspectRatio: "2 / 1", borderRadius: 12, overflow: "hidden",
+          position: "relative", background: "#e5e5e5", border: "1px solid rgba(0,0,0,0.10)",
+        } as React.CSSProperties}>
+          {imagePreview
+            ? <img src={imagePreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>🖼️</div>}
+          {title && (
+            <div style={{ position: "absolute", bottom: 5, left: 5, right: 5, background: "rgba(0,0,0,0.52)", borderRadius: 8, padding: "3px 7px" }}>
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: 9, margin: 0, lineHeight: 1.3, fontFamily: "'Montserrat', system-ui, sans-serif" }}>{title}</p>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ width: i === 0 ? 12 : 4, height: 4, borderRadius: 99, background: i === 0 ? "#8B5CF6" : "#d0d0d0" }} />
+          ))}
+        </div>
+      </div>
+      <div style={{ width: 62, height: 4, background: "#3a3a3c", borderRadius: 99, margin: "9px auto 0" }} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tab 5 — Recommendations ("А вы это пробовали?")
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function RecommendationsSection() {
+  const { t } = useTranslations();
+  const [products, setProducts] = useState<DbProduct[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [search, setSearch]     = useState("");
+
+  const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from("products")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("is_archived", false)
+      .order("name->ru");
+    if (data) setProducts(data as DbProduct[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function toggleRecommended(p: DbProduct) {
+    if (!isConfigured) return;
+    const next = !p.is_recommended;
+    setToggling(p.id);
+    const { error } = await supabase.from("products").update({ is_recommended: next }).eq("id", p.id);
+    if (error) {
+      toast.error("Failed to update");
+    } else {
+      setProducts(prev => prev.map(x => x.id === p.id ? { ...x, is_recommended: next } : x));
+    }
+    setToggling(null);
+  }
+
+  const recommendedCount = products.filter(p => p.is_recommended).length;
+
+  const filtered = search
+    ? products.filter(p => {
+        const name = p.name?.ru ?? p.name?.en ?? "";
+        return name.toLowerCase().includes(search.toLowerCase());
+      })
+    : products;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full gap-2 text-muted-foreground text-sm">
+        <Loader2 size={16} className="animate-spin" /> Loading…
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-8 py-4 border-b border-border shrink-0 flex items-center gap-4">
+        <p className="text-xs text-muted-foreground flex-1">{t.admin.descRecommendations}</p>
+        <span className="text-xs font-semibold text-violet-600 shrink-0">
+          {recommendedCount} / 8 выбрано
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-2xl space-y-4">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Поиск блюд…"
+              className="pl-8"
+            />
+          </div>
+
+          {filtered.length === 0 && (
+            <p className="text-center py-12 text-sm text-muted-foreground">Нет блюд</p>
+          )}
+
+          <div className="space-y-2">
+            {filtered.map(p => {
+              const name = p.name?.ru ?? p.name?.en ?? "—";
+              const isRec = p.is_recommended;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                    isRec
+                      ? "border-violet-300 dark:border-violet-600/50 bg-violet-50/50 dark:bg-violet-500/5"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted shrink-0 flex items-center justify-center">
+                    {p.image_url
+                      ? <img src={p.image_url} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-lg">{p.emoji || "🍽"}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{name}</p>
+                    <p className="text-xs text-muted-foreground">{p.price.toLocaleString("ru-RU")} ₸</p>
+                  </div>
+                  {isRec && (
+                    <Badge className="shrink-0 border-0 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300">
+                      В рекомендациях
+                    </Badge>
+                  )}
+                  <button
+                    onClick={() => toggleRecommended(p)}
+                    disabled={toggling === p.id || (!isRec && recommendedCount >= 8)}
+                    title={!isRec && recommendedCount >= 8 ? "Максимум 8 блюд" : undefined}
+                    className={`shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      isRec
+                        ? "bg-violet-600 text-white hover:bg-violet-700"
+                        : "bg-muted text-muted-foreground hover:bg-violet-100 hover:text-violet-700 dark:hover:bg-violet-500/20 dark:hover:text-violet-300"
+                    }`}
+                  >
+                    {toggling === p.id
+                      ? <Loader2 size={12} className="animate-spin" />
+                      : <Star size={12} className={isRec ? "fill-white" : ""} />}
+                    {isRec ? "Убрать" : "Рекомендовать"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
