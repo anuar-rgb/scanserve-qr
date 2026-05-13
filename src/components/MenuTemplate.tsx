@@ -1047,15 +1047,25 @@ function InfoCards({
               </div>
             </a>
           )}
-          {address && (
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <span style={{ fontSize: 20, flexShrink: 0 }}>📍</span>
-              <div>
-                <p style={rowLabel}>{tAddress}</p>
-                <p style={rowValue}>{resolve(address, lang)}</p>
+          {address && (() => {
+            const addrStr = resolve(address, lang);
+            const isUrl = /^https?:\/\//i.test(addrStr);
+            return (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <span style={{ fontSize: 20, flexShrink: 0 }}>📍</span>
+                <div>
+                  <p style={rowLabel}>{tAddress}</p>
+                  {isUrl ? (
+                    <a href={addrStr} target="_blank" rel="noopener noreferrer" style={{ ...rowValue, color: "inherit", textDecoration: "underline", textDecorationColor: "rgba(128,128,128,0.5)" }}>
+                      {addrStr}
+                    </a>
+                  ) : (
+                    <p style={rowValue}>{addrStr}</p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {workingHours && (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 20, flexShrink: 0 }}>🕐</span>
