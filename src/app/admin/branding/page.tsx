@@ -23,6 +23,10 @@ export default function BrandingPage() {
   const [name, setName]             = useState("");
   const [description, setDescription] = useState("");
   const [waNumber, setWaNumber]     = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [phone, setPhone]               = useState("");
+  const [address, setAddress]           = useState("");
+  const [workingHours, setWorkingHours] = useState("");
 
   const [logoFile, setLogoFile]       = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -45,6 +49,10 @@ export default function BrandingPage() {
       setName(r.name ?? "");
       setDescription(r.description ?? "");
       setWaNumber(r.wa_number ?? "");
+      setInstagramUrl(r.instagram_url ?? "");
+      setPhone(r.phone ?? "");
+      setAddress(r.address ?? "");
+      setWorkingHours(r.working_hours ?? "");
     }
     setLoading(false);
   }, []);
@@ -71,10 +79,23 @@ export default function BrandingPage() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
-      const updateData: { name: string; description: string | null; wa_number: string | null; logo?: string | null } = {
+      const updateData: {
+        name: string;
+        description: string | null;
+        wa_number: string | null;
+        instagram_url: string | null;
+        phone: string | null;
+        address: string | null;
+        working_hours: string | null;
+        logo?: string | null;
+      } = {
         name: name.trim(),
         description: description.trim() || null,
         wa_number: waNumber.trim() || null,
+        instagram_url: instagramUrl.trim() || null,
+        phone: phone.trim() || null,
+        address: address.trim() || null,
+        working_hours: workingHours.trim() || null,
       };
 
       if (logoFile) {
@@ -168,6 +189,53 @@ export default function BrandingPage() {
                     placeholder="+7 700 000 0000"
                   />
                   <p className="text-xs text-muted-foreground">{t.admin.waNumberDesc}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Контакты и режим работы</CardTitle>
+                <CardDescription>Отображаются в разделе «Связаться с нами» гостевого меню.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5 pt-5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="instagram-url">Instagram</Label>
+                  <Input
+                    id="instagram-url"
+                    value={instagramUrl}
+                    onChange={(e) => setInstagramUrl(e.target.value)}
+                    placeholder="https://www.instagram.com/yourplace"
+                  />
+                  <p className="text-xs text-muted-foreground">Полный URL профиля Instagram.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone">Номер телефона</Label>
+                  <Input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+7 700 000 0000"
+                  />
+                  <p className="text-xs text-muted-foreground">Кнопка «Позвонить» откроет этот номер.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="address">Адрес</Label>
+                  <Input
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="г. Алматы, ул. Примерная, 1"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="working-hours">Часы работы</Label>
+                  <Input
+                    id="working-hours"
+                    value={workingHours}
+                    onChange={(e) => setWorkingHours(e.target.value)}
+                    placeholder="10:00 – 22:00"
+                  />
                 </div>
               </CardContent>
             </Card>

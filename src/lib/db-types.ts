@@ -8,6 +8,10 @@ export interface DbRestaurant {
   logo: string | null;
   wa_number: string | null;
   primary_color: string | null;
+  instagram_url: string | null;
+  phone: string | null;
+  address: string | null;
+  working_hours: string | null;
 }
 
 export interface DbCategory {

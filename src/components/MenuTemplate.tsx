@@ -2429,16 +2429,24 @@ export function MenuTemplate({
           ) : (
             /* ── Normal mode ── */
             <>
-              {/* Logo + Name — no box around the icon */}
+              {/* Logo + Name */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
-                  stroke="var(--text-color)"
-                  strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-                  style={{ flexShrink: 0 } as React.CSSProperties}>
-                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-                  <path d="M7 2v20" />
-                  <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
-                </svg>
+                {restaurant.logoUrl ? (
+                  <img
+                    src={restaurant.logoUrl}
+                    alt=""
+                    style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+                  />
+                ) : (
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
+                    stroke="var(--text-color)"
+                    strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                    style={{ flexShrink: 0 } as React.CSSProperties}>
+                    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                    <path d="M7 2v20" />
+                    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
+                  </svg>
+                )}
                 <h1 style={{
                   fontSize: 17, fontWeight: 700, margin: 0, letterSpacing: "0.01em",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",

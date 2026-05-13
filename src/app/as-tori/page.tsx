@@ -69,8 +69,14 @@ export default async function AsToriPage({
       <MenuTemplate
         restaurant={{
           ...restaurant,
-          // Prefer wa_number from Supabase so Branding page changes take effect
+          // All identity fields prefer DB values; static data is the fallback
+          name: dbRestaurant?.name ?? restaurant.name,
+          logoUrl: dbRestaurant?.logo ?? restaurant.logoUrl,
           whatsappPhone: dbRestaurant?.wa_number ?? restaurant.whatsappPhone,
+          instagramUrl: dbRestaurant?.instagram_url ?? restaurant.instagramUrl,
+          phone: dbRestaurant?.phone ?? restaurant.phone,
+          address: dbRestaurant?.address ?? restaurant.address,
+          workingHours: dbRestaurant?.working_hours ?? restaurant.workingHours,
           cardTransferOptions,
         }}
         categories={categories}
