@@ -869,14 +869,6 @@ function TryThisSection({
                     <BadgeStack badges={badges} size="xs" />
                   </div>
                 )}
-                <div style={{
-                  position: "absolute", top: 6, right: 6,
-                  fontSize: 8, fontWeight: 800,
-                  padding: "3px 7px", borderRadius: R.full,
-                  backgroundColor: "#8B5CF6", color: "#fff",
-                  fontFamily: "'Montserrat', system-ui, sans-serif",
-                  letterSpacing: "0.04em", lineHeight: 1.4,
-                }}>ХИТ</div>
               </div>
 
               <div style={{ padding: "9px 10px 11px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
@@ -2261,11 +2253,8 @@ export function MenuTemplate({
   // Curated home sections
   const allDishes   = categories.flatMap((c) => c.dishes);
   const promoDishes = allDishes.filter((d) => d.isPromo);
-  const hitDishes   = (() => {
-    const tagged = allDishes.filter((d) => d.isPopular || d.isRecommended).slice(0, 8);
-    if (tagged.length >= 3) return tagged;
-    return [...allDishes].sort((a, b) => getLikeCount(b.id) - getLikeCount(a.id)).slice(0, 8);
-  })();
+  const hitDishes     = allDishes.filter((d) => d.isRecommended).slice(0, 8);
+  const popularDishes = allDishes.filter((d) => getLikeCount(d.id) > 0);
 
   const tAll = lang === "kz" ? "Барлығы" : lang === "ru" ? "Все" : "All";
 
@@ -2600,11 +2589,20 @@ export function MenuTemplate({
             {/* 2. Banner slider (admin-managed via Supabase) */}
             <BannerSlider banners={banners} lang={lang} />
 
-            {/* 3. "А вы это пробовали?" — hit products */}
+            {/* 3. "А вы это пробовали?" — admin-managed recommended dishes */}
             <TryThisSection
               dishes={hitDishes}
               lang={lang}
               defaultCurrency={restaurant.currency}
+              onGoToDish={goToDish}
+            />
+
+            {/* 4. "Популярные блюда" — sorted by like count */}
+            <PopularDishesSection
+              dishes={popularDishes}
+              lang={lang}
+              liked={liked}
+              getLikeCount={getLikeCount}
               onGoToDish={goToDish}
             />
 
