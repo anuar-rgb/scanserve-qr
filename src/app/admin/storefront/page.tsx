@@ -1408,11 +1408,18 @@ function RecommendationsSection() {
     if (!isConfigured) return;
     const next = !p.is_recommended;
     setToggling(p.id);
-    const { error } = await supabase.from("products").update({ is_recommended: next }).eq("id", p.id);
+    const { data, error } = await supabase
+      .from("products")
+      .update({ is_recommended: next })
+      .eq("id", p.id)
+      .select("id");
     if (error) {
-      toast.error("Failed to update");
+      toast.error(`Ошибка: ${error.message || error.code || "неизвестная ошибка"}`);
+    } else if (!data || data.length === 0) {
+      toast.error("Не сохранено — нет прав на изменение или запись не найдена");
     } else {
       setProducts(prev => prev.map(x => x.id === p.id ? { ...x, is_recommended: next } : x));
+      toast.success(next ? "Добавлено в рекомендации" : "Убрано из рекомендаций");
     }
     setToggling(null);
   }
