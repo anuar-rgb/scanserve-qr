@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, Loader2, ImageIcon, Film, ChevronUp, ChevronDown, X } from "lucide-react";
+import { HexColorPicker } from "react-colorful";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
-import type { DbHeroSlide, SlideTag, TagColor } from "@/lib/db-types";
+import type { DbHeroSlide, SlideTag } from "@/lib/db-types";
 import { uploadMedia } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
@@ -22,15 +23,31 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const TAG_PALETTE: { key: TagColor; bg: string; label: string }[] = [
-  { key: "white",  bg: "#ffffff", label: "Белый"     },
-  { key: "yellow", bg: "#F9D94A", label: "Жёлтый"   },
-  { key: "green",  bg: "#4ADE80", label: "Зелёный"  },
-  { key: "red",    bg: "#F87171", label: "Красный"   },
-  { key: "blue",   bg: "#60A5FA", label: "Синий"     },
-  { key: "orange", bg: "#FB923C", label: "Оранжевый" },
-  { key: "purple", bg: "#A78BFA", label: "Фиолетовый"},
-];
+const TAG_RECENT_KEY = "scanserve_recent_tag_colors";
+
+const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
+  white:  { bg: "#FFFFFF", fg: "#111111" },
+  yellow: { bg: "#F59E0B", fg: "#1C0F00" },
+  green:  { bg: "#00C882", fg: "#001A0F" },
+  red:    { bg: "#FF4D6D", fg: "#ffffff" },
+  blue:   { bg: "#00AAFF", fg: "#ffffff" },
+  orange: { bg: "#FF6B2B", fg: "#ffffff" },
+  purple: { bg: "#A855F7", fg: "#ffffff" },
+};
+
+function resolveTagBg(color: string): string {
+  if (color.startsWith("#")) return color;
+  return TAG_COLORS[color]?.bg ?? "#ffffff";
+}
+
+function resolveTagColors(color: string): { bg: string; fg: string } {
+  if (color.startsWith("#")) {
+    const h = color.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return { bg: color, fg: (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? "#111111" : "#ffffff" };
+  }
+  return TAG_COLORS[color] ?? TAG_COLORS.white;
+}
 
 type SlideForm = {
   title: string;
@@ -60,6 +77,15 @@ export default function HeroSliderPage() {
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null);
   const [cropSrc, setCropSrc]     = useState<string | null>(null);
+  const [tagPickerOpen, setTagPickerOpen] = useState<number | null>(null);
+  const [tagRecentColors, setTagRecentColors] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(TAG_RECENT_KEY);
+      if (s) setTagRecentColors(JSON.parse(s));
+    } catch {}
+  }, []);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -78,6 +104,7 @@ export default function HeroSliderPage() {
   function openCreate() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setTagPickerOpen(null);
     setModalOpen(true);
   }
 
@@ -93,6 +120,7 @@ export default function HeroSliderPage() {
       mediaPreview: s.url,
       mediaType: s.type,
     });
+    setTagPickerOpen(null);
     setModalOpen(true);
   }
 
@@ -100,6 +128,7 @@ export default function HeroSliderPage() {
     setModalOpen(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setTagPickerOpen(null);
   }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -132,19 +161,28 @@ export default function HeroSliderPage() {
   }
 
   function addTag() {
-    setForm(prev => ({ ...prev, tags: [...prev.tags, { text: "", color: "white" as TagColor }] }));
+    setForm(prev => ({ ...prev, tags: [...prev.tags, { text: "", color: "#A855F7" }] }));
   }
 
   function removeTag(i: number) {
     setForm(prev => ({ ...prev, tags: prev.tags.filter((_, j) => j !== i) }));
+    if (tagPickerOpen === i) setTagPickerOpen(null);
   }
 
   function updateTagText(i: number, text: string) {
     setForm(prev => ({ ...prev, tags: prev.tags.map((t, j) => j === i ? { ...t, text } : t) }));
   }
 
-  function updateTagColor(i: number, color: TagColor) {
+  function updateTagColor(i: number, color: string) {
     setForm(prev => ({ ...prev, tags: prev.tags.map((t, j) => j === i ? { ...t, color } : t) }));
+    if (color.startsWith("#")) {
+      const c = color.toUpperCase();
+      setTagRecentColors(prev => {
+        const updated = [c, ...prev.filter(x => x !== c)].slice(0, 12);
+        try { localStorage.setItem(TAG_RECENT_KEY, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+    }
   }
 
   async function handleSave() {
@@ -297,15 +335,18 @@ export default function HeroSliderPage() {
                     <Badge className="text-[10px] px-1.5 py-0 border-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
                       {s.type}
                     </Badge>
-                    {s.tags?.slice(0, 3).map((tag, i) => (
-                      <span
-                        key={i}
-                        className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full text-zinc-900"
-                        style={{ background: TAG_PALETTE.find(p => p.key === tag.color)?.bg ?? "#fff" }}
-                      >
-                        {tag.text}
-                      </span>
-                    ))}
+                    {s.tags?.slice(0, 3).map((tag, i) => {
+                      const c = resolveTagColors(tag.color);
+                      return (
+                        <span
+                          key={i}
+                          className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: c.bg, color: c.fg }}
+                        >
+                          {tag.text}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -446,36 +487,44 @@ export default function HeroSliderPage() {
               )}
 
               {form.tags.map((tag, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    value={tag.text}
-                    onChange={e => updateTagText(i, e.target.value)}
-                    placeholder="Вкусно!"
-                    className="flex-1 h-8 text-sm"
-                  />
-                  <div className="flex gap-1 shrink-0">
-                    {TAG_PALETTE.map(({ key, bg }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        title={TAG_PALETTE.find(p => p.key === key)?.label}
-                        onClick={() => updateTagColor(i, key)}
-                        style={{ background: bg }}
-                        className={`w-5 h-5 rounded-full transition-all border-2 ${
-                          tag.color === key
-                            ? "border-violet-600 scale-110 shadow-sm"
-                            : "border-transparent hover:border-zinc-400 dark:hover:border-zinc-500"
-                        }`}
-                      />
-                    ))}
+                <div key={i} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={tag.text}
+                      onChange={e => updateTagText(i, e.target.value)}
+                      placeholder="Вкусно!"
+                      className="flex-1 h-8 text-sm"
+                    />
+                    {/* Color swatch — click to open picker */}
+                    <button
+                      type="button"
+                      onClick={() => setTagPickerOpen(tagPickerOpen === i ? null : i)}
+                      title="Выбрать цвет"
+                      className="w-7 h-7 rounded-md shrink-0 transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      style={{
+                        background: resolveTagBg(tag.color),
+                        border: tagPickerOpen === i
+                          ? "2px solid #7c3aed"
+                          : "2px solid rgba(0,0,0,0.15)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeTag(i)}
+                      className="shrink-0 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeTag(i)}
-                    className="shrink-0 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
+
+                  {/* Inline color picker */}
+                  {tagPickerOpen === i && (
+                    <TagColorPicker
+                      color={resolveTagBg(tag.color)}
+                      recentColors={tagRecentColors}
+                      onChange={hex => updateTagColor(i, hex)}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -522,19 +571,66 @@ export default function HeroSliderPage() {
   );
 }
 
-// ── Tag color map (matches TAG_COLOR_MAP in MenuTemplate) ─────────────────────
+// ── Tag Color Picker ──────────────────────────────────────────────────────────
 
-const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
-  white:  { bg: "#FFFFFF", fg: "#111111" },
-  yellow: { bg: "#F59E0B", fg: "#1C0F00" },
-  green:  { bg: "#00C882", fg: "#001A0F" },
-  red:    { bg: "#FF4D6D", fg: "#ffffff" },
-  blue:   { bg: "#00AAFF", fg: "#ffffff" },
-  orange: { bg: "#FF6B2B", fg: "#ffffff" },
-  purple: { bg: "#A855F7", fg: "#ffffff" },
-};
+function TagColorPicker({
+  color,
+  recentColors,
+  onChange,
+}: {
+  color: string;
+  recentColors: string[];
+  onChange: (hex: string) => void;
+}) {
+  const [hexInput, setHexInput] = useState(color.toUpperCase());
 
-// ── Slider phone mockup (mirrors hero slider in MenuTemplate) ─────────────────
+  useEffect(() => {
+    setHexInput(color.toUpperCase());
+  }, [color]);
+
+  function handleHexInput(val: string) {
+    setHexInput(val);
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) onChange(val);
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-3 space-y-3 shadow-sm">
+      <HexColorPicker color={color} onChange={onChange} style={{ width: "100%" }} />
+      <div className="flex items-center gap-2">
+        <div
+          className="w-7 h-7 rounded border border-border shrink-0 transition-colors"
+          style={{ background: color }}
+        />
+        <Input
+          value={hexInput}
+          onChange={e => handleHexInput(e.target.value)}
+          className="font-mono text-xs h-7"
+          maxLength={7}
+          placeholder="#ffffff"
+        />
+      </div>
+      {recentColors.length > 0 && (
+        <div>
+          <p className="text-[10px] text-muted-foreground mb-1.5">Недавние</p>
+          <div className="flex flex-wrap gap-1">
+            {recentColors.map((c, i) => (
+              <button
+                key={i}
+                type="button"
+                title={c}
+                onClick={() => onChange(c)}
+                className="w-5 h-5 rounded border border-border hover:scale-110 transition-transform cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                style={{ background: c }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Slider phone mockup ───────────────────────────────────────────────────────
 
 function SliderPhoneMockup({
   title, description, tags, mediaPreview, mediaType,
@@ -596,7 +692,7 @@ function SliderPhoneMockup({
             {visibleTags.length > 0 && (
               <div style={{ display: "flex", gap: 3, marginBottom: 4, flexWrap: "wrap" }}>
                 {visibleTags.map((tag, i) => {
-                  const c = TAG_COLORS[tag.color] ?? TAG_COLORS.white;
+                  const c = resolveTagColors(tag.color);
                   return (
                     <span key={i} style={{
                       background: c.bg, color: c.fg,

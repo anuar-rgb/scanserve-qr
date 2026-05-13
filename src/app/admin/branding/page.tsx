@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, Loader2, ImageIcon } from "lucide-react";
-import { HexColorPicker } from "react-colorful";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbRestaurant } from "@/lib/db-types";
@@ -14,9 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
-
-const RECENT_COLORS_KEY = "scanserve_recent_brand_colors";
-const DEFAULT_COLOR = "#8B5CF6";
 
 export default function BrandingPage() {
   const { t } = useTranslations();
@@ -32,21 +28,9 @@ export default function BrandingPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
 
-  // Color state
-  const [primaryColor, setPrimaryColor] = useState(DEFAULT_COLOR);
-  const [hexInput, setHexInput]         = useState(DEFAULT_COLOR);
-  const [recentColors, setRecentColors] = useState<string[]>([]);
-
   // Crop state
   const [cropSrc, setCropSrc]       = useState<string | null>(null);
   const [cropTarget, setCropTarget] = useState<"logo" | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(RECENT_COLORS_KEY);
-      if (stored) setRecentColors(JSON.parse(stored));
-    } catch {}
-  }, []);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -61,9 +45,6 @@ export default function BrandingPage() {
       setName(r.name ?? "");
       setDescription(r.description ?? "");
       setWaNumber(r.wa_number ?? "");
-      const color = r.primary_color ?? DEFAULT_COLOR;
-      setPrimaryColor(color);
-      setHexInput(color.toUpperCase());
     }
     setLoading(false);
   }, []);
@@ -86,36 +67,14 @@ export default function BrandingPage() {
     setCropTarget(null);
   }
 
-  function handleColorChange(color: string) {
-    setPrimaryColor(color);
-    setHexInput(color.toUpperCase());
-  }
-
-  function handleHexInputChange(val: string) {
-    setHexInput(val);
-    if (/^#[0-9A-Fa-f]{6}$/.test(val)) setPrimaryColor(val);
-  }
-
-  function handleRecentColorClick(color: string) {
-    setPrimaryColor(color);
-    setHexInput(color.toUpperCase());
-  }
-
   async function handleSave() {
     if (!isConfigured) { toast.error("Database not configured"); return; }
     setSaving(true);
     try {
-      const updateData: {
-        name: string;
-        description: string | null;
-        wa_number: string | null;
-        primary_color: string;
-        logo?: string | null;
-      } = {
+      const updateData: { name: string; description: string | null; wa_number: string | null; logo?: string | null } = {
         name: name.trim(),
         description: description.trim() || null,
         wa_number: waNumber.trim() || null,
-        primary_color: primaryColor,
       };
 
       if (logoFile) {
@@ -136,12 +95,6 @@ export default function BrandingPage() {
       if (!data || data.length === 0) {
         throw new Error("Запись не найдена или нет прав на изменение");
       }
-
-      // Persist color to recent history
-      const c = primaryColor.toUpperCase();
-      const updated = [c, ...recentColors.filter(r => r !== c)].slice(0, 12);
-      setRecentColors(updated);
-      try { localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(updated)); } catch {}
 
       setRestaurant((prev) => prev ? { ...prev, ...updateData } : null);
       toast.success(t.admin.brandingSaved);
@@ -236,23 +189,6 @@ export default function BrandingPage() {
                 />
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Цвет бренда</CardTitle>
-                <CardDescription>Основной акцентный цвет в меню гостя (кнопки, пиллы категорий)</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-5">
-                <BrandColorPicker
-                  color={primaryColor}
-                  hexInput={hexInput}
-                  recentColors={recentColors}
-                  onColorChange={handleColorChange}
-                  onHexInputChange={handleHexInputChange}
-                  onRecentColorClick={handleRecentColorClick}
-                />
-              </CardContent>
-            </Card>
           </div>
 
           {/* Right: phone preview */}
@@ -264,7 +200,6 @@ export default function BrandingPage() {
               name={name}
               description={description}
               logoPreview={logoPreview ?? restaurant?.logo ?? null}
-              primaryColor={primaryColor}
             />
             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
               Так выглядит шапка в меню гостя
@@ -286,74 +221,6 @@ export default function BrandingPage() {
     </div>
   );
 }
-
-// ── Brand Color Picker ────────────────────────────────────────────────────────
-
-function BrandColorPicker({
-  color,
-  hexInput,
-  recentColors,
-  onColorChange,
-  onHexInputChange,
-  onRecentColorClick,
-}: {
-  color: string;
-  hexInput: string;
-  recentColors: string[];
-  onColorChange: (c: string) => void;
-  onHexInputChange: (v: string) => void;
-  onRecentColorClick: (c: string) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <HexColorPicker
-        color={color}
-        onChange={onColorChange}
-        style={{ width: "100%", maxWidth: 320 }}
-      />
-
-      {/* HEX input row */}
-      <div className="flex items-center gap-2" style={{ maxWidth: 320 }}>
-        <div
-          className="w-9 h-9 rounded-lg border border-border shrink-0 transition-colors"
-          style={{ background: color }}
-        />
-        <Input
-          value={hexInput}
-          onChange={(e) => onHexInputChange(e.target.value)}
-          placeholder="#8B5CF6"
-          className="font-mono text-sm"
-          maxLength={7}
-        />
-      </div>
-
-      {/* Recent colors */}
-      {recentColors.length > 0 && (
-        <div style={{ maxWidth: 320 }}>
-          <p className="text-xs text-muted-foreground mb-2">Недавние цвета</p>
-          <div className="flex flex-wrap gap-1.5">
-            {recentColors.map((c, i) => (
-              <button
-                key={i}
-                type="button"
-                title={c}
-                onClick={() => onRecentColorClick(c)}
-                className="w-7 h-7 rounded-md border border-border cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                style={{ background: c }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        Нажми <span className="font-medium">Сохранить</span> вверху страницы чтобы применить цвет.
-      </p>
-    </div>
-  );
-}
-
-// ── Upload field ──────────────────────────────────────────────────────────────
 
 function UploadField({
   label, description, aspect, currentUrl, fileRef, onChange, uploadLabel, changeLabel,
@@ -409,9 +276,9 @@ function UploadField({
 // ── Branding phone mockup ─────────────────────────────────────────────────────
 
 function BrandingPhoneMockup({
-  name, description, logoPreview, primaryColor,
+  name, description, logoPreview,
 }: {
-  name: string; description: string; logoPreview: string | null; primaryColor: string;
+  name: string; description: string; logoPreview: string | null;
 }) {
   return (
     <div style={{
@@ -484,7 +351,7 @@ function BrandingPhoneMockup({
             {["Всё", "Пицца", "Бургеры", "Напитки"].map((cat, i) => (
               <div key={i} style={{
                 padding: "3px 8px", borderRadius: 99,
-                background: i === 0 ? primaryColor : "#e0e0e0",
+                background: i === 0 ? "#8B5CF6" : "#e0e0e0",
                 fontSize: 6, fontWeight: 700,
                 color: i === 0 ? "#fff" : "#666",
                 whiteSpace: "nowrap",

@@ -1612,7 +1612,9 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
             {slide.tags && slide.tags.length > 0 && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {slide.tags.map((tag, i) => {
-                  const palette = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.white;
+                  const palette = tag.color.startsWith("#")
+                    ? (() => { const h=tag.color.slice(1); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return { bg: tag.color, fg: (0.299*r+0.587*g+0.114*b)/255>0.5?"#111111":"#ffffff" }; })()
+                    : (TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.white);
                   return (
                     <span
                       key={i}

@@ -80,7 +80,7 @@ export interface DbReview {
   created_at: string;
 }
 
-export type TagColor = "white" | "yellow" | "green" | "red" | "blue" | "orange" | "purple";
+export type TagColor = string;
 export type SlideTag = { text: string; color: TagColor };
 
 export interface DbHeroSlide {
