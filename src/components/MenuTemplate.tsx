@@ -709,13 +709,24 @@ function PopularDishesSection({
         <div style={{ flex: 1, height: 1, backgroundColor: "var(--border-color)" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div
+        style={{
+          display: "flex", gap: 12,
+          overflowX: "auto",
+          marginLeft: -SP.md, marginRight: -SP.md,
+          paddingLeft: SP.md, paddingRight: SP.md,
+          paddingBottom: SP.sm,
+          scrollbarWidth: "none",
+          scrollSnapType: "x mandatory",
+        } as React.CSSProperties}
+      >
         {sorted.map((dish) => {
+          const badges = dishBadges(dish);
           const likeCount = getLikeCount(dish.id);
           const isLiked = !!liked[dish.id];
-          const popPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
-          const popDiscountedPrice = !isNaN(popPct) && popPct > 0 && popPct < 100
-            ? Math.round(dish.price * (1 - popPct / 100))
+          const discountPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+          const discountedPrice = !isNaN(discountPct) && discountPct > 0 && discountPct < 100
+            ? Math.round(dish.price * (1 - discountPct / 100))
             : null;
 
           return (
@@ -723,63 +734,64 @@ function PopularDishesSection({
               key={dish.id}
               onClick={() => onGoToDish(dish.id)}
               style={{
-                background: "var(--bg-card)",
-                borderRadius: R.lg,
+                flexShrink: 0, width: 148,
+                borderRadius: R.lg, overflow: "hidden",
                 border: "1px solid var(--border-color)",
+                backgroundColor: "var(--bg-card)",
                 boxShadow: "var(--card-shadow)",
-                overflow: "hidden",
                 cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-              }}
+                display: "flex", flexDirection: "column",
+                scrollSnapAlign: "start",
+              } as React.CSSProperties}
             >
               <div style={{
-                width: "100%",
-                aspectRatio: "4/3",
+                height: 148, width: "100%",
                 backgroundColor: "var(--bg-surface)",
-                overflow: "hidden",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 38,
-                position: "relative",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 50, position: "relative", overflow: "hidden",
               }}>
                 {dish.imageUrl ? (
                   <img src={dish.imageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : dish.emoji}
-                {popDiscountedPrice !== null && (
-                  <span style={{
-                    position: "absolute", top: 6, right: 6,
-                    fontSize: 9, fontWeight: 800,
-                    padding: "3px 7px", borderRadius: R.full,
-                    backgroundColor: "#FF6B2B", color: "#fff",
-                    letterSpacing: "0.04em", lineHeight: 1.4, whiteSpace: "nowrap",
-                    fontFamily: "'Montserrat', system-ui, sans-serif",
-                  }}>
-                    −{popPct}%
-                  </span>
+                {badges.length > 0 && (
+                  <div style={{ position: "absolute", top: 6, left: 6 }}>
+                    <BadgeStack badges={badges} size="xs" />
+                  </div>
                 )}
+                <div style={{
+                  position: "absolute", top: 6, right: 6,
+                  display: "flex", alignItems: "center", gap: 3,
+                  fontSize: 9, fontWeight: 800,
+                  padding: "3px 7px", borderRadius: R.full,
+                  backgroundColor: "rgba(0,0,0,0.52)", color: "#fff",
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                  lineHeight: 1.4,
+                }}>
+                  <Heart size={9} strokeWidth={2.5} fill={isLiked ? "#FF4D6D" : "#fff"} stroke={isLiked ? "#FF4D6D" : "#fff"} />
+                  {likeCount}
+                </div>
               </div>
 
-              <div style={{ padding: "10px 12px 12px" }}>
+              <div style={{ padding: "9px 10px 11px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <p style={{
-                  fontSize: 13, fontWeight: 700, margin: "0 0 8px",
+                  fontSize: 12, fontWeight: 700, margin: "0 0 6px",
                   color: "var(--text-color)",
                   fontFamily: "'Montserrat', system-ui, sans-serif",
-                  overflow: "hidden",
+                  lineHeight: 1.3, overflow: "hidden",
                   display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical" as const,
-                  lineHeight: 1.3,
+                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
                 }}>
                   {capFirst(resolve(dish.name, lang))}
                 </p>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <Heart size={16} strokeWidth={2} fill={isLiked ? "#FF4D6D" : "none"} stroke="#FF4D6D" />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#FF4D6D" }}>
-                    {likeCount}
-                  </span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+                    {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? ""}
+                  </p>
+                  {discountedPrice !== null && (
+                    <p style={{ fontSize: 10, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
+                      {dish.price.toLocaleString()}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
