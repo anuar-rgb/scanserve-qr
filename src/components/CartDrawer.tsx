@@ -363,6 +363,7 @@ export interface CartDrawerProps {
   onOrderPlaced?: (order: StoredOrder) => void;
   clientId?: string;
   initialTableNumber?: string;
+  accentColor?: string;
 }
 
 export function CartDrawer({
@@ -381,6 +382,7 @@ export function CartDrawer({
   onOrderPlaced,
   clientId = "anon",
   initialTableNumber,
+  accentColor,
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
   const [step, setStep]                       = useState<Step>("cart");
@@ -507,12 +509,17 @@ export function CartDrawer({
     cursor: "pointer", flexShrink: 0,
   };
 
+  const btnBg = accentColor ?? textClr;
+  const btnFg = accentColor
+    ? (() => { const r = parseInt(accentColor.slice(1,3),16), g = parseInt(accentColor.slice(3,5),16), b = parseInt(accentColor.slice(5,7),16); return (r*299+g*587+b*114)/1000 > 128 ? "#111111" : "#FFFFFF"; })()
+    : bg;
+
   const primaryBtn = (disabled = false): React.CSSProperties => ({
     width: "100%", padding: "14px 0", borderRadius: R.full, border: "none",
     fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
     letterSpacing: "0.02em", transition: "background 0.2s, color 0.2s",
-    background: disabled ? border : textClr,
-    color: disabled ? muted : bg,
+    background: disabled ? border : btnBg,
+    color: disabled ? muted : btnFg,
   });
 
   const resetCheckout = () => {

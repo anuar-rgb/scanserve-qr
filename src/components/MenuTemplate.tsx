@@ -2874,6 +2874,7 @@ export function MenuTemplate({
         clientId={clientId}
         onOrderPlaced={saveOrder}
         initialTableNumber={initialTableNumber}
+        accentColor={accentColor}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}
