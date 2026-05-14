@@ -63,7 +63,7 @@ export default function SettingsPage() {
   }
 
   function handleCropApply(blob: Blob, url: string) {
-    const file = new File([blob], `branding-logo-${Date.now()}.jpg`, { type: blob.type });
+    const file = new File([blob], `branding-logo-${Date.now()}.png`, { type: blob.type });
     setLogoFile(file);
     setLogoPreview(url);
     setCropSrc(null);
@@ -262,7 +262,7 @@ export default function SettingsPage() {
         <ImageCropModal
           src={cropSrc}
           aspect={1}
-          mimeType="image/jpeg"
+          mimeType="image/png"
           onApply={handleCropApply}
           onCancel={() => setCropSrc(null)}
         />
