@@ -287,10 +287,11 @@ function UploadField({
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
-        className="shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 border-dashed border-border hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer transition-colors bg-muted/40 flex items-center justify-center"
+        className="shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 border-dashed border-border hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer transition-colors flex items-center justify-center"
+        style={{ background: currentUrl ? "transparent" : undefined }}
       >
         {currentUrl ? (
-          <img src={currentUrl} alt={label} className="w-full h-full object-cover" />
+          <img src={currentUrl} alt={label} className="w-full h-full object-contain" />
         ) : (
           <div className="flex flex-col items-center gap-1.5 text-muted-foreground pointer-events-none">
             <ImageIcon size={20} />
@@ -349,11 +350,11 @@ function ProfilePhoneMockup({
           }}>
             <div style={{
               width: 22, height: 22, borderRadius: 7, overflow: "hidden",
-              background: "#3a3a3c", flexShrink: 0,
+              background: "transparent", flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               {logoPreview ? (
-                <img src={logoPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={logoPreview} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
               ) : (
                 <span style={{ fontSize: 11, lineHeight: 1 }}>🍽</span>
               )}

@@ -2446,7 +2446,7 @@ export function MenuTemplate({
                   <img
                     src={restaurant.logoUrl}
                     alt=""
-                    style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+                    style={{ height: 32, width: "auto", maxWidth: 80, objectFit: "contain", borderRadius: 6, flexShrink: 0 }}
                   />
                 ) : (
                   <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
