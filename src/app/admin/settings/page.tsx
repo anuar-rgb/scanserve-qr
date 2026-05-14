@@ -306,7 +306,7 @@ function UploadField({
           <Upload />
           {currentUrl ? changeLabel : uploadLabel}
         </Button>
-        <p className="text-[11px] text-muted-foreground">PNG, JPG, WebP — max 5 MB</p>
+        <p className="text-[11px] text-muted-foreground">PNG с прозрачным фоном — лучший вариант для логотипа. JPG, WebP — max 5 MB</p>
         <input
           ref={fileRef}
           type="file"
