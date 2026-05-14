@@ -349,12 +349,11 @@ function ProfilePhoneMockup({
             display: "flex", alignItems: "center", gap: 6,
           }}>
             <div style={{
-              width: 22, height: 22, borderRadius: 7, overflow: "hidden",
-              background: "transparent", flexShrink: 0,
+              width: 22, height: 22, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               {logoPreview ? (
-                <img src={logoPreview} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                <img src={logoPreview} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", mixBlendMode: "screen" } as React.CSSProperties} />
               ) : (
                 <span style={{ fontSize: 11, lineHeight: 1 }}>🍽</span>
               )}

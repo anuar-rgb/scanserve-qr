@@ -2446,7 +2446,12 @@ export function MenuTemplate({
                   <img
                     src={restaurant.logoUrl}
                     alt=""
-                    style={{ height: 32, width: "auto", maxWidth: 80, objectFit: "contain", borderRadius: 6, flexShrink: 0 }}
+                    style={{
+                      height: 36, width: "auto", maxWidth: 88,
+                      objectFit: "contain", flexShrink: 0,
+                      padding: 2,
+                      mixBlendMode: theme === "dark" ? "screen" : "multiply",
+                    } as React.CSSProperties}
                   />
                 ) : (
                   <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
