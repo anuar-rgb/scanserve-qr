@@ -2443,16 +2443,17 @@ export function MenuTemplate({
               {/* Logo + Name */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
                 {restaurant.logoUrl ? (
-                  <img
-                    src={restaurant.logoUrl}
-                    alt=""
-                    style={{
-                      height: 36, width: "auto", maxWidth: 88,
-                      objectFit: "contain", flexShrink: 0,
-                      padding: 2,
-                      mixBlendMode: theme === "dark" ? "screen" : "multiply",
-                    } as React.CSSProperties}
-                  />
+                  <div style={{
+                    flexShrink: 0, height: 36,
+                    display: "flex", alignItems: "center",
+                    mixBlendMode: theme === "dark" ? "screen" : "multiply",
+                  } as React.CSSProperties}>
+                    <img
+                      src={restaurant.logoUrl}
+                      alt=""
+                      style={{ height: "100%", width: "auto", maxWidth: 88, objectFit: "contain", display: "block" }}
+                    />
+                  </div>
                 ) : (
                   <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
                     stroke="var(--text-color)"
