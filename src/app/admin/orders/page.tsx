@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
   ShoppingBag, Clock, Calendar, MessageSquare, ChevronDown, ChevronUp,
-  CalendarDays, ChevronLeft, ChevronRight,
+  CalendarDays, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
@@ -850,7 +851,8 @@ function PreorderDayCard({
   order: DbOrder;
   isActiveToday?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded]           = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json)
     ? (order.items_json as OrderItem[])
@@ -859,14 +861,19 @@ function PreorderDayCard({
     (s, it) => (it.original_price != null ? s + (it.original_price - it.price) * it.qty : s),
     0,
   );
-  const timeLabel = order.preorder_time?.slice(0, 5) ?? null;
-  const isPaid    = !!order.payment_method;
-  const pmLabel   = order.payment_method === "mixed"
+  const timeLabel     = order.preorder_time?.slice(0, 5) ?? null;
+  const isPaid        = !!order.payment_method;
+  const pmLabel       = order.payment_method === "mixed"
     ? "Смешанная"
     : (METHOD_META[order.payment_method ?? ""]?.label ?? (order.payment_method ? capFirst(order.payment_method) : null));
-  const pmIcon    = order.payment_method === "mixed"
+  const pmIcon        = order.payment_method === "mixed"
     ? "💳"
     : (METHOD_META[order.payment_method ?? ""]?.icon ?? "💳");
+  const orderTotal    = order.total_price ?? 0;
+  const paidAmount    = order.paid_amount ?? 0;
+  const remaining     = Math.max(0, orderTotal - paidAmount);
+  const partiallyPaid = paidAmount > 0 && paidAmount < orderTotal;
+  const fullyPrepaid  = orderTotal > 0 && paidAmount >= orderTotal;
 
   return (
     <div className={`rounded-xl border overflow-hidden bg-card ${
@@ -945,18 +952,22 @@ function PreorderDayCard({
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-[11px]">
-                {order.payment_method && pmLabel && (
-                  <>
-                    <span className="leading-none">{pmIcon}</span>
-                    <span className="text-muted-foreground">{pmLabel}</span>
-                    <span className="text-muted-foreground">·</span>
-                  </>
-                )}
-                <span className="font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
-                  Ожидает оплаты
-                </span>
-              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setPaymentModalOpen(true); }}
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
+                  fullyPrepaid
+                    ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60"
+                    : partiallyPaid
+                    ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                    : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60"
+                }`}
+              >
+                {fullyPrepaid
+                  ? "✓ Полностью оплачено"
+                  : partiallyPaid
+                  ? `Оплачено ${paidAmount.toLocaleString("ru-RU")} ₸ · Остаток ${remaining.toLocaleString("ru-RU")} ₸`
+                  : "Ожидает оплаты"}
+              </button>
             )}
           </div>
         </div>
@@ -1050,6 +1061,144 @@ function PreorderDayCard({
           Состав заказа не указан
         </div>
       )}
+
+      {paymentModalOpen && (
+        <PaymentModal
+          order={order}
+          onClose={() => setPaymentModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── PaymentModal ──────────────────────────────────────────────────────────────
+
+function PaymentModal({
+  order,
+  onClose,
+}: {
+  order: DbOrder;
+  onClose: () => void;
+}) {
+  const total = order.total_price ?? 0;
+  const [paidInput, setPaidInput] = useState(String(order.paid_amount ?? 0));
+  const [saving, setSaving]       = useState(false);
+
+  const paidValue    = Math.max(0, parseFloat(paidInput) || 0);
+  const remaining    = Math.max(0, total - paidValue);
+  const fullyPaid    = paidValue >= total && total > 0;
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ paid_amount: paidValue })
+      .eq("id", order.id);
+    if (error) {
+      toast.error(error.message);
+      setSaving(false);
+    } else {
+      toast.success("Оплата обновлена");
+      onClose();
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card rounded-2xl border border-border p-5 w-full max-w-sm mx-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold">Управление оплатой</h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Order info */}
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+          <div>
+            <p className="text-[11px] font-mono text-muted-foreground">{shortId(order.id)}</p>
+            {order.preorder_date && (
+              <p className="text-[11px] text-muted-foreground">
+                {order.preorder_date}
+                {order.preorder_time ? ` · ${order.preorder_time.slice(0, 5)}` : ""}
+              </p>
+            )}
+            {order.customer_name && (
+              <p className="text-[12px] font-semibold text-foreground mt-0.5">{order.customer_name}</p>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Итого</p>
+            <p className="text-xl font-black tabular-nums">{total.toLocaleString("ru-RU")} ₸</p>
+          </div>
+        </div>
+
+        {/* Paid amount input */}
+        <div className="space-y-3 mb-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              Внесено (₸)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max={total}
+              value={paidInput}
+              onChange={(e) => setPaidInput(e.target.value)}
+              className="w-full h-11 px-3 rounded-xl border border-border bg-background text-base font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              placeholder="0"
+              autoFocus
+            />
+          </div>
+
+          {/* Remaining row */}
+          <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${
+            fullyPaid
+              ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/30"
+              : "bg-muted/50"
+          }`}>
+            <span className="text-xs text-muted-foreground">Остаток</span>
+            <span className={`text-sm font-bold tabular-nums ${
+              fullyPaid
+                ? "text-emerald-600 dark:text-emerald-400"
+                : remaining > 0
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-muted-foreground"
+            }`}>
+              {fullyPaid ? "✓ Полностью оплачено" : `${remaining.toLocaleString("ru-RU")} ₸`}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 h-9 rounded-xl border border-border text-sm font-medium hover:bg-accent transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 h-9 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            {saving && <Loader2 size={13} className="animate-spin" />}
+            {saving ? "Сохранение…" : "Сохранить"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
