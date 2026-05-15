@@ -526,10 +526,9 @@ function PreorderCalendarView({
           ) : (
             <div className="space-y-3">
               {selectedOrders.map((order) => (
-                <HistoryCard
+                <PreorderDayCard
                   key={order.id}
                   order={order}
-                  showStatus
                   isActiveToday={
                     selectedDate === todayStr &&
                     order.status !== "completed" &&
@@ -614,6 +613,15 @@ function HistoryCard({
                 {PREORDER_STATUS[order.status]?.label ?? capFirst(order.status)}
               </span>
             )}
+            {order.payment_method ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                ✓ Оплачено
+              </span>
+            ) : order.order_type === "preorder" ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                Ожидает оплаты
+              </span>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -647,6 +655,16 @@ function HistoryCard({
               </span>
             )}
           </div>
+
+          {/* Comment snippet — always visible even in collapsed state */}
+          {order.customer_comments && (
+            <div className="mt-1.5 flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
+              <MessageSquare size={10} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-tight line-clamp-2">
+                {order.customer_comments}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Total + expand */}
@@ -775,6 +793,181 @@ function HistoryCard({
             </div>
           )}
 
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PreorderDayCard ───────────────────────────────────────────────────────────
+// Non-collapsible card for the calendar day-detail panel. Shows everything
+// immediately: status, comment, payment, and items list.
+
+function PreorderDayCard({
+  order,
+  isActiveToday,
+}: {
+  order: DbOrder;
+  isActiveToday?: boolean;
+}) {
+  const items: OrderItem[] = Array.isArray(order.items_json)
+    ? (order.items_json as OrderItem[])
+    : [];
+  const savedAmount = items.reduce(
+    (s, it) => (it.original_price != null ? s + (it.original_price - it.price) * it.qty : s),
+    0,
+  );
+  const timeLabel = order.preorder_time?.slice(0, 5) ?? null;
+  const isPaid    = !!order.payment_method;
+
+  return (
+    <div className={`rounded-xl border overflow-hidden bg-card ${
+      isActiveToday ? "border-emerald-500 ring-1 ring-emerald-500" : "border-border"
+    }`}>
+
+      {/* Header */}
+      <div className="flex items-start gap-3 px-4 py-3.5">
+        {/* Time badge */}
+        <div className="shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+          {timeLabel ? (
+            <>
+              <span className="text-[13px] font-bold leading-tight">{timeLabel}</span>
+              <span className="text-[8px] opacity-60">время</span>
+            </>
+          ) : (
+            <Clock size={16} />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Badges row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs font-semibold text-muted-foreground">
+              {shortId(order.id)}
+            </span>
+            {order.status && (
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PREORDER_STATUS[order.status]?.cls ?? "bg-muted text-muted-foreground"}`}>
+                {PREORDER_STATUS[order.status]?.label ?? capFirst(order.status)}
+              </span>
+            )}
+            {isActiveToday && (
+              <span className="flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                Активен
+              </span>
+            )}
+          </div>
+
+          {/* Info row */}
+          <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
+            {order.table_number && <span>{order.table_number}</span>}
+            <div className="flex items-center gap-1">
+              <Clock size={10} />
+              <span>Заказ: {formatDateTime(order.created_at)}</span>
+            </div>
+          </div>
+
+          {/* Payment row */}
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {isPaid ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-sm leading-none">
+                  {order.payment_method === "mixed" ? "💳" : (METHOD_META[order.payment_method!]?.icon ?? "💳")}
+                </span>
+                <span className="font-medium text-foreground">
+                  {order.payment_method === "mixed" ? "Смешанная" : (METHOD_META[order.payment_method!]?.label ?? capFirst(order.payment_method!))}
+                </span>
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                  ✓ Оплачено
+                </span>
+              </div>
+            ) : (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                Ожидает оплаты
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="text-right shrink-0">
+          <p className="text-base font-bold tabular-nums">
+            {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+          </p>
+          {items.length > 0 && (
+            <p className="text-[11px] text-muted-foreground">{items.length} позиц.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Comment — always visible */}
+      {order.customer_comments && (
+        <div className="px-4 pb-3">
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
+            <MessageSquare size={12} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[12px] text-amber-800 dark:text-amber-300 leading-snug">
+              {order.customer_comments}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Items list — always visible */}
+      {items.length > 0 && (
+        <div className="border-t border-border px-4 py-3 bg-muted/20">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+            Состав заказа
+          </p>
+          <div className="rounded-xl border border-border overflow-hidden bg-card">
+            {items.map((item, i) => (
+              <div
+                key={i}
+                className={`flex justify-between items-start px-3 py-2 text-sm ${
+                  i < items.length - 1 ? "border-b border-border" : ""
+                }`}
+              >
+                <div>
+                  <span className="text-muted-foreground">
+                    {capFirst(item.name)}
+                    <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
+                  </span>
+                  {item.note && (
+                    <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                      ✎ {item.note}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end shrink-0">
+                  {item.original_price != null && (
+                    <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                      {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                    </span>
+                  )}
+                  <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                    {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total row */}
+          <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground">Итого</p>
+              {savedAmount > 0 && (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                </p>
+              )}
+            </div>
+            <p className="text-lg font-black tabular-nums">
+              {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+            </p>
+          </div>
         </div>
       )}
     </div>
