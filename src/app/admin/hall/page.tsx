@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, MapPin, Phone,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
@@ -1018,6 +1018,40 @@ function OrderSlotPanel({
               </div>
             </div>
           </div>
+
+          {(order.customer_name || order.customer_phone || order.customer_city) && (
+            <div className="px-4 py-3 rounded-xl bg-muted/30 border border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Клиент</p>
+              <div className="space-y-1.5">
+                {order.customer_name && (
+                  <div className="flex items-center gap-2">
+                    <User size={12} className="text-muted-foreground shrink-0" />
+                    <span className="text-sm font-semibold">{order.customer_name}</span>
+                  </div>
+                )}
+                {order.customer_city && (
+                  <div className="flex items-center gap-2">
+                    <MapPin size={12} className="text-muted-foreground shrink-0" />
+                    <span className="text-sm text-muted-foreground">{order.customer_city}</span>
+                  </div>
+                )}
+                {order.customer_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone size={12} className="text-muted-foreground shrink-0" />
+                    <a href={`tel:${order.customer_phone}`} className="text-sm text-violet-600 dark:text-violet-400 hover:underline">
+                      {order.customer_phone}
+                    </a>
+                  </div>
+                )}
+                {order.payment_method && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/60 mt-1">
+                    <span className="text-[12px] leading-none">{METHOD_META[order.payment_method]?.icon ?? "💳"}</span>
+                    <span className="text-sm text-muted-foreground">{METHOD_META[order.payment_method]?.label ?? order.payment_method}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {order.customer_comments && (
             <div className="px-3 py-2.5 rounded-xl bg-muted/50 border border-border">
@@ -3410,6 +3444,44 @@ function PreorderDayCard({
             <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
               {order.customer_comments}
             </p>
+          </div>
+        </div>
+      )}
+
+      {expanded && (order.customer_name || order.customer_phone || order.customer_city) && (
+        <div className="px-3 pb-2">
+          <div className="flex flex-col gap-1 px-2.5 py-2 rounded-lg bg-muted/40 border border-border">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Клиент</p>
+            {order.customer_name && (
+              <div className="flex items-center gap-1.5">
+                <User size={10} className="text-muted-foreground shrink-0" />
+                <span className="text-[12px] font-semibold">{order.customer_name}</span>
+              </div>
+            )}
+            {order.customer_city && (
+              <div className="flex items-center gap-1.5">
+                <MapPin size={10} className="text-muted-foreground shrink-0" />
+                <span className="text-[11px] text-muted-foreground">{order.customer_city}</span>
+              </div>
+            )}
+            {order.customer_phone && (
+              <div className="flex items-center gap-1.5">
+                <Phone size={10} className="text-muted-foreground shrink-0" />
+                <a
+                  href={`tel:${order.customer_phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline"
+                >
+                  {order.customer_phone}
+                </a>
+              </div>
+            )}
+            {isPaid && pmLabel && (
+              <div className="flex items-center gap-1.5 pt-1 border-t border-border/60 mt-0.5">
+                <span className="text-[10px] leading-none">{pmIcon}</span>
+                <span className="text-[11px] text-muted-foreground">{pmLabel}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
