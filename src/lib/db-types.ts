@@ -72,6 +72,7 @@ export interface DbOrder {
   customer_comments: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_city: string | null;
   created_at: string;
   payment_method: string | null;
   payment_details: Record<string, number> | null;

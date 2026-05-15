@@ -404,6 +404,7 @@ export function CartDrawer({
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [phoneNumber, setPhoneNumber]         = useState("");
   const [customerName, setCustomerName]       = useState("");
+  const [customerCity, setCustomerCity]       = useState("");
   const [placedOrderId, setPlacedOrderId]     = useState<string | null>(null);
   const [reviewRating, setReviewRating]       = useState(0);
   const [reviewComment, setReviewComment]     = useState("");
@@ -475,12 +476,18 @@ export function CartDrawer({
     timingMode === "asap" ||
     (preorderDate !== "" && preorderTime !== "");
 
+  const preorderContactOk =
+    timingMode !== "preorder" ||
+    (customerName.trim().length > 0 &&
+      (orderType !== "dine-in" || (phoneNumber.trim().length > 0 && customerCity.trim().length > 0)));
+
   const canPlaceOrder =
     bankOk &&
     orderType !== null &&
     payment !== null &&
     phoneValid &&
     preorderOk &&
+    preorderContactOk &&
     (orderType === "dine-in"
       ? tableNumber.trim().length > 0
       : orderType === "delivery"
@@ -619,6 +626,7 @@ export function CartDrawer({
           customer_comments: notes.trim() || null,
           customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
           customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
+          customer_city: timingMode === "preorder" ? (customerCity.trim() || null) : null,
         });
         if (error) {
           setLoading(false);
@@ -648,6 +656,9 @@ export function CartDrawer({
           customer_comments: notes.trim() || null,
           customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
           customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
+          customer_city: timingMode === "preorder" && city
+            ? (KZ_CITIES.find((c) => c.id === city)?.[lang] ?? city)
+            : null,
         }).then(() => {});
       }
     }
@@ -1077,25 +1088,48 @@ export function CartDrawer({
                     />
                   </label>
                   {orderType === "dine-in" && (
-                    <label style={{ display: "block" }}>
-                      <span style={labelSectionStyle}>{tn("phoneLabel", lang)}</span>
-                      <input
-                        type="tel"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder={tn("phonePlaceholder", lang)}
-                        style={{
-                          display: "block", width: "100%", marginTop: SP.sm,
-                          padding: "13px 14px",
-                          background: surface,
-                          border: `1.5px solid ${phoneNumber.trim() ? textClr : border}`,
-                          borderRadius: R.md, color: textClr, fontSize: 15,
-                          outline: "none", boxSizing: "border-box",
-                          transition: "border-color 0.15s",
-                          fontFamily: "inherit",
-                        } as React.CSSProperties}
-                      />
-                    </label>
+                    <>
+                      <label style={{ display: "block", marginBottom: SP.md }}>
+                        <span style={labelSectionStyle}>{tn("phoneLabel", lang)}</span>
+                        <input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          placeholder={tn("phonePlaceholder", lang)}
+                          style={{
+                            display: "block", width: "100%", marginTop: SP.sm,
+                            padding: "13px 14px",
+                            background: surface,
+                            border: `1.5px solid ${phoneNumber.trim() ? textClr : border}`,
+                            borderRadius: R.md, color: textClr, fontSize: 15,
+                            outline: "none", boxSizing: "border-box",
+                            transition: "border-color 0.15s",
+                            fontFamily: "inherit",
+                          } as React.CSSProperties}
+                        />
+                      </label>
+                      <label style={{ display: "block" }}>
+                        <span style={labelSectionStyle}>
+                          {lang === "en" ? "City" : lang === "kz" ? "Қала" : "Город"}
+                        </span>
+                        <input
+                          type="text"
+                          value={customerCity}
+                          onChange={(e) => setCustomerCity(e.target.value)}
+                          placeholder={lang === "en" ? "Your city" : lang === "kz" ? "Сіздің қалаңыз" : "Ваш город"}
+                          style={{
+                            display: "block", width: "100%", marginTop: SP.sm,
+                            padding: "13px 14px",
+                            background: surface,
+                            border: `1.5px solid ${customerCity.trim() ? textClr : border}`,
+                            borderRadius: R.md, color: textClr, fontSize: 15,
+                            outline: "none", boxSizing: "border-box",
+                            transition: "border-color 0.15s",
+                            fontFamily: "inherit",
+                          } as React.CSSProperties}
+                        />
+                      </label>
+                    </>
                   )}
                 </div>
               )}

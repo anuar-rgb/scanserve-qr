@@ -3333,10 +3333,15 @@ function PreorderDayCard({
             )}
           </div>
 
-          {(order.customer_name || order.customer_phone || order.table_number) && (
+          {(order.customer_name || order.customer_phone || order.customer_city || order.table_number) && (
             <div className="flex items-center gap-2 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
               {order.customer_name && (
                 <span className="font-semibold text-foreground">{order.customer_name}</span>
+              )}
+              {order.customer_city && (
+                <span className="flex items-center gap-0.5">
+                  📍 {order.customer_city}
+                </span>
               )}
               {order.customer_phone && (
                 <a
@@ -3344,10 +3349,10 @@ function PreorderDayCard({
                   onClick={(e) => e.stopPropagation()}
                   className="flex items-center gap-0.5 text-violet-600 dark:text-violet-400 hover:underline"
                 >
-                  📱 {order.customer_phone}
+                  📞 {order.customer_phone}
                 </a>
               )}
-              {!order.customer_name && !order.customer_phone && order.table_number && (
+              {!order.customer_name && !order.customer_phone && !order.customer_city && order.table_number && (
                 <span>{order.table_number}</span>
               )}
             </div>
