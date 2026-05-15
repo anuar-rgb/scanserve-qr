@@ -1340,11 +1340,13 @@ function PaymentModal({
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
-  const total = order.total_price ?? 0;
+  const total      = order.total_price ?? 0;
+  const prepaid    = order.paid_amount ?? 0;
+  const balanceDue = Math.max(0, total - prepaid);
 
   const totalEntered = PAYMENT_METHODS.reduce((s, m) => s + (parseFloat(amounts[m.id]) || 0), 0);
-  const remaining    = total - totalEntered;
-  const isOverpaid   = totalEntered > total + 0.01;
+  const remaining    = balanceDue - totalEntered;
+  const isOverpaid   = totalEntered > balanceDue + 0.01;
   const isExact      = Math.abs(remaining) < 0.01;
   const canConfirm   = mixed ? (isExact && !isOverpaid) : singleMethod !== null;
 
@@ -1355,7 +1357,7 @@ function PaymentModal({
 
   function fillRemainder(id: PaymentMethodId) {
     const others = PAYMENT_METHODS.filter(m => m.id !== id).reduce((s, m) => s + (parseFloat(amounts[m.id]) || 0), 0);
-    const rem = total - others;
+    const rem = balanceDue - others;
     if (rem > 0) setAmounts(prev => ({ ...prev, [id]: String(Math.round(rem)) }));
   }
 
@@ -1409,13 +1411,35 @@ function PaymentModal({
         {/* Total */}
         <div className="px-5 pt-5 pb-4 text-center">
           {tableName && <p className="text-xs text-muted-foreground mb-1.5">Стол {tableName}</p>}
-          <p className="text-5xl font-black tabular-nums leading-none">{total.toLocaleString("ru-RU")} ₸</p>
-          {savedAmount > 0 && (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-1.5">
-              Скидка {savedAmount.toLocaleString("ru-RU")} ₸
-            </p>
+          {prepaid > 0 ? (
+            <>
+              <p className="text-3xl font-black tabular-nums leading-none text-muted-foreground/50 line-through">
+                {total.toLocaleString("ru-RU")} ₸
+              </p>
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold mt-1">
+                Предоплата −{prepaid.toLocaleString("ru-RU")} ₸
+              </p>
+              <p className="text-5xl font-black tabular-nums leading-none mt-2">
+                {balanceDue.toLocaleString("ru-RU")} ₸
+              </p>
+              {savedAmount > 0 && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-1.5">
+                  Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1.5">К оплате сейчас</p>
+            </>
+          ) : (
+            <>
+              <p className="text-5xl font-black tabular-nums leading-none">{total.toLocaleString("ru-RU")} ₸</p>
+              {savedAmount > 0 && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-1.5">
+                  Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1.5">К оплате</p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground mt-1.5">К оплате</p>
         </div>
 
         {/* Mode toggle */}
@@ -3423,18 +3447,35 @@ function PreorderDayCard({
             ))}
           </div>
 
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
-            <div>
+          <div className="pt-2 mt-2 border-t border-border space-y-1">
+            <div className="flex items-center justify-between">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Итого</p>
-              {savedAmount > 0 && (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                  — скидка {savedAmount.toLocaleString("ru-RU")} ₸
-                </p>
-              )}
+              <p className="text-sm font-black tabular-nums">{orderTotal.toLocaleString("ru-RU")} ₸</p>
             </div>
-            <p className="text-sm font-black tabular-nums">
-              {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
-            </p>
+            {savedAmount > 0 && (
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Скидка</p>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 tabular-nums">−{savedAmount.toLocaleString("ru-RU")} ₸</p>
+              </div>
+            )}
+            {paidAmount > 0 && (
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">Предоплата</p>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">−{paidAmount.toLocaleString("ru-RU")} ₸</p>
+              </div>
+            )}
+            {paidAmount > 0 && (
+              <div className={`flex items-center justify-between pt-1 border-t border-border/60 ${
+                fullyPrepaid ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+              }`}>
+                <p className="text-[11px] font-bold uppercase tracking-wide">
+                  {fullyPrepaid ? "Оплачено полностью" : "Частично оплачено"}
+                </p>
+                <p className="text-sm font-black tabular-nums">
+                  {fullyPrepaid ? "✓" : `${remaining.toLocaleString("ru-RU")} ₸`}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
