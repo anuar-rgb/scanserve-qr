@@ -1,12 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
   ShoppingBag, Clock, Calendar, MessageSquare, ChevronDown, ChevronUp,
-  CalendarDays, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
-import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
@@ -14,7 +12,7 @@ import { capFirst } from "@/lib/utils";
 import { RESTAURANT_ID } from "@/constants";
 
 type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string };
-type HistoryTab = "dine-in" | "takeaway" | "delivery" | "preorder";
+type HistoryTab = "dine-in" | "takeaway" | "delivery";
 
 function groupOrderItems<T extends { created_at?: string }>(
   items: T[],
@@ -33,11 +31,6 @@ function groupOrderItems<T extends { created_at?: string }>(
     }
   }
   return groups;
-}
-
-function getTodayStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function formatDateTime(iso: string): string {
@@ -78,114 +71,27 @@ const PREORDER_STATUS: Record<string, { label: string; cls: string }> = {
 export default function OrderHistoryPage() {
   const { t } = useTranslations();
 
-  const [orders, setOrders]                       = useState<DbOrder[]>([]);
-  const [preorders, setPreorders]                 = useState<DbOrder[]>([]);
-  const [upcomingPreorderCount, setUpcomingCount] = useState(0);
-  const [loading, setLoading]                     = useState(true);
-  const [calLoading, setCalLoading]               = useState(false);
-  const [activeTab, setActiveTab]                 = useState<HistoryTab>("dine-in");
-  const [search, setSearch]                       = useState("");
+  const [orders, setOrders]   = useState<DbOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<HistoryTab>("dine-in");
+  const [search, setSearch]   = useState("");
 
-  // Calendar state
-  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayStr());
-  const [calYear, setCalYear]           = useState(() => new Date().getFullYear());
-  const [calMonth, setCalMonth]         = useState(() => new Date().getMonth());
-
-  // Fetch preorders for a specific calendar month from Supabase
-  const loadPreordersForMonth = useCallback(async (year: number, month: number) => {
-    if (!isConfigured) return;
-    setCalLoading(true);
-    const from   = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-    const lastD  = new Date(year, month + 1, 0).getDate();
-    const to     = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastD).padStart(2, "0")}`;
-    const { data } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .eq("order_type", "preorder")
-      .gte("preorder_date", from)
-      .lte("preorder_date", to)
-      .order("preorder_date", { ascending: true });
-    setPreorders((data as DbOrder[]) ?? []);
-    setCalLoading(false);
-  }, []);
-
-  // Fetch completed orders (tabs 1–3) + upcoming preorder count (badge)
+  // Fetch completed orders
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
-    const todayStr = getTodayStr();
-    const [completedRes, countRes] = await Promise.all([
-      supabase
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("order_type", "preorder")
-        .gte("preorder_date", todayStr)
-        .neq("status", "completed")
-        .neq("status", "cancelled"),
-    ]);
+    const completedRes = await supabase
+      .from("orders")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(500);
     setOrders((completedRes.data as DbOrder[]) ?? []);
-    setUpcomingCount(countRes.count ?? 0);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  // Re-fetch month-specific preorders whenever the calendar month changes
-  // or when the user switches to the preorder tab
-  useEffect(() => {
-    if (activeTab === "preorder") {
-      loadPreordersForMonth(calYear, calMonth);
-    }
-  }, [calYear, calMonth, activeTab, loadPreordersForMonth]);
-
-  // Supabase Realtime: live updates for the preorder calendar view
-  useEffect(() => {
-    if (!isConfigured) return;
-    const from  = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
-    const lastD = new Date(calYear, calMonth + 1, 0).getDate();
-    const to    = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(lastD).padStart(2, "0")}`;
-
-    const channel = supabase
-      .channel(`preorders-${calYear}-${calMonth}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
-        (payload) => {
-          const rec = (payload.new ?? payload.old) as DbOrder;
-          if (rec.order_type !== "preorder") return;
-          if (payload.eventType === "INSERT") {
-            if (!rec.preorder_date || rec.preorder_date < from || rec.preorder_date > to) return;
-            setPreorders((prev) =>
-              [...prev, rec].sort((a, b) =>
-                (a.preorder_date ?? "").localeCompare(b.preorder_date ?? ""),
-              ),
-            );
-            // Also bump badge count if the date is today or future
-            if (rec.preorder_date >= getTodayStr() && rec.status !== "completed" && rec.status !== "cancelled") {
-              setUpcomingCount((c) => c + 1);
-            }
-          } else if (payload.eventType === "UPDATE") {
-            const updated = payload.new as DbOrder;
-            setPreorders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-          } else if (payload.eventType === "DELETE") {
-            const deleted = payload.old as DbOrder;
-            setPreorders((prev) => prev.filter((o) => o.id !== deleted.id));
-          }
-        },
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [calYear, calMonth]);
 
   const q = search.trim().toLowerCase();
 
@@ -214,22 +120,16 @@ export default function OrderHistoryPage() {
     "delivery": deliveryOrders,
   };
 
-  const visibleOrders = activeTab !== "preorder"
-    ? tabData[activeTab as "dine-in" | "takeaway" | "delivery"]
-    : [];
-
-  const todayStr = getTodayStr();
+  const visibleOrders = tabData[activeTab];
 
   const totalByTab = {
     "dine-in":  orders.filter((o) => o.type === "dine-in").length,
     "takeaway": orders.filter((o) => o.type === "takeaway" || o.type === "pickup").length,
     "delivery": orders.filter((o) => o.type === "delivery").length,
-    "preorder": upcomingPreorderCount,
   };
 
   function handleRefresh() {
     load();
-    if (activeTab === "preorder") loadPreordersForMonth(calYear, calMonth);
   }
 
   return (
@@ -270,7 +170,6 @@ export default function OrderHistoryPage() {
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении" },
           { id: "takeaway", icon: Package,          label: "С собой"     },
           { id: "delivery", icon: Bike,             label: "Доставка"    },
-          { id: "preorder", icon: CalendarDays,     label: "Предзаказы"  },
         ] as const).map(({ id, icon: Icon, label }) => {
           const count = totalByTab[id];
           return (
@@ -289,8 +188,6 @@ export default function OrderHistoryPage() {
                 <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
                   activeTab === id
                     ? "bg-violet-600 text-white"
-                    : id === "preorder"
-                    ? "bg-amber-500 text-white"
                     : "bg-muted text-muted-foreground"
                 }`}>
                   {count}
@@ -307,18 +204,6 @@ export default function OrderHistoryPage() {
           <Loader2 size={16} className="animate-spin" />
           Загрузка…
         </div>
-      ) : activeTab === "preorder" ? (
-        <PreorderCalendarView
-          preorders={preorders}
-          calLoading={calLoading}
-          todayStr={todayStr}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          calYear={calYear}
-          calMonth={calMonth}
-          setCalYear={setCalYear}
-          setCalMonth={setCalMonth}
-        />
       ) : visibleOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground">
           <ShoppingBag size={36} className="opacity-30" />
@@ -362,225 +247,6 @@ export default function OrderHistoryPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── PreorderCalendarView ──────────────────────────────────────────────────────
-
-function PreorderCalendarView({
-  preorders,
-  calLoading,
-  todayStr,
-  selectedDate,
-  setSelectedDate,
-  calYear,
-  calMonth,
-  setCalYear,
-  setCalMonth,
-}: {
-  preorders: DbOrder[];
-  calLoading: boolean;
-  todayStr: string;
-  selectedDate: string;
-  setSelectedDate: (d: string) => void;
-  calYear: number;
-  calMonth: number;
-  setCalYear: (y: number) => void;
-  setCalMonth: (m: number) => void;
-}) {
-  // Group by preorder_date
-  const byDate: Record<string, DbOrder[]> = {};
-  for (const o of preorders) {
-    if (o.preorder_date) {
-      if (!byDate[o.preorder_date]) byDate[o.preorder_date] = [];
-      byDate[o.preorder_date].push(o);
-    }
-  }
-
-  const firstDay   = new Date(calYear, calMonth, 1);
-  const lastDay    = new Date(calYear, calMonth + 1, 0);
-  const startDow   = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
-  const totalDays  = lastDay.getDate();
-  const totalCells = Math.ceil((startDow + totalDays) / 7) * 7;
-
-  const monthLabel = firstDay.toLocaleString("ru-RU", { month: "long", year: "numeric" });
-
-  function prevMonth() {
-    if (calMonth === 0) {
-      const newYear = calYear - 1;
-      setCalYear(newYear);
-      setCalMonth(11);
-      setSelectedDate(`${newYear}-12-01`);
-    } else {
-      const newMonth = calMonth - 1;
-      setCalMonth(newMonth);
-      setSelectedDate(`${calYear}-${String(newMonth + 1).padStart(2, "0")}-01`);
-    }
-  }
-
-  function nextMonth() {
-    if (calMonth === 11) {
-      const newYear = calYear + 1;
-      setCalYear(newYear);
-      setCalMonth(0);
-      setSelectedDate(`${newYear}-01-01`);
-    } else {
-      const newMonth = calMonth + 1;
-      setCalMonth(newMonth);
-      setSelectedDate(`${calYear}-${String(newMonth + 1).padStart(2, "0")}-01`);
-    }
-  }
-
-  const selectedOrders = [...(byDate[selectedDate] ?? [])].sort((a, b) =>
-    (a.preorder_time ?? "00:00").localeCompare(b.preorder_time ?? "00:00"),
-  );
-
-  const activeCount = preorders.filter(
-    (o) => o.status !== "completed" && o.status !== "cancelled",
-  ).length;
-
-  return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="flex gap-8 items-start" style={{ maxWidth: 900 }}>
-
-        {/* ── Calendar panel ── */}
-        <div className="w-72 shrink-0">
-          <div className="rounded-xl border border-border bg-card p-4">
-
-            {/* Month navigation */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={prevMonth}
-                className="p-1.5 rounded-lg hover:bg-accent transition-colors"
-              >
-                <ChevronLeft size={15} />
-              </button>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold capitalize">{monthLabel}</span>
-                {calLoading && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
-              </div>
-              <button
-                onClick={nextMonth}
-                className="p-1.5 rounded-lg hover:bg-accent transition-colors"
-              >
-                <ChevronRight size={15} />
-              </button>
-            </div>
-
-            {/* Day-of-week headers */}
-            <div className="grid grid-cols-7 mb-1">
-              {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d, i) => (
-                <div key={i} className="text-center text-[10px] font-semibold text-muted-foreground py-1">
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            {/* Day cells */}
-            <div className={`grid grid-cols-7 gap-0.5 transition-opacity duration-150 ${calLoading ? "opacity-40 pointer-events-none" : ""}`}>
-              {Array.from({ length: totalCells }).map((_, idx) => {
-                const dayNum = idx - startDow + 1;
-                if (dayNum < 1 || dayNum > totalDays) {
-                  return <div key={idx} className="aspect-square" />;
-                }
-                const dateStr   = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                const dayOrders = byDate[dateStr] ?? [];
-                const hasOrders  = dayOrders.length > 0;
-                const isToday    = dateStr === todayStr;
-                const isSelected = dateStr === selectedDate;
-                const hasPending = dayOrders.some(
-                  (o) => o.status !== "completed" && o.status !== "cancelled",
-                );
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedDate(dateStr)}
-                    className={`flex flex-col items-center justify-center aspect-square rounded-lg text-[13px] font-medium transition-colors ${
-                      isSelected
-                        ? "bg-violet-600 text-white"
-                        : isToday
-                        ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
-                        : "hover:bg-accent text-foreground"
-                    }`}
-                  >
-                    <span className="leading-none">{dayNum}</span>
-                    {hasOrders && (
-                      <span
-                        className={`w-1 h-1 rounded-full mt-0.5 ${
-                          isSelected ? "bg-white/70" :
-                          hasPending ? "bg-amber-500"  :
-                                       "bg-violet-400"
-                        }`}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Stats — scoped to this month */}
-            <div className="mt-4 pt-4 border-t border-border flex gap-5 text-xs text-muted-foreground">
-              <div>
-                <span className="font-bold text-base text-foreground">{preorders.length}</span>
-                <span className="ml-1">за месяц</span>
-              </div>
-              <div>
-                <span className="font-bold text-base text-amber-600 dark:text-amber-400">{activeCount}</span>
-                <span className="ml-1">активных</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Day detail ── */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-4 flex-wrap">
-            <h2 className="text-sm font-semibold">
-              {new Date(selectedDate + "T12:00:00").toLocaleDateString("ru-RU", {
-                weekday: "long", day: "numeric", month: "long", year: "numeric",
-              })}
-            </h2>
-            {selectedDate === todayStr && (
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 animate-pulse">
-                Сегодня
-              </span>
-            )}
-            {selectedOrders.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {selectedOrders.length} предзаказ{selectedOrders.length === 1 ? "" : selectedOrders.length < 5 ? "а" : "ов"}
-              </span>
-            )}
-          </div>
-
-          {calLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-              <Loader2 size={24} className="animate-spin opacity-40" />
-              <p className="text-sm">Загрузка предзаказов…</p>
-            </div>
-          ) : selectedOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-              <CalendarDays size={32} className="opacity-30" />
-              <p className="text-sm">Предзаказов на эту дату нет</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {selectedOrders.map((order) => (
-                <PreorderDayCard
-                  key={order.id}
-                  order={order}
-                  isActiveToday={
-                    selectedDate === todayStr &&
-                    order.status !== "completed" &&
-                    order.status !== "cancelled"
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -840,365 +506,3 @@ function HistoryCard({
   );
 }
 
-// ── PreorderDayCard ───────────────────────────────────────────────────────────
-// Receipt-style card for the calendar day-detail panel.
-// Header always visible; "Состав заказа" toggles on click.
-
-function PreorderDayCard({
-  order,
-  isActiveToday,
-}: {
-  order: DbOrder;
-  isActiveToday?: boolean;
-}) {
-  const [expanded, setExpanded]           = useState(false);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-
-  const items: OrderItem[] = Array.isArray(order.items_json)
-    ? (order.items_json as OrderItem[])
-    : [];
-  const savedAmount = items.reduce(
-    (s, it) => (it.original_price != null ? s + (it.original_price - it.price) * it.qty : s),
-    0,
-  );
-  const timeLabel     = order.preorder_time?.slice(0, 5) ?? null;
-  const isPaid        = !!order.payment_method;
-  const pmLabel       = order.payment_method === "mixed"
-    ? "Смешанная"
-    : (METHOD_META[order.payment_method ?? ""]?.label ?? (order.payment_method ? capFirst(order.payment_method) : null));
-  const pmIcon        = order.payment_method === "mixed"
-    ? "💳"
-    : (METHOD_META[order.payment_method ?? ""]?.icon ?? "💳");
-  const orderTotal    = order.total_price ?? 0;
-  const paidAmount    = order.paid_amount ?? 0;
-  const remaining     = Math.max(0, orderTotal - paidAmount);
-  const partiallyPaid = paidAmount > 0 && paidAmount < orderTotal;
-  const fullyPrepaid  = orderTotal > 0 && paidAmount >= orderTotal;
-
-  return (
-    <div className={`rounded-xl border overflow-hidden bg-card ${
-      isActiveToday ? "border-emerald-500 ring-1 ring-emerald-500" : "border-border"
-    }`}>
-
-      {/* ── Clickable receipt header ── */}
-      <div
-        className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer select-none hover:bg-accent/40 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {/* Time badge */}
-        <div className="shrink-0 flex flex-col items-center justify-center w-11 h-11 rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
-          {timeLabel ? (
-            <>
-              <span className="text-[12px] font-bold leading-tight">{timeLabel}</span>
-              <span className="text-[7px] opacity-50 uppercase tracking-wide">время</span>
-            </>
-          ) : (
-            <Clock size={14} />
-          )}
-        </div>
-
-        {/* Receipt body */}
-        <div className="flex-1 min-w-0">
-          {/* Row 1: ID + status + active badge */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[11px] font-semibold text-muted-foreground">
-              {shortId(order.id)}
-            </span>
-            {order.status && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${PREORDER_STATUS[order.status]?.cls ?? "bg-muted text-muted-foreground"}`}>
-                {PREORDER_STATUS[order.status]?.label ?? capFirst(order.status)}
-              </span>
-            )}
-            {isActiveToday && (
-              <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                </span>
-                Сегодня
-              </span>
-            )}
-          </div>
-
-          {/* Row 2: Guest contact */}
-          {(order.customer_name || order.customer_phone || order.table_number) && (
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
-              {order.customer_name && (
-                <span className="font-semibold text-foreground">{order.customer_name}</span>
-              )}
-              {order.customer_phone && (
-                <a
-                  href={`tel:${order.customer_phone}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-0.5 text-violet-600 dark:text-violet-400 hover:underline"
-                >
-                  📱 {order.customer_phone}
-                </a>
-              )}
-              {!order.customer_name && !order.customer_phone && order.table_number && (
-                <span>{order.table_number}</span>
-              )}
-            </div>
-          )}
-
-          {/* Row 3: Payment */}
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-            {isPaid ? (
-              <div className="flex items-center gap-1 text-[11px]">
-                <span className="leading-none">{pmIcon}</span>
-                <span className="text-foreground font-medium">{pmLabel}</span>
-                <span className="font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                  ✓ Оплачено
-                </span>
-              </div>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); setPaymentModalOpen(true); }}
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
-                  fullyPrepaid
-                    ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60"
-                    : partiallyPaid
-                    ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
-                    : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60"
-                }`}
-              >
-                {fullyPrepaid
-                  ? "✓ Полностью оплачено"
-                  : partiallyPaid
-                  ? `Оплачено ${paidAmount.toLocaleString("ru-RU")} ₸ · Остаток ${remaining.toLocaleString("ru-RU")} ₸`
-                  : "Ожидает оплаты"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Total + chevron */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="text-right">
-            <p className="text-sm font-bold tabular-nums leading-tight">
-              {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
-            </p>
-            {items.length > 0 && (
-              <p className="text-[10px] text-muted-foreground">{items.length} поз.</p>
-            )}
-          </div>
-          <div className="text-muted-foreground/60">
-            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </div>
-        </div>
-      </div>
-
-      {/* Comment — always visible, below header, outside the click zone */}
-      {order.customer_comments && (
-        <div className="px-3 pb-2">
-          <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
-            <MessageSquare size={11} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
-              {order.customer_comments}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Состав заказа — collapsible */}
-      {expanded && items.length > 0 && (
-        <div className="border-t border-border px-3 py-2.5 bg-muted/20">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            Состав заказа
-          </p>
-          <div className="rounded-lg border border-border overflow-hidden bg-card">
-            {items.map((item, i) => (
-              <div
-                key={i}
-                className={`flex justify-between items-start px-2.5 py-1.5 text-xs ${
-                  i < items.length - 1 ? "border-b border-border" : ""
-                }`}
-              >
-                <div className="min-w-0 flex-1 pr-2">
-                  <span className="text-muted-foreground">
-                    {capFirst(item.name)}
-                    <span className="ml-1 text-muted-foreground/50">×{item.qty}</span>
-                  </span>
-                  {item.note && (
-                    <p className="text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
-                      ✎ {item.note}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end shrink-0">
-                  {item.original_price != null && (
-                    <span className="text-[10px] text-muted-foreground/50 line-through tabular-nums">
-                      {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                    </span>
-                  )}
-                  <span className={`tabular-nums font-semibold ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                    {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Totals footer */}
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Итого</p>
-              {savedAmount > 0 && (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                  — скидка {savedAmount.toLocaleString("ru-RU")} ₸
-                </p>
-              )}
-            </div>
-            <p className="text-sm font-black tabular-nums">
-              {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
-            </p>
-          </div>
-        </div>
-      )}
-
-      {expanded && items.length === 0 && (
-        <div className="border-t border-border px-3 py-3 text-center text-[11px] text-muted-foreground bg-muted/20">
-          Состав заказа не указан
-        </div>
-      )}
-
-      {paymentModalOpen && (
-        <PaymentModal
-          order={order}
-          onClose={() => setPaymentModalOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── PaymentModal ──────────────────────────────────────────────────────────────
-
-function PaymentModal({
-  order,
-  onClose,
-}: {
-  order: DbOrder;
-  onClose: () => void;
-}) {
-  const total = order.total_price ?? 0;
-  const [paidInput, setPaidInput] = useState(String(order.paid_amount ?? 0));
-  const [saving, setSaving]       = useState(false);
-
-  const paidValue    = Math.max(0, parseFloat(paidInput) || 0);
-  const remaining    = Math.max(0, total - paidValue);
-  const fullyPaid    = paidValue >= total && total > 0;
-
-  async function handleSave() {
-    setSaving(true);
-    const { error } = await supabase
-      .from("orders")
-      .update({ paid_amount: paidValue })
-      .eq("id", order.id);
-    if (error) {
-      toast.error(error.message);
-      setSaving(false);
-    } else {
-      toast.success("Оплата обновлена");
-      onClose();
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card rounded-2xl border border-border p-5 w-full max-w-sm mx-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold">Управление оплатой</h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Order info */}
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
-          <div>
-            <p className="text-[11px] font-mono text-muted-foreground">{shortId(order.id)}</p>
-            {order.preorder_date && (
-              <p className="text-[11px] text-muted-foreground">
-                {order.preorder_date}
-                {order.preorder_time ? ` · ${order.preorder_time.slice(0, 5)}` : ""}
-              </p>
-            )}
-            {order.customer_name && (
-              <p className="text-[12px] font-semibold text-foreground mt-0.5">{order.customer_name}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Итого</p>
-            <p className="text-xl font-black tabular-nums">{total.toLocaleString("ru-RU")} ₸</p>
-          </div>
-        </div>
-
-        {/* Paid amount input */}
-        <div className="space-y-3 mb-4">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              Внесено (₸)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max={total}
-              value={paidInput}
-              onChange={(e) => setPaidInput(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-border bg-background text-base font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-              placeholder="0"
-              autoFocus
-            />
-          </div>
-
-          {/* Remaining row */}
-          <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${
-            fullyPaid
-              ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/30"
-              : "bg-muted/50"
-          }`}>
-            <span className="text-xs text-muted-foreground">Остаток</span>
-            <span className={`text-sm font-bold tabular-nums ${
-              fullyPaid
-                ? "text-emerald-600 dark:text-emerald-400"
-                : remaining > 0
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-muted-foreground"
-            }`}>
-              {fullyPaid ? "✓ Полностью оплачено" : `${remaining.toLocaleString("ru-RU")} ₸`}
-            </span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 h-9 rounded-xl border border-border text-sm font-medium hover:bg-accent transition-colors"
-          >
-            Отмена
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 h-9 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-          >
-            {saving && <Loader2 size={13} className="animate-spin" />}
-            {saving ? "Сохранение…" : "Сохранить"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
