@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
   ShoppingBag, Clock, Calendar, MessageSquare, ChevronDown, ChevronUp,
+  CalendarDays, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
@@ -12,7 +13,7 @@ import { capFirst } from "@/lib/utils";
 import { RESTAURANT_ID } from "@/constants";
 
 type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string };
-type HistoryTab = "dine-in" | "takeaway" | "delivery";
+type HistoryTab = "dine-in" | "takeaway" | "delivery" | "preorder";
 
 function groupOrderItems<T extends { created_at?: string }>(
   items: T[],
@@ -31,6 +32,11 @@ function groupOrderItems<T extends { created_at?: string }>(
     }
   }
   return groups;
+}
+
+function getTodayStr(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function formatDateTime(iso: string): string {
@@ -57,26 +63,51 @@ const METHOD_META: Record<string, { label: string; icon: string }> = {
   terminal: { label: "Карта (Терминал)", icon: "💳" },
 };
 
+const PREORDER_STATUS: Record<string, { label: string; cls: string }> = {
+  pending:   { label: "Ожидает",   cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"         },
+  confirmed: { label: "Принят",    cls: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"             },
+  preparing: { label: "Готовится", cls: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300"     },
+  ready:     { label: "Готов",     cls: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" },
+  completed: { label: "Завершён",  cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"               },
+  cancelled: { label: "Отменён",   cls: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"                },
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OrderHistoryPage() {
   const { t } = useTranslations();
-  const [orders, setOrders]   = useState<DbOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const [orders, setOrders]       = useState<DbOrder[]>([]);
+  const [preorders, setPreorders] = useState<DbOrder[]>([]);
+  const [loading, setLoading]     = useState(true);
   const [activeTab, setActiveTab] = useState<HistoryTab>("dine-in");
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]       = useState("");
+
+  // Calendar state
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayStr());
+  const [calYear, setCalYear]           = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth]         = useState(() => new Date().getMonth());
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    setOrders((data as DbOrder[]) ?? []);
+    const [completedRes, preorderRes] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("order_type", "preorder")
+        .order("preorder_date", { ascending: true }),
+    ]);
+    setOrders((completedRes.data as DbOrder[]) ?? []);
+    setPreorders((preorderRes.data as DbOrder[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -99,22 +130,30 @@ export default function OrderHistoryPage() {
     return false;
   }
 
-  const dineInOrders  = orders.filter((o) => o.type === "dine-in" && matchesSearch(o));
+  const dineInOrders   = orders.filter((o) => o.type === "dine-in" && matchesSearch(o));
   const takeawayOrders = orders.filter((o) => (o.type === "takeaway" || o.type === "pickup") && matchesSearch(o));
   const deliveryOrders = orders.filter((o) => o.type === "delivery" && matchesSearch(o));
 
-  const tabData: Record<HistoryTab, DbOrder[]> = {
+  const tabData: Record<"dine-in" | "takeaway" | "delivery", DbOrder[]> = {
     "dine-in":  dineInOrders,
     "takeaway": takeawayOrders,
     "delivery": deliveryOrders,
   };
 
-  const visibleOrders = tabData[activeTab];
+  const visibleOrders = activeTab !== "preorder"
+    ? tabData[activeTab as "dine-in" | "takeaway" | "delivery"]
+    : [];
+
+  const todayStr = getTodayStr();
+  const upcomingPreorderCount = preorders.filter(
+    (o) => o.preorder_date && o.preorder_date >= todayStr && o.status !== "completed" && o.status !== "cancelled",
+  ).length;
 
   const totalByTab = {
     "dine-in":  orders.filter((o) => o.type === "dine-in").length,
     "takeaway": orders.filter((o) => o.type === "takeaway" || o.type === "pickup").length,
     "delivery": orders.filter((o) => o.type === "delivery").length,
+    "preorder": upcomingPreorderCount,
   };
 
   return (
@@ -155,6 +194,7 @@ export default function OrderHistoryPage() {
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении" },
           { id: "takeaway", icon: Package,          label: "С собой"     },
           { id: "delivery", icon: Bike,             label: "Доставка"    },
+          { id: "preorder", icon: CalendarDays,     label: "Предзаказы"  },
         ] as const).map(({ id, icon: Icon, label }) => {
           const count = totalByTab[id];
           return (
@@ -173,6 +213,8 @@ export default function OrderHistoryPage() {
                 <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
                   activeTab === id
                     ? "bg-violet-600 text-white"
+                    : id === "preorder"
+                    ? "bg-amber-500 text-white"
                     : "bg-muted text-muted-foreground"
                 }`}>
                   {count}
@@ -189,6 +231,17 @@ export default function OrderHistoryPage() {
           <Loader2 size={16} className="animate-spin" />
           Загрузка…
         </div>
+      ) : activeTab === "preorder" ? (
+        <PreorderCalendarView
+          preorders={preorders}
+          todayStr={todayStr}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          calYear={calYear}
+          calMonth={calMonth}
+          setCalYear={setCalYear}
+          setCalMonth={setCalMonth}
+        />
       ) : visibleOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground">
           <ShoppingBag size={36} className="opacity-30" />
@@ -236,9 +289,210 @@ export default function OrderHistoryPage() {
   );
 }
 
+// ── PreorderCalendarView ──────────────────────────────────────────────────────
+
+function PreorderCalendarView({
+  preorders,
+  todayStr,
+  selectedDate,
+  setSelectedDate,
+  calYear,
+  calMonth,
+  setCalYear,
+  setCalMonth,
+}: {
+  preorders: DbOrder[];
+  todayStr: string;
+  selectedDate: string;
+  setSelectedDate: (d: string) => void;
+  calYear: number;
+  calMonth: number;
+  setCalYear: (y: number) => void;
+  setCalMonth: (m: number) => void;
+}) {
+  // Group by preorder_date
+  const byDate: Record<string, DbOrder[]> = {};
+  for (const o of preorders) {
+    if (o.preorder_date) {
+      if (!byDate[o.preorder_date]) byDate[o.preorder_date] = [];
+      byDate[o.preorder_date].push(o);
+    }
+  }
+
+  const firstDay  = new Date(calYear, calMonth, 1);
+  const lastDay   = new Date(calYear, calMonth + 1, 0);
+  const startDow  = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
+  const totalDays = lastDay.getDate();
+  const totalCells = Math.ceil((startDow + totalDays) / 7) * 7;
+
+  const monthLabel = firstDay.toLocaleString("ru-RU", { month: "long", year: "numeric" });
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
+    else setCalMonth(calMonth - 1);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
+    else setCalMonth(calMonth + 1);
+  }
+
+  const selectedOrders = [...(byDate[selectedDate] ?? [])].sort((a, b) =>
+    (a.preorder_time ?? "00:00").localeCompare(b.preorder_time ?? "00:00"),
+  );
+
+  const activeCount = preorders.filter(
+    (o) => o.status !== "completed" && o.status !== "cancelled",
+  ).length;
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex gap-8 items-start" style={{ maxWidth: 900 }}>
+
+        {/* ── Calendar panel ── */}
+        <div className="w-72 shrink-0">
+          <div className="rounded-xl border border-border bg-card p-4">
+
+            {/* Month navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={prevMonth}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <span className="text-sm font-semibold capitalize">{monthLabel}</span>
+              <button
+                onClick={nextMonth}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+
+            {/* Day-of-week headers */}
+            <div className="grid grid-cols-7 mb-1">
+              {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d, i) => (
+                <div key={i} className="text-center text-[10px] font-semibold text-muted-foreground py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Day cells */}
+            <div className="grid grid-cols-7 gap-0.5">
+              {Array.from({ length: totalCells }).map((_, idx) => {
+                const dayNum = idx - startDow + 1;
+                if (dayNum < 1 || dayNum > totalDays) {
+                  return <div key={idx} className="aspect-square" />;
+                }
+                const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+                const dayOrders  = byDate[dateStr] ?? [];
+                const hasOrders  = dayOrders.length > 0;
+                const isToday    = dateStr === todayStr;
+                const isSelected = dateStr === selectedDate;
+                const hasPending = dayOrders.some(
+                  (o) => o.status !== "completed" && o.status !== "cancelled",
+                );
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedDate(dateStr)}
+                    className={`flex flex-col items-center justify-center aspect-square rounded-lg text-[13px] font-medium transition-colors ${
+                      isSelected
+                        ? "bg-violet-600 text-white"
+                        : isToday
+                        ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                        : "hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    <span className="leading-none">{dayNum}</span>
+                    {hasOrders && (
+                      <span
+                        className={`w-1 h-1 rounded-full mt-0.5 ${
+                          isSelected ? "bg-white/70" :
+                          hasPending ? "bg-amber-500"  :
+                                       "bg-violet-400"
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stats */}
+            <div className="mt-4 pt-4 border-t border-border flex gap-5 text-xs text-muted-foreground">
+              <div>
+                <span className="font-bold text-base text-foreground">{preorders.length}</span>
+                <span className="ml-1">всего</span>
+              </div>
+              <div>
+                <span className="font-bold text-base text-amber-600 dark:text-amber-400">{activeCount}</span>
+                <span className="ml-1">активных</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Day detail ── */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <h2 className="text-sm font-semibold">
+              {new Date(selectedDate + "T12:00:00").toLocaleDateString("ru-RU", {
+                weekday: "long", day: "numeric", month: "long", year: "numeric",
+              })}
+            </h2>
+            {selectedDate === todayStr && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 animate-pulse">
+                Сегодня
+              </span>
+            )}
+            {selectedOrders.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {selectedOrders.length} предзаказ{selectedOrders.length === 1 ? "" : selectedOrders.length < 5 ? "а" : "ов"}
+              </span>
+            )}
+          </div>
+
+          {selectedOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <CalendarDays size={32} className="opacity-30" />
+              <p className="text-sm">Предзаказов на эту дату нет</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {selectedOrders.map((order) => (
+                <HistoryCard
+                  key={order.id}
+                  order={order}
+                  showStatus
+                  isActiveToday={
+                    selectedDate === todayStr &&
+                    order.status !== "completed" &&
+                    order.status !== "cancelled"
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── HistoryCard ───────────────────────────────────────────────────────────────
 
-function HistoryCard({ order }: { order: DbOrder }) {
+function HistoryCard({
+  order,
+  showStatus,
+  isActiveToday,
+}: {
+  order: DbOrder;
+  showStatus?: boolean;
+  isActiveToday?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -254,7 +508,9 @@ function HistoryCard({ order }: { order: DbOrder }) {
   const isPreorder = order.order_type === "preorder";
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className={`rounded-xl border overflow-hidden bg-card ${
+      isActiveToday ? "border-emerald-500 ring-1 ring-emerald-500" : "border-border"
+    }`}>
 
       {/* ── Card header ── */}
       <div
@@ -281,6 +537,20 @@ function HistoryCard({ order }: { order: DbOrder }) {
                 Предзаказ
               </span>
             )}
+            {isActiveToday && (
+              <span className="flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                Активен сегодня
+              </span>
+            )}
+            {showStatus && order.status && (
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PREORDER_STATUS[order.status]?.cls ?? "bg-muted text-muted-foreground"}`}>
+                {PREORDER_STATUS[order.status]?.label ?? capFirst(order.status)}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -290,7 +560,7 @@ function HistoryCard({ order }: { order: DbOrder }) {
                 {order.type === "dine-in" ? `Стол ${order.table_number}` : order.table_number}
               </span>
             )}
-            {/* Time */}
+            {/* Created time */}
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock size={10} />
               {formatDateTime(order.created_at)}
@@ -327,10 +597,7 @@ function HistoryCard({ order }: { order: DbOrder }) {
             )}
           </div>
           <div className="text-muted-foreground">
-            {expanded
-              ? <ChevronUp size={14} />
-              : <ChevronDown size={14} />
-            }
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </div>
         </div>
       </div>
