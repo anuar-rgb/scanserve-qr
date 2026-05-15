@@ -77,21 +77,44 @@ const PREORDER_STATUS: Record<string, { label: string; cls: string }> = {
 export default function OrderHistoryPage() {
   const { t } = useTranslations();
 
-  const [orders, setOrders]       = useState<DbOrder[]>([]);
-  const [preorders, setPreorders] = useState<DbOrder[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [activeTab, setActiveTab] = useState<HistoryTab>("dine-in");
-  const [search, setSearch]       = useState("");
+  const [orders, setOrders]                       = useState<DbOrder[]>([]);
+  const [preorders, setPreorders]                 = useState<DbOrder[]>([]);
+  const [upcomingPreorderCount, setUpcomingCount] = useState(0);
+  const [loading, setLoading]                     = useState(true);
+  const [calLoading, setCalLoading]               = useState(false);
+  const [activeTab, setActiveTab]                 = useState<HistoryTab>("dine-in");
+  const [search, setSearch]                       = useState("");
 
   // Calendar state
   const [selectedDate, setSelectedDate] = useState<string>(() => getTodayStr());
   const [calYear, setCalYear]           = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth]         = useState(() => new Date().getMonth());
 
+  // Fetch preorders for a specific calendar month from Supabase
+  const loadPreordersForMonth = useCallback(async (year: number, month: number) => {
+    if (!isConfigured) return;
+    setCalLoading(true);
+    const from   = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const lastD  = new Date(year, month + 1, 0).getDate();
+    const to     = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastD).padStart(2, "0")}`;
+    const { data } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("order_type", "preorder")
+      .gte("preorder_date", from)
+      .lte("preorder_date", to)
+      .order("preorder_date", { ascending: true });
+    setPreorders((data as DbOrder[]) ?? []);
+    setCalLoading(false);
+  }, []);
+
+  // Fetch completed orders (tabs 1–3) + upcoming preorder count (badge)
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
-    const [completedRes, preorderRes] = await Promise.all([
+    const todayStr = getTodayStr();
+    const [completedRes, countRes] = await Promise.all([
       supabase
         .from("orders")
         .select("*")
@@ -101,17 +124,27 @@ export default function OrderHistoryPage() {
         .limit(500),
       supabase
         .from("orders")
-        .select("*")
+        .select("id", { count: "exact", head: true })
         .eq("restaurant_id", RESTAURANT_ID)
         .eq("order_type", "preorder")
-        .order("preorder_date", { ascending: true }),
+        .gte("preorder_date", todayStr)
+        .neq("status", "completed")
+        .neq("status", "cancelled"),
     ]);
     setOrders((completedRes.data as DbOrder[]) ?? []);
-    setPreorders((preorderRes.data as DbOrder[]) ?? []);
+    setUpcomingCount(countRes.count ?? 0);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Re-fetch month-specific preorders whenever the calendar month changes
+  // or when the user switches to the preorder tab
+  useEffect(() => {
+    if (activeTab === "preorder") {
+      loadPreordersForMonth(calYear, calMonth);
+    }
+  }, [calYear, calMonth, activeTab, loadPreordersForMonth]);
 
   const q = search.trim().toLowerCase();
 
@@ -145,9 +178,6 @@ export default function OrderHistoryPage() {
     : [];
 
   const todayStr = getTodayStr();
-  const upcomingPreorderCount = preorders.filter(
-    (o) => o.preorder_date && o.preorder_date >= todayStr && o.status !== "completed" && o.status !== "cancelled",
-  ).length;
 
   const totalByTab = {
     "dine-in":  orders.filter((o) => o.type === "dine-in").length,
@@ -155,6 +185,11 @@ export default function OrderHistoryPage() {
     "delivery": orders.filter((o) => o.type === "delivery").length,
     "preorder": upcomingPreorderCount,
   };
+
+  function handleRefresh() {
+    load();
+    if (activeTab === "preorder") loadPreordersForMonth(calYear, calMonth);
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
@@ -179,7 +214,7 @@ export default function OrderHistoryPage() {
         </div>
 
         <button
-          onClick={load}
+          onClick={handleRefresh}
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-border hover:bg-accent transition-colors disabled:opacity-50 shrink-0"
         >
@@ -234,6 +269,7 @@ export default function OrderHistoryPage() {
       ) : activeTab === "preorder" ? (
         <PreorderCalendarView
           preorders={preorders}
+          calLoading={calLoading}
           todayStr={todayStr}
           selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
@@ -293,6 +329,7 @@ export default function OrderHistoryPage() {
 
 function PreorderCalendarView({
   preorders,
+  calLoading,
   todayStr,
   selectedDate,
   setSelectedDate,
@@ -302,6 +339,7 @@ function PreorderCalendarView({
   setCalMonth,
 }: {
   preorders: DbOrder[];
+  calLoading: boolean;
   todayStr: string;
   selectedDate: string;
   setSelectedDate: (d: string) => void;
@@ -319,21 +357,38 @@ function PreorderCalendarView({
     }
   }
 
-  const firstDay  = new Date(calYear, calMonth, 1);
-  const lastDay   = new Date(calYear, calMonth + 1, 0);
-  const startDow  = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
-  const totalDays = lastDay.getDate();
+  const firstDay   = new Date(calYear, calMonth, 1);
+  const lastDay    = new Date(calYear, calMonth + 1, 0);
+  const startDow   = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
+  const totalDays  = lastDay.getDate();
   const totalCells = Math.ceil((startDow + totalDays) / 7) * 7;
 
   const monthLabel = firstDay.toLocaleString("ru-RU", { month: "long", year: "numeric" });
 
   function prevMonth() {
-    if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
-    else setCalMonth(calMonth - 1);
+    if (calMonth === 0) {
+      const newYear = calYear - 1;
+      setCalYear(newYear);
+      setCalMonth(11);
+      setSelectedDate(`${newYear}-12-01`);
+    } else {
+      const newMonth = calMonth - 1;
+      setCalMonth(newMonth);
+      setSelectedDate(`${calYear}-${String(newMonth + 1).padStart(2, "0")}-01`);
+    }
   }
+
   function nextMonth() {
-    if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
-    else setCalMonth(calMonth + 1);
+    if (calMonth === 11) {
+      const newYear = calYear + 1;
+      setCalYear(newYear);
+      setCalMonth(0);
+      setSelectedDate(`${newYear}-01-01`);
+    } else {
+      const newMonth = calMonth + 1;
+      setCalMonth(newMonth);
+      setSelectedDate(`${calYear}-${String(newMonth + 1).padStart(2, "0")}-01`);
+    }
   }
 
   const selectedOrders = [...(byDate[selectedDate] ?? [])].sort((a, b) =>
@@ -360,7 +415,10 @@ function PreorderCalendarView({
               >
                 <ChevronLeft size={15} />
               </button>
-              <span className="text-sm font-semibold capitalize">{monthLabel}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold capitalize">{monthLabel}</span>
+                {calLoading && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
+              </div>
               <button
                 onClick={nextMonth}
                 className="p-1.5 rounded-lg hover:bg-accent transition-colors"
@@ -379,14 +437,14 @@ function PreorderCalendarView({
             </div>
 
             {/* Day cells */}
-            <div className="grid grid-cols-7 gap-0.5">
+            <div className={`grid grid-cols-7 gap-0.5 transition-opacity duration-150 ${calLoading ? "opacity-40 pointer-events-none" : ""}`}>
               {Array.from({ length: totalCells }).map((_, idx) => {
                 const dayNum = idx - startDow + 1;
                 if (dayNum < 1 || dayNum > totalDays) {
                   return <div key={idx} className="aspect-square" />;
                 }
-                const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                const dayOrders  = byDate[dateStr] ?? [];
+                const dateStr   = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+                const dayOrders = byDate[dateStr] ?? [];
                 const hasOrders  = dayOrders.length > 0;
                 const isToday    = dateStr === todayStr;
                 const isSelected = dateStr === selectedDate;
@@ -421,11 +479,11 @@ function PreorderCalendarView({
               })}
             </div>
 
-            {/* Stats */}
+            {/* Stats — scoped to this month */}
             <div className="mt-4 pt-4 border-t border-border flex gap-5 text-xs text-muted-foreground">
               <div>
                 <span className="font-bold text-base text-foreground">{preorders.length}</span>
-                <span className="ml-1">всего</span>
+                <span className="ml-1">за месяц</span>
               </div>
               <div>
                 <span className="font-bold text-base text-amber-600 dark:text-amber-400">{activeCount}</span>
@@ -455,7 +513,12 @@ function PreorderCalendarView({
             )}
           </div>
 
-          {selectedOrders.length === 0 ? (
+          {calLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <Loader2 size={24} className="animate-spin opacity-40" />
+              <p className="text-sm">Загрузка предзаказов…</p>
+            </div>
+          ) : selectedOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
               <CalendarDays size={32} className="opacity-30" />
               <p className="text-sm">Предзаказов на эту дату нет</p>
