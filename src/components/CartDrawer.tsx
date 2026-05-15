@@ -403,6 +403,7 @@ export function CartDrawer({
   const [citySearch, setCitySearch]           = useState("");
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [phoneNumber, setPhoneNumber]         = useState("");
+  const [customerName, setCustomerName]       = useState("");
   const [placedOrderId, setPlacedOrderId]     = useState<string | null>(null);
   const [reviewRating, setReviewRating]       = useState(0);
   const [reviewComment, setReviewComment]     = useState("");
@@ -616,6 +617,8 @@ export function CartDrawer({
           preorder_date: timingMode === "preorder" ? preorderDate : null,
           preorder_time: timingMode === "preorder" ? preorderTime : null,
           customer_comments: notes.trim() || null,
+          customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
+          customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
         });
         if (error) {
           setLoading(false);
@@ -643,6 +646,8 @@ export function CartDrawer({
           preorder_date: timingMode === "preorder" ? preorderDate : null,
           preorder_time: timingMode === "preorder" ? preorderTime : null,
           customer_comments: notes.trim() || null,
+          customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
+          customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
         }).then(() => {});
       }
     }
@@ -1044,6 +1049,54 @@ export function CartDrawer({
                       } as React.CSSProperties}
                     />
                   </label>
+                </div>
+              )}
+
+              {/* ── Preorder contact: name (always) + phone (dine-in only, already shown for pickup/delivery) ── */}
+              {timingMode === "preorder" && (
+                <div style={{ marginBottom: SP.lg }}>
+                  <label style={{ display: "block", marginBottom: SP.md }}>
+                    <span style={labelSectionStyle}>
+                      {lang === "en" ? "Your Name" : lang === "kz" ? "Есіміңіз" : "Ваше имя"}
+                    </span>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder={lang === "en" ? "Name for the reservation" : lang === "kz" ? "Брондауға арналған есім" : "Имя для брони"}
+                      style={{
+                        display: "block", width: "100%", marginTop: SP.sm,
+                        padding: "13px 14px",
+                        background: surface,
+                        border: `1.5px solid ${customerName.trim() ? textClr : border}`,
+                        borderRadius: R.md, color: textClr, fontSize: 15,
+                        outline: "none", boxSizing: "border-box",
+                        transition: "border-color 0.15s",
+                        fontFamily: "inherit",
+                      } as React.CSSProperties}
+                    />
+                  </label>
+                  {orderType === "dine-in" && (
+                    <label style={{ display: "block" }}>
+                      <span style={labelSectionStyle}>{tn("phoneLabel", lang)}</span>
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder={tn("phonePlaceholder", lang)}
+                        style={{
+                          display: "block", width: "100%", marginTop: SP.sm,
+                          padding: "13px 14px",
+                          background: surface,
+                          border: `1.5px solid ${phoneNumber.trim() ? textClr : border}`,
+                          borderRadius: R.md, color: textClr, fontSize: 15,
+                          outline: "none", boxSizing: "border-box",
+                          transition: "border-color 0.15s",
+                          fontFamily: "inherit",
+                        } as React.CSSProperties}
+                      />
+                    </label>
+                  )}
                 </div>
               )}
 

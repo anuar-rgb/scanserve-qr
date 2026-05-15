@@ -146,6 +146,46 @@ export default function OrderHistoryPage() {
     }
   }, [calYear, calMonth, activeTab, loadPreordersForMonth]);
 
+  // Supabase Realtime: live updates for the preorder calendar view
+  useEffect(() => {
+    if (!isConfigured) return;
+    const from  = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
+    const lastD = new Date(calYear, calMonth + 1, 0).getDate();
+    const to    = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(lastD).padStart(2, "0")}`;
+
+    const channel = supabase
+      .channel(`preorders-${calYear}-${calMonth}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        (payload) => {
+          const rec = (payload.new ?? payload.old) as DbOrder;
+          if (rec.order_type !== "preorder") return;
+          if (payload.eventType === "INSERT") {
+            if (!rec.preorder_date || rec.preorder_date < from || rec.preorder_date > to) return;
+            setPreorders((prev) =>
+              [...prev, rec].sort((a, b) =>
+                (a.preorder_date ?? "").localeCompare(b.preorder_date ?? ""),
+              ),
+            );
+            // Also bump badge count if the date is today or future
+            if (rec.preorder_date >= getTodayStr() && rec.status !== "completed" && rec.status !== "cancelled") {
+              setUpcomingCount((c) => c + 1);
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const updated = payload.new as DbOrder;
+            setPreorders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+          } else if (payload.eventType === "DELETE") {
+            const deleted = payload.old as DbOrder;
+            setPreorders((prev) => prev.filter((o) => o.id !== deleted.id));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [calYear, calMonth]);
+
   const q = search.trim().toLowerCase();
 
   function matchesSearch(o: DbOrder): boolean {
@@ -800,8 +840,8 @@ function HistoryCard({
 }
 
 // ── PreorderDayCard ───────────────────────────────────────────────────────────
-// Non-collapsible card for the calendar day-detail panel. Shows everything
-// immediately: status, comment, payment, and items list.
+// Receipt-style card for the calendar day-detail panel.
+// Header always visible; "Состав заказа" toggles on click.
 
 function PreorderDayCard({
   order,
@@ -810,6 +850,8 @@ function PreorderDayCard({
   order: DbOrder;
   isActiveToday?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const items: OrderItem[] = Array.isArray(order.items_json)
     ? (order.items_json as OrderItem[])
     : [];
@@ -819,134 +861,166 @@ function PreorderDayCard({
   );
   const timeLabel = order.preorder_time?.slice(0, 5) ?? null;
   const isPaid    = !!order.payment_method;
+  const pmLabel   = order.payment_method === "mixed"
+    ? "Смешанная"
+    : (METHOD_META[order.payment_method ?? ""]?.label ?? (order.payment_method ? capFirst(order.payment_method) : null));
+  const pmIcon    = order.payment_method === "mixed"
+    ? "💳"
+    : (METHOD_META[order.payment_method ?? ""]?.icon ?? "💳");
 
   return (
     <div className={`rounded-xl border overflow-hidden bg-card ${
       isActiveToday ? "border-emerald-500 ring-1 ring-emerald-500" : "border-border"
     }`}>
 
-      {/* Header */}
-      <div className="flex items-start gap-3 px-4 py-3.5">
+      {/* ── Clickable receipt header ── */}
+      <div
+        className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer select-none hover:bg-accent/40 transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
         {/* Time badge */}
-        <div className="shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+        <div className="shrink-0 flex flex-col items-center justify-center w-11 h-11 rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
           {timeLabel ? (
             <>
-              <span className="text-[13px] font-bold leading-tight">{timeLabel}</span>
-              <span className="text-[8px] opacity-60">время</span>
+              <span className="text-[12px] font-bold leading-tight">{timeLabel}</span>
+              <span className="text-[7px] opacity-50 uppercase tracking-wide">время</span>
             </>
           ) : (
-            <Clock size={16} />
+            <Clock size={14} />
           )}
         </div>
 
+        {/* Receipt body */}
         <div className="flex-1 min-w-0">
-          {/* Badges row */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs font-semibold text-muted-foreground">
+          {/* Row 1: ID + status + active badge */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-[11px] font-semibold text-muted-foreground">
               {shortId(order.id)}
             </span>
             {order.status && (
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PREORDER_STATUS[order.status]?.cls ?? "bg-muted text-muted-foreground"}`}>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${PREORDER_STATUS[order.status]?.cls ?? "bg-muted text-muted-foreground"}`}>
                 {PREORDER_STATUS[order.status]?.label ?? capFirst(order.status)}
               </span>
             )}
             {isActiveToday && (
-              <span className="flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+              <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                 </span>
-                Активен
+                Сегодня
               </span>
             )}
           </div>
 
-          {/* Info row */}
-          <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
-            {order.table_number && <span>{order.table_number}</span>}
-            <div className="flex items-center gap-1">
-              <Clock size={10} />
-              <span>Заказ: {formatDateTime(order.created_at)}</span>
+          {/* Row 2: Guest contact */}
+          {(order.customer_name || order.customer_phone || order.table_number) && (
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
+              {order.customer_name && (
+                <span className="font-semibold text-foreground">{order.customer_name}</span>
+              )}
+              {order.customer_phone && (
+                <a
+                  href={`tel:${order.customer_phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-0.5 text-violet-600 dark:text-violet-400 hover:underline"
+                >
+                  📱 {order.customer_phone}
+                </a>
+              )}
+              {!order.customer_name && !order.customer_phone && order.table_number && (
+                <span>{order.table_number}</span>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Payment row */}
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {/* Row 3: Payment */}
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {isPaid ? (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-sm leading-none">
-                  {order.payment_method === "mixed" ? "💳" : (METHOD_META[order.payment_method!]?.icon ?? "💳")}
-                </span>
-                <span className="font-medium text-foreground">
-                  {order.payment_method === "mixed" ? "Смешанная" : (METHOD_META[order.payment_method!]?.label ?? capFirst(order.payment_method!))}
-                </span>
-                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+              <div className="flex items-center gap-1 text-[11px]">
+                <span className="leading-none">{pmIcon}</span>
+                <span className="text-foreground font-medium">{pmLabel}</span>
+                <span className="font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                   ✓ Оплачено
                 </span>
               </div>
             ) : (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
-                Ожидает оплаты
-              </span>
+              <div className="flex items-center gap-1 text-[11px]">
+                {order.payment_method && pmLabel && (
+                  <>
+                    <span className="leading-none">{pmIcon}</span>
+                    <span className="text-muted-foreground">{pmLabel}</span>
+                    <span className="text-muted-foreground">·</span>
+                  </>
+                )}
+                <span className="font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                  Ожидает оплаты
+                </span>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Total */}
-        <div className="text-right shrink-0">
-          <p className="text-base font-bold tabular-nums">
-            {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
-          </p>
-          {items.length > 0 && (
-            <p className="text-[11px] text-muted-foreground">{items.length} позиц.</p>
-          )}
+        {/* Total + chevron */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="text-right">
+            <p className="text-sm font-bold tabular-nums leading-tight">
+              {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+            </p>
+            {items.length > 0 && (
+              <p className="text-[10px] text-muted-foreground">{items.length} поз.</p>
+            )}
+          </div>
+          <div className="text-muted-foreground/60">
+            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </div>
         </div>
       </div>
 
-      {/* Comment — always visible */}
+      {/* Comment — always visible, below header, outside the click zone */}
       {order.customer_comments && (
-        <div className="px-4 pb-3">
-          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
-            <MessageSquare size={12} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[12px] text-amber-800 dark:text-amber-300 leading-snug">
+        <div className="px-3 pb-2">
+          <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
+            <MessageSquare size={11} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
               {order.customer_comments}
             </p>
           </div>
         </div>
       )}
 
-      {/* Items list — always visible */}
-      {items.length > 0 && (
-        <div className="border-t border-border px-4 py-3 bg-muted/20">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+      {/* Состав заказа — collapsible */}
+      {expanded && items.length > 0 && (
+        <div className="border-t border-border px-3 py-2.5 bg-muted/20">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
             Состав заказа
           </p>
-          <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <div className="rounded-lg border border-border overflow-hidden bg-card">
             {items.map((item, i) => (
               <div
                 key={i}
-                className={`flex justify-between items-start px-3 py-2 text-sm ${
+                className={`flex justify-between items-start px-2.5 py-1.5 text-xs ${
                   i < items.length - 1 ? "border-b border-border" : ""
                 }`}
               >
-                <div>
+                <div className="min-w-0 flex-1 pr-2">
                   <span className="text-muted-foreground">
                     {capFirst(item.name)}
-                    <span className="ml-1.5 text-muted-foreground/60">× {item.qty}</span>
+                    <span className="ml-1 text-muted-foreground/50">×{item.qty}</span>
                   </span>
                   {item.note && (
-                    <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                    <p className="text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                       ✎ {item.note}
                     </p>
                   )}
                 </div>
                 <div className="flex flex-col items-end shrink-0">
                   {item.original_price != null && (
-                    <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                    <span className="text-[10px] text-muted-foreground/50 line-through tabular-nums">
                       {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
                     </span>
                   )}
-                  <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                  <span className={`tabular-nums font-semibold ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
                     {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
                   </span>
                 </div>
@@ -954,20 +1028,26 @@ function PreorderDayCard({
             ))}
           </div>
 
-          {/* Total row */}
-          <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
+          {/* Totals footer */}
+          <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
             <div>
-              <p className="text-sm font-semibold text-muted-foreground">Итого</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Итого</p>
               {savedAmount > 0 && (
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                  Скидка {savedAmount.toLocaleString("ru-RU")} ₸
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                  — скидка {savedAmount.toLocaleString("ru-RU")} ₸
                 </p>
               )}
             </div>
-            <p className="text-lg font-black tabular-nums">
+            <p className="text-sm font-black tabular-nums">
               {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
             </p>
           </div>
+        </div>
+      )}
+
+      {expanded && items.length === 0 && (
+        <div className="border-t border-border px-3 py-3 text-center text-[11px] text-muted-foreground bg-muted/20">
+          Состав заказа не указан
         </div>
       )}
     </div>

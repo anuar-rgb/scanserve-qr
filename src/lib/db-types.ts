@@ -70,6 +70,8 @@ export interface DbOrder {
   preorder_date: string | null;
   preorder_time: string | null;
   customer_comments: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
   created_at: string;
   payment_method: string | null;
   payment_details: Record<string, number> | null;
