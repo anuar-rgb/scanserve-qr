@@ -2366,6 +2366,7 @@ function PosMenuBrowser({
   const [openIngredients, setOpenIngredients]                = useState<Set<string>>(new Set());
   const [editingNoteId, setEditingNoteId]   = useState<string | null>(null);
   const [noteInput, setNoteInput]           = useState("");
+  const [localExisting, setLocalExisting]   = useState<OrderItem[]>(existingItems ?? []);
   const { width: cartW, startResize: startCartResize }       = usePanelResize("hall:cartPanel", 360, 260, 520);
 
   function toggleIngredients(id: string) {
@@ -2373,6 +2374,15 @@ function PosMenuBrowser({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
+    });
+  }
+
+  function decrementExisting(idx: number) {
+    setLocalExisting((prev) => {
+      const item = prev[idx];
+      if (!item) return prev;
+      if (item.qty <= 1) return prev.filter((_, i) => i !== idx);
+      return prev.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it);
     });
   }
 
@@ -2444,9 +2454,9 @@ function PosMenuBrowser({
   const cartItems = Array.from(cart.values());
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
-  const existingTotal = (existingItems ?? []).reduce((s, i) => s + i.price * i.qty, 0);
-  const existingGroups = existingItems?.length
-    ? groupOrderItems(existingItems, orderCreatedAt ?? new Date().toISOString())
+  const existingTotal = localExisting.reduce((s, i) => s + i.price * i.qty, 0);
+  const existingGroups = localExisting.length
+    ? groupOrderItems(localExisting, orderCreatedAt ?? new Date().toISOString())
     : [];
   const newGroups = groupCartByTime(cartItems);
 
@@ -2470,16 +2480,16 @@ function PosMenuBrowser({
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   async function handleConfirm() {
-    if (cartItems.length === 0) return;
+    if (localExisting.length === 0 && cartItems.length === 0) return;
     setConfirming(true);
-    const items: OrderItem[] = cartItems.map((ci) => {
+    const newItems: OrderItem[] = cartItems.map((ci) => {
       const prod = productMap.get(ci.productId);
       const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", created_at: ci.addedAt };
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
       if (ci.note) item.note = ci.note;
       return item;
     });
-    await onConfirm(items);
+    await onConfirm([...localExisting, ...newItems]);
     setConfirming(false);
   }
 
@@ -2707,16 +2717,25 @@ function PosMenuBrowser({
                       </div>
                     )}
                     <div className="space-y-1 mb-2">
-                      {group.items.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-1 opacity-55">
-                          <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
-                          <span className="flex-1 min-w-0 text-[10px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
-                          <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
-                          <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
-                            {(item.price * item.qty).toLocaleString("ru-RU")} ₸
-                          </span>
-                        </div>
-                      ))}
+                      {group.items.map((item, idx) => {
+                        const existingIdx = localExisting.indexOf(item);
+                        return (
+                          <div key={idx} className="flex items-center gap-1 opacity-75">
+                            <button
+                              onClick={() => decrementExisting(existingIdx)}
+                              className="w-5 h-5 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                            >
+                              <Minus size={8} />
+                            </button>
+                            <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+                            <span className="flex-1 min-w-0 text-[10px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
+                            <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
+                            <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
+                              {(item.price * item.qty).toLocaleString("ru-RU")} ₸
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -2813,7 +2832,7 @@ function PosMenuBrowser({
             </div>
             <button
               onClick={handleConfirm}
-              disabled={confirming || cartItems.length === 0}
+              disabled={confirming || (localExisting.length === 0 && cartItems.length === 0)}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
             >
               {confirming
@@ -2831,7 +2850,7 @@ function PosMenuBrowser({
           <div className="px-3 pt-2 pb-1 max-h-28 overflow-y-auto admin-scroll space-y-1">
             {existingGroups.length > 0 && (
               <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60 pb-0.5">
-                Уже в заказе ({existingItems!.reduce((s, i) => s + i.qty, 0)} поз.)
+                Уже в заказе ({localExisting.reduce((s, i) => s + i.qty, 0)} поз.)
               </p>
             )}
             {newGroups.map((group, gi) => (
@@ -2890,13 +2909,13 @@ function PosMenuBrowser({
         <div className="px-3 pb-3 pt-2 flex items-center gap-3">
           <span className="flex-1 text-xs text-muted-foreground">
             {cartItems.length === 0
-              ? (existingItems?.length ? `${existingItems.reduce((s, i) => s + i.qty, 0)} поз. в заказе` : "Выберите блюда")
+              ? (localExisting.length ? `${localExisting.reduce((s, i) => s + i.qty, 0)} поз. в заказе` : "Выберите блюда")
               : `+${cartCount} новых · ${(cartTotal + existingTotal).toLocaleString("ru-RU")} ₸`
             }
           </span>
           <button
             onClick={handleConfirm}
-            disabled={confirming || cartItems.length === 0}
+            disabled={confirming || (localExisting.length === 0 && cartItems.length === 0)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
           >
             {confirming
@@ -3253,12 +3272,11 @@ function MenuPickerModal({
   onDone: () => void;
   onClose: () => void;
 }) {
-  async function handleConfirm(newItems: OrderItem[]) {
-    const merged = [...existingItems, ...newItems];
-    const total  = merged.reduce((s, it) => s + it.price * it.qty, 0);
-    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: merged, total_price: total }).eq("id", orderId);
-    if (error) { toast.error("Ошибка добавления"); return; }
-    toast.success(`${newItems.reduce((s, it) => s + it.qty, 0)} позиц. добавлено в чек`);
+  async function handleConfirm(allItems: OrderItem[]) {
+    const total = allItems.reduce((s, it) => s + it.price * it.qty, 0);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: allItems, total_price: total }).eq("id", orderId);
+    if (error) { toast.error("Ошибка сохранения"); return; }
+    toast.success("Чек обновлён");
     onDone();
   }
 
