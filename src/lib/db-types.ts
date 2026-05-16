@@ -77,6 +77,7 @@ export interface DbOrder {
   payment_method: string | null;
   payment_details: Record<string, number> | null;
   paid_amount: number | null;
+  prepayment_method: string | null;
   closed_at: string | null;
 }
 

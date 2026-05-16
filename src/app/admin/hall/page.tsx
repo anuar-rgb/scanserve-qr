@@ -1556,8 +1556,14 @@ function PaymentModal({
               <p className="text-3xl font-black tabular-nums leading-none text-muted-foreground/50 line-through">
                 {total.toLocaleString("ru-RU")} ₸
               </p>
-              <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold mt-1">
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold mt-1 flex items-center justify-center gap-1">
+                {order.prepayment_method && METHOD_META[order.prepayment_method] && (
+                  <span className="leading-none">{METHOD_META[order.prepayment_method].icon}</span>
+                )}
                 Предоплата −{prepaid.toLocaleString("ru-RU")} ₸
+                {order.prepayment_method && METHOD_META[order.prepayment_method] && (
+                  <span className="text-[11px] font-normal text-muted-foreground">({METHOD_META[order.prepayment_method].label})</span>
+                )}
               </p>
               <p className="text-5xl font-black tabular-nums leading-none mt-2">
                 {balanceDue.toLocaleString("ru-RU")} ₸
@@ -3427,11 +3433,14 @@ function PreorderDayCard({
   const pmIcon        = order.payment_method === "mixed"
     ? "💳"
     : (METHOD_META[order.payment_method ?? ""]?.icon ?? "💳");
-  const orderTotal    = order.total_price ?? 0;
-  const paidAmount    = order.paid_amount ?? 0;
-  const remaining     = Math.max(0, orderTotal - paidAmount);
-  const partiallyPaid = paidAmount > 0 && paidAmount < orderTotal;
-  const fullyPrepaid  = orderTotal > 0 && paidAmount >= orderTotal;
+  const orderTotal       = order.total_price ?? 0;
+  const paidAmount       = order.paid_amount ?? 0;
+  const remaining        = Math.max(0, orderTotal - paidAmount);
+  const partiallyPaid    = paidAmount > 0 && paidAmount < orderTotal;
+  const fullyPrepaid     = orderTotal > 0 && paidAmount >= orderTotal;
+  const prepayMethodMeta = order.prepayment_method ? METHOD_META[order.prepayment_method] : null;
+  const prepayIcon       = prepayMethodMeta?.icon ?? null;
+  const prepayLabel      = prepayMethodMeta?.label ?? (order.prepayment_method ? capFirst(order.prepayment_method) : null);
 
   return (
     <div className={`rounded-xl border overflow-hidden bg-card ${
@@ -3519,9 +3528,9 @@ function PreorderDayCard({
                 }`}
               >
                 {fullyPrepaid
-                  ? "✓ Полностью оплачено"
+                  ? `✓ Полностью оплачено${prepayIcon ? ` · ${prepayIcon}` : ""}`
                   : partiallyPaid
-                  ? `Оплачено ${paidAmount.toLocaleString("ru-RU")} ₸ · Остаток ${remaining.toLocaleString("ru-RU")} ₸`
+                  ? `Внесено: ${paidAmount.toLocaleString("ru-RU")} ₸${prepayIcon ? ` ${prepayIcon}` : prepayLabel ? ` (${prepayLabel})` : ""} · Остаток: ${remaining.toLocaleString("ru-RU")} ₸`
                   : "Ожидает оплаты"}
               </button>
             )}
@@ -3643,7 +3652,10 @@ function PreorderDayCard({
             )}
             {paidAmount > 0 && (
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-amber-600 dark:text-amber-400">Предоплата</p>
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  {prepayIcon && <span className="leading-none">{prepayIcon}</span>}
+                  {prepayLabel ? `Предоплата (${prepayLabel})` : "Предоплата"}
+                </p>
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">−{paidAmount.toLocaleString("ru-RU")} ₸</p>
               </div>
             )}
@@ -3652,7 +3664,7 @@ function PreorderDayCard({
                 fullyPrepaid ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
               }`}>
                 <p className="text-[11px] font-bold uppercase tracking-wide">
-                  {fullyPrepaid ? "Оплачено полностью" : "Частично оплачено"}
+                  {fullyPrepaid ? "Оплачено полностью" : "К оплате"}
                 </p>
                 <p className="text-sm font-black tabular-nums">
                   {fullyPrepaid ? "✓" : `${remaining.toLocaleString("ru-RU")} ₸`}
@@ -3689,18 +3701,24 @@ function PreorderPaymentModal({
   onClose: () => void;
 }) {
   const total = order.total_price ?? 0;
-  const [paidInput, setPaidInput] = useState(String(order.paid_amount ?? 0));
-  const [saving, setSaving]       = useState(false);
+  const [paidInput, setPaidInput]       = useState(String(order.paid_amount ?? 0));
+  const [prepayMethod, setPrepayMethod] = useState<string | null>(order.prepayment_method ?? null);
+  const [saving, setSaving]             = useState(false);
 
   const paidValue = Math.max(0, parseFloat(paidInput) || 0);
   const remaining = Math.max(0, total - paidValue);
   const fullyPaid = paidValue >= total && total > 0;
+  const canSave   = paidValue > 0 ? prepayMethod !== null : true;
 
   async function handleSave() {
+    if (!canSave || saving) return;
     setSaving(true);
     const { error } = await supabase
       .from("orders")
-      .update({ paid_amount: paidValue })
+      .update({
+        paid_amount: paidValue,
+        prepayment_method: paidValue > 0 ? prepayMethod : null,
+      })
       .eq("id", order.id);
     if (error) {
       toast.error(error.message);
@@ -3762,6 +3780,36 @@ function PreorderPaymentModal({
               autoFocus
             />
           </div>
+
+          {/* Payment method selector — required when paidValue > 0 */}
+          {paidValue > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Способ оплаты
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPrepayMethod(m.id)}
+                    className={`flex items-center justify-center gap-1.5 h-9 rounded-xl border-2 text-xs font-semibold transition-all ${
+                      prepayMethod === m.id
+                        ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                        : "border-border hover:border-violet-300 hover:bg-accent/60 text-foreground"
+                    }`}
+                  >
+                    <span className="text-base leading-none">{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                ))}
+              </div>
+              {prepayMethod === null && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">Выберите способ оплаты</p>
+              )}
+            </div>
+          )}
+
           <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${
             fullyPaid
               ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/30"
@@ -3789,7 +3837,7 @@ function PreorderPaymentModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !canSave}
             className="flex-1 h-9 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             {saving && <Loader2 size={13} className="animate-spin" />}
