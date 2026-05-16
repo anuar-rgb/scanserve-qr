@@ -135,3 +135,17 @@ export interface DbPaymentBank {
   order_index: number;
   created_at: string;
 }
+
+export interface DbShift {
+  id: string;
+  restaurant_id: string;
+  opened_at: string;
+  closed_at: string | null;
+  status: "open" | "closed";
+  total_revenue: number | null;
+  orders_count: number | null;
+  revenue_by_type: Record<string, number> | null;
+  revenue_by_payment: Record<string, number> | null;
+  prepayments_total: number | null;
+  created_at: string;
+}
