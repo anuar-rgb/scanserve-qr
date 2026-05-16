@@ -504,11 +504,14 @@ export default function HallPage() {
   const selectedData   = selected ? tablesWithStatus.find((t) => t.table.id === selected) ?? null : null;
   const { width: tablePanelW, startResize: startTableResize } = usePanelResize("hall:tablePanel", 500, 280, 720);
 
+  // Active order = instant order OR preorder scheduled for today
+  const isActiveOrder = (o: DbOrder) => o.order_type !== "preorder" || o.preorder_date === today;
+
   const takeawayOrders = orders
-    .filter((o) => o.type !== "dine-in" && o.type !== "delivery")
+    .filter((o) => o.type !== "dine-in" && o.type !== "delivery" && isActiveOrder(o))
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const deliveryOrders = orders
-    .filter((o) => o.type === "delivery")
+    .filter((o) => o.type === "delivery" && isActiveOrder(o))
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   // For the dine-in floor plan: badges showing preorders on calSelectedDate

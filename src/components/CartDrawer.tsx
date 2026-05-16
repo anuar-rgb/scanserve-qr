@@ -345,6 +345,20 @@ function buildWhatsAppUrl(
   return `https://wa.me/${cleanPhone}?text=${text}`;
 }
 
+function localDateISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatPreorderDate(dateStr: string, lang: Lang): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const ru = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+  const kz = ["қан","ақп","нау","сәу","мам","мау","шіл","там","қыр","қаз","қар","жел"];
+  const en = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const names = lang === "kz" ? kz : lang === "en" ? en : ru;
+  return `${day} ${names[month - 1]} ${year}`;
+}
+
 // ── CartDrawer component ──────────────────────────────────────────────────────
 
 export interface CartDrawerProps {
@@ -1029,7 +1043,7 @@ export function CartDrawer({
                     <input
                       type="date"
                       value={preorderDate}
-                      min={new Date().toISOString().split("T")[0]}
+                      min={localDateISO()}
                       onChange={(e) => setPreorderDate(e.target.value)}
                       style={{
                         display: "block", width: "100%", marginTop: SP.sm,
@@ -1061,6 +1075,29 @@ export function CartDrawer({
                       } as React.CSSProperties}
                     />
                   </label>
+                </div>
+              )}
+
+              {/* ── Preorder confirmation summary ── */}
+              {timingMode === "preorder" && preorderDate && preorderTime && (
+                <div style={{
+                  marginBottom: SP.lg, padding: SP.md,
+                  background: isDark ? "rgba(96,165,250,0.1)" : "rgba(37,99,235,0.07)",
+                  borderRadius: R.md,
+                  border: `1.5px solid ${isDark ? "rgba(96,165,250,0.35)" : "rgba(37,99,235,0.25)"}`,
+                  display: "flex", alignItems: "center", gap: SP.sm,
+                }}>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>📅</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: isDark ? "rgba(147,197,253,0.85)" : "rgba(37,99,235,0.75)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      {lang === "en" ? "Pre-order" : lang === "kz" ? "Алдын ала тапсырыс" : "Вы делаете предзаказ на:"}
+                    </p>
+                    <p style={{ margin: "3px 0 0", fontSize: 16, fontWeight: 800, color: textClr }}>
+                      {formatPreorderDate(preorderDate, lang)}{" "}
+                      <span style={{ fontWeight: 500, color: muted }}>{lang === "en" ? "at" : lang === "kz" ? "сағат" : "в"}</span>{" "}
+                      {preorderTime}
+                    </p>
+                  </div>
                 </div>
               )}
 
