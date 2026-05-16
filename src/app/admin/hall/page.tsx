@@ -1805,6 +1805,9 @@ function TablePanel({
     ? (activeOrder!.items_json as OrderItem[])
     : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
+  const prepaid    = activeOrder?.paid_amount ?? 0;
+  const balanceDue = Math.max(0, (activeOrder?.total_price ?? 0) - prepaid);
+  const prepayMeta = activeOrder?.prepayment_method ? METHOD_META[activeOrder.prepayment_method] : null;
 
   // ── Order creation mode ──────────────────────────────────────────────────────
   if (panelMode === "order") {
@@ -2235,18 +2238,40 @@ function TablePanel({
             )}
 
             {/* Total */}
-            <div className="flex items-center justify-between px-1">
-              <div>
-                <p className="text-sm font-semibold">Итого</p>
-                {savedAmount > 0 && (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    Скидка {savedAmount.toLocaleString("ru-RU")} ₸
-                  </p>
-                )}
+            <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Итого</span>
+                <span className={`text-xs font-semibold tabular-nums ${prepaid > 0 ? "text-muted-foreground/50 line-through" : ""}`}>
+                  {(activeOrder.total_price ?? 0).toLocaleString("ru-RU")} ₸
+                </span>
               </div>
-              <p className="text-2xl font-black tabular-nums">
-                {(activeOrder.total_price ?? 0).toLocaleString("ru-RU")} ₸
-              </p>
+              {savedAmount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400">Скидка</span>
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">
+                    −{savedAmount.toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+              )}
+              {prepaid > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    {prepayMeta
+                      ? <>{prepayMeta.icon} Предоплата <span className="text-muted-foreground/60">({prepayMeta.label})</span></>
+                      : "Предоплата"
+                    }
+                  </span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums font-semibold">
+                    −{prepaid.toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1.5 border-t border-border/60">
+                <span className="text-sm font-bold">{prepaid > 0 ? "Остаток" : "К оплате"}</span>
+                <span className={`text-2xl font-black tabular-nums ${prepaid > 0 ? "text-violet-600 dark:text-violet-400" : ""}`}>
+                  {(prepaid > 0 ? balanceDue : (activeOrder.total_price ?? 0)).toLocaleString("ru-RU")} ₸
+                </span>
+              </div>
             </div>
 
             {/* Close order */}
@@ -2255,7 +2280,8 @@ function TablePanel({
                 onClick={() => setShowPaymentModal(true)}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
               >
-                <Check size={15} /> Оплатить
+                <Check size={15} />
+                {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
               </button>
             )}
 
