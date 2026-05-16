@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2, Star } from "lucide-react";
+import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2, Star, Copy } from "lucide-react";
 import { resolve, type Lang, type Dish, type PaymentInfo } from "./MenuTemplate";
 import { supabase, isConfigured } from "@/lib/supabase";
+import { fetchPaymentBanks } from "@/lib/fetch-menu";
+import type { DbPaymentBank } from "@/lib/db-types";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 
@@ -428,13 +430,15 @@ export function CartDrawer({
   const [occupiedLabels, setOccupiedLabels]   = useState<Set<string>>(new Set());
   const [tablesLoading, setTablesLoading]     = useState(false);
   const [subTableConfirmBase, setSubTableConfirmBase] = useState<string | null>(null);
+  const [paymentBanks, setPaymentBanks]               = useState<DbPaymentBank[]>([]);
+  const [copiedIdx, setCopiedIdx]                     = useState<number | null>(null);
 
   useEffect(() => {
     if (!open || !isConfigured) return;
     let cancelled = false;
-    async function fetchTables() {
+    async function fetchData() {
       setTablesLoading(true);
-      const [tablesRes, ordersRes] = await Promise.all([
+      const [tablesRes, ordersRes, banks] = await Promise.all([
         supabase
           .from(DB_TABLES.restaurantTables)
           .select("id, label, seats")
@@ -447,15 +451,17 @@ export function CartDrawer({
           .eq("restaurant_id", RESTAURANT_ID)
           .eq("status", "pending")
           .eq("type", "dine-in"),
+        fetchPaymentBanks(RESTAURANT_ID),
       ]);
       if (cancelled) return;
       setGuestTables((tablesRes.data as GuestTable[]) ?? []);
       setOccupiedLabels(
         new Set(((ordersRes.data ?? []) as { table_number: string }[]).map((o) => o.table_number))
       );
+      setPaymentBanks(banks ?? []);
       setTablesLoading(false);
     }
-    fetchTables();
+    fetchData();
     return () => { cancelled = true; };
   }, [open]);
 
@@ -482,8 +488,8 @@ export function CartDrawer({
 
   const bankOk =
     (payment !== "card-transfer" ||
-      !cardTransferOptions?.length ||
-      cardTransferOptions.length <= 1 ||
+      paymentBanks.length === 0 ||
+      paymentBanks.length <= 1 ||
       cardBankIdx !== null) &&
     (payment !== "remote-payment" || (remoteBank !== null && invoicePhone.trim().replace(/\D/g, "").length >= 10));
 
@@ -512,7 +518,7 @@ export function CartDrawer({
   const handlePaymentSelect = (id: PaymentMethod) => {
     setPayment(id);
     if (id === "card-transfer") {
-      setCardBankIdx(cardTransferOptions?.length === 1 ? 0 : null);
+      setCardBankIdx(paymentBanks.length === 1 ? 0 : null);
     } else {
       setCardBankIdx(null);
     }
@@ -636,6 +642,7 @@ export function CartDrawer({
           status: "pending",
           type: "dine-in",
           order_type: timingMode,
+          payment_method: payment,
           preorder_date: timingMode === "preorder" ? preorderDate : null,
           preorder_time: timingMode === "preorder" ? preorderTime : null,
           customer_comments: notes.trim() || null,
@@ -650,7 +657,8 @@ export function CartDrawer({
       }
     } else {
       // pickup/delivery: redirect to WhatsApp + fire-and-forget DB insert
-      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, cardTransferOptions, orderId);
+      const bankInfos = paymentBanks.map(b => ({ bankName: b.bank_name, phone: b.phone, recipientName: b.recipient_name ?? undefined }));
+      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId);
       if (isMobile) {
         window.location.href = url;
       } else {
@@ -666,6 +674,7 @@ export function CartDrawer({
           status: "pending",
           type: orderType!,
           order_type: timingMode,
+          payment_method: payment,
           preorder_date: timingMode === "preorder" ? preorderDate : null,
           preorder_time: timingMode === "preorder" ? preorderTime : null,
           customer_comments: notes.trim() || null,
@@ -1474,19 +1483,19 @@ export function CartDrawer({
                   )}
 
                   {/* Bank sub-selector (only when card-transfer + multiple banks) */}
-                  {payment === "card-transfer" && cardTransferOptions && cardTransferOptions.length > 1 && (
+                  {payment === "card-transfer" && paymentBanks.length > 1 && (
                     <div style={{ marginBottom: SP.md }}>
                       <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: muted, margin: `0 0 ${SP.sm}px` }}>
                         {tn("selectBank", lang)}
                       </p>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {cardTransferOptions.map((opt, i) => (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {paymentBanks.map((bank, i) => (
                           <button
-                            key={i}
+                            key={bank.id}
                             type="button"
                             onClick={() => setCardBankIdx(i)}
                             style={{
-                              flex: 1, padding: "12px 10px", borderRadius: R.md, cursor: "pointer",
+                              padding: "12px 14px", borderRadius: R.md, cursor: "pointer",
                               border: `2px solid ${cardBankIdx === i ? textClr : border}`,
                               background: cardBankIdx === i
                                 ? (isDark ? "rgba(224,224,224,0.08)" : "rgba(0,0,0,0.04)")
@@ -1495,8 +1504,11 @@ export function CartDrawer({
                               transition: "border-color 0.15s, background 0.15s",
                             } as React.CSSProperties}
                           >
-                            <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 3px" }}>{opt.bankName}</p>
-                            <p style={{ fontSize: 11, color: muted, margin: 0 }}>{opt.phone}</p>
+                            <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 2px" }}>{bank.bank_name}</p>
+                            <p style={{ fontSize: 14, fontWeight: 800, margin: 0, letterSpacing: "0.02em" }}>{bank.phone}</p>
+                            {bank.recipient_name && (
+                              <p style={{ fontSize: 11, color: muted, margin: "2px 0 0" }}>{tn("recipient", lang)}: {bank.recipient_name}</p>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -1506,6 +1518,22 @@ export function CartDrawer({
                   {/* Remote payment: bank selection + comment */}
                   {payment === "remote-payment" && (
                     <div style={{ marginBottom: SP.md }}>
+                      <div style={{
+                        marginBottom: SP.md, padding: "10px 14px",
+                        background: isDark ? "rgba(168,85,247,0.08)" : "rgba(168,85,247,0.06)",
+                        border: `1.5px solid ${isDark ? "rgba(168,85,247,0.30)" : "rgba(168,85,247,0.20)"}`,
+                        borderRadius: R.md,
+                        display: "flex", alignItems: "flex-start", gap: SP.sm,
+                      }}>
+                        <span style={{ fontSize: 18, flexShrink: 0 }}>📲</span>
+                        <p style={{ margin: 0, fontSize: 12, color: isDark ? "rgba(216,180,254,0.85)" : "rgba(107,33,168,0.85)", lineHeight: 1.5 }}>
+                          {lang === "en"
+                            ? "The admin will send you a payment request via Kaspi or Halyk Bank. Please enter the phone number linked to your bank app."
+                            : lang === "kz"
+                            ? "Әкімші Kaspi немесе Halyk Bank арқылы сізге шот жіберді. Банк қолданбасына тіркелген телефон нөмірін енгізіңіз."
+                            : "Администратор выставит вам счёт через Kaspi или Halyk Bank. Укажите номер телефона, к которому привязан ваш банк."}
+                        </p>
+                      </div>
                       <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: muted, margin: `0 0 ${SP.sm}px` }}>
                         {tn("selectBankForInvoice", lang)}
                       </p>
@@ -1578,34 +1606,61 @@ export function CartDrawer({
                     </div>
                   )}
 
-                  {/* Card transfer detail — shows only selected bank */}
-                  {payment === "card-transfer" && cardBankIdx !== null && cardTransferOptions?.[cardBankIdx] && (
-                    <div style={{ marginBottom: SP.md, borderRadius: R.md, border: `1.5px solid ${isDark ? "#3A3A3A" : "#D0D4D9"}`, overflow: "hidden" }}>
-                      <div style={{ padding: "10px 14px", background: isDark ? "#252525" : "#ECEEF0", borderBottom: `1px solid ${border}` }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: textClr, margin: 0, lineHeight: 1.4 }}>
-                          💳 {tn("cardTransferAfter", lang)}
-                        </p>
-                      </div>
-                      {(() => {
-                        const opt = cardTransferOptions[cardBankIdx];
-                        return (
-                          <div style={{ padding: "12px 14px", background: surface }}>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: muted, margin: "0 0 5px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                              {opt.bankName}
+                  {/* Card transfer detail — shows selected bank (or only bank if single) */}
+                  {payment === "card-transfer" && paymentBanks.length > 0 && (() => {
+                    const bankToShow = paymentBanks.length === 1
+                      ? paymentBanks[0]
+                      : (cardBankIdx !== null ? paymentBanks[cardBankIdx] : null);
+                    if (!bankToShow) return null;
+                    const bIdx = paymentBanks.indexOf(bankToShow);
+                    return (
+                      <div style={{ marginBottom: SP.md, borderRadius: R.md, border: `1.5px solid ${isDark ? "#3A3A3A" : "#D0D4D9"}`, overflow: "hidden" }}>
+                        <div style={{ padding: "10px 14px", background: isDark ? "#252525" : "#ECEEF0", borderBottom: `1px solid ${border}` }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: textClr, margin: 0, lineHeight: 1.4 }}>
+                            💳 {tn("cardTransferAfter", lang)}
+                          </p>
+                        </div>
+                        <div style={{ padding: "12px 14px", background: surface }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: muted, margin: "0 0 5px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                            {bankToShow.bank_name}
+                          </p>
+                          <div style={{ display: "flex", alignItems: "center", gap: SP.sm, marginBottom: 4 }}>
+                            <p style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "0.03em", fontVariantNumeric: "tabular-nums", flex: 1 }}>
+                              {bankToShow.phone}
                             </p>
-                            <p style={{ fontSize: 22, fontWeight: 800, margin: "0 0 3px", letterSpacing: "0.03em", fontVariantNumeric: "tabular-nums" }}>
-                              {opt.phone}
-                            </p>
-                            {opt.recipientName && (
-                              <p style={{ fontSize: 13, color: textClr, margin: 0, fontWeight: 500 }}>
-                                {tn("recipient", lang)}: <strong>{opt.recipientName}</strong>
-                              </p>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(bankToShow.phone).then(() => {
+                                  setCopiedIdx(bIdx);
+                                  setTimeout(() => setCopiedIdx(null), 2000);
+                                });
+                              }}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 4,
+                                padding: "5px 10px", borderRadius: R.full,
+                                border: `1.5px solid ${copiedIdx === bIdx ? (isDark ? "#6DB86D" : "#2E7D32") : border}`,
+                                background: copiedIdx === bIdx ? (isDark ? "rgba(109,184,109,0.15)" : "rgba(46,125,50,0.08)") : surface,
+                                color: copiedIdx === bIdx ? (isDark ? "#6DB86D" : "#2E7D32") : muted,
+                                fontSize: 11, fontWeight: 700, cursor: "pointer",
+                                transition: "all 0.2s", flexShrink: 0,
+                              }}
+                            >
+                              {copiedIdx === bIdx ? <Check size={11} /> : <Copy size={11} />}
+                              {copiedIdx === bIdx
+                                ? (lang === "en" ? "Copied!" : lang === "kz" ? "Көшірілді!" : "Скопировано!")
+                                : (lang === "en" ? "Copy" : lang === "kz" ? "Көшіру" : "Копировать")}
+                            </button>
                           </div>
-                        );
-                      })()}
-                    </div>
-                  )}
+                          {bankToShow.recipient_name && (
+                            <p style={{ fontSize: 13, color: textClr, margin: 0, fontWeight: 500 }}>
+                              {tn("recipient", lang)}: <strong>{bankToShow.recipient_name}</strong>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
 
@@ -1759,18 +1814,18 @@ export function CartDrawer({
                   </div>
                 )}
                 {/* Show card transfer details on success — only the selected bank */}
-                {placedOrder.paymentMethod === "card-transfer" && cardTransferOptions?.length && (() => {
-                  const selectedOpt =
+                {placedOrder.paymentMethod === "card-transfer" && paymentBanks.length > 0 && (() => {
+                  const selectedBank =
                     placedOrder.selectedBankIdx != null
-                      ? cardTransferOptions[placedOrder.selectedBankIdx]
-                      : null;
-                  const optsToShow = selectedOpt ? [selectedOpt] : cardTransferOptions;
+                      ? paymentBanks[placedOrder.selectedBankIdx]
+                      : paymentBanks.length === 1 ? paymentBanks[0] : null;
+                  const banksToShow = selectedBank ? [selectedBank] : paymentBanks;
                   return (
                     <div style={{ marginBottom: SP.sm, paddingBottom: SP.sm, borderBottom: `1px solid ${border}` }}>
-                      {optsToShow.map((opt, i) => (
+                      {banksToShow.map((bank, i) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
-                          <span style={{ color: muted }}>{opt.bankName}</span>
-                          <span style={{ fontWeight: 600 }}>{opt.phone}{opt.recipientName ? ` · ${opt.recipientName}` : ""}</span>
+                          <span style={{ color: muted }}>{bank.bank_name}</span>
+                          <span style={{ fontWeight: 600 }}>{bank.phone}{bank.recipient_name ? ` · ${bank.recipient_name}` : ""}</span>
                         </div>
                       ))}
                     </div>
@@ -1805,6 +1860,86 @@ export function CartDrawer({
                   <span>{placedOrder.total.toLocaleString()} {placedOrder.currency}</span>
                 </div>
               </div>
+
+              {/* ── Payment reminder (card-transfer / remote-payment) ── */}
+              {placedOrder.paymentMethod === "card-transfer" && paymentBanks.length > 0 && (() => {
+                const bank =
+                  placedOrder.selectedBankIdx != null
+                    ? paymentBanks[placedOrder.selectedBankIdx]
+                    : paymentBanks.length === 1 ? paymentBanks[0] : paymentBanks[0];
+                return (
+                  <div style={{
+                    width: "100%", marginTop: SP.md, padding: SP.md,
+                    background: isDark ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.10)",
+                    border: `1.5px solid ${isDark ? "rgba(245,158,11,0.35)" : "rgba(245,158,11,0.30)"}`,
+                    borderRadius: R.lg, boxSizing: "border-box",
+                  }}>
+                    <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 800, color: isDark ? "#FCD34D" : "#B45309", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      {lang === "en" ? "⚠️ Payment Reminder" : lang === "kz" ? "⚠️ Төлем ескертуі" : "⚠️ Напоминание об оплате"}
+                    </p>
+                    <p style={{ margin: "0 0 8px", fontSize: 13, color: textClr, lineHeight: 1.5 }}>
+                      {lang === "en"
+                        ? `Please transfer ${placedOrder.total.toLocaleString()} ${placedOrder.currency} to:`
+                        : lang === "kz"
+                        ? `${placedOrder.total.toLocaleString()} ${placedOrder.currency} сомасын аударыңыз:`
+                        : `Пожалуйста, переведите ${placedOrder.total.toLocaleString()} ${placedOrder.currency} на:`}
+                    </p>
+                    <div style={{ background: isDark ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.7)", borderRadius: R.md, padding: "10px 12px", marginBottom: 8 }}>
+                      <p style={{ margin: "0 0 2px", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{bank.bank_name}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <p style={{ margin: 0, fontSize: 18, fontWeight: 800, flex: 1, letterSpacing: "0.02em" }}>{bank.phone}</p>
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard.writeText(bank.phone).then(() => { setCopiedIdx(-1); setTimeout(() => setCopiedIdx(null), 2000); }); }}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 4,
+                            padding: "4px 10px", borderRadius: R.full,
+                            border: `1.5px solid ${copiedIdx === -1 ? (isDark ? "#6DB86D" : "#2E7D32") : border}`,
+                            background: copiedIdx === -1 ? (isDark ? "rgba(109,184,109,0.15)" : "rgba(46,125,50,0.08)") : "transparent",
+                            color: copiedIdx === -1 ? (isDark ? "#6DB86D" : "#2E7D32") : muted,
+                            fontSize: 11, fontWeight: 700, cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          {copiedIdx === -1 ? <Check size={11} /> : <Copy size={11} />}
+                          {copiedIdx === -1
+                            ? (lang === "en" ? "Copied!" : lang === "kz" ? "Көшірілді!" : "Скопировано!")
+                            : (lang === "en" ? "Copy" : lang === "kz" ? "Көшіру" : "Копировать")}
+                        </button>
+                      </div>
+                      {bank.recipient_name && (
+                        <p style={{ margin: "4px 0 0", fontSize: 12, color: muted }}>{tn("recipient", lang)}: <strong style={{ color: textClr }}>{bank.recipient_name}</strong></p>
+                      )}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 11, color: muted, lineHeight: 1.4 }}>
+                      {lang === "en"
+                        ? "After the transfer is confirmed, the administrator will process your order."
+                        : lang === "kz"
+                        ? "Аударым тексерілгеннен кейін, әкімші тапсырысыңызды өңдейді."
+                        : "После проверки перевода администратор подтвердит ваш заказ."}
+                    </p>
+                  </div>
+                );
+              })()}
+              {placedOrder.paymentMethod === "remote-payment" && (
+                <div style={{
+                  width: "100%", marginTop: SP.md, padding: SP.md,
+                  background: isDark ? "rgba(168,85,247,0.08)" : "rgba(168,85,247,0.06)",
+                  border: `1.5px solid ${isDark ? "rgba(168,85,247,0.30)" : "rgba(168,85,247,0.20)"}`,
+                  borderRadius: R.lg, boxSizing: "border-box",
+                }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 800, color: isDark ? "rgba(216,180,254,0.9)" : "rgba(107,33,168,0.9)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    {lang === "en" ? "📲 Remote Payment" : lang === "kz" ? "📲 Қашықтан төлем" : "📲 Удалённая оплата"}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13, color: textClr, lineHeight: 1.5 }}>
+                    {lang === "en"
+                      ? `The administrator will send you a payment request via ${placedOrder.remoteBank === "kaspi" ? "Kaspi" : placedOrder.remoteBank === "halyk" ? "Halyk Bank" : "your bank app"}${placedOrder.invoicePhone ? ` to ${placedOrder.invoicePhone}` : ""}. Your order will be confirmed after payment.`
+                      : lang === "kz"
+                      ? `Әкімші${placedOrder.invoicePhone ? ` ${placedOrder.invoicePhone}` : ""} нөміріне ${placedOrder.remoteBank === "kaspi" ? "Kaspi" : placedOrder.remoteBank === "halyk" ? "Halyk Bank" : "банк"} арқылы шот жіберді. Төлемнен кейін тапсырысыңыз расталады.`
+                      : `Администратор выставит счёт через ${placedOrder.remoteBank === "kaspi" ? "Kaspi" : placedOrder.remoteBank === "halyk" ? "Halyk Bank" : "банковское приложение"}${placedOrder.invoicePhone ? ` на номер ${placedOrder.invoicePhone}` : ""}. После оплаты ваш заказ будет подтверждён.`}
+                  </p>
+                </div>
+              )}
 
               {/* ── Review block ── */}
               <div style={{ width: "100%", marginTop: SP.md }}>

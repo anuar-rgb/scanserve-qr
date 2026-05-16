@@ -165,10 +165,13 @@ function productName(p: DbProduct): string {
 }
 
 const METHOD_META: Record<string, { label: string; icon: string }> = {
-  cash:     { label: "Наличные",         icon: "💵" },
-  kaspi:    { label: "Kaspi",            icon: "🔴" },
-  halyk:    { label: "Halyk",            icon: "🟢" },
-  terminal: { label: "Карта (Терминал)", icon: "💳" },
+  cash:              { label: "Наличные",         icon: "💵" },
+  kaspi:             { label: "Kaspi",            icon: "🔴" },
+  halyk:             { label: "Halyk",            icon: "🟢" },
+  terminal:          { label: "Карта (Терминал)", icon: "💳" },
+  "card-transfer":   { label: "Перевод на карту", icon: "🏦" },
+  "remote-payment":  { label: "Удалённая оплата", icon: "📲" },
+  "pay-at-restaurant": { label: "В заведении",   icon: "🏧" },
 };
 
 const PREORDER_STATUS: Record<string, { label: string; cls: string }> = {
@@ -3743,22 +3746,34 @@ function PreorderDayCard({
                 </span>
               </div>
             ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); setPaymentModalOpen(true); }}
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
-                  fullyPrepaid
-                    ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60"
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setPaymentModalOpen(true); }}
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
+                    fullyPrepaid
+                      ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60"
+                      : partiallyPaid
+                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                      : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60"
+                  }`}
+                >
+                  {fullyPrepaid
+                    ? `✓ Полностью оплачено${prepayIcon ? ` · ${prepayIcon}` : ""}`
                     : partiallyPaid
-                    ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
-                    : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60"
-                }`}
-              >
-                {fullyPrepaid
-                  ? `✓ Полностью оплачено${prepayIcon ? ` · ${prepayIcon}` : ""}`
-                  : partiallyPaid
-                  ? `Внесено: ${paidAmount.toLocaleString("ru-RU")} ₸${prepayIcon ? ` ${prepayIcon}` : prepayLabel ? ` (${prepayLabel})` : ""} · Остаток: ${remaining.toLocaleString("ru-RU")} ₸`
-                  : "Ожидает оплаты"}
-              </button>
+                    ? `Внесено: ${paidAmount.toLocaleString("ru-RU")} ₸${prepayIcon ? ` ${prepayIcon}` : prepayLabel ? ` (${prepayLabel})` : ""} · Остаток: ${remaining.toLocaleString("ru-RU")} ₸`
+                    : "Ожидает оплаты"}
+                </button>
+                {!fullyPrepaid && order.payment_method === "card-transfer" && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                    🏦 Проверить перевод
+                  </span>
+                )}
+                {!fullyPrepaid && order.payment_method === "remote-payment" && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                    📲 Выставить счёт
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
