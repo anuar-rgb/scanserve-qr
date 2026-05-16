@@ -23,6 +23,7 @@ interface TableWithStatus {
   table: DbRestaurantTable;
   status: TableStatus;
   order: DbOrder | null;
+  orders: DbOrder[];
   preorderOrder: DbOrder | null;
   elapsed: number;
 }
@@ -477,19 +478,18 @@ export default function HallPage() {
 
   const today = todayISO();
   const tablesWithStatus: TableWithStatus[] = tables.map((table) => {
-    const order = orders.find(
-      (o) => o.type === "dine-in" && o.table_number === table.label
-    ) ?? null;
-    const preorderOrder = !order
+    const baseLabel = table.label;
+    const tableOrders = orders.filter(
+      (o) => o.type === "dine-in" && (o.table_number === baseLabel || o.table_number?.startsWith(baseLabel + "."))
+    );
+    const order = tableOrders.find((o) => o.table_number === baseLabel) ?? tableOrders[0] ?? null;
+    const preorderOrder = tableOrders.length === 0
       ? (orders.find(
-          (o) =>
-            o.order_type === "preorder" &&
-            o.table_number === table.label &&
-            o.preorder_date === today
+          (o) => o.order_type === "preorder" && o.table_number === baseLabel && o.preorder_date === today
         ) ?? null)
       : null;
-    const status: TableStatus = order ? "occupied" : preorderOrder ? "preorder" : "free";
-    return { table, status, order, preorderOrder, elapsed: order ? getElapsed(order.created_at) : 0 };
+    const status: TableStatus = tableOrders.length > 0 ? "occupied" : preorderOrder ? "preorder" : "free";
+    return { table, status, order, orders: tableOrders, preorderOrder, elapsed: order ? getElapsed(order.created_at) : 0 };
   });
 
   const occupiedCount  = tablesWithStatus.filter((t) => t.status === "occupied").length;
@@ -871,7 +871,7 @@ function TableCard({
         {status === "occupied" && order && (
           <div className="space-y-1">
             <p className="text-xl font-black text-foreground">
-              {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+              {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
             </p>
             <div className="flex items-center gap-1.5">
               <Clock size={11} className="text-red-500 shrink-0" />
@@ -881,8 +881,13 @@ function TableCard({
             </div>
             {Array.isArray(order.items_json) && (order.items_json as OrderItem[]).length > 0 && (
               <p className="text-[11px] text-muted-foreground">
-                {(order.items_json as OrderItem[]).length} позиц.
+                {tws.orders.reduce((s, o) => s + (Array.isArray(o.items_json) ? (o.items_json as OrderItem[]).length : 0), 0)} позиц.
               </p>
+            )}
+            {tws.orders.length > 1 && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
+                {tws.orders.length} счёта
+              </span>
             )}
           </div>
         )}
@@ -1782,8 +1787,20 @@ function TablePanel({
   const [noteInput, setNoteInput]                 = useState("");
   const [savingNote, setSavingNote]               = useState(false);
   const [removingIdx, setRemovingIdx]             = useState<number | null>(null);
+  const [viewingOrderId, setViewingOrderId]       = useState<string | null>(null);
+  const [subOrderLabel, setSubOrderLabel]         = useState<string | null>(null);
 
-  const activeOrder = order ?? preorderOrder;
+  const allTableOrders = data.orders.length > 0 ? data.orders : (order ? [order] : []);
+  const activeOrder = allTableOrders.find((o) => o.id === viewingOrderId) ?? order ?? preorderOrder;
+
+  function openNewSubOrder() {
+    const existingLabels = new Set(data.orders.map((o) => o.table_number));
+    let i = 1;
+    while (existingLabels.has(`${data.table.label}.${i}`)) i++;
+    setSubOrderLabel(`${data.table.label}.${i}`);
+    setPanelMode("order");
+    onEnterOrderMode?.();
+  }
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
     ? (activeOrder!.items_json as OrderItem[])
     : [];
@@ -1795,8 +1812,9 @@ function TablePanel({
       <aside className="flex-1 border-l border-border flex flex-col bg-background overflow-hidden">
         <OrderPanel
           table={table}
-          onBack={() => { setPanelMode("info"); onExitOrderMode?.(); }}
-          onDone={() => { setPanelMode("info"); onExitOrderMode?.(); onRefresh(); }}
+          tableLabel={subOrderLabel ?? undefined}
+          onBack={() => { setPanelMode("info"); setSubOrderLabel(null); onExitOrderMode?.(); }}
+          onDone={() => { setPanelMode("info"); setSubOrderLabel(null); onExitOrderMode?.(); onRefresh(); }}
         />
       </aside>
     );
@@ -1881,6 +1899,31 @@ function TablePanel({
           <X size={15} />
         </button>
       </div>
+
+      {/* Sub-table tab switcher (shown only when multiple active orders) */}
+      {allTableOrders.length > 1 && (
+        <div className="px-5 py-2.5 border-b border-border shrink-0">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Счета за столом</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {allTableOrders.map((o) => {
+              const isActive = viewingOrderId ? viewingOrderId === o.id : o.id === (order?.id ?? allTableOrders[0]?.id);
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => setViewingOrderId(o.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                    isActive
+                      ? "bg-violet-600 text-white border-violet-600"
+                      : "border-border text-muted-foreground hover:border-violet-400 hover:text-violet-600"
+                  }`}
+                >
+                  {o.table_number} · {(o.total_price ?? 0).toLocaleString("ru-RU")} ₸
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
@@ -2124,6 +2167,16 @@ function TablePanel({
                     <span className="text-[10px] font-medium">Перенести</span>
                   </button>
                 </div>
+
+                {data.orders.length < 5 && (
+                  <button
+                    onClick={openNewSubOrder}
+                    className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
+                  >
+                    <Plus size={12} />
+                    Открыть новый счёт за этим столом
+                  </button>
+                )}
 
                 {changingTable && (
                   <div className="space-y-2">
@@ -2830,20 +2883,23 @@ function PosMenuBrowser({
 
 function OrderPanel({
   table,
+  tableLabel,
   orderType = "dine-in",
   onBack,
   onDone,
 }: {
   table?: DbRestaurantTable;
+  tableLabel?: string;
   orderType?: "dine-in" | "takeaway" | "delivery";
   onBack: () => void;
   onDone: () => void;
 }) {
   const [customerName, setCustomerName] = useState("");
 
+  const displayLabel = tableLabel ?? table?.label ?? "?";
   const title =
-    orderType === "dine-in"  ? `Стол ${table?.label ?? "?"} · Новый заказ` :
-    orderType === "delivery" ? "Доставка · Новый заказ"                     :
+    orderType === "dine-in"  ? `Стол ${displayLabel} · Новый заказ` :
+    orderType === "delivery" ? "Доставка · Новый заказ"              :
                                "С собой · Новый заказ";
 
   const extraHeader = orderType !== "dine-in" ? (
@@ -2860,7 +2916,7 @@ function OrderPanel({
 
   async function handleConfirm(items: OrderItem[]) {
     const tableNumber = orderType === "dine-in"
-      ? (table?.label ?? null)
+      ? (tableLabel ?? table?.label ?? null)
       : (customerName.trim() || null);
     const { error } = await supabase.from(DB_TABLES.orders).insert({
       restaurant_id: RESTAURANT_ID,
@@ -2873,7 +2929,7 @@ function OrderPanel({
     });
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     const dest =
-      orderType === "dine-in"  ? `стола ${table?.label}` :
+      orderType === "dine-in"  ? `стола ${displayLabel}` :
       orderType === "delivery" ? "доставки"               : "самовывоза";
     toast.success(`Заказ для ${dest} отправлен на кухню!`);
     onDone();

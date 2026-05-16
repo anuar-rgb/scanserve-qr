@@ -413,6 +413,7 @@ export function CartDrawer({
   const [guestTables, setGuestTables]         = useState<GuestTable[]>([]);
   const [occupiedLabels, setOccupiedLabels]   = useState<Set<string>>(new Set());
   const [tablesLoading, setTablesLoading]     = useState(false);
+  const [subTableConfirmBase, setSubTableConfirmBase] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !isConfigured) return;
@@ -1158,13 +1159,18 @@ export function CartDrawer({
                     }}>
                       {guestTables.map((t) => {
                         const isOccupied = occupiedLabels.has(t.label);
-                        const isSelected = tableNumber === t.label;
+                        const isSelected = tableNumber === t.label || tableNumber.startsWith(t.label + ".");
                         return (
                           <button
                             key={t.id}
                             type="button"
-                            disabled={isOccupied}
-                            onClick={() => setTableNumber(isSelected ? "" : t.label)}
+                            onClick={() => {
+                              if (isOccupied) {
+                                setSubTableConfirmBase(t.label);
+                              } else {
+                                setTableNumber(tableNumber === t.label ? "" : t.label);
+                              }
+                            }}
                             style={{
                               display: "flex", flexDirection: "column",
                               alignItems: "center", justifyContent: "center",
@@ -1172,23 +1178,78 @@ export function CartDrawer({
                               background: isSelected
                                 ? (isDark ? "rgba(255,255,255,0.13)" : "rgba(0,0,0,0.07)")
                                 : card,
-                              border: `2px solid ${isSelected ? textClr : isOccupied ? "transparent" : border}`,
+                              border: `2px solid ${isSelected ? textClr : isOccupied ? "rgba(139,92,246,0.35)" : border}`,
                               borderRadius: R.md,
-                              cursor: isOccupied ? "not-allowed" : "pointer",
-                              opacity: isOccupied ? 0.4 : 1,
+                              cursor: "pointer",
+                              opacity: isOccupied ? 0.65 : 1,
                               transition: "all 0.15s",
                               color: textClr,
                             }}
                           >
                             <span style={{ fontSize: 17, fontWeight: 800, lineHeight: 1 }}>{t.label}</span>
-                            <span style={{ fontSize: 9, color: muted, lineHeight: 1.2 }}>
-                              {isOccupied ? tn("tableOccupied", lang) : `${t.seats} мест`}
+                            <span style={{ fontSize: 9, color: isOccupied ? "rgb(139,92,246)" : muted, lineHeight: 1.2, fontWeight: isOccupied ? 700 : 400 }}>
+                              {isOccupied ? "занят" : `${t.seats} мест`}
                             </span>
                           </button>
                         );
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ── Sub-table confirmation dialog ── */}
+              {subTableConfirmBase && (
+                <div style={{
+                  position: "fixed", inset: 0, zIndex: 9999,
+                  display: "flex", alignItems: "flex-end", justifyContent: "center",
+                  background: "rgba(0,0,0,0.55)",
+                }}>
+                  <div style={{
+                    width: "100%", maxWidth: 480,
+                    background: card, borderRadius: `${R.lg}px ${R.lg}px 0 0`,
+                    padding: "24px 20px 32px",
+                    boxShadow: "0 -4px 32px rgba(0,0,0,0.25)",
+                  }}>
+                    <p style={{ fontSize: 17, fontWeight: 800, color: textClr, marginBottom: 8 }}>
+                      Стол занят
+                    </p>
+                    <p style={{ fontSize: 14, color: muted, marginBottom: 24, lineHeight: 1.5 }}>
+                      Стол {subTableConfirmBase} сейчас занят. Хотите открыть новый счёт за этим столом?
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const base = subTableConfirmBase;
+                          let i = 1;
+                          while (occupiedLabels.has(`${base}.${i}`)) i++;
+                          setTableNumber(`${base}.${i}`);
+                          setSubTableConfirmBase(null);
+                        }}
+                        style={{
+                          width: "100%", padding: "14px 0", borderRadius: R.full,
+                          background: textClr, color: bg, border: "none",
+                          fontSize: 15, fontWeight: 700, cursor: "pointer",
+                        }}
+                      >
+                        Открыть новый счёт · {subTableConfirmBase}.
+                        {(() => { let i = 1; while (occupiedLabels.has(`${subTableConfirmBase}.${i}`)) i++; return i; })()}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSubTableConfirmBase(null)}
+                        style={{
+                          width: "100%", padding: "13px 0", borderRadius: R.full,
+                          background: "transparent", color: muted,
+                          border: `1.5px solid ${border}`,
+                          fontSize: 15, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        Назад
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
