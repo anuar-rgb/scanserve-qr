@@ -8,7 +8,7 @@ import {
   Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, MapPin, Phone,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import type { DbOrder, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
+import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
@@ -183,6 +183,14 @@ function shortPreorderId(id: string): string {
   return id.startsWith("ORD-") ? id : `#${id.slice(0, 8).toUpperCase()}`;
 }
 
+// Extracts opening time in minutes-since-midnight from a free-form string like "10:00 – 22:00"
+function parseOpeningTime(wh: string | null): number | null {
+  if (!wh) return null;
+  const m = wh.match(/(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return parseInt(m[1]) * 60 + parseInt(m[2]);
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder";
@@ -205,6 +213,11 @@ export default function HallPage() {
   const [calSelectedDate, setCalSelectedDate] = useState<string>(() => todayISO());
   const [calYear, setCalYear]                 = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth]               = useState(() => new Date().getMonth());
+  const [restaurant, setRestaurant]           = useState<DbRestaurant | null>(null);
+  const [activatedPreorderIds, setActivatedPreorderIds] = useState<Set<string>>(new Set());
+  const restaurantRef        = useRef<DbRestaurant | null>(null);
+  const preordersRef         = useRef<DbOrder[]>([]);
+  const activationCheckedRef = useRef(new Set<string>());
 
   const handleOrderClosed = useCallback((orderId: string) => {
     knownOrderIds.current.delete(orderId);
@@ -353,6 +366,77 @@ export default function HallPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [calYear, calMonth]);
+
+  // Fetch restaurant once on mount (needed for working_hours / opening time)
+  useEffect(() => {
+    if (!isConfigured) return;
+    supabase.from(DB_TABLES.restaurants).select("*").eq("id", RESTAURANT_ID).single()
+      .then(({ data }) => { if (data) setRestaurant(data as DbRestaurant); });
+  }, []);
+
+  // Keep refs in sync for the activation interval (avoids stale closures)
+  useEffect(() => { restaurantRef.current = restaurant; }, [restaurant]);
+  useEffect(() => { preordersRef.current  = preorders;  }, [preorders]);
+
+  // Auto-activate today's preorders once the restaurant opening time is reached.
+  // Runs on mount and re-checks every 60 s. Uses refs to avoid stale closures.
+  useEffect(() => {
+    async function tryActivate() {
+      if (!isConfigured) return;
+      const rest    = restaurantRef.current;
+      const porders = preordersRef.current;
+      if (!rest) return;
+
+      const openingMins = parseOpeningTime(rest.working_hours);
+      if (openingMins === null) return;
+
+      const now     = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      if (nowMins < openingMins) return;
+
+      const todayStr  = todayISO();
+      const toActivate = porders.filter(
+        (o) =>
+          o.preorder_date === todayStr &&
+          o.status !== "completed" &&
+          o.status !== "cancelled" &&
+          !activationCheckedRef.current.has(o.id),
+      );
+      if (toActivate.length === 0) return;
+
+      const ids = toActivate.map((o) => o.id);
+      const { error } = await supabase
+        .from(DB_TABLES.orders)
+        .update({ order_type: "asap" })
+        .in("id", ids);
+      if (error) { console.error("[activateTodayPreorders]", error); return; }
+
+      ids.forEach((id) => activationCheckedRef.current.add(id));
+      setPreorders((prev) => prev.filter((o) => !ids.includes(o.id)));
+      setActivatedPreorderIds((prev) => new Set([...prev, ...ids]));
+      // Add to live orders only if not already present (realtime load() will also fire)
+      setOrders((prev) => {
+        const existingIds = new Set(prev.map((o) => o.id));
+        const newOnes = toActivate
+          .map((o) => ({ ...o, order_type: "asap" as const }))
+          .filter((o) => !existingIds.has(o.id));
+        return [...newOnes, ...prev];
+      });
+
+      playNewOrderSound();
+      const n = ids.length;
+      const suffix = n === 1 ? "" : n < 5 ? "а" : "ов";
+      const verbSuffix = n === 1 ? "" : n < 5 ? "ы" : "ы";
+      toast.success(
+        `${n} предзаказ${suffix} активирован${verbSuffix} — переведены в активные вкладки`,
+        { duration: 10_000 },
+      );
+    }
+
+    tryActivate();
+    const interval = setInterval(tryActivate, 60_000);
+    return () => clearInterval(interval);
+  }, []); // empty — reads latest values via refs
 
   async function deleteTable(tws: TableWithStatus) {
     if (tws.status !== "free") {
@@ -573,6 +657,7 @@ export default function HallPage() {
                         }}
                         onDelete={() => deleteTable(tws)}
                         preorderCount={preordersByTableLabel[tws.table.label] ?? 0}
+                        isActivatedPreorder={tws.order ? activatedPreorderIds.has(tws.order.id) : false}
                       />
                     ))}
                   </div>
@@ -616,6 +701,7 @@ export default function HallPage() {
           onRefresh={load}
           onOrderClosed={handleOrderClosed}
           allTables={tablesWithStatus}
+          activatedPreorderIds={activatedPreorderIds}
         />
       )}
 
@@ -628,6 +714,7 @@ export default function HallPage() {
           onRefresh={load}
           onOrderClosed={handleOrderClosed}
           allTables={tablesWithStatus}
+          activatedPreorderIds={activatedPreorderIds}
         />
       )}
 
@@ -702,6 +789,7 @@ function TableCard({
   onEdit,
   onDelete,
   preorderCount = 0,
+  isActivatedPreorder = false,
 }: {
   tws: TableWithStatus;
   isSelected: boolean;
@@ -710,6 +798,7 @@ function TableCard({
   onEdit: () => void;
   onDelete: () => void;
   preorderCount?: number;
+  isActivatedPreorder?: boolean;
 }) {
   const { table, status, order, preorderOrder, elapsed } = tws;
   const isLocked = status !== "free";
@@ -743,12 +832,19 @@ function TableCard({
         transition-all duration-150
         ${palette.card}
         ${!editMode ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5" : "cursor-default"}
-        ${isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
+        ${isActivatedPreorder ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse" : isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
         ${editMode && isLocked ? "opacity-60" : ""}
       `}
     >
       {/* Status dot */}
       <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
+
+      {/* "Новый предзаказ" badge for just-activated preorders */}
+      {isActivatedPreorder && !editMode && (
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-600 text-white text-[9px] font-bold shadow-sm z-10">
+          🔔 Новый предзаказ
+        </div>
+      )}
 
       {/* Lock badge in edit mode for occupied tables */}
       {editMode && isLocked && (
@@ -860,12 +956,14 @@ function OrderSlotCard({
   isSelected,
   onClick,
   onComplete,
+  isActivatedPreorder = false,
 }: {
   order: DbOrder;
   index: number;
   isSelected: boolean;
   onClick: () => void;
   onComplete: () => void;
+  isActivatedPreorder?: boolean;
 }) {
   const elapsed = getElapsed(order.created_at);
   const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
@@ -881,10 +979,17 @@ function OrderSlotCard({
         transition-all duration-150
         bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700/40
         hover:shadow-md hover:-translate-y-0.5
-        ${isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
+        ${isActivatedPreorder ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse" : isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
       `}
     >
       <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full animate-pulse ${isOverdue ? "bg-red-500" : "bg-amber-400"}`} />
+
+      {/* Badge for just-activated preorders */}
+      {isActivatedPreorder && (
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-600 text-white text-[9px] font-bold shadow-sm z-10">
+          🔔 Новый предзаказ
+        </div>
+      )}
 
       <div className="p-4 pb-3 flex-1">
         {/* Queue number + order ID */}
@@ -1235,6 +1340,7 @@ function PickupDeliveryGrid({
   onRefresh,
   onOrderClosed,
   allTables,
+  activatedPreorderIds,
 }: {
   orders: DbOrder[];
   loading: boolean;
@@ -1242,6 +1348,7 @@ function PickupDeliveryGrid({
   onRefresh: () => void;
   onOrderClosed: (orderId: string) => void;
   allTables: TableWithStatus[];
+  activatedPreorderIds?: Set<string>;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -1316,6 +1423,7 @@ function PickupDeliveryGrid({
                     isSelected={selected === order.id}
                     onClick={() => setSelected(selected === order.id ? null : order.id)}
                     onComplete={() => completeOrder(order.id)}
+                    isActivatedPreorder={activatedPreorderIds?.has(order.id) ?? false}
                   />
                 ))}
               </div>
