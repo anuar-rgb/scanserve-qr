@@ -955,14 +955,14 @@ function OrderSlotCard({
   index,
   isSelected,
   onClick,
-  onComplete,
+  onPay,
   isActivatedPreorder = false,
 }: {
   order: DbOrder;
   index: number;
   isSelected: boolean;
   onClick: () => void;
-  onComplete: () => void;
+  onPay: () => void;
   isActivatedPreorder?: boolean;
 }) {
   const elapsed = getElapsed(order.created_at);
@@ -970,6 +970,8 @@ function OrderSlotCard({
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const queueNum = String(index).padStart(2, "0");
   const isOverdue = elapsed >= 30;
+  const prepaid    = order.paid_amount ?? 0;
+  const balanceDue = Math.max(0, (order.total_price ?? 0) - prepaid);
 
   return (
     <div
@@ -1019,11 +1021,13 @@ function OrderSlotCard({
 
       <div className="border-t border-amber-200/60 dark:border-amber-700/30 px-3 py-2">
         <button
-          onClick={(e) => { e.stopPropagation(); onComplete(); }}
-          className="w-full flex items-center justify-center gap-1.5 h-7 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
+          onClick={(e) => { e.stopPropagation(); onPay(); }}
+          className="w-full flex items-center justify-center gap-1.5 h-7 rounded-lg bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-700 transition-colors"
         >
           <CheckCircle2 size={11} />
-          Выдан
+          {prepaid > 0
+            ? `Остаток: ${balanceDue.toLocaleString("ru-RU")} ₸`
+            : "Оплатить"}
         </button>
       </div>
     </div>
@@ -1350,30 +1354,10 @@ function PickupDeliveryGrid({
   allTables: TableWithStatus[];
   activatedPreorderIds?: Set<string>;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [selected, setSelected]     = useState<string | null>(null);
+  const [creating, setCreating]     = useState(false);
+  const [payingOrder, setPayingOrder] = useState<DbOrder | null>(null);
   const { width: slotPanelW, startResize: startSlotResize } = usePanelResize("hall:orderSlotPanel", 500, 280, 720);
-
-  async function completeOrder(orderId: string) {
-    console.log("[completeOrder] UPDATE order", orderId, "→ status=completed");
-    const { error, data } = await supabase
-      .from(DB_TABLES.orders)
-      .update({ status: "completed" })
-      .eq("id", orderId)
-      .eq("restaurant_id", RESTAURANT_ID)
-      .select();
-    console.log("[completeOrder] response:", { error, data });
-    if (error) { toast.error(`Ошибка закрытия: ${error.message}`); return; }
-    if (!data || data.length === 0) {
-      console.warn("[completeOrder] 0 rows updated — возможна блокировка RLS");
-      toast.error("Заказ не обновлён — проверьте RLS в Supabase Dashboard");
-      return;
-    }
-    onOrderClosed(orderId);
-    toast.success("Заказ выдан!");
-    if (selected === orderId) setSelected(null);
-    onRefresh();
-  }
 
   const selectedOrder = selected ? orders.find((o) => o.id === selected) ?? null : null;
   const emptyIcon = orderType === "delivery" ? "🛵" : "🛍️";
@@ -1422,7 +1406,7 @@ function PickupDeliveryGrid({
                     index={i + 1}
                     isSelected={selected === order.id}
                     onClick={() => setSelected(selected === order.id ? null : order.id)}
-                    onComplete={() => completeOrder(order.id)}
+                    onPay={() => setPayingOrder(order)}
                     isActivatedPreorder={activatedPreorderIds?.has(order.id) ?? false}
                   />
                 ))}
@@ -1445,6 +1429,20 @@ function PickupDeliveryGrid({
             allTables={allTables}
           />
         </>
+      )}
+
+      {payingOrder && (
+        <PaymentModal
+          order={payingOrder}
+          onDone={() => {
+            const id = payingOrder.id;
+            setPayingOrder(null);
+            onOrderClosed(id);
+            if (selected === id) setSelected(null);
+            onRefresh();
+          }}
+          onClose={() => setPayingOrder(null)}
+        />
       )}
     </div>
   );
