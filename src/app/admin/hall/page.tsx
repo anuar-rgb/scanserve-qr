@@ -326,6 +326,8 @@ export default function HallPage() {
       .select("*")
       .eq("restaurant_id", RESTAURANT_ID)
       .eq("order_type", "preorder")
+      .neq("status", "completed")
+      .neq("status", "cancelled")
       .gte("preorder_date", from)
       .lte("preorder_date", to)
       .order("preorder_date", { ascending: true });
@@ -357,7 +359,11 @@ export default function HallPage() {
             );
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new as DbOrder;
-            setPreorders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+            if (updated.status === "completed" || updated.status === "cancelled") {
+              setPreorders((prev) => prev.filter((o) => o.id !== updated.id));
+            } else {
+              setPreorders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+            }
           } else if (payload.eventType === "DELETE") {
             const deleted = payload.old as DbOrder;
             setPreorders((prev) => prev.filter((o) => o.id !== deleted.id));
@@ -3595,17 +3601,17 @@ function PreorderDayCard({
     (s, it) => (it.original_price != null ? s + (it.original_price - it.price) * it.qty : s),
     0,
   );
-  const timeLabel     = order.preorder_time?.slice(0, 5) ?? null;
-  const isPaid        = !!order.payment_method;
-  const pmLabel       = order.payment_method === "mixed"
-    ? "Смешанная"
-    : (METHOD_META[order.payment_method ?? ""]?.label ?? (order.payment_method ? capFirst(order.payment_method) : null));
-  const pmIcon        = order.payment_method === "mixed"
-    ? "💳"
-    : (METHOD_META[order.payment_method ?? ""]?.icon ?? "💳");
+  const timeLabel        = order.preorder_time?.slice(0, 5) ?? null;
   const orderTotal       = order.total_price ?? 0;
   const paidAmount       = order.paid_amount ?? 0;
   const remaining        = Math.max(0, orderTotal - paidAmount);
+  const isPaid           = !!order.payment_method && remaining === 0;
+  const pmLabel          = order.payment_method === "mixed"
+    ? "Смешанная"
+    : (METHOD_META[order.payment_method ?? ""]?.label ?? (order.payment_method ? capFirst(order.payment_method) : null));
+  const pmIcon           = order.payment_method === "mixed"
+    ? "💳"
+    : (METHOD_META[order.payment_method ?? ""]?.icon ?? "💳");
   const partiallyPaid    = paidAmount > 0 && paidAmount < orderTotal;
   const fullyPrepaid     = orderTotal > 0 && paidAmount >= orderTotal;
   const prepayMethodMeta = order.prepayment_method ? METHOD_META[order.prepayment_method] : null;
