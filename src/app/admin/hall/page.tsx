@@ -3587,6 +3587,8 @@ function PreorderDayCard({
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [showMenuPicker, setShowMenuPicker]   = useState(false);
   const [removingIdx, setRemovingIdx]         = useState<number | null>(null);
+  const [confirmCancel, setConfirmCancel]     = useState(false);
+  const [cancelling, setCancelling]           = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce(
@@ -3609,6 +3611,22 @@ function PreorderDayCard({
   const prepayMethodMeta = order.prepayment_method ? METHOD_META[order.prepayment_method] : null;
   const prepayIcon       = prepayMethodMeta?.icon ?? null;
   const prepayLabel      = prepayMethodMeta?.label ?? (order.prepayment_method ? capFirst(order.prepayment_method) : null);
+  const isCancelled      = order.status === "cancelled";
+  const isCompleted      = order.status === "completed";
+
+  async function handleCancelOrder() {
+    if (cancelling) return;
+    setCancelling(true);
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ status: "cancelled" })
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    setCancelling(false);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    toast.success("Предзаказ отменён");
+    setConfirmCancel(false);
+  }
 
   async function removeItem(idx: number) {
     if (removingIdx !== null) return;
@@ -3884,6 +3902,19 @@ function PreorderDayCard({
         </div>
       )}
 
+      {/* Cancel button — only for non-completed, non-cancelled orders */}
+      {expanded && !isCancelled && !isCompleted && (
+        <div className="px-3 pb-3 border-t border-border pt-2.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); setConfirmCancel(true); }}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <Trash2 size={12} />
+            Удалить предзаказ
+          </button>
+        </div>
+      )}
+
       {paymentModalOpen && (
         <PreorderPaymentModal
           order={order}
@@ -3898,6 +3929,53 @@ function PreorderDayCard({
           onDone={() => setShowMenuPicker(false)}
           onClose={() => setShowMenuPicker(false)}
         />
+      )}
+
+      {/* Confirm cancel modal */}
+      {confirmCancel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => { if (!cancelling) setConfirmCancel(false); }}
+        >
+          <div
+            className="bg-card rounded-2xl border border-border p-5 w-full max-w-sm mx-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+                <Trash2 size={15} />
+                Удалить предзаказ?
+              </h3>
+              <button
+                onClick={() => setConfirmCancel(false)}
+                disabled={cancelling}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground disabled:opacity-40"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+              Вы уверены, что хотите удалить этот предзаказ? Все внесённые предоплаты будут аннулированы.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmCancel(false)}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-border hover:bg-accent transition-colors disabled:opacity-40"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => void handleCancelOrder()}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {cancelling ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                {cancelling ? "Удаление…" : "Удалить"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

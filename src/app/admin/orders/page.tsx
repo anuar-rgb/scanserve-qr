@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
-  ShoppingBag, Clock, Calendar, MessageSquare, ChevronDown, ChevronUp,
+  ShoppingBag, Clock, Calendar, CalendarDays, MessageSquare, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
@@ -12,7 +12,7 @@ import { capFirst } from "@/lib/utils";
 import { RESTAURANT_ID } from "@/constants";
 
 type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string };
-type HistoryTab = "dine-in" | "takeaway" | "delivery";
+type HistoryTab = "dine-in" | "takeaway" | "delivery" | "preorder";
 
 function groupOrderItems<T extends { created_at?: string }>(
   items: T[],
@@ -71,23 +71,34 @@ const PREORDER_STATUS: Record<string, { label: string; cls: string }> = {
 export default function OrderHistoryPage() {
   const { t } = useTranslations();
 
-  const [orders, setOrders]   = useState<DbOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<HistoryTab>("dine-in");
-  const [search, setSearch]   = useState("");
+  const [orders, setOrders]         = useState<DbOrder[]>([]);
+  const [preorderHistory, setPreorderHistory] = useState<DbOrder[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [activeTab, setActiveTab]   = useState<HistoryTab>("dine-in");
+  const [search, setSearch]         = useState("");
 
-  // Fetch completed orders
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
-    const completedRes = await supabase
-      .from("orders")
-      .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const [completedRes, preorderRes] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("order_type", "preorder")
+        .in("status", ["completed", "cancelled"])
+        .order("preorder_date", { ascending: false })
+        .limit(300),
+    ]);
     setOrders((completedRes.data as DbOrder[]) ?? []);
+    setPreorderHistory((preorderRes.data as DbOrder[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -113,19 +124,18 @@ export default function OrderHistoryPage() {
   const dineInOrders   = orders.filter((o) => o.type === "dine-in" && matchesSearch(o));
   const takeawayOrders = orders.filter((o) => (o.type === "takeaway" || o.type === "pickup") && matchesSearch(o));
   const deliveryOrders = orders.filter((o) => o.type === "delivery" && matchesSearch(o));
+  const preorderOrders = preorderHistory.filter((o) => matchesSearch(o));
 
-  const tabData: Record<"dine-in" | "takeaway" | "delivery", DbOrder[]> = {
-    "dine-in":  dineInOrders,
-    "takeaway": takeawayOrders,
-    "delivery": deliveryOrders,
-  };
-
-  const visibleOrders = tabData[activeTab];
+  const visibleOrders = activeTab === "preorder" ? preorderOrders
+    : activeTab === "dine-in"  ? dineInOrders
+    : activeTab === "takeaway" ? takeawayOrders
+    : deliveryOrders;
 
   const totalByTab = {
     "dine-in":  orders.filter((o) => o.type === "dine-in").length,
     "takeaway": orders.filter((o) => o.type === "takeaway" || o.type === "pickup").length,
     "delivery": orders.filter((o) => o.type === "delivery").length,
+    "preorder": preorderHistory.length,
   };
 
   function handleRefresh() {
@@ -170,6 +180,7 @@ export default function OrderHistoryPage() {
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении" },
           { id: "takeaway", icon: Package,          label: "С собой"     },
           { id: "delivery", icon: Bike,             label: "Доставка"    },
+          { id: "preorder", icon: CalendarDays,     label: "Предзаказы"  },
         ] as const).map(({ id, icon: Icon, label }) => {
           const count = totalByTab[id];
           return (
@@ -242,7 +253,7 @@ export default function OrderHistoryPage() {
 
           <div className="space-y-3">
             {visibleOrders.map((order) => (
-              <HistoryCard key={order.id} order={order} />
+              <HistoryCard key={order.id} order={order} showStatus={activeTab === "preorder"} />
             ))}
           </div>
         </div>
@@ -324,7 +335,7 @@ function HistoryCard({
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                 ✓ Оплачено
               </span>
-            ) : order.order_type === "preorder" ? (
+            ) : order.order_type === "preorder" && order.status !== "cancelled" ? (
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
                 Ожидает оплаты
               </span>

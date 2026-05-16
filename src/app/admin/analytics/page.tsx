@@ -153,6 +153,7 @@ function buildBreakdown(
 function buildPaymentBreakdown(orders: ShiftOrderRow[]): Record<string, number> {
   const map: Record<string, number> = {};
   for (const o of orders) {
+    if (o.status === "cancelled") continue;
     if (o.payment_details && typeof o.payment_details === "object") {
       for (const [method, amount] of Object.entries(o.payment_details)) {
         if (typeof amount === "number") map[method] = (map[method] ?? 0) + amount;
@@ -168,6 +169,7 @@ function buildPaymentBreakdown(orders: ShiftOrderRow[]): Record<string, number> 
 function buildPrepayBreakdown(orders: ShiftOrderRow[]): Record<string, number> {
   const map: Record<string, number> = {};
   for (const o of orders) {
+    if (o.status === "cancelled") continue;
     if ((o.paid_amount ?? 0) > 0 && o.prepayment_method) {
       map[o.prepayment_method] = (map[o.prepayment_method] ?? 0) + (o.paid_amount ?? 0);
     }
