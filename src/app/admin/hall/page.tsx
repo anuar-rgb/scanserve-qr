@@ -1059,6 +1059,7 @@ function OrderSlotPanel({
   const [editingNoteIdx, setEditingNoteIdx]     = useState<number | null>(null);
   const [noteInput, setNoteInput]               = useState("");
   const [savingNote, setSavingNote]             = useState(false);
+  const [removingIdx, setRemovingIdx]           = useState<number | null>(null);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -1084,6 +1085,20 @@ function OrderSlotPanel({
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     if (!data || data.length === 0) { toast.error("Не сохранено — проверьте RLS"); return; }
     setEditingNoteIdx(null);
+    onRefresh();
+  }
+
+  async function removeItem(idx: number) {
+    if (removingIdx !== null) return;
+    const item = items[idx];
+    setRemovingIdx(idx);
+    const updated = item.qty > 1
+      ? items.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it)
+      : items.filter((_, i) => i !== idx);
+    const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+    setRemovingIdx(null);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     onRefresh();
   }
 
@@ -1192,6 +1207,9 @@ function OrderSlotPanel({
                               <span className="text-muted-foreground break-words">
                                 {capFirst(item.name)}
                                 <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
+                                {item.created_at && (
+                                  <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
+                                )}
                               </span>
                               <button
                                 onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
@@ -1235,16 +1253,26 @@ function OrderSlotPanel({
                               </div>
                             )}
                           </div>
-                          <div className="flex flex-col items-end shrink-0">
-                            {item.original_price != null && (
-                              <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                                {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                              </span>
-                            )}
-                            <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                              {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                            </span>
-                          </div>
+                          <div className="flex items-start gap-1 shrink-0">
+                              <button
+                                onClick={() => void removeItem(item._idx)}
+                                disabled={removingIdx !== null}
+                                className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
+                                title={item.qty > 1 ? "−1" : "Удалить"}
+                              >
+                                {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                              </button>
+                              <div className="flex flex-col items-end">
+                                {item.original_price != null && (
+                                  <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                    {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                                  </span>
+                                )}
+                                <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                                  {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                                </span>
+                              </div>
+                            </div>
                         </div>
                       </div>
                     ))}
@@ -1725,6 +1753,7 @@ function TablePanel({
   const [editingNoteIdx, setEditingNoteIdx]       = useState<number | null>(null);
   const [noteInput, setNoteInput]                 = useState("");
   const [savingNote, setSavingNote]               = useState(false);
+  const [removingIdx, setRemovingIdx]             = useState<number | null>(null);
 
   const activeOrder = order ?? preorderOrder;
   const items: OrderItem[] = Array.isArray(activeOrder?.items_json)
@@ -1782,6 +1811,20 @@ function TablePanel({
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     if (!data || data.length === 0) { toast.error("Не сохранено — проверьте RLS"); return; }
     setEditingNoteIdx(null);
+    onRefresh();
+  }
+
+  async function removeItem(idx: number) {
+    if (removingIdx !== null || !activeOrder) return;
+    const item = items[idx];
+    setRemovingIdx(idx);
+    const updated = item.qty > 1
+      ? items.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it)
+      : items.filter((_, i) => i !== idx);
+    const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
+    setRemovingIdx(null);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     onRefresh();
   }
 
@@ -1933,6 +1976,9 @@ function TablePanel({
                                 <span className="text-muted-foreground break-words">
                                   {capFirst(item.name)}
                                   <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
+                                  {item.created_at && (
+                                    <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
+                                  )}
                                 </span>
                                 <button
                                   onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
@@ -1976,15 +2022,25 @@ function TablePanel({
                                 </div>
                               )}
                             </div>
-                            <div className="flex flex-col items-end shrink-0">
-                              {item.original_price != null && (
-                                <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                                  {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            <div className="flex items-start gap-1 shrink-0">
+                              <button
+                                onClick={() => void removeItem(item._idx)}
+                                disabled={removingIdx !== null}
+                                className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
+                                title={item.qty > 1 ? "−1" : "Удалить"}
+                              >
+                                {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                              </button>
+                              <div className="flex flex-col items-end">
+                                {item.original_price != null && (
+                                  <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                    {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                                  </span>
+                                )}
+                                <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                                  {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
                                 </span>
-                              )}
-                              <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                                {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                              </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -3419,6 +3475,8 @@ function PreorderDayCard({
 }) {
   const [expanded, setExpanded]               = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [showMenuPicker, setShowMenuPicker]   = useState(false);
+  const [removingIdx, setRemovingIdx]         = useState<number | null>(null);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce(
@@ -3441,6 +3499,19 @@ function PreorderDayCard({
   const prepayMethodMeta = order.prepayment_method ? METHOD_META[order.prepayment_method] : null;
   const prepayIcon       = prepayMethodMeta?.icon ?? null;
   const prepayLabel      = prepayMethodMeta?.label ?? (order.prepayment_method ? capFirst(order.prepayment_method) : null);
+
+  async function removeItem(idx: number) {
+    if (removingIdx !== null) return;
+    const item = items[idx];
+    setRemovingIdx(idx);
+    const updated = item.qty > 1
+      ? items.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it)
+      : items.filter((_, i) => i !== idx);
+    const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+    setRemovingIdx(null);
+    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+  }
 
   return (
     <div className={`rounded-xl border overflow-hidden bg-card ${
@@ -3601,83 +3672,105 @@ function PreorderDayCard({
         </div>
       )}
 
-      {expanded && items.length > 0 && (
+      {expanded && (
         <div className="border-t border-border px-3 py-2.5 bg-muted/20">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            Состав заказа
-          </p>
-          <div className="rounded-lg border border-border overflow-hidden bg-card">
-            {items.map((item, i) => (
-              <div
-                key={i}
-                className={`flex justify-between items-start px-2.5 py-1.5 text-xs ${
-                  i < items.length - 1 ? "border-b border-border" : ""
-                }`}
-              >
-                <div className="min-w-0 flex-1 pr-2">
-                  <span className="text-muted-foreground">
-                    {capFirst(item.name)}
-                    <span className="ml-1 text-muted-foreground/50">×{item.qty}</span>
-                  </span>
-                  {item.note && (
-                    <p className="text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
-                      ✎ {item.note}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+              Состав заказа
+            </p>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowMenuPicker(true); }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+            >
+              <Plus size={11} /> Добавить
+            </button>
+          </div>
+
+          {items.length === 0 ? (
+            <p className="text-center text-[11px] text-muted-foreground py-2">Состав заказа не указан</p>
+          ) : (
+            <>
+              <div className="rounded-lg border border-border overflow-hidden bg-card">
+                {items.map((item, i) => (
+                  <div
+                    key={i}
+                    className={`flex justify-between items-start px-2.5 py-1.5 text-xs ${
+                      i < items.length - 1 ? "border-b border-border" : ""
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <span className="text-muted-foreground">
+                        {capFirst(item.name)}
+                        <span className="ml-1 text-muted-foreground/50">×{item.qty}</span>
+                        {item.created_at && (
+                          <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
+                        )}
+                      </span>
+                      {item.note && (
+                        <p className="text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                          ✎ {item.note}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-start gap-1 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); void removeItem(i); }}
+                        disabled={removingIdx !== null}
+                        className="p-0.5 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
+                        title={item.qty > 1 ? "−1" : "Удалить"}
+                      >
+                        {removingIdx === i ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                      </button>
+                      <div className="flex flex-col items-end">
+                        {item.original_price != null && (
+                          <span className="text-[10px] text-muted-foreground/50 line-through tabular-nums">
+                            {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                          </span>
+                        )}
+                        <span className={`tabular-nums font-semibold ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                          {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 mt-2 border-t border-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Итого</p>
+                  <p className="text-sm font-black tabular-nums">{orderTotal.toLocaleString("ru-RU")} ₸</p>
+                </div>
+                {savedAmount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Скидка</p>
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 tabular-nums">−{savedAmount.toLocaleString("ru-RU")} ₸</p>
+                  </div>
+                )}
+                {paidAmount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      {prepayIcon && <span className="leading-none">{prepayIcon}</span>}
+                      {prepayLabel ? `Предоплата (${prepayLabel})` : "Предоплата"}
                     </p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end shrink-0">
-                  {item.original_price != null && (
-                    <span className="text-[10px] text-muted-foreground/50 line-through tabular-nums">
-                      {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                    </span>
-                  )}
-                  <span className={`tabular-nums font-semibold ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                    {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                  </span>
-                </div>
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">−{paidAmount.toLocaleString("ru-RU")} ₸</p>
+                  </div>
+                )}
+                {paidAmount > 0 && (
+                  <div className={`flex items-center justify-between pt-1 border-t border-border/60 ${
+                    fullyPrepaid ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+                  }`}>
+                    <p className="text-[11px] font-bold uppercase tracking-wide">
+                      {fullyPrepaid ? "Оплачено полностью" : "К оплате"}
+                    </p>
+                    <p className="text-sm font-black tabular-nums">
+                      {fullyPrepaid ? "✓" : `${remaining.toLocaleString("ru-RU")} ₸`}
+                    </p>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-
-          <div className="pt-2 mt-2 border-t border-border space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Итого</p>
-              <p className="text-sm font-black tabular-nums">{orderTotal.toLocaleString("ru-RU")} ₸</p>
-            </div>
-            {savedAmount > 0 && (
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Скидка</p>
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 tabular-nums">−{savedAmount.toLocaleString("ru-RU")} ₸</p>
-              </div>
-            )}
-            {paidAmount > 0 && (
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  {prepayIcon && <span className="leading-none">{prepayIcon}</span>}
-                  {prepayLabel ? `Предоплата (${prepayLabel})` : "Предоплата"}
-                </p>
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">−{paidAmount.toLocaleString("ru-RU")} ₸</p>
-              </div>
-            )}
-            {paidAmount > 0 && (
-              <div className={`flex items-center justify-between pt-1 border-t border-border/60 ${
-                fullyPrepaid ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
-              }`}>
-                <p className="text-[11px] font-bold uppercase tracking-wide">
-                  {fullyPrepaid ? "Оплачено полностью" : "К оплате"}
-                </p>
-                <p className="text-sm font-black tabular-nums">
-                  {fullyPrepaid ? "✓" : `${remaining.toLocaleString("ru-RU")} ₸`}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {expanded && items.length === 0 && (
-        <div className="border-t border-border px-3 py-3 text-center text-[11px] text-muted-foreground bg-muted/20">
-          Состав заказа не указан
+            </>
+          )}
         </div>
       )}
 
@@ -3685,6 +3778,15 @@ function PreorderDayCard({
         <PreorderPaymentModal
           order={order}
           onClose={() => setPaymentModalOpen(false)}
+        />
+      )}
+      {showMenuPicker && (
+        <MenuPickerModal
+          orderId={order.id}
+          existingItems={items}
+          orderCreatedAt={order.created_at}
+          onDone={() => setShowMenuPicker(false)}
+          onClose={() => setShowMenuPicker(false)}
         />
       )}
     </div>
