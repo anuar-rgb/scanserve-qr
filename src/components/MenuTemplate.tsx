@@ -2379,6 +2379,7 @@ export function MenuTemplate({
           left: "max(calc(50vw - 232px), 8px)",
           right: "max(calc(50vw - 232px), 8px)",
           zIndex: 100,
+          display: (cartOpen || ordersOpen) ? "none" : undefined,
           borderRadius: R.lg,
           backgroundColor: theme === "dark" ? "rgba(11,11,17,0.72)" : "rgba(245,245,247,0.70)",
           backdropFilter: "blur(14px) saturate(160%)",
