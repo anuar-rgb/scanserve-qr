@@ -500,60 +500,6 @@ export default function AnalyticsPage() {
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
 
-        {/* ── Shift Control Panel ── */}
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                activeShift
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
-              }`}>
-                <Clock size={18} />
-              </div>
-              <div>
-                {activeShift === undefined ? (
-                  <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" />
-                ) : activeShift ? (
-                  <>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      Смена открыта · <span className="text-emerald-600 dark:text-emerald-400">{formatShiftDuration(activeShift.opened_at)}</span>
-                    </p>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      Открыта {fmtDate(activeShift.opened_at)} в {fmtTime(activeShift.opened_at)}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Смена закрыта</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">Нет активной кассовой смены</p>
-                  </>
-                )}
-              </div>
-            </div>
-            <div>
-              {activeShift === undefined ? null : activeShift ? (
-                <button
-                  onClick={handleOpenZReport}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors">
-                  <Printer size={14} />
-                  Закрыть смену (Z-Отчёт)
-                </button>
-              ) : (
-                <button
-                  onClick={handleOpenShift}
-                  disabled={openingShift}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors">
-                  {openingShift
-                    ? <RefreshCw size={14} className="animate-spin" />
-                    : <Play size={14} />}
-                  Открыть смену
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* ── metric cards ── */}
         <div className="grid grid-cols-4 gap-4">
           <MetricCard loading={loading} icon={<CreditCard size={16} />} color="violet"
