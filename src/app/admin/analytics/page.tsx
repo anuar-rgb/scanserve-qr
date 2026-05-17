@@ -136,13 +136,23 @@ function buildTopDishes(orders: OrderRow[]): TopDish[] {
     .sort((a, b) => b.count - a.count).slice(0, 5);
 }
 
+function normalizeOrderType(raw: string): string {
+  if (raw === "dine-in") return "dine_in";
+  if (raw === "takeaway") return "pickup";
+  return raw;
+}
+
 function buildBreakdown(
   orders: OrderRow[],
   key: "status" | "type",
   meta: Record<string, { label: string; bg: string }>,
 ): Breakdown[] {
   const map = new Map<string, number>();
-  for (const o of orders) map.set(o[key] ?? "other", (map.get(o[key] ?? "other") ?? 0) + 1);
+  for (const o of orders) {
+    const raw = o[key] ?? "other";
+    const k = key === "type" ? normalizeOrderType(raw) : raw;
+    map.set(k, (map.get(k) ?? 0) + 1);
+  }
   const total = orders.length || 1;
   return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([k, count]) => ({
     label: meta[k]?.label ?? k,
@@ -184,7 +194,8 @@ function computeZReport(orders: ShiftOrderRow[]): ZReportData {
   const totalRevenue = completedOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
   const typeRevenue: Record<string, number> = {};
   for (const o of completedOrders) {
-    typeRevenue[o.type] = (typeRevenue[o.type] ?? 0) + (o.total_price ?? 0);
+    const t = normalizeOrderType(o.type);
+    typeRevenue[t] = (typeRevenue[t] ?? 0) + (o.total_price ?? 0);
   }
   const paymentBreakdown = buildPaymentBreakdown(orders);
   const prepayBreakdown  = buildPrepayBreakdown(orders);
