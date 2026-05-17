@@ -105,6 +105,9 @@
     "copyright": "© 2025 ScanServe.qr. All rights reserved."
   },
   "admin": {
+    "sectionOwner": "Owner",
+    "navOwnerOverview": "Profit Overview",
+    "descOwnerOverview": "Net profit, food cost, and financial summary.",
     "sectionAnalytics": "Analytics",
     "sectionManagement": "Management",
     "sectionStorefront": "Storefront",

@@ -105,6 +105,9 @@
     "copyright": "© 2025 ScanServe.qr. Барлық құқықтар қорғалған."
   },
   "admin": {
+    "sectionOwner": "Иеленуші",
+    "navOwnerOverview": "Пайда шолуы",
+    "descOwnerOverview": "Таза пайда, тамақ құны және қаржылық қорытынды.",
     "sectionAnalytics": "Analytics",
     "sectionManagement": "Management",
     "sectionStorefront": "Storefront",

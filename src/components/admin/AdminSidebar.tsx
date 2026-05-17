@@ -6,26 +6,36 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Sparkles, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
+import { useIsOwner } from "@/lib/role-context";
 
 type AdminKey = keyof Dict["admin"];
 
 type NavSection = {
   titleKey: AdminKey;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string }[];
+  ownerOnly?: true;
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true }[];
 };
 
 const NAV: NavSection[] = [
   {
-    titleKey: "sectionAnalytics",
+    titleKey: "sectionOwner",
+    ownerOnly: true,
     items: [
-      { labelKey: "navOverview",   icon: BarChart2,   href: "/admin/analytics" },
-      { labelKey: "navOrders",     icon: ShoppingBag, href: "/admin/orders"    },
-      { labelKey: "navReviews",    icon: Star,        href: "/admin/reviews"   },
-      { labelKey: "navPromotions", icon: Tag,         href: "/admin/promotions"},
+      { labelKey: "navOwnerOverview", icon: TrendingUp, href: "/admin/owner-overview", ownerOnly: true },
+    ],
+  },
+  {
+    titleKey: "sectionAnalytics",
+    ownerOnly: true,
+    items: [
+      { labelKey: "navOverview",   icon: BarChart2,   href: "/admin/analytics",  ownerOnly: true },
+      { labelKey: "navOrders",     icon: ShoppingBag, href: "/admin/orders",     ownerOnly: true },
+      { labelKey: "navReviews",    icon: Star,        href: "/admin/reviews",    ownerOnly: true },
+      { labelKey: "navPromotions", icon: Tag,         href: "/admin/promotions", ownerOnly: true },
     ],
   },
   {
@@ -37,29 +47,33 @@ const NAV: NavSection[] = [
   },
   {
     titleKey: "sectionManagement",
+    ownerOnly: true,
     items: [
-      { labelKey: "navCatalog",         icon: Package,  href: "/admin/dashboard"       },
-      { labelKey: "navRecommendations", icon: Sparkles, href: "/admin/recommendations" },
+      { labelKey: "navCatalog",         icon: Package,  href: "/admin/dashboard",       ownerOnly: true },
+      { labelKey: "navRecommendations", icon: Sparkles, href: "/admin/recommendations", ownerOnly: true },
     ],
   },
   {
     titleKey: "sectionStorefront",
+    ownerOnly: true,
     items: [
-      { labelKey: "navMainScreen", icon: Monitor, href: "/admin/storefront" },
+      { labelKey: "navMainScreen", icon: Monitor, href: "/admin/storefront", ownerOnly: true },
     ],
   },
   {
     titleKey: "sectionQR",
+    ownerOnly: true,
     items: [
-      { labelKey: "navIntegration", icon: QrCode,   href: "/admin/qr"       },
-      { labelKey: "navTraining",    icon: BookOpen, href: "/admin/training" },
+      { labelKey: "navIntegration", icon: QrCode,   href: "/admin/qr",       ownerOnly: true },
+      { labelKey: "navTraining",    icon: BookOpen, href: "/admin/training", ownerOnly: true },
     ],
   },
   {
     titleKey: "sectionSettings",
+    ownerOnly: true,
     items: [
-      { labelKey: "navPaymentBanks", icon: CreditCard, href: "/admin/payment-banks" },
-      { labelKey: "navProfile", icon: Settings, href: "/admin/settings" },
+      { labelKey: "navPaymentBanks", icon: CreditCard, href: "/admin/payment-banks", ownerOnly: true },
+      { labelKey: "navProfile", icon: Settings, href: "/admin/settings", ownerOnly: true },
     ],
   },
 ];
@@ -70,6 +84,7 @@ export default function AdminSidebar() {
   const { t, lang, setLang } = useTranslations();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const isOwner = useIsOwner();
 
   useEffect(() => setMounted(true), []);
 
@@ -79,6 +94,8 @@ export default function AdminSidebar() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace("/admin/login");
   }
+
+  const visibleSections = NAV.filter((s) => isOwner || !s.ownerOnly);
 
   return (
     <aside className="fixed inset-y-0 left-0 w-60 flex flex-col bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800/60 z-20 transition-colors duration-200">
@@ -90,43 +107,49 @@ export default function AdminSidebar() {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight">АС ТӨРІ</p>
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight">Admin Platform</p>
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight">
+              {isOwner ? "Owner Platform" : "Staff Terminal"}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-4">
-        {NAV.map((section) => (
-          <div key={section.titleKey}>
-            <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
-              {t.admin[section.titleKey]}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-violet-50 dark:bg-violet-600/15 text-violet-700 dark:text-violet-300"
-                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                    }`}
-                  >
-                    <Icon
-                      size={14}
-                      className={isActive ? "text-violet-600 dark:text-violet-400" : "text-zinc-400 dark:text-zinc-500"}
-                    />
-                    {t.admin[item.labelKey]}
-                  </Link>
-                );
-              })}
+        {visibleSections.map((section) => {
+          const visibleItems = section.items.filter((item) => isOwner || !item.ownerOnly);
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={section.titleKey}>
+              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
+                {t.admin[section.titleKey]}
+              </p>
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-violet-50 dark:bg-violet-600/15 text-violet-700 dark:text-violet-300"
+                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                      }`}
+                    >
+                      <Icon
+                        size={14}
+                        className={isActive ? "text-violet-600 dark:text-violet-400" : "text-zinc-400 dark:text-zinc-500"}
+                      />
+                      {t.admin[item.labelKey]}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Footer */}

@@ -105,6 +105,9 @@
     "copyright": "© 2025 ScanServe.qr. Все права защищены."
   },
   "admin": {
+    "sectionOwner": "Владелец",
+    "navOwnerOverview": "Обзор прибыли",
+    "descOwnerOverview": "Чистая прибыль, фудкост и финансовый итог.",
     "sectionAnalytics": "Аналитика",
     "sectionManagement": "Управление",
     "sectionStorefront": "Витрина",
