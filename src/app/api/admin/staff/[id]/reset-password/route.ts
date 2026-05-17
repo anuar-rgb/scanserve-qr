@@ -1,0 +1,40 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+function serverSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
+}
+
+// POST /api/admin/staff/[id]/reset-password
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const sessionRole = request.cookies.get("admin_session")?.value;
+  if (sessionRole !== "owner" && sessionRole !== "manager") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const { password } = await request.json();
+
+  if (!password || password.length < 4) {
+    return NextResponse.json({ error: "Пароль должен содержать минимум 4 символа" }, { status: 400 });
+  }
+
+  const supabase = serverSupabase();
+  const { data, error } = await supabase.rpc("update_staff_password", {
+    p_id:            id,
+    p_restaurant_id: process.env.NEXT_PUBLIC_RESTAURANT_ID!,
+    p_new_password:  password,
+  });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}

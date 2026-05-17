@@ -279,6 +279,8 @@
     "freeTableMsg": "This table is free. Guests order via QR code.",
     "orderElapsed": "Seated for",
     "orderIdCopied": "Order ID copied!",
+    "navStaff": "Staff",
+    "descStaff": "Manage staff members and roles.",
     "navPaymentBanks": "Payment Banks",
     "descPaymentBanks": "Card transfer recipients and bank details.",
     "addPaymentBank": "Add bank",
