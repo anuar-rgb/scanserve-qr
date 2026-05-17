@@ -223,7 +223,7 @@ export default function AdminSidebar() {
         {shift && (
           <div className="flex items-center gap-2 px-2.5 py-1.5">
             <Clock size={12} className="text-emerald-500 shrink-0" />
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+            <span className="flex-1 min-w-0 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
               Смена с {fmtTime(shift.opened_at)}
             </span>
             {isOwner && !confirmClose && (
