@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type AdminRole = "owner" | "admin" | null;
+export type AdminRole = "owner" | "manager" | "cashier" | "waiter" | "chef" | null;
 
 const RoleContext = createContext<AdminRole>(null);
 
@@ -23,8 +23,10 @@ export function useRole(): AdminRole {
   return useContext(RoleContext);
 }
 
+// true  = owner or manager (sees analytics + full sidebar)
+// false = cashier / waiter / chef (POS only)
+// null  = still loading → default true to avoid flash of hidden content
 export function useIsOwner(): boolean {
   const role = useRole();
-  // null means still loading — default to showing everything (falls back once loaded)
-  return role !== "admin";
+  return role !== "cashier" && role !== "waiter" && role !== "chef";
 }

@@ -1,31 +1,40 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
   const { username, password } = await request.json();
 
-  const ownerUsername = process.env.OWNER_USERNAME;
-  const ownerPassword = process.env.OWNER_PASSWORD;
-  const adminUsername = process.env.ADMIN_USERNAME;
-  const adminPassword = process.env.ADMIN_PASSWORD;
-
-  let role: "owner" | "admin" | null = null;
-
-  if (ownerUsername && ownerPassword && username === ownerUsername && password === ownerPassword) {
-    role = "owner";
-  } else if (adminUsername && adminPassword && username === adminUsername && password === adminPassword) {
-    role = "admin";
+  if (!username || !password) {
+    return NextResponse.json({ error: "Username and password are required." }, { status: 400 });
   }
 
-  if (!role) {
-    if (!ownerUsername && !adminUsername) {
-      return NextResponse.json({ error: "Admin credentials are not configured on the server." }, { status: 500 });
-    }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID;
+
+  if (!supabaseUrl || !serviceKey || !restaurantId) {
+    return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
+
+  const { data, error } = await supabase.rpc("verify_staff_password", {
+    p_restaurant_id: restaurantId,
+    p_username:      username,
+    p_password:      password,
+  });
+
+  if (error || !data || data.length === 0) {
     return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true, role });
-  response.cookies.set("admin_session", role, {
+  const user = data[0] as { id: string; role: string; display_name: string | null };
+
+  const response = NextResponse.json({ ok: true, role: user.role, displayName: user.display_name });
+  response.cookies.set("admin_session", user.role, {
     httpOnly: true,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
