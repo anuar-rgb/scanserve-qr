@@ -107,6 +107,12 @@ END $$;
 
 -- ── 10. reviews.order_id → orders.id ──────────────────────────────────────
 -- Both orders.id and reviews.order_id are TEXT in the original schema.
+-- Step 1: remove orphaned reviews (order_id has no matching row in orders).
+DELETE FROM reviews
+WHERE order_id IS NOT NULL
+  AND order_id NOT IN (SELECT id FROM orders);
+
+-- Step 2: add FK now that data is clean.
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'fk_reviews_order'
