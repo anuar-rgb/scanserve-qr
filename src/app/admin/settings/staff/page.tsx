@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRole } from "@/lib/role-context";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,9 @@ const ROLE_COLOR: Record<StaffRole, string> = {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function StaffPage() {
+  const viewerRole = useRole();
+  const isManager  = viewerRole === "manager";
+
   const [staff, setStaff]     = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -112,7 +116,7 @@ export default function StaffPage() {
           </div>
         ) : (
           <div className="space-y-2 max-w-2xl">
-            {staff.map((user) => (
+            {staff.filter((u) => !isManager || u.role !== "owner").map((user) => (
               <StaffRow
                 key={user.id}
                 user={user}
@@ -127,10 +131,10 @@ export default function StaffPage() {
 
       {/* Modals */}
       {addOpen && (
-        <AddModal onClose={() => setAddOpen(false)} onAdded={onAdded} />
+        <AddModal excludeOwner={isManager} onClose={() => setAddOpen(false)} onAdded={onAdded} />
       )}
       {editTarget && (
-        <EditModal user={editTarget} onClose={() => setEditTarget(null)} onSaved={onEdited} />
+        <EditModal excludeOwner={isManager} user={editTarget} onClose={() => setEditTarget(null)} onSaved={onEdited} />
       )}
       {resetTarget && (
         <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />
@@ -211,8 +215,9 @@ function StaffRow({
 // ─── Add modal ────────────────────────────────────────────────────────────────
 
 function AddModal({
-  onClose, onAdded,
+  excludeOwner, onClose, onAdded,
 }: {
+  excludeOwner?: boolean;
   onClose: () => void;
   onAdded: (user: StaffUser) => void;
 }) {
@@ -265,7 +270,7 @@ function AddModal({
         </div>
 
         <Field label="Роль *">
-          <RoleSelect value={role} onChange={setRole} />
+          <RoleSelect value={role} onChange={setRole} excludeOwner={excludeOwner} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -292,8 +297,9 @@ function AddModal({
 // ─── Edit modal ───────────────────────────────────────────────────────────────
 
 function EditModal({
-  user, onClose, onSaved,
+  excludeOwner, user, onClose, onSaved,
 }: {
+  excludeOwner?: boolean;
   user: StaffUser;
   onClose: () => void;
   onSaved: (u: Partial<StaffUser> & { id: string }) => void;
@@ -328,7 +334,7 @@ function EditModal({
         </Field>
 
         <Field label="Роль">
-          <RoleSelect value={role} onChange={setRole} />
+          <RoleSelect value={role} onChange={setRole} excludeOwner={excludeOwner} />
         </Field>
 
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -476,10 +482,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function RoleSelect({ value, onChange }: { value: StaffRole; onChange: (r: StaffRole) => void }) {
+function RoleSelect({ value, onChange, excludeOwner }: { value: StaffRole; onChange: (r: StaffRole) => void; excludeOwner?: boolean }) {
+  const roles = excludeOwner ? ROLES.filter((r) => r.value !== "owner") : ROLES;
   return (
     <div className="flex flex-wrap gap-2">
-      {ROLES.map((r) => (
+      {roles.map((r) => (
         <button
           key={r.value}
           type="button"

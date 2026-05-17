@@ -14,31 +14,43 @@ function getRestaurantId() {
   return process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 }
 
+function getSessionRole(request: NextRequest) {
+  return request.cookies.get("admin_session")?.value ?? null;
+}
+
 function requireOwner(request: NextRequest) {
-  const role = request.cookies.get("admin_session")?.value;
+  const role = getSessionRole(request);
   return role === "owner" || role === "manager";
 }
 
 // GET /api/admin/staff — list all staff for this restaurant
 export async function GET(request: NextRequest) {
-  if (!requireOwner(request)) {
+  const sessionRole = getSessionRole(request);
+  if (sessionRole !== "owner" && sessionRole !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = serverSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from("staff_users")
     .select("id, username, role, display_name, is_active, created_at")
     .eq("restaurant_id", getRestaurantId())
     .order("created_at", { ascending: true });
 
+  // Managers cannot see owner accounts
+  if (sessionRole === "manager") {
+    query = query.neq("role", "owner");
+  }
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ staff: data });
 }
 
 // POST /api/admin/staff — create new staff member
 export async function POST(request: NextRequest) {
-  if (!requireOwner(request)) {
+  const sessionRole = getSessionRole(request);
+  if (sessionRole !== "owner" && sessionRole !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -46,6 +58,11 @@ export async function POST(request: NextRequest) {
 
   if (!username?.trim() || !password?.trim() || !role) {
     return NextResponse.json({ error: "username, password and role are required" }, { status: 400 });
+  }
+
+  // Managers cannot create owner accounts
+  if (sessionRole === "manager" && role === "owner") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const VALID_ROLES = ["owner", "manager", "cashier", "waiter", "chef"];

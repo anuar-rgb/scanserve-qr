@@ -10,9 +10,8 @@ function serverSupabase() {
   );
 }
 
-function requireOwner(request: NextRequest) {
-  const role = request.cookies.get("admin_session")?.value;
-  return role === "owner" || role === "manager";
+function getSessionRole(request: NextRequest) {
+  return request.cookies.get("admin_session")?.value ?? null;
 }
 
 // PATCH /api/admin/staff/[id] — update role, display_name, or is_active
@@ -20,7 +19,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!requireOwner(request)) {
+  const sessionRole = getSessionRole(request);
+  if (sessionRole !== "owner" && sessionRole !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -42,9 +42,27 @@ export async function PATCH(
     if (!VALID_ROLES.includes(update.role as string)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
+    // Managers cannot promote anyone to owner
+    if (sessionRole === "manager" && update.role === "owner") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   const supabase = serverSupabase();
+
+  // Managers cannot edit owner accounts
+  if (sessionRole === "manager") {
+    const { data: target } = await supabase
+      .from("staff_users")
+      .select("role")
+      .eq("id", id)
+      .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!)
+      .single();
+    if (target?.role === "owner") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const { error } = await supabase
     .from("staff_users")
     .update({ ...update, updated_at: new Date().toISOString() })
@@ -60,12 +78,27 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!requireOwner(request)) {
+  const sessionRole = getSessionRole(request);
+  if (sessionRole !== "owner" && sessionRole !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const supabase = serverSupabase();
+
+  // Managers cannot delete owner accounts
+  if (sessionRole === "manager") {
+    const { data: target } = await supabase
+      .from("staff_users")
+      .select("role")
+      .eq("id", id)
+      .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!)
+      .single();
+    if (target?.role === "owner") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const { error } = await supabase
     .from("staff_users")
     .delete()

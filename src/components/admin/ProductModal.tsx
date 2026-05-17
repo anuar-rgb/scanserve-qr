@@ -5,6 +5,7 @@ import { X, Upload, Loader2, ImageIcon, Flame, Star, Sparkles } from "lucide-rea
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbProduct, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
+import { useIsStrictOwner } from "@/lib/role-context";
 import { ImageCropModal } from "./ImageCropModal";
 
 const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
@@ -171,6 +172,7 @@ function ProductCardPreview({
 
 export default function ProductModal({ mode, product, categories, defaultCategoryId, onClose, onSaved }: Props) {
   const { t } = useTranslations();
+  const isStrictOwner = useIsStrictOwner();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName]           = useState(product?.name.ru ?? product?.name.en ?? "");
@@ -397,9 +399,11 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                     type="number"
                     min={0}
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => isStrictOwner && setPrice(e.target.value)}
+                    readOnly={!isStrictOwner}
                     placeholder="1200"
-                    className={inputCls}
+                    className={inputCls + (!isStrictOwner ? " opacity-50 cursor-not-allowed" : "")}
+                    title={!isStrictOwner ? "Только владелец может изменять цену" : undefined}
                   />
                 </Field>
                 <Field label={t.admin.categoryLabel} required>

@@ -8,6 +8,7 @@ import {
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbProduct } from "@/lib/db-types";
 import { useTranslations, getName } from "@/lib/i18n";
+import { useIsStrictOwner } from "@/lib/role-context";
 import ProductModal from "@/components/admin/ProductModal";
 import CategoryModal from "@/components/admin/CategoryModal";
 
@@ -19,6 +20,7 @@ type DeleteState = { type: "product" | "category"; id: string; label: string } |
 
 export default function CatalogPage() {
   const { t, lang } = useTranslations();
+  const isStrictOwner = useIsStrictOwner();
 
   const [categories, setCategories]       = useState<DbCategory[]>([]);
   const [products, setProducts]           = useState<DbProduct[]>([]);
@@ -316,9 +318,13 @@ export default function CatalogPage() {
                         )}
                       </div>
 
-                      {/* Price (inline edit) */}
+                      {/* Price (inline edit — owner only) */}
                       <div className="shrink-0">
-                        {editPrice?.id === p.id ? (
+                        {!isStrictOwner ? (
+                          <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400 px-3 py-1.5 select-none">
+                            {p.price.toLocaleString()}₸
+                          </span>
+                        ) : editPrice?.id === p.id ? (
                           <input
                             autoFocus
                             type="number"
