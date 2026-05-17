@@ -6,11 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Sparkles, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
 import { useIsOwner, useIsStrictOwner } from "@/lib/role-context";
+import { useShift } from "@/lib/shift-context";
 
 type AdminKey = keyof Dict["admin"];
 
@@ -88,8 +89,20 @@ export default function AdminSidebar() {
   const [mounted, setMounted] = useState(false);
   const isOwner = useIsOwner();
   const isStrictOwner = useIsStrictOwner();
+  const { shift, closeShift } = useShift();
+  const [confirmClose, setConfirmClose] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  function fmtTime(iso: string) {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+
+  async function handleCloseShift() {
+    await closeShift();
+    setConfirmClose(false);
+  }
 
   const isDark = !mounted || theme === "dark";
 
@@ -205,6 +218,41 @@ export default function AdminSidebar() {
             ))}
           </div>
         </div>
+
+        {/* Shift status */}
+        {shift && (
+          <div className="flex items-center gap-2 px-2.5 py-1.5">
+            <Clock size={12} className="text-emerald-500 shrink-0" />
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+              Смена с {fmtTime(shift.opened_at)}
+            </span>
+            {isOwner && !confirmClose && (
+              <button
+                onClick={() => setConfirmClose(true)}
+                className="ml-auto shrink-0 text-[10px] text-red-400 hover:text-red-500 transition-colors"
+              >
+                Закрыть
+              </button>
+            )}
+            {isOwner && confirmClose && (
+              <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleCloseShift}
+                  className="text-[10px] font-semibold text-red-500 hover:text-red-600"
+                >
+                  Да
+                </button>
+                <span className="text-zinc-300 dark:text-zinc-700 text-[10px]">·</span>
+                <button
+                  onClick={() => setConfirmClose(false)}
+                  className="text-[10px] text-zinc-400 hover:text-zinc-600"
+                >
+                  Нет
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sign out */}
         <button
