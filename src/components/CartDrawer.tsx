@@ -1610,18 +1610,6 @@ export function CartDrawer({
                           } as React.CSSProperties}
                         />
                       </label>
-                      <label style={{ display: "block" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: muted, margin: `0 0 ${SP.sm}px`, display: "block" }}>
-                          {tn("paymentComment", lang)}
-                        </span>
-                        <textarea
-                          value={paymentComment}
-                          onChange={(e) => setPaymentComment(e.target.value)}
-                          placeholder={tn("paymentCommentHint", lang)}
-                          rows={2}
-                          style={textareaStyle(paymentComment.trim().length > 0)}
-                        />
-                      </label>
                     </div>
                   )}
 
