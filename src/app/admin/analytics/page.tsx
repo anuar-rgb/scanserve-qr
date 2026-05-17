@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, CreditCard, Star, Tag, RefreshCw,
-  Clock, Play, Printer, Archive, ChevronDown, X, CheckCircle2,
+  Clock, Play, Printer, Archive, ChevronDown, X, CheckCircle2, FileText,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { LS, DbShift } from "@/lib/db-types";
@@ -46,10 +46,12 @@ interface ZReportData {
   totalPrepay: number;
 }
 
-interface PromoProduct { id: string; name: LS; price: number; discount_label: string | null; }
-interface Bar          { label: string; revenue: number; }
-interface TopDish      { name: string; count: number; }
-interface Breakdown    { label: string; count: number; pct: number; bg: string; }
+interface PromoProduct   { id: string; name: LS; price: number; discount_label: string | null; }
+interface Bar            { label: string; revenue: number; }
+interface TopDish        { name: string; count: number; }
+interface Breakdown      { label: string; count: number; pct: number; bg: string; }
+interface InvoiceRow     { supplier_name: string; total_amount: number; created_at: string; }
+interface SupplierStat   { name: string; total: number; pct: number; }
 
 // ─── static maps ─────────────────────────────────────────────────────────────
 
@@ -264,6 +266,9 @@ export default function AnalyticsPage() {
   const [reviewCount, setReviewCount] = useState(0);
   const [promoProducts, setPromoProducts] = useState<PromoProduct[]>([]);
 
+  // ── invoices / expenses state ──
+  const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
+
   // ── shift state ──
   const [activeShift, setActiveShift]     = useState<ShiftRow | null | undefined>(undefined);
   const [reportingShift, setReportingShift] = useState<ShiftRow | null>(null);
@@ -283,7 +288,7 @@ export default function AnalyticsPage() {
     const prevFrom = prevFromDate(p).toISOString();
     const now      = new Date().toISOString();
 
-    const [curRes, prevRes, revRes, promoRes] = await Promise.all([
+    const [curRes, prevRes, revRes, promoRes, invRes] = await Promise.all([
       supabase.from("orders")
         .select("total_price, status, type, created_at, items_json")
         .eq("restaurant_id", RESTAURANT_ID)
@@ -298,6 +303,10 @@ export default function AnalyticsPage() {
         .select("id, name, price, discount_label")
         .eq("restaurant_id", RESTAURANT_ID)
         .eq("is_promo", true).eq("is_archived", false).order("name->ru"),
+      supabase.from("invoices")
+        .select("supplier_name, total_amount, created_at")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .gte("created_at", from).lte("created_at", now),
     ]);
 
     setOrders((curRes.data ?? []) as OrderRow[]);
@@ -306,6 +315,7 @@ export default function AnalyticsPage() {
     setReviewCount(revs.length);
     setReviewAvg(revs.length ? revs.reduce((s, r) => s + r.rating, 0) / revs.length : null);
     setPromoProducts((promoRes.data as PromoProduct[]) ?? []);
+    setInvoiceRows((invRes.data ?? []) as InvoiceRow[]);
     setLoading(false);
   }, []);
 
@@ -421,6 +431,18 @@ export default function AnalyticsPage() {
   const deltaStr  = (v: number | null) => v === null ? "нет данных" : `${v >= 0 ? "+" : ""}${v}%`;
 
   const zReportData = computeZReport(shiftOrders);
+
+  // ── expenses derived ──
+  const totalExpenses  = invoiceRows.reduce((s, i) => s + (i.total_amount ?? 0), 0);
+  const grossProfit    = totalRevenue - totalExpenses;
+  const supplierStats: SupplierStat[] = (() => {
+    const map = new Map<string, number>();
+    for (const r of invoiceRows) map.set(r.supplier_name, (map.get(r.supplier_name) ?? 0) + (r.total_amount ?? 0));
+    const total = totalExpenses || 1;
+    return [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, t]) => ({ name, total: t, pct: Math.round(t / total * 100) }));
+  })();
 
   return (
     <div className="flex flex-col h-full">
@@ -540,6 +562,113 @@ export default function AnalyticsPage() {
             value={reviewAvg !== null ? `${reviewAvg.toFixed(1)} / 5` : "—"}
             delta={reviewCount > 0 ? `${reviewCount} отзывов` : "нет отзывов"} />
         </div>
+
+        {/* ── expenses + profit row ── */}
+        <div className="grid grid-cols-2 gap-4">
+          <MetricCard loading={loading} icon={<FileText size={16} />} color="red"
+            label={t.admin.expenses}
+            value={totalExpenses > 0 ? `${(totalExpenses / 1000).toFixed(1)}K ₸` : "0 ₸"}
+            delta={`${invoiceRows.length} накладных за период`} />
+          <MetricCard loading={loading} icon={<TrendingUp size={16} />} color="emerald"
+            label={t.admin.profit}
+            value={`${(grossProfit / 1000).toFixed(1)}K ₸`}
+            delta={totalRevenue > 0 ? `маржа ${Math.round((grossProfit / totalRevenue) * 100)}%` : "нет выручки"}
+            deltaUp={grossProfit >= 0} />
+        </div>
+
+        {/* ── revenue vs expenses comparison ── */}
+        {(totalRevenue > 0 || totalExpenses > 0) && (
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-5">{t.admin.revenueVsExpenses}</h2>
+            <div className="space-y-3">
+              {/* Revenue bar */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.admin.revenue}</span>
+                  </div>
+                  <span className="text-xs font-bold tabular-nums text-zinc-800 dark:text-zinc-200">
+                    {totalRevenue.toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+                <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-violet-500 transition-all duration-500"
+                    style={{ width: `${totalRevenue > 0 || totalExpenses > 0 ? Math.round(totalRevenue / Math.max(totalRevenue, totalExpenses) * 100) : 0}%` }} />
+                </div>
+              </div>
+              {/* Expenses bar */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.admin.expenses}</span>
+                  </div>
+                  <span className="text-xs font-bold tabular-nums text-zinc-800 dark:text-zinc-200">
+                    {totalExpenses.toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+                <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-red-400 transition-all duration-500"
+                    style={{ width: `${totalRevenue > 0 || totalExpenses > 0 ? Math.round(totalExpenses / Math.max(totalRevenue, totalExpenses) * 100) : 0}%` }} />
+                </div>
+              </div>
+              {/* Profit bar */}
+              {grossProfit !== 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${grossProfit >= 0 ? "bg-emerald-500" : "bg-orange-500"}`} />
+                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.admin.profit}</span>
+                    </div>
+                    <span className={`text-xs font-bold tabular-nums ${grossProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-orange-500"}`}>
+                      {grossProfit >= 0 ? "+" : ""}{grossProfit.toLocaleString("ru-RU")} ₸
+                    </span>
+                  </div>
+                  <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${grossProfit >= 0 ? "bg-emerald-500" : "bg-orange-500"}`}
+                      style={{ width: `${Math.round(Math.abs(grossProfit) / Math.max(totalRevenue, totalExpenses, 1) * 100)}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── supplier breakdown ── */}
+        {supplierStats.length > 0 && (
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
+                <FileText size={15} />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t.admin.supplierBreakdown}</h2>
+                <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                  {supplierStats.length} поставщиков · {invoiceRows.length} накладных
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {supplierStats.map(s => (
+                <div key={s.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-[55%]">{s.name}</span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-[11px] font-bold tabular-nums text-zinc-800 dark:text-zinc-200">
+                        {s.total.toLocaleString("ru-RU")} ₸
+                      </span>
+                      <span className="text-[10px] text-zinc-400 w-8 text-right">{s.pct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-red-400" style={{ width: `${s.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── bar chart + top dishes ── */}
         <div className="grid grid-cols-5 gap-4">
@@ -946,7 +1075,7 @@ function ZReportModal({ shift, data, confirmed, closing, onConfirm, onPrint, onC
 
 function MetricCard({ loading, icon, color, label, value, delta, deltaUp }: {
   loading: boolean; icon: React.ReactNode;
-  color: "violet" | "blue" | "emerald" | "amber";
+  color: "violet" | "blue" | "emerald" | "amber" | "red";
   label: string; value: string; delta: string; deltaUp?: boolean;
 }) {
   const iconBg: Record<string, string> = {
@@ -954,6 +1083,7 @@ function MetricCard({ loading, icon, color, label, value, delta, deltaUp }: {
     blue:    "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     amber:   "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    red:     "bg-red-500/10 text-red-600 dark:text-red-400",
   };
   return (
     <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-5">

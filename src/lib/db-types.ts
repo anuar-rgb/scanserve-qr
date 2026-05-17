@@ -149,3 +149,23 @@ export interface DbShift {
   prepayments_total: number | null;
   created_at: string;
 }
+
+export interface DbInvoice {
+  id: string;
+  restaurant_id: string;
+  invoice_number: string | null;
+  supplier_name: string;
+  total_amount: number;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface DbInvoiceItem {
+  id: string;
+  invoice_id: string;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  price_per_unit: number;
+  total_item_price: number;
+}
