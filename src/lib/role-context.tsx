@@ -23,10 +23,17 @@ export function useRole(): AdminRole {
   return useContext(RoleContext);
 }
 
-// true  = owner or manager (sees analytics + full sidebar)
+// true = owner or manager (analytics, catalog, storefront, QR, profile)
 // false = cashier / waiter / chef (POS only)
-// null  = still loading → default true to avoid flash of hidden content
+// null (loading) → default true to avoid flash
 export function useIsOwner(): boolean {
   const role = useRole();
   return role !== "cashier" && role !== "waiter" && role !== "chef";
+}
+
+// true = owner only (profit overview, staff management, payment banks)
+// null (loading) → default true to avoid flash
+export function useIsStrictOwner(): boolean {
+  const role = useRole();
+  return role === "owner" || role === null;
 }

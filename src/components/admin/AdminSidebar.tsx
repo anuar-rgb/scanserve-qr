@@ -10,22 +10,23 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
-import { useIsOwner } from "@/lib/role-context";
+import { useIsOwner, useIsStrictOwner } from "@/lib/role-context";
 
 type AdminKey = keyof Dict["admin"];
 
 type NavSection = {
   titleKey: AdminKey;
   ownerOnly?: true;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true }[];
+  strictOwner?: true;
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true }[];
 };
 
 const NAV: NavSection[] = [
   {
     titleKey: "sectionOwner",
-    ownerOnly: true,
+    strictOwner: true,
     items: [
-      { labelKey: "navOwnerOverview", icon: TrendingUp, href: "/admin/owner-overview", ownerOnly: true },
+      { labelKey: "navOwnerOverview", icon: TrendingUp, href: "/admin/owner-overview", strictOwner: true },
     ],
   },
   {
@@ -72,9 +73,9 @@ const NAV: NavSection[] = [
     titleKey: "sectionSettings",
     ownerOnly: true,
     items: [
-      { labelKey: "navStaff",        icon: Users,     href: "/admin/settings/staff",  ownerOnly: true },
-      { labelKey: "navPaymentBanks", icon: CreditCard, href: "/admin/payment-banks", ownerOnly: true },
-      { labelKey: "navProfile", icon: Settings, href: "/admin/settings", ownerOnly: true },
+      { labelKey: "navStaff",        icon: Users,      href: "/admin/settings/staff", strictOwner: true },
+      { labelKey: "navPaymentBanks", icon: CreditCard, href: "/admin/payment-banks",  strictOwner: true },
+      { labelKey: "navProfile",      icon: Settings,   href: "/admin/settings",       ownerOnly: true },
     ],
   },
 ];
@@ -86,6 +87,7 @@ export default function AdminSidebar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const isOwner = useIsOwner();
+  const isStrictOwner = useIsStrictOwner();
 
   useEffect(() => setMounted(true), []);
 
@@ -96,7 +98,11 @@ export default function AdminSidebar() {
     router.replace("/admin/login");
   }
 
-  const visibleSections = NAV.filter((s) => isOwner || !s.ownerOnly);
+  const visibleSections = NAV.filter((s) => {
+    if (s.strictOwner && !isStrictOwner) return false;
+    if (s.ownerOnly && !isOwner) return false;
+    return true;
+  });
 
   return (
     <aside className="fixed inset-y-0 left-0 w-60 flex flex-col bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800/60 z-20 transition-colors duration-200">
@@ -118,7 +124,11 @@ export default function AdminSidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-4">
         {visibleSections.map((section) => {
-          const visibleItems = section.items.filter((item) => isOwner || !item.ownerOnly);
+          const visibleItems = section.items.filter((item) => {
+            if (item.strictOwner && !isStrictOwner) return false;
+            if (item.ownerOnly && !isOwner) return false;
+            return true;
+          });
           if (visibleItems.length === 0) return null;
           return (
             <div key={section.titleKey}>

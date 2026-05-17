@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Routes accessible only to owner / manager
-const OWNER_ONLY: string[] = [
+// Blocked for cashier / waiter / chef
+const POS_BLOCKED: string[] = [
   "/admin/analytics",
   "/admin/owner-overview",
+  "/admin/orders",
+  "/admin/reviews",
   "/admin/promotions",
   "/admin/recommendations",
   "/admin/dashboard",
@@ -18,7 +20,13 @@ const OWNER_ONLY: string[] = [
   "/admin/settings",
 ];
 
-// Roles that are restricted to POS-only access
+// Additionally blocked for manager (owner-exclusive)
+const OWNER_EXCLUSIVE: string[] = [
+  "/admin/owner-overview",
+  "/admin/payment-banks",
+  "/admin/settings/staff",
+];
+
 const POS_ONLY_ROLES = ["cashier", "waiter", "chef"];
 
 export function middleware(request: NextRequest) {
@@ -37,14 +45,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  // POS-only roles cannot access owner routes
   if (POS_ONLY_ROLES.includes(session.value)) {
-    const blocked = OWNER_ONLY.some(
+    const blocked = POS_BLOCKED.some(
       (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
     );
-    if (blocked) {
-      return NextResponse.redirect(new URL("/admin/hall", request.url));
-    }
+    if (blocked) return NextResponse.redirect(new URL("/admin/hall", request.url));
+  } else if (session.value === "manager") {
+    const blocked = OWNER_EXCLUSIVE.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+    );
+    if (blocked) return NextResponse.redirect(new URL("/admin/analytics", request.url));
   }
 
   return NextResponse.next();
