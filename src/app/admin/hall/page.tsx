@@ -1024,6 +1024,7 @@ function OrderSlotCard({
   onPay: () => void;
   isActivatedPreorder?: boolean;
 }) {
+  const isWaiter   = useRole() === "waiter";
   const elapsed = getElapsed(order.created_at);
   const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
@@ -1078,17 +1079,19 @@ function OrderSlotCard({
         )}
       </div>
 
-      <div className="border-t border-amber-200/60 dark:border-amber-700/30 px-3 py-2">
-        <button
-          onClick={(e) => { e.stopPropagation(); onPay(); }}
-          className="w-full flex items-center justify-center gap-1.5 h-7 rounded-lg bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-700 transition-colors"
-        >
-          <CheckCircle2 size={11} />
-          {prepaid > 0
-            ? `Остаток: ${balanceDue.toLocaleString("ru-RU")} ₸`
-            : "Оплатить"}
-        </button>
-      </div>
+      {!isWaiter && (
+        <div className="border-t border-amber-200/60 dark:border-amber-700/30 px-3 py-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onPay(); }}
+            className="w-full flex items-center justify-center gap-1.5 h-7 rounded-lg bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-700 transition-colors"
+          >
+            <CheckCircle2 size={11} />
+            {prepaid > 0
+              ? `Остаток: ${balanceDue.toLocaleString("ru-RU")} ₸`
+              : "Оплатить"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1110,6 +1113,7 @@ function OrderSlotPanel({
   allTables: TableWithStatus[];
   width?: number;
 }) {
+  const isWaiter = useRole() === "waiter";
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [copiedId, setCopiedId]                 = useState(false);
   const [showMenuPicker, setShowMenuPicker]     = useState(false);
@@ -1187,9 +1191,11 @@ function OrderSlotPanel({
               <span className="max-w-[140px] truncate">#{order.id}</span>
               {copiedId ? <Check size={11} className="text-emerald-500 shrink-0" /> : <Copy size={11} className="shrink-0" />}
             </button>
-            <button onClick={() => handlePrint(order)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <Printer size={12} /> Чек
-            </button>
+            {!isWaiter && (
+              <button onClick={() => handlePrint(order)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                <Printer size={12} /> Чек
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30">
@@ -1362,38 +1368,42 @@ function OrderSlotPanel({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setShowDiscountModal(true)}
-              className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-            >
-              <Percent size={14} />
-              <span className="text-[10px] font-medium">Скидка</span>
-            </button>
-            <button
-              onClick={() => setShowTypeModal(true)}
-              className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-            >
-              <ArrowLeftRight size={14} />
-              <span className="text-[10px] font-medium">Изменить тип</span>
-            </button>
-          </div>
-          {showDiscountModal && (
-            <DiscountModal
-              orderId={order.id}
-              existingItems={items}
-              onDone={() => { setShowDiscountModal(false); onRefresh(); }}
-              onClose={() => setShowDiscountModal(false)}
-            />
-          )}
-          {showTypeModal && (
-            <ChangeOrderTypeModal
-              orderId={order.id}
-              currentType={order.type}
-              allTables={allTables}
-              onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
-              onClose={() => setShowTypeModal(false)}
-            />
+          {!isWaiter && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setShowDiscountModal(true)}
+                  className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
+                >
+                  <Percent size={14} />
+                  <span className="text-[10px] font-medium">Скидка</span>
+                </button>
+                <button
+                  onClick={() => setShowTypeModal(true)}
+                  className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
+                >
+                  <ArrowLeftRight size={14} />
+                  <span className="text-[10px] font-medium">Изменить тип</span>
+                </button>
+              </div>
+              {showDiscountModal && (
+                <DiscountModal
+                  orderId={order.id}
+                  existingItems={items}
+                  onDone={() => { setShowDiscountModal(false); onRefresh(); }}
+                  onClose={() => setShowDiscountModal(false)}
+                />
+              )}
+              {showTypeModal && (
+                <ChangeOrderTypeModal
+                  orderId={order.id}
+                  currentType={order.type}
+                  allTables={allTables}
+                  onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
+                  onClose={() => setShowTypeModal(false)}
+                />
+              )}
+            </>
           )}
 
           <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
@@ -1432,14 +1442,16 @@ function OrderSlotPanel({
             </div>
           </div>
 
-          <button onClick={() => setShowPaymentModal(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
-            <Check size={15} />
-            {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
-          </button>
+          {!isWaiter && (
+            <button onClick={() => setShowPaymentModal(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
+              <Check size={15} />
+              {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
+            </button>
+          )}
 
         </div>
       </div>
-      {showPaymentModal && (
+      {!isWaiter && showPaymentModal && (
         <PaymentModal
           order={order}
           onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
@@ -1831,6 +1843,7 @@ function TablePanel({
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
+  const isWaiter = useRole() === "waiter";
   const { table, status, order, preorderOrder, elapsed } = data;
   const [panelMode, setPanelMode]                 = useState<"info" | "order">("info");
   const [showPaymentModal, setShowPaymentModal]   = useState(false);
@@ -2028,14 +2041,16 @@ function TablePanel({
                   : <Copy size={11} className="shrink-0" />
                 }
               </button>
-              <button
-                onClick={() => handlePrint(activeOrder)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                title="Печать чека"
-              >
-                <Printer size={12} />
-                Чек
-              </button>
+              {!isWaiter && (
+                <button
+                  onClick={() => handlePrint(activeOrder)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  title="Печать чека"
+                >
+                  <Printer size={12} />
+                  Чек
+                </button>
+              )}
             </div>
 
             {/* Time / preorder badge */}
@@ -2206,29 +2221,87 @@ function TablePanel({
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => setShowDiscountModal(true)}
-                    className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-                  >
-                    <Percent size={14} />
-                    <span className="text-[10px] font-medium">Скидка</span>
-                  </button>
-                  <button
-                    onClick={() => setShowTypeModal(true)}
-                    className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-                  >
-                    <ArrowLeftRight size={14} />
-                    <span className="text-[10px] font-medium">Тип заказа</span>
-                  </button>
-                  <button
-                    onClick={() => setChangingTable(true)}
-                    className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-                  >
-                    <Move size={14} />
-                    <span className="text-[10px] font-medium">Перенести</span>
-                  </button>
-                </div>
+                {!isWaiter && (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setShowDiscountModal(true)}
+                        className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
+                      >
+                        <Percent size={14} />
+                        <span className="text-[10px] font-medium">Скидка</span>
+                      </button>
+                      <button
+                        onClick={() => setShowTypeModal(true)}
+                        className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
+                      >
+                        <ArrowLeftRight size={14} />
+                        <span className="text-[10px] font-medium">Тип заказа</span>
+                      </button>
+                      <button
+                        onClick={() => setChangingTable(true)}
+                        className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
+                      >
+                        <Move size={14} />
+                        <span className="text-[10px] font-medium">Перенести</span>
+                      </button>
+                    </div>
+
+                    {changingTable && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Выберите стол для переноса:
+                        </p>
+                        <div className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto admin-scroll">
+                          {allTables
+                            .filter((tws) => tws.table.id !== table.id)
+                            .map((tws) => {
+                              const isFree = tws.status === "free";
+                              return (
+                                <button
+                                  key={tws.table.id}
+                                  onClick={() => changeTable(tws.table.label)}
+                                  disabled={!isFree}
+                                  title={isFree ? `Перенести на стол ${tws.table.label}` : "Стол занят"}
+                                  className={`h-10 rounded-lg text-xs font-bold border transition-colors ${
+                                    isFree
+                                      ? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                      : "border-border text-muted-foreground opacity-40 cursor-not-allowed"
+                                  }`}
+                                >
+                                  {tws.table.label}
+                                </button>
+                              );
+                            })}
+                        </div>
+                        <button
+                          onClick={() => setChangingTable(false)}
+                          className="w-full h-8 rounded-lg border border-border text-xs text-muted-foreground hover:bg-accent transition-colors"
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    )}
+
+                    {showDiscountModal && (
+                      <DiscountModal
+                        orderId={activeOrder.id}
+                        existingItems={items}
+                        onDone={() => { setShowDiscountModal(false); onRefresh(); }}
+                        onClose={() => setShowDiscountModal(false)}
+                      />
+                    )}
+                    {showTypeModal && (
+                      <ChangeOrderTypeModal
+                        orderId={activeOrder.id}
+                        currentType="dine-in"
+                        allTables={allTables}
+                        onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
+                        onClose={() => setShowTypeModal(false)}
+                      />
+                    )}
+                  </>
+                )}
 
                 {data.orders.length < 5 && (
                   <button
@@ -2238,60 +2311,6 @@ function TablePanel({
                     <Plus size={12} />
                     Открыть новый счёт за этим столом
                   </button>
-                )}
-
-                {changingTable && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Выберите стол для переноса:
-                    </p>
-                    <div className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto admin-scroll">
-                      {allTables
-                        .filter((tws) => tws.table.id !== table.id)
-                        .map((tws) => {
-                          const isFree = tws.status === "free";
-                          return (
-                            <button
-                              key={tws.table.id}
-                              onClick={() => changeTable(tws.table.label)}
-                              disabled={!isFree}
-                              title={isFree ? `Перенести на стол ${tws.table.label}` : "Стол занят"}
-                              className={`h-10 rounded-lg text-xs font-bold border transition-colors ${
-                                isFree
-                                  ? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                                  : "border-border text-muted-foreground opacity-40 cursor-not-allowed"
-                              }`}
-                            >
-                              {tws.table.label}
-                            </button>
-                          );
-                        })}
-                    </div>
-                    <button
-                      onClick={() => setChangingTable(false)}
-                      className="w-full h-8 rounded-lg border border-border text-xs text-muted-foreground hover:bg-accent transition-colors"
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                )}
-
-                {showDiscountModal && (
-                  <DiscountModal
-                    orderId={activeOrder.id}
-                    existingItems={items}
-                    onDone={() => { setShowDiscountModal(false); onRefresh(); }}
-                    onClose={() => setShowDiscountModal(false)}
-                  />
-                )}
-                {showTypeModal && (
-                  <ChangeOrderTypeModal
-                    orderId={activeOrder.id}
-                    currentType="dine-in"
-                    allTables={allTables}
-                    onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
-                    onClose={() => setShowTypeModal(false)}
-                  />
                 )}
               </>
             )}
@@ -2334,7 +2353,7 @@ function TablePanel({
             </div>
 
             {/* Close order */}
-            {status === "occupied" && (
+            {!isWaiter && status === "occupied" && (
               <button
                 onClick={() => setShowPaymentModal(true)}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
@@ -2347,7 +2366,7 @@ function TablePanel({
           </div>
         )}
       </div>
-      {showPaymentModal && order && (
+      {!isWaiter && showPaymentModal && order && (
         <PaymentModal
           order={order}
           tableName={table.label}
