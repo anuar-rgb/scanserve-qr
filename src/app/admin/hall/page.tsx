@@ -218,6 +218,7 @@ export default function HallPage() {
   const [waiterNewOrderPicker, setWaiterNewOrderPicker] = useState(false);
   const [waiterAutoOrder, setWaiterAutoOrder]           = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
+  const [waiterNames, setWaiterNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -396,6 +397,23 @@ export default function HallPage() {
     if (!isConfigured) return;
     supabase.from(DB_TABLES.restaurants).select("*").eq("id", RESTAURANT_ID).single()
       .then(({ data }) => { if (data) setRestaurant(data as DbRestaurant); });
+  }, []);
+
+  // Fetch staff names once on mount for waiter attribution display
+  useEffect(() => {
+    if (!isConfigured) return;
+    supabase
+      .from("staff_users")
+      .select("id, display_name, username")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, string> = {};
+        for (const u of data as { id: string; display_name: string | null; username: string }[]) {
+          map[u.id] = u.display_name || u.username || "Сотрудник";
+        }
+        setWaiterNames(map);
+      });
   }, []);
 
   // Keep refs in sync for the activation interval (avoids stale closures)
@@ -691,6 +709,7 @@ export default function HallPage() {
                         isSelected={!editMode && selected === tws.table.id}
                         editMode={editMode}
                         compact={isWaiter}
+                        waiterNames={waiterNames}
                         onClick={() => {
                           if (editMode) return;
                           const next = selected === tws.table.id ? null : tws.table.id;
@@ -723,6 +742,7 @@ export default function HallPage() {
                   width={tableCreatingOrder || isMobile ? undefined : tablePanelW}
                   fullWidth={isMobile}
                   autoOrder={waiterAutoOrder}
+                  waiterNames={waiterNames}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
                   onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
@@ -754,6 +774,7 @@ export default function HallPage() {
           onOrderClosed={handleOrderClosed}
           allTables={tablesWithStatus}
           activatedPreorderIds={activatedPreorderIds}
+          waiterNames={waiterNames}
         />
       )}
 
@@ -767,6 +788,7 @@ export default function HallPage() {
           onOrderClosed={handleOrderClosed}
           allTables={tablesWithStatus}
           activatedPreorderIds={activatedPreorderIds}
+          waiterNames={waiterNames}
         />
       )}
 
@@ -951,6 +973,7 @@ function TableCard({
   isSelected,
   editMode,
   compact = false,
+  waiterNames = {},
   onClick,
   onEdit,
   onDelete,
@@ -961,6 +984,7 @@ function TableCard({
   isSelected: boolean;
   editMode: boolean;
   compact?: boolean;
+  waiterNames?: Record<string, string>;
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1080,6 +1104,12 @@ function TableCard({
                 {tws.orders.length} счёта
               </span>
             )}
+            <div className="flex items-center gap-1 mt-0.5">
+              <User size={9} className="text-muted-foreground shrink-0" />
+              <span className="text-[10px] text-muted-foreground truncate">
+                {order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : "Администратор"}
+              </span>
+            </div>
           </div>
         )}
 
@@ -1242,6 +1272,7 @@ function OrderSlotPanel({
   onOrderClosed,
   allTables,
   width,
+  waiterNames = {},
 }: {
   order: DbOrder;
   onClose: () => void;
@@ -1249,6 +1280,7 @@ function OrderSlotPanel({
   onOrderClosed: (orderId: string) => void;
   allTables: TableWithStatus[];
   width?: number;
+  waiterNames?: Record<string, string>;
 }) {
   const isWaiter = useRole() === "waiter";
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1314,6 +1346,14 @@ function OrderSlotPanel({
             <p className="font-semibold text-sm">{typeLabel}</p>
           </div>
           {order.table_number && <p className="text-[11px] text-muted-foreground mt-0.5">{order.table_number}</p>}
+          {!isWaiter && (
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+              <User size={9} className="shrink-0" />
+              <span className="font-medium">
+                {order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : "Администратор"}
+              </span>
+            </p>
+          )}
         </div>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
           <X size={15} />
@@ -1613,6 +1653,7 @@ function PickupDeliveryGrid({
   onOrderClosed,
   allTables,
   activatedPreorderIds,
+  waiterNames = {},
 }: {
   orders: DbOrder[];
   loading: boolean;
@@ -1621,6 +1662,7 @@ function PickupDeliveryGrid({
   onOrderClosed: (orderId: string) => void;
   allTables: TableWithStatus[];
   activatedPreorderIds?: Set<string>;
+  waiterNames?: Record<string, string>;
 }) {
   const [selected, setSelected]     = useState<string | null>(null);
   const [creating, setCreating]     = useState(false);
@@ -1695,6 +1737,7 @@ function PickupDeliveryGrid({
             onRefresh={onRefresh}
             onOrderClosed={onOrderClosed}
             allTables={allTables}
+            waiterNames={waiterNames}
           />
         </>
       )}
@@ -1971,6 +2014,7 @@ function TablePanel({
   width,
   fullWidth,
   autoOrder,
+  waiterNames = {},
   onEnterOrderMode,
   onExitOrderMode,
 }: {
@@ -1983,6 +2027,7 @@ function TablePanel({
   width?: number;
   fullWidth?: boolean;
   autoOrder?: boolean;
+  waiterNames?: Record<string, string>;
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
@@ -2119,6 +2164,17 @@ function TablePanel({
               {status === "free" ? "Свободен" : status === "occupied" ? "Занят" : "Предзаказ"}
             </span>
           </p>
+          {!isWaiter && status === "occupied" && (
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+              <User size={9} className="shrink-0" />
+              Официант:{" "}
+              <span className="font-medium">
+                {activeOrder?.opened_by
+                  ? (waiterNames[activeOrder.opened_by] ?? "Сотрудник")
+                  : "Администратор"}
+              </span>
+            </p>
+          )}
         </div>
         <button
           onClick={onClose}
