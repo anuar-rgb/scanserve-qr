@@ -12,7 +12,7 @@ import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct } 
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
-import { useUserId } from "@/lib/role-context";
+import { useUserId, useRole } from "@/lib/role-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -212,6 +212,8 @@ export default function HallPage() {
   const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
+  const role                        = useRole();
+  const isWaiter                    = role === "waiter";
   const knownOrderIds               = useRef(new Set<string>());
 
   useEffect(() => {
@@ -559,7 +561,7 @@ export default function HallPage() {
           </div>
         </div>
 
-        {activeTab === "dine-in" && editMode && (
+        {!isWaiter && activeTab === "dine-in" && editMode && (
           <button
             onClick={() => setAddOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors shrink-0"
@@ -569,7 +571,7 @@ export default function HallPage() {
           </button>
         )}
 
-        {activeTab === "dine-in" && (
+        {!isWaiter && activeTab === "dine-in" && (
           <button
             onClick={editMode ? exitEditMode : enterEditMode}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
@@ -619,7 +621,7 @@ export default function HallPage() {
       </div>
 
       {/* ── Edit mode banner ────────────────────────────────────────────────── */}
-      {activeTab === "dine-in" && editMode && (
+      {!isWaiter && activeTab === "dine-in" && editMode && (
         <div className="px-6 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-700/50 shrink-0 flex items-center gap-2">
           <Settings size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -632,11 +634,13 @@ export default function HallPage() {
       {activeTab === "dine-in" && (
         <>
           {/* Legend */}
-          <div className="px-6 py-2 flex items-center gap-4 text-xs border-b border-border bg-muted/20 shrink-0">
-            <LegendDot color="emerald" label="Свободен" />
-            <LegendDot color="red"     label="Занят"    />
-            <LegendDot color="amber"   label="Предзаказ" />
-          </div>
+          {!isWaiter && (
+            <div className="px-6 py-2 flex items-center gap-4 text-xs border-b border-border bg-muted/20 shrink-0">
+              <LegendDot color="emerald" label="Свободен" />
+              <LegendDot color="red"     label="Занят"    />
+              <LegendDot color="amber"   label="Предзаказ" />
+            </div>
+          )}
 
           {/* Body */}
           <div className="flex flex-1 overflow-hidden">
@@ -652,7 +656,9 @@ export default function HallPage() {
                 ) : (
                   <div
                     className="grid gap-3"
-                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
+                    style={{ gridTemplateColumns: isWaiter
+                      ? "repeat(auto-fill, minmax(120px, 1fr))"
+                      : "repeat(auto-fill, minmax(140px, 1fr))" }}
                   >
                     {tablesWithStatus.map((tws) => (
                       <TableCard
@@ -660,6 +666,7 @@ export default function HallPage() {
                         tws={tws}
                         isSelected={!editMode && selected === tws.table.id}
                         editMode={editMode}
+                        compact={isWaiter}
                         onClick={() => {
                           if (editMode) return;
                           const next = selected === tws.table.id ? null : tws.table.id;
@@ -804,6 +811,7 @@ function TableCard({
   tws,
   isSelected,
   editMode,
+  compact = false,
   onClick,
   onEdit,
   onDelete,
@@ -813,6 +821,7 @@ function TableCard({
   tws: TableWithStatus;
   isSelected: boolean;
   editMode: boolean;
+  compact?: boolean;
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -842,6 +851,30 @@ function TableCard({
       badge:  "text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30",
     },
   }[status];
+
+  if (compact) {
+    return (
+      <div
+        onClick={onClick}
+        className={`
+          relative flex flex-col items-center justify-center rounded-2xl border-2 select-none py-5 px-2
+          transition-all duration-150 cursor-pointer active:scale-95
+          ${palette.card}
+          ${isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : "hover:shadow-md"}
+        `}
+      >
+        <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
+        <p className="text-4xl font-black leading-none text-foreground text-center">{table.label}</p>
+        <p className="text-[12px] text-muted-foreground mt-2">{table.seats} мест</p>
+        {status === "occupied" && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <Clock size={10} className="text-red-500 shrink-0" />
+            <span className="text-[11px] font-semibold text-red-600 dark:text-red-400">{formatElapsed(elapsed)}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
