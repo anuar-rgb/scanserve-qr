@@ -1279,20 +1279,22 @@ function OrderSlotPanel({
                                   <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
                                 )}
                               </span>
-                              <button
-                                onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
-                                className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
-                                title={item.note ? "Изменить заметку" : "Добавить заметку"}
-                              >
-                                <MessageSquare size={11} />
-                              </button>
+                              {!isWaiter && (
+                                <button
+                                  onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
+                                  className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
+                                  title={item.note ? "Изменить заметку" : "Добавить заметку"}
+                                >
+                                  <MessageSquare size={11} />
+                                </button>
+                              )}
                             </div>
                             {item.note && editingNoteIdx !== item._idx && (
                               <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                 ✎ {item.note}
                               </p>
                             )}
-                            {editingNoteIdx === item._idx && (
+                            {!isWaiter && editingNoteIdx === item._idx && (
                               <div className="mt-1.5 flex items-center gap-1">
                                 <input
                                   autoFocus
@@ -1322,14 +1324,16 @@ function OrderSlotPanel({
                             )}
                           </div>
                           <div className="flex items-start gap-1 shrink-0">
-                              <button
-                                onClick={() => void removeItem(item._idx)}
-                                disabled={removingIdx !== null}
-                                className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
-                                title={item.qty > 1 ? "−1" : "Удалить"}
-                              >
-                                {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
-                              </button>
+                              {!isWaiter && (
+                                <button
+                                  onClick={() => void removeItem(item._idx)}
+                                  disabled={removingIdx !== null}
+                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
+                                  title={item.qty > 1 ? "−1" : "Удалить"}
+                                >
+                                  {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                                </button>
+                              )}
                               <div className="flex flex-col items-end">
                                 {item.original_price != null && (
                                   <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
@@ -2128,20 +2132,22 @@ function TablePanel({
                                     <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
                                   )}
                                 </span>
-                                <button
-                                  onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
-                                  className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
-                                  title={item.note ? "Изменить заметку" : "Добавить заметку"}
-                                >
-                                  <MessageSquare size={11} />
-                                </button>
+                                {!isWaiter && (
+                                  <button
+                                    onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
+                                    className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
+                                    title={item.note ? "Изменить заметку" : "Добавить заметку"}
+                                  >
+                                    <MessageSquare size={11} />
+                                  </button>
+                                )}
                               </div>
                               {item.note && editingNoteIdx !== item._idx && (
                                 <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                   ✎ {item.note}
                                 </p>
                               )}
-                              {editingNoteIdx === item._idx && (
+                              {!isWaiter && editingNoteIdx === item._idx && (
                                 <div className="mt-1.5 flex items-center gap-1">
                                   <input
                                     autoFocus
@@ -2171,14 +2177,16 @@ function TablePanel({
                               )}
                             </div>
                             <div className="flex items-start gap-1 shrink-0">
-                              <button
-                                onClick={() => void removeItem(item._idx)}
-                                disabled={removingIdx !== null}
-                                className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
-                                title={item.qty > 1 ? "−1" : "Удалить"}
-                              >
-                                {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
-                              </button>
+                              {!isWaiter && (
+                                <button
+                                  onClick={() => void removeItem(item._idx)}
+                                  disabled={removingIdx !== null}
+                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
+                                  title={item.qty > 1 ? "−1" : "Удалить"}
+                                >
+                                  {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                                </button>
+                              )}
                               <div className="flex flex-col items-end">
                                 {item.original_price != null && (
                                   <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
@@ -3687,6 +3695,7 @@ function PreorderDayCard({
   const [removingIdx, setRemovingIdx]         = useState<number | null>(null);
   const [confirmCancel, setConfirmCancel]     = useState(false);
   const [cancelling, setCancelling]           = useState(false);
+  const isWaiter = useRole() === "waiter";
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce(
@@ -3951,14 +3960,16 @@ function PreorderDayCard({
                       )}
                     </div>
                     <div className="flex items-start gap-1 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); void removeItem(i); }}
-                        disabled={removingIdx !== null}
-                        className="p-0.5 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
-                        title={item.qty > 1 ? "−1" : "Удалить"}
-                      >
-                        {removingIdx === i ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
-                      </button>
+                      {!isWaiter && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void removeItem(i); }}
+                          disabled={removingIdx !== null}
+                          className="p-0.5 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
+                          title={item.qty > 1 ? "−1" : "Удалить"}
+                        >
+                          {removingIdx === i ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                        </button>
+                      )}
                       <div className="flex flex-col items-end">
                         {item.original_price != null && (
                           <span className="text-[10px] text-muted-foreground/50 line-through tabular-nums">
