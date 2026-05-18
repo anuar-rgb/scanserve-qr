@@ -19,7 +19,7 @@ type NavSection = {
   titleKey: AdminKey;
   ownerOnly?: true;
   strictOwner?: true;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true }[];
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true }[];
 };
 
 const NAV: NavSection[] = [
@@ -43,8 +43,8 @@ const NAV: NavSection[] = [
   {
     titleKey: "sectionPOS",
     items: [
-      { labelKey: "navHall",     icon: LayoutGrid, href: "/admin/hall"     },
-      { labelKey: "navInvoices", icon: FileText,   href: "/admin/invoices" },
+      { labelKey: "navHall",     icon: LayoutGrid, href: "/admin/hall"                },
+      { labelKey: "navInvoices", icon: FileText,   href: "/admin/invoices", noWaiter: true },
     ],
   },
   {
@@ -127,7 +127,7 @@ export default function AdminSidebar() {
   });
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-60 flex flex-col bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800/60 z-20 transition-colors duration-200">
+    <aside className="fixed inset-y-0 left-0 w-60 hidden md:flex flex-col bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800/60 z-20 transition-colors duration-200">
       {/* Brand */}
       <div className="px-4 py-4 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
         <div className="flex items-center gap-3">
@@ -149,6 +149,7 @@ export default function AdminSidebar() {
           const visibleItems = section.items.filter((item) => {
             if (item.strictOwner && !isStrictOwner) return false;
             if (item.ownerOnly && !isOwner) return false;
+            if (item.noWaiter && role === "waiter") return false;
             return true;
           });
           if (visibleItems.length === 0) return null;

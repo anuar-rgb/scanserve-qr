@@ -211,7 +211,15 @@ export default function HallPage() {
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
   const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
+  const [isMobile, setIsMobile]     = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [preorders, setPreorders]             = useState<DbOrder[]>([]);
   const [calLoading, setCalLoading]           = useState(false);
@@ -535,21 +543,18 @@ export default function HallPage() {
     <div className="flex flex-col h-full overflow-hidden bg-background">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="px-6 py-3 border-b border-border shrink-0 flex items-center gap-3 bg-background">
+      <header className="px-4 sm:px-6 py-3 border-b border-border shrink-0 flex items-center gap-3 bg-background">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${realtimeOk ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden sm:inline text-xs text-muted-foreground">
               {realtimeOk ? "Realtime" : "Подключение…"}
             </span>
             {activeTab === "dine-in" && (
-              <>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">
-                  {occupiedCount} занято · {freeCount} свободно
-                  {preorderCount > 0 && ` · ${preorderCount} предзаказ`}
-                </span>
-              </>
+              <span className="text-xs text-muted-foreground">
+                {occupiedCount} занято · {freeCount} своб.
+                {preorderCount > 0 && ` · ${preorderCount} пред.`}
+              </span>
             )}
           </div>
         </div>
@@ -560,21 +565,21 @@ export default function HallPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors shrink-0"
           >
             <Plus size={12} />
-            Добавить стол
+            <span className="hidden sm:inline">Добавить стол</span>
           </button>
         )}
 
         {activeTab === "dine-in" && (
           <button
             onClick={editMode ? exitEditMode : enterEditMode}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
               editMode
                 ? "bg-amber-500 text-white hover:bg-amber-600"
                 : "border border-border hover:bg-accent text-muted-foreground hover:text-foreground"
             }`}
           >
             <Settings size={12} className={editMode ? "animate-spin" : ""} style={{ animationDuration: "3s" }} />
-            {editMode ? "Готово" : "Редактировать зал"}
+            <span className="hidden sm:inline">{editMode ? "Готово" : "Редактировать зал"}</span>
           </button>
         )}
       </header>
@@ -590,14 +595,14 @@ export default function HallPage() {
           <button
             key={id}
             onClick={() => { setActiveTab(id); if (id !== "dine-in") setEditMode(false); }}
-            className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+            className={`relative flex items-center gap-1.5 px-2 sm:px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
               activeTab === id
                 ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-violet-50/60 dark:bg-violet-900/10"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50"
             }`}
           >
             <Icon size={14} />
-            {label}
+            <span className="hidden sm:inline">{label}</span>
             {count > 0 && (
               <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
                 activeTab === id
@@ -635,8 +640,8 @@ export default function HallPage() {
 
           {/* Body */}
           <div className="flex flex-1 overflow-hidden">
-            {/* Table grid — hidden while creating a new order to give full space to POS */}
-            {!tableCreatingOrder && (
+            {/* Table grid — hidden while creating a new order, or when panel is open on mobile */}
+            {!tableCreatingOrder && !(isMobile && selectedData) && (
               <div className="flex-1 overflow-y-auto p-5">
                 {loading ? (
                   <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
@@ -647,7 +652,7 @@ export default function HallPage() {
                 ) : (
                   <div
                     className="grid gap-3"
-                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
+                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
                   >
                     {tablesWithStatus.map((tws) => (
                       <TableCard
@@ -680,11 +685,12 @@ export default function HallPage() {
 
             {!editMode && selectedData && (
               <>
-                {!tableCreatingOrder && <ResizeHandle onMouseDown={startTableResize} />}
+                {!tableCreatingOrder && !isMobile && <ResizeHandle onMouseDown={startTableResize} />}
                 <TablePanel
                   key={selectedData.table.id}
                   data={selectedData}
-                  width={tableCreatingOrder ? undefined : tablePanelW}
+                  width={tableCreatingOrder || isMobile ? undefined : tablePanelW}
+                  fullWidth={isMobile}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); }}
                   onRefresh={load}
                   onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); }}
@@ -1775,6 +1781,7 @@ function TablePanel({
   onOrderTransferred,
   allTables,
   width,
+  fullWidth,
   onEnterOrderMode,
   onExitOrderMode,
 }: {
@@ -1785,6 +1792,7 @@ function TablePanel({
   onOrderTransferred: (orderId: string, newTableNumber: string) => void;
   allTables: TableWithStatus[];
   width?: number;
+  fullWidth?: boolean;
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
@@ -1891,7 +1899,10 @@ function TablePanel({
   }
 
   return (
-    <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: width ?? 500 }}>
+    <aside
+      className={fullWidth ? "flex-1 flex flex-col bg-background overflow-hidden" : "shrink-0 flex flex-col bg-background overflow-hidden"}
+      style={fullWidth ? undefined : { width: width ?? 500 }}
+    >
 
       {/* Panel header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
