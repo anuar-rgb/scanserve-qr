@@ -866,8 +866,8 @@ function TableCard({
         `}
       >
         <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
-        <p className="text-2xl font-black leading-none text-foreground text-center">{table.label}</p>
-        <p className="text-[10px] text-muted-foreground mt-1">{table.seats} мест</p>
+        <p className="text-xs font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">{table.seats} мест</p>
         {status === "occupied" && (
           <div className="flex items-center gap-0.5 mt-1">
             <Clock size={9} className="text-red-500 shrink-0" />
