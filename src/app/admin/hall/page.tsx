@@ -657,7 +657,7 @@ export default function HallPage() {
                   <div
                     className="grid gap-3"
                     style={{ gridTemplateColumns: isWaiter
-                      ? "repeat(auto-fill, minmax(120px, 1fr))"
+                      ? "repeat(auto-fill, minmax(80px, 1fr))"
                       : "repeat(auto-fill, minmax(140px, 1fr))" }}
                   >
                     {tablesWithStatus.map((tws) => (
@@ -857,19 +857,19 @@ function TableCard({
       <div
         onClick={onClick}
         className={`
-          relative flex flex-col items-center justify-center rounded-2xl border-2 select-none py-5 px-2
+          relative flex flex-col items-center justify-center rounded-xl border select-none py-2.5 px-1
           transition-all duration-150 cursor-pointer active:scale-95
           ${palette.card}
-          ${isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : "hover:shadow-md"}
+          ${isSelected ? "ring-2 ring-violet-500 ring-offset-1 shadow-md" : "hover:shadow-sm"}
         `}
       >
-        <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
-        <p className="text-4xl font-black leading-none text-foreground text-center">{table.label}</p>
-        <p className="text-[12px] text-muted-foreground mt-2">{table.seats} мест</p>
+        <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
+        <p className="text-2xl font-black leading-none text-foreground text-center">{table.label}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{table.seats} мест</p>
         {status === "occupied" && (
-          <div className="flex items-center gap-1 mt-1.5">
-            <Clock size={10} className="text-red-500 shrink-0" />
-            <span className="text-[11px] font-semibold text-red-600 dark:text-red-400">{formatElapsed(elapsed)}</span>
+          <div className="flex items-center gap-0.5 mt-1">
+            <Clock size={9} className="text-red-500 shrink-0" />
+            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">{formatElapsed(elapsed)}</span>
           </div>
         )}
       </div>
