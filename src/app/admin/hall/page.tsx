@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, MapPin, Phone,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
@@ -219,6 +219,11 @@ export default function HallPage() {
   const [waiterAutoOrder, setWaiterAutoOrder]           = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
   const [waiterNames, setWaiterNames] = useState<Record<string, string>>({});
+  const [activeShift,   setActiveShift]   = useState<{ id: string; opened_at: string } | null | undefined>(undefined);
+  const [shiftCheckins, setShiftCheckins] = useState<{ staff_user_id: string; checked_in_at: string }[]>([]);
+  const [myCheckin,     setMyCheckin]     = useState(false);
+  const [checkingIn,    setCheckingIn]    = useState(false);
+  const [openingShift,  setOpeningShift]  = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -414,6 +419,24 @@ export default function HallPage() {
       .catch(() => {});
   }, []);
 
+  // Fetch active shift + check-ins on mount
+  useEffect(() => {
+    fetch("/api/admin/shift")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { shift?: { id: string; opened_at: string } | null; checkins?: { staff_user_id: string; checked_in_at: string }[] } | null) => {
+        setActiveShift(d?.shift ?? null);
+        setShiftCheckins(d?.checkins ?? []);
+      })
+      .catch(() => setActiveShift(null));
+  }, []);
+
+  // Sync myCheckin once userId and shift are loaded
+  useEffect(() => {
+    if (userId && activeShift !== undefined) {
+      setMyCheckin(shiftCheckins.some((c) => c.staff_user_id === userId));
+    }
+  }, [userId, shiftCheckins, activeShift]);
+
   // Keep refs in sync for the activation interval (avoids stale closures)
   useEffect(() => { restaurantRef.current = restaurant; }, [restaurant]);
   useEffect(() => { preordersRef.current  = preorders;  }, [preorders]);
@@ -565,8 +588,43 @@ export default function HallPage() {
     (o) => o.status !== "completed" && o.status !== "cancelled" && o.preorder_date && o.preorder_date >= today,
   ).length;
 
+  const activeWaiters = shiftCheckins.map((c) => ({
+    id: c.staff_user_id,
+    name: waiterNames[c.staff_user_id] ?? "Сотрудник",
+  }));
+
+  async function openShift() {
+    setOpeningShift(true);
+    try {
+      const r = await fetch("/api/admin/shift", { method: "POST" });
+      const d = r.ok ? await r.json() : null;
+      if (d?.shift) { setActiveShift(d.shift); toast.success("Смена открыта"); }
+      else toast.error("Ошибка при открытии смены");
+    } catch { toast.error("Ошибка при открытии смены"); }
+    setOpeningShift(false);
+  }
+
+  async function handleCheckIn() {
+    setCheckingIn(true);
+    try {
+      const r = await fetch("/api/admin/shift/checkin", { method: "POST" });
+      const d = r.ok ? await r.json() : null;
+      if (d?.checkin) {
+        setMyCheckin(true);
+        setShiftCheckins((prev) => {
+          const exists = prev.some((c) => c.staff_user_id === d.checkin.staff_user_id);
+          return exists ? prev : [...prev, d.checkin];
+        });
+        toast.success("Смена начата! Удачной работы 👋");
+      } else {
+        toast.error((d as { error?: string } | null)?.error ?? "Ошибка при начале смены");
+      }
+    } catch { toast.error("Ошибка при начале смены"); }
+    setCheckingIn(false);
+  }
+
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
+    <div className="relative flex flex-col h-full overflow-hidden bg-background">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="px-4 sm:px-6 py-3 border-b border-border shrink-0 flex items-center gap-3 bg-background">
@@ -656,6 +714,62 @@ export default function HallPage() {
         ))}
       </div>
 
+      {/* ── Waiter shift overlay ─────────────────────────────────────────────── */}
+      {isWaiter && activeShift !== undefined && !myCheckin && (
+        <div className="absolute inset-0 z-40 bg-background flex flex-col items-center justify-center gap-6 p-8 text-center">
+          {activeShift === null ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                <Lock size={28} className="text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-base font-semibold mb-1">Смена не открыта</p>
+                <p className="text-sm text-muted-foreground">Обратитесь к менеджеру для открытия смены</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                <Clock size={28} className="text-violet-600 dark:text-violet-400" />
+              </div>
+              <div>
+                <p className="text-base font-semibold mb-1">Начните свою смену</p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Нажмите кнопку — время входа зафиксируется для аналитики
+                </p>
+              </div>
+              <button
+                onClick={handleCheckIn}
+                disabled={checkingIn}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-60 transition-colors"
+              >
+                {checkingIn ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                Начать смену
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Manager: no shift banner ─────────────────────────────────────────── */}
+      {!isWaiter && activeShift === null && (
+        <div className="mx-4 mt-3 shrink-0 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-center gap-3">
+          <Clock size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Смена не открыта</p>
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">Официанты не смогут начать работу</p>
+          </div>
+          <button
+            onClick={openShift}
+            disabled={openingShift}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-60 transition-colors shrink-0"
+          >
+            {openingShift ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+            Открыть смену
+          </button>
+        </div>
+      )}
+
       {/* ── Edit mode banner ────────────────────────────────────────────────── */}
       {!isWaiter && activeTab === "dine-in" && editMode && (
         <div className="px-6 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-700/50 shrink-0 flex items-center gap-2">
@@ -741,6 +855,7 @@ export default function HallPage() {
                   fullWidth={isMobile}
                   autoOrder={waiterAutoOrder}
                   waiterNames={waiterNames}
+                  activeWaiters={activeWaiters}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
                   onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
@@ -773,6 +888,7 @@ export default function HallPage() {
           allTables={tablesWithStatus}
           activatedPreorderIds={activatedPreorderIds}
           waiterNames={waiterNames}
+          activeWaiters={activeWaiters}
         />
       )}
 
@@ -787,6 +903,7 @@ export default function HallPage() {
           allTables={tablesWithStatus}
           activatedPreorderIds={activatedPreorderIds}
           waiterNames={waiterNames}
+          activeWaiters={activeWaiters}
         />
       )}
 
@@ -1271,6 +1388,7 @@ function OrderSlotPanel({
   allTables,
   width,
   waiterNames = {},
+  activeWaiters = [],
 }: {
   order: DbOrder;
   onClose: () => void;
@@ -1279,6 +1397,7 @@ function OrderSlotPanel({
   allTables: TableWithStatus[];
   width?: number;
   waiterNames?: Record<string, string>;
+  activeWaiters?: { id: string; name: string }[];
 }) {
   const isWaiter = useRole() === "waiter";
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1290,6 +1409,8 @@ function OrderSlotPanel({
   const [noteInput, setNoteInput]               = useState("");
   const [savingNote, setSavingNote]             = useState(false);
   const [removingIdx, setRemovingIdx]           = useState<number | null>(null);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassigning, setReassigning]             = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -1335,8 +1456,63 @@ function OrderSlotPanel({
     onRefresh();
   }
 
+  async function handleReassign(newWaiterId: string | null) {
+    setReassigning(true);
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ opened_by: newWaiterId })
+      .eq("id", order.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    setReassigning(false);
+    if (error) { toast.error("Ошибка при переназначении"); return; }
+    toast.success("Официант переназначен");
+    setShowReassignModal(false);
+    onRefresh();
+  }
+
   return (
     <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: width ?? 500 }}>
+      {/* Reassign waiter modal */}
+      {showReassignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowReassignModal(false)}>
+          <div className="bg-card rounded-2xl p-5 shadow-xl w-72 mx-4" onClick={(e) => e.stopPropagation()}>
+            <p className="font-semibold text-sm mb-0.5">Переназначить официанта</p>
+            <p className="text-xs text-muted-foreground mb-4">{typeLabel}</p>
+            <div className="space-y-1 mb-3">
+              {activeWaiters.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => handleReassign(w.id)}
+                  disabled={reassigning}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
+                    order.opened_by === w.id
+                      ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 font-medium"
+                      : "hover:bg-accent text-foreground"
+                  }`}
+                >
+                  <User size={13} className="shrink-0 text-muted-foreground" />
+                  {w.name}
+                  {order.opened_by === w.id && <Check size={12} className="ml-auto text-violet-600" />}
+                </button>
+              ))}
+              <button
+                onClick={() => handleReassign(null)}
+                disabled={reassigning}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-accent transition-colors"
+              >
+                <X size={13} className="shrink-0" />
+                Убрать назначение
+              </button>
+            </div>
+            <button
+              onClick={() => setShowReassignModal(false)}
+              className="w-full py-2 rounded-xl text-sm text-muted-foreground hover:bg-accent transition-colors border border-border"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
         <div>
           <div className="flex items-center gap-2">
@@ -1345,12 +1521,23 @@ function OrderSlotPanel({
           </div>
           {order.table_number && <p className="text-[11px] text-muted-foreground mt-0.5">{order.table_number}</p>}
           {!isWaiter && (
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-              <User size={9} className="shrink-0" />
-              <span className="font-medium">
-                {order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : "Администратор"}
-              </span>
-            </p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <User size={9} className="shrink-0" />
+                <span className="font-medium">
+                  {order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : "Администратор"}
+                </span>
+              </p>
+              {activeWaiters.length > 0 && (
+                <button
+                  onClick={() => setShowReassignModal(true)}
+                  className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
+                  title="Переназначить официанта"
+                >
+                  <UserCog size={10} />
+                </button>
+              )}
+            </div>
           )}
         </div>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
@@ -1652,6 +1839,7 @@ function PickupDeliveryGrid({
   allTables,
   activatedPreorderIds,
   waiterNames = {},
+  activeWaiters = [],
 }: {
   orders: DbOrder[];
   loading: boolean;
@@ -1661,6 +1849,7 @@ function PickupDeliveryGrid({
   allTables: TableWithStatus[];
   activatedPreorderIds?: Set<string>;
   waiterNames?: Record<string, string>;
+  activeWaiters?: { id: string; name: string }[];
 }) {
   const [selected, setSelected]     = useState<string | null>(null);
   const [creating, setCreating]     = useState(false);
@@ -1736,6 +1925,7 @@ function PickupDeliveryGrid({
             onOrderClosed={onOrderClosed}
             allTables={allTables}
             waiterNames={waiterNames}
+            activeWaiters={activeWaiters}
           />
         </>
       )}
@@ -2013,6 +2203,7 @@ function TablePanel({
   fullWidth,
   autoOrder,
   waiterNames = {},
+  activeWaiters = [],
   onEnterOrderMode,
   onExitOrderMode,
 }: {
@@ -2026,6 +2217,7 @@ function TablePanel({
   fullWidth?: boolean;
   autoOrder?: boolean;
   waiterNames?: Record<string, string>;
+  activeWaiters?: { id: string; name: string }[];
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
@@ -2042,6 +2234,8 @@ function TablePanel({
   const [showTypeModal, setShowTypeModal]         = useState(false);
   const [editingNoteIdx, setEditingNoteIdx]       = useState<number | null>(null);
   const [noteInput, setNoteInput]                 = useState("");
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassigning, setReassigning]             = useState(false);
   const [savingNote, setSavingNote]               = useState(false);
   const [removingIdx, setRemovingIdx]             = useState<number | null>(null);
   const [viewingOrderId, setViewingOrderId]       = useState<string | null>(null);
@@ -2142,6 +2336,21 @@ function TablePanel({
     onRefresh();
   }
 
+  async function handleReassign(newWaiterId: string | null) {
+    if (!activeOrder) return;
+    setReassigning(true);
+    const { error } = await supabase
+      .from(DB_TABLES.orders)
+      .update({ opened_by: newWaiterId })
+      .eq("id", activeOrder.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    setReassigning(false);
+    if (error) { toast.error("Ошибка при переназначении"); return; }
+    toast.success("Официант переназначен");
+    setShowReassignModal(false);
+    onRefresh();
+  }
+
   return (
     <aside
       className={fullWidth ? "flex-1 flex flex-col bg-background overflow-hidden" : "shrink-0 flex flex-col bg-background overflow-hidden"}
@@ -2163,15 +2372,26 @@ function TablePanel({
             </span>
           </p>
           {!isWaiter && status === "occupied" && (
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-              <User size={9} className="shrink-0" />
-              Официант:{" "}
-              <span className="font-medium">
-                {activeOrder?.opened_by
-                  ? (waiterNames[activeOrder.opened_by] ?? "Сотрудник")
-                  : "Администратор"}
-              </span>
-            </p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <User size={9} className="shrink-0" />
+                Официант:{" "}
+                <span className="font-medium">
+                  {activeOrder?.opened_by
+                    ? (waiterNames[activeOrder.opened_by] ?? "Сотрудник")
+                    : "Администратор"}
+                </span>
+              </p>
+              {activeWaiters.length > 0 && (
+                <button
+                  onClick={() => setShowReassignModal(true)}
+                  className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
+                  title="Переназначить официанта"
+                >
+                  <UserCog size={10} />
+                </button>
+              )}
+            </div>
           )}
         </div>
         <button
@@ -2181,6 +2401,48 @@ function TablePanel({
           <X size={15} />
         </button>
       </div>
+
+      {/* Reassign waiter modal */}
+      {showReassignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowReassignModal(false)}>
+          <div className="bg-card rounded-2xl p-5 shadow-xl w-72 mx-4" onClick={(e) => e.stopPropagation()}>
+            <p className="font-semibold text-sm mb-0.5">Переназначить официанта</p>
+            <p className="text-xs text-muted-foreground mb-4">Стол {table.label}</p>
+            <div className="space-y-1 mb-3">
+              {activeWaiters.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => handleReassign(w.id)}
+                  disabled={reassigning}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
+                    activeOrder?.opened_by === w.id
+                      ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 font-medium"
+                      : "hover:bg-accent text-foreground"
+                  }`}
+                >
+                  <User size={13} className="shrink-0 text-muted-foreground" />
+                  {w.name}
+                  {activeOrder?.opened_by === w.id && <Check size={12} className="ml-auto text-violet-600" />}
+                </button>
+              ))}
+              <button
+                onClick={() => handleReassign(null)}
+                disabled={reassigning}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-accent transition-colors"
+              >
+                <X size={13} className="shrink-0" />
+                Убрать назначение
+              </button>
+            </div>
+            <button
+              onClick={() => setShowReassignModal(false)}
+              className="w-full py-2 rounded-xl text-sm text-muted-foreground hover:bg-accent transition-colors border border-border"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sub-table tab switcher (shown only when multiple active orders) */}
       {allTableOrders.length > 1 && (

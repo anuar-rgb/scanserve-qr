@@ -152,6 +152,7 @@ export interface DbShift {
   id: string;
   restaurant_id: string;
   opened_at: string;
+  opened_by: string | null;
   closed_at: string | null;
   status: "open" | "closed";
   total_revenue: number | null;
@@ -159,6 +160,15 @@ export interface DbShift {
   revenue_by_type: Record<string, number> | null;
   revenue_by_payment: Record<string, number> | null;
   prepayments_total: number | null;
+  created_at: string;
+}
+
+export interface DbShiftCheckin {
+  id: string;
+  shift_id: string;
+  staff_user_id: string;
+  restaurant_id: string;
+  checked_in_at: string;
   created_at: string;
 }
 
