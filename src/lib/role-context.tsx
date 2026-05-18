@@ -4,25 +4,27 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 export type AdminRole = "owner" | "manager" | "cashier" | "waiter" | "chef" | null;
 
-type RoleCtx = { role: AdminRole; id: string | null };
+type RoleCtx = { role: AdminRole; id: string | null; displayName: string | null };
 
-const RoleContext = createContext<RoleCtx>({ role: null, id: null });
+const RoleContext = createContext<RoleCtx>({ role: null, id: null, displayName: null });
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<AdminRole>(null);
-  const [id, setId] = useState<string | null>(null);
+  const [role, setRole]               = useState<AdminRole>(null);
+  const [id, setId]                   = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d?.role) setRole(d.role as AdminRole);
-        if (d?.id)   setId(d.id as string);
+        if (d?.role)         setRole(d.role as AdminRole);
+        if (d?.id)           setId(d.id as string);
+        if (d?.display_name) setDisplayName(d.display_name as string);
       })
       .catch(() => {});
   }, []);
 
-  return <RoleContext.Provider value={{ role, id }}>{children}</RoleContext.Provider>;
+  return <RoleContext.Provider value={{ role, id, displayName }}>{children}</RoleContext.Provider>;
 }
 
 export function useRole(): AdminRole {
@@ -31,6 +33,10 @@ export function useRole(): AdminRole {
 
 export function useUserId(): string | null {
   return useContext(RoleContext).id;
+}
+
+export function useDisplayName(): string | null {
+  return useContext(RoleContext).displayName;
 }
 
 // true = owner or manager (analytics, catalog, storefront, QR, profile)

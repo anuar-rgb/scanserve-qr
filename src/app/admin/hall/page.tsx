@@ -591,9 +591,11 @@ export default function HallPage() {
         {([
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length },
-          { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length },
-          { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount },
-        ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number }>).map(({ id, icon: Icon, label, count }) => (
+          { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
+          { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true },
+        ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean }>)
+        .filter((t) => !(isWaiter && t.waiterHide))
+        .map(({ id, icon: Icon, label, count }) => (
           <button
             key={id}
             onClick={() => { setActiveTab(id); if (id !== "dine-in") setEditMode(false); }}
