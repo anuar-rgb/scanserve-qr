@@ -79,6 +79,18 @@ export interface DbOrder {
   paid_amount: number | null;
   prepayment_method: string | null;
   closed_at: string | null;
+  opened_by: string | null;
+}
+
+export interface DbWaiterShiftRevenue {
+  id: string;
+  shift_id: string;
+  waiter_id: string;
+  cash_amount: number;
+  card_amount: number;
+  total_amount: number;
+  orders_count: number;
+  created_at: string;
 }
 
 export interface DbReview {

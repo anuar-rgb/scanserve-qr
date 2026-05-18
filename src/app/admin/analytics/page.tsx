@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, CreditCard, Star, Tag, RefreshCw,
-  Clock, Play, Printer, Archive, ChevronDown, X, CheckCircle2, FileText,
+  Clock, Play, Printer, Archive, ChevronDown, X, CheckCircle2, FileText, Users,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { LS, DbShift } from "@/lib/db-types";
@@ -32,6 +32,32 @@ interface ShiftOrderRow {
   payment_details: Record<string, number> | null;
   paid_amount: number | null;
   prepayment_method: string | null;
+  opened_by: string | null;
+}
+
+interface StaffUser {
+  id: string;
+  display_name: string | null;
+  username: string;
+}
+
+interface WaiterRevenue {
+  waiterId: string;
+  waiterName: string;
+  cashAmount: number;
+  cardAmount: number;
+  totalAmount: number;
+  ordersCount: number;
+}
+
+interface WaiterPerfRow {
+  waiterId: string;
+  waiterName: string;
+  cashTotal: number;
+  cardTotal: number;
+  revenueTotal: number;
+  ordersTotal: number;
+  shiftsCount: number;
 }
 
 type ShiftRow = DbShift;
@@ -189,6 +215,37 @@ function buildPrepayBreakdown(orders: ShiftOrderRow[]): Record<string, number> {
   return map;
 }
 
+const CASH_METHODS = new Set(["cash"]);
+
+function computeWaiterRevenues(
+  orders: ShiftOrderRow[],
+  staffMap: Map<string, string>,
+): WaiterRevenue[] {
+  const map = new Map<string, WaiterRevenue>();
+  for (const o of orders) {
+    if (o.status !== "completed" || !o.opened_by) continue;
+    const id = o.opened_by;
+    if (!map.has(id)) {
+      map.set(id, { waiterId: id, waiterName: staffMap.get(id) ?? "Неизвестно", cashAmount: 0, cardAmount: 0, totalAmount: 0, ordersCount: 0 });
+    }
+    const e = map.get(id)!;
+    const total = o.total_price ?? 0;
+    e.totalAmount += total;
+    e.ordersCount += 1;
+    if (o.payment_details && typeof o.payment_details === "object") {
+      for (const [method, amount] of Object.entries(o.payment_details)) {
+        if (typeof amount !== "number") continue;
+        if (CASH_METHODS.has(method)) e.cashAmount += amount;
+        else e.cardAmount += amount;
+      }
+    } else if (o.payment_method) {
+      if (CASH_METHODS.has(o.payment_method)) e.cashAmount += total;
+      else e.cardAmount += total;
+    }
+  }
+  return [...map.values()].sort((a, b) => b.totalAmount - a.totalAmount);
+}
+
 function computeZReport(orders: ShiftOrderRow[]): ZReportData {
   const completedOrders = orders.filter(o => o.status === "completed");
   const totalRevenue = completedOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
@@ -291,6 +348,11 @@ export default function AnalyticsPage() {
   const [openingShift, setOpeningShift]   = useState(false);
   const [expandedShiftId, setExpandedShiftId] = useState<string | null>(null);
 
+  // ── waiter revenue state ──
+  const [waiterRevenues, setWaiterRevenues] = useState<WaiterRevenue[]>([]);
+  const [waiterPerf, setWaiterPerf]         = useState<WaiterPerfRow[]>([]);
+  const [waiterPerfLoading, setWaiterPerfLoading] = useState(false);
+
   // ── analytics load ──
   const load = useCallback(async (p: Period) => {
     if (!isConfigured) { setLoading(false); return; }
@@ -348,7 +410,7 @@ export default function AnalyticsPage() {
     if (!isConfigured) return [];
     let q = supabase
       .from("orders")
-      .select("id, total_price, status, type, created_at, payment_method, payment_details, paid_amount, prepayment_method")
+      .select("id, total_price, status, type, created_at, payment_method, payment_details, paid_amount, prepayment_method, opened_by")
       .eq("restaurant_id", RESTAURANT_ID)
       .gte("created_at", shift.opened_at);
     if (shift.closed_at) q = q.lte("created_at", shift.closed_at);
@@ -358,7 +420,54 @@ export default function AnalyticsPage() {
     return rows;
   }, []);
 
-  useEffect(() => { load(period); }, [load, period]);
+  const loadWaiterPerf = useCallback(async (p: Period) => {
+    if (!isConfigured) return;
+    setWaiterPerfLoading(true);
+    const from = fromDate(p).toISOString();
+    const now  = new Date().toISOString();
+
+    const { data: shiftsData } = await supabase
+      .from("shifts")
+      .select("id")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .gte("opened_at", from)
+      .lte("opened_at", now);
+
+    const shiftIds = ((shiftsData ?? []) as { id: string }[]).map(s => s.id);
+    if (shiftIds.length === 0) { setWaiterPerf([]); setWaiterPerfLoading(false); return; }
+
+    const [revenuesRes, staffRes] = await Promise.all([
+      supabase.from("waiter_shift_revenues")
+        .select("waiter_id, cash_amount, card_amount, total_amount, orders_count")
+        .in("shift_id", shiftIds),
+      supabase.from("staff_users")
+        .select("id, display_name, username")
+        .eq("restaurant_id", RESTAURANT_ID),
+    ]);
+
+    const staffMap = new Map<string, string>();
+    for (const s of (staffRes.data ?? []) as StaffUser[]) {
+      staffMap.set(s.id, s.display_name || s.username);
+    }
+
+    const agg = new Map<string, WaiterPerfRow>();
+    for (const r of (revenuesRes.data ?? []) as { waiter_id: string; cash_amount: number; card_amount: number; total_amount: number; orders_count: number }[]) {
+      const id = r.waiter_id;
+      if (!agg.has(id)) {
+        agg.set(id, { waiterId: id, waiterName: staffMap.get(id) ?? "Неизвестно", cashTotal: 0, cardTotal: 0, revenueTotal: 0, ordersTotal: 0, shiftsCount: 0 });
+      }
+      const e = agg.get(id)!;
+      e.cashTotal    += Number(r.cash_amount);
+      e.cardTotal    += Number(r.card_amount);
+      e.revenueTotal += Number(r.total_amount);
+      e.ordersTotal  += Number(r.orders_count);
+      e.shiftsCount  += 1;
+    }
+    setWaiterPerf([...agg.values()].sort((a, b) => b.revenueTotal - a.revenueTotal));
+    setWaiterPerfLoading(false);
+  }, []);
+
+  useEffect(() => { load(period); loadWaiterPerf(period); }, [load, loadWaiterPerf, period]);
   useEffect(() => { loadShifts(); }, [loadShifts]);
 
   // ── shift actions ──
@@ -378,7 +487,18 @@ export default function AnalyticsPage() {
   const handleOpenZReport = async () => {
     if (!activeShift) return;
     setReportingShift(activeShift);
-    await loadShiftOrders(activeShift);
+    const orders = await loadShiftOrders(activeShift);
+
+    const { data: staffData } = await supabase
+      .from("staff_users")
+      .select("id, display_name, username")
+      .eq("restaurant_id", RESTAURANT_ID);
+
+    const staffMap = new Map<string, string>();
+    for (const s of (staffData ?? []) as StaffUser[]) {
+      staffMap.set(s.id, s.display_name || s.username);
+    }
+    setWaiterRevenues(computeWaiterRevenues(orders, staffMap));
     setZConfirmed(false);
     setShowZReport(true);
   };
@@ -415,6 +535,21 @@ export default function AnalyticsPage() {
         prepayments_total: data.totalPrepay > 0 ? data.totalPrepay : null,
         created_at: reportingShift.created_at,
       };
+
+      // Save per-waiter revenue snapshot
+      if (waiterRevenues.length > 0) {
+        await supabase.from("waiter_shift_revenues").insert(
+          waiterRevenues.map(w => ({
+            shift_id: reportingShift.id,
+            waiter_id: w.waiterId,
+            cash_amount: w.cashAmount,
+            card_amount: w.cardAmount,
+            total_amount: w.totalAmount,
+            orders_count: w.ordersCount,
+          }))
+        );
+      }
+
       setActiveShift(null);
       setReportingShift(closedShift);
       setPastShifts(prev => [closedShift, ...prev]);
@@ -463,6 +598,7 @@ export default function AnalyticsPage() {
         <ZReportModal
           shift={reportingShift}
           data={zReportData}
+          waiterRevenues={waiterRevenues}
           confirmed={zConfirmed}
           closing={closingShift}
           onConfirm={handleCloseShift}
@@ -499,6 +635,45 @@ export default function AnalyticsPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
+
+        {/* ── Active shift control ── */}
+        {activeShift !== undefined && (
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${activeShift ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {activeShift ? "Смена открыта" : "Смена не открыта"}
+                  </p>
+                  {activeShift && (
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      С {fmtTime(activeShift.opened_at)} · {formatShiftDuration(activeShift.opened_at)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {activeShift ? (
+                <button
+                  onClick={handleOpenZReport}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/15 text-red-600 dark:text-red-400 text-sm font-semibold transition-colors border border-red-200 dark:border-red-500/20 shrink-0"
+                >
+                  <Archive size={14} />
+                  Z-Отчёт · Закрыть смену
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpenShift}
+                  disabled={openingShift}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold disabled:opacity-50 transition-colors border border-emerald-200 dark:border-emerald-500/20 shrink-0"
+                >
+                  <Play size={14} />
+                  {openingShift ? "Открываем…" : "Открыть смену"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── metric cards ── */}
         <div className="grid grid-cols-4 gap-4">
@@ -876,6 +1051,63 @@ export default function AnalyticsPage() {
           </div>
         )}
 
+        {/* ── Waiter Performance ── */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-500">
+              <Users size={15} />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Эффективность официантов</h2>
+              <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">{PERIOD_LABEL[period]}</p>
+            </div>
+          </div>
+          {waiterPerfLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-10 bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : waiterPerf.length === 0 ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-600 text-center py-6">
+              Нет данных за период — выручка официантов сохраняется при закрытии смены
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {waiterPerf.map((w, i) => {
+                const maxRev = waiterPerf[0].revenueTotal || 1;
+                return (
+                  <div key={w.waiterId} className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-zinc-400 w-4 shrink-0 text-center">{i + 1}</span>
+                    <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">
+                        {w.waiterName.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{w.waiterName}</span>
+                        <span className="text-xs font-bold tabular-nums text-zinc-800 dark:text-zinc-200 shrink-0 ml-2">
+                          {w.revenueTotal.toLocaleString("ru-RU")} ₸
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-violet-500 transition-all duration-500"
+                          style={{ width: `${Math.round(w.revenueTotal / maxRev * 100)}%` }} />
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right min-w-[100px]">
+                      <div className="text-[9px] text-zinc-400 tabular-nums">💵 {w.cashTotal.toLocaleString("ru-RU")} ₸</div>
+                      <div className="text-[9px] text-zinc-400 tabular-nums">💳 {w.cardTotal.toLocaleString("ru-RU")} ₸</div>
+                      <div className="text-[9px] text-zinc-400">{w.ordersTotal} заказов · {w.shiftsCount} смен</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
@@ -883,9 +1115,10 @@ export default function AnalyticsPage() {
 
 // ─── Z-Report Modal ───────────────────────────────────────────────────────────
 
-function ZReportModal({ shift, data, confirmed, closing, onConfirm, onPrint, onClose }: {
+function ZReportModal({ shift, data, waiterRevenues, confirmed, closing, onConfirm, onPrint, onClose }: {
   shift: ShiftRow;
   data: ZReportData;
+  waiterRevenues: WaiterRevenue[];
   confirmed: boolean;
   closing: boolean;
   onConfirm: () => void;
@@ -970,6 +1203,33 @@ function ZReportModal({ shift, data, confirmed, closing, onConfirm, onPrint, onC
               </div>
             )}
           </div>
+
+          {/* Waiter cash section */}
+          {waiterRevenues.length > 0 && (
+            <div className="rounded-xl border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-500/5 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400 mb-3">Касса официантов</p>
+              <div className="space-y-3">
+                {waiterRevenues.map(w => (
+                  <div key={w.waiterId} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">
+                        {w.waiterName.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="flex-1 min-w-0 text-xs text-zinc-700 dark:text-zinc-300 font-medium truncate">{w.waiterName}</span>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[10px] text-zinc-500 tabular-nums">
+                        💵 {w.cashAmount.toLocaleString("ru-RU")} · 💳 {w.cardAmount.toLocaleString("ru-RU")} ₸
+                      </div>
+                      <div className="text-xs font-bold tabular-nums text-violet-700 dark:text-violet-300">
+                        {w.totalAmount.toLocaleString("ru-RU")} ₸
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Prepayments */}
           {totalPrepay > 0 && (

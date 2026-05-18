@@ -34,12 +34,14 @@ export async function POST(request: NextRequest) {
   const user = data[0] as { id: string; role: string; display_name: string | null };
 
   const response = NextResponse.json({ ok: true, role: user.role, displayName: user.display_name });
-  response.cookies.set("admin_session", user.role, {
+  const cookieOpts = {
     httpOnly: true,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
-  });
+  };
+  response.cookies.set("admin_session", user.role, cookieOpts);
+  response.cookies.set("admin_user_id", user.id, cookieOpts);
   return response;
 }

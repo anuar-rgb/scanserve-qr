@@ -13,5 +13,6 @@ export async function GET(request: NextRequest) {
   const role = VALID_ROLES.includes(session.value as AdminRole)
     ? (session.value as AdminRole)
     : "owner"; // legacy cookie ("1" or old "admin") → owner
-  return NextResponse.json({ role });
+  const id = request.cookies.get("admin_user_id")?.value ?? null;
+  return NextResponse.json({ role, id });
 }

@@ -12,6 +12,7 @@ import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct } 
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
+import { useUserId } from "@/lib/role-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -2952,6 +2953,7 @@ function OrderPanel({
   onDone: () => void;
 }) {
   const [customerName, setCustomerName] = useState("");
+  const currentUserId = useUserId();
 
   const displayLabel = tableLabel ?? table?.label ?? "?";
   const title =
@@ -2983,6 +2985,7 @@ function OrderPanel({
       items_json: items,
       total_price: items.reduce((s, it) => s + it.price * it.qty, 0),
       order_type: "asap",
+      ...(currentUserId ? { opened_by: currentUserId } : {}),
     });
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     const dest =
