@@ -401,19 +401,17 @@ export default function HallPage() {
 
   // Fetch staff names once on mount for waiter attribution display
   useEffect(() => {
-    if (!isConfigured) return;
-    supabase
-      .from("staff_users")
-      .select("id, display_name, username")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .then(({ data }) => {
-        if (!data) return;
+    fetch("/api/admin/staff")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { staff?: { id: string; display_name: string | null; username: string }[] } | null) => {
+        if (!d?.staff) return;
         const map: Record<string, string> = {};
-        for (const u of data as { id: string; display_name: string | null; username: string }[]) {
+        for (const u of d.staff) {
           map[u.id] = u.display_name || u.username || "Сотрудник";
         }
         setWaiterNames(map);
-      });
+      })
+      .catch(() => {});
   }, []);
 
   // Keep refs in sync for the activation interval (avoids stale closures)
