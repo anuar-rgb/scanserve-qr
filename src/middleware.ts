@@ -24,7 +24,6 @@ const POS_BLOCKED: string[] = [
 const OWNER_EXCLUSIVE: string[] = [
   "/admin/owner-overview",
   "/admin/payment-banks",
-  "/admin/settings/staff",
 ];
 
 const POS_ONLY_ROLES = ["cashier", "waiter", "chef"];

@@ -636,41 +636,26 @@ export default function AnalyticsPage() {
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
 
-        {/* ── Active shift control ── */}
-        {activeShift !== undefined && (
+        {/* ── Active shift control — only show Z-report when shift is open ── */}
+        {activeShift && (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${activeShift ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
+                <div className="w-2 h-2 rounded-full shrink-0 bg-emerald-500 animate-pulse" />
                 <div>
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {activeShift ? "Смена открыта" : "Смена не открыта"}
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Смена открыта</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    С {fmtTime(activeShift.opened_at)} · {formatShiftDuration(activeShift.opened_at)}
                   </p>
-                  {activeShift && (
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      С {fmtTime(activeShift.opened_at)} · {formatShiftDuration(activeShift.opened_at)}
-                    </p>
-                  )}
                 </div>
               </div>
-              {activeShift ? (
-                <button
-                  onClick={handleOpenZReport}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/15 text-red-600 dark:text-red-400 text-sm font-semibold transition-colors border border-red-200 dark:border-red-500/20 shrink-0"
-                >
-                  <Archive size={14} />
-                  Z-Отчёт · Закрыть смену
-                </button>
-              ) : (
-                <button
-                  onClick={handleOpenShift}
-                  disabled={openingShift}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold disabled:opacity-50 transition-colors border border-emerald-200 dark:border-emerald-500/20 shrink-0"
-                >
-                  <Play size={14} />
-                  {openingShift ? "Открываем…" : "Открыть смену"}
-                </button>
-              )}
+              <button
+                onClick={handleOpenZReport}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/15 text-red-600 dark:text-red-400 text-sm font-semibold transition-colors border border-red-200 dark:border-red-500/20 shrink-0"
+              >
+                <Archive size={14} />
+                Z-Отчёт · Закрыть смену
+              </button>
             </div>
           </div>
         )}
