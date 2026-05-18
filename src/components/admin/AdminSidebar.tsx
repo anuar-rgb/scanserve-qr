@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
-import { useIsOwner, useIsStrictOwner } from "@/lib/role-context";
+import { useIsOwner, useIsStrictOwner, useRole } from "@/lib/role-context";
 import { useShift } from "@/lib/shift-context";
 
 type AdminKey = keyof Dict["admin"];
@@ -86,8 +86,18 @@ export default function AdminSidebar() {
   const { t, lang, setLang } = useTranslations();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const role = useRole();
   const isOwner = useIsOwner();
   const isStrictOwner = useIsStrictOwner();
+
+  const roleLabel: Record<string, string> = {
+    owner:   "Owner Platform",
+    manager: "Manager Platform",
+    cashier: "Cashier Terminal",
+    waiter:  "Waiter Terminal",
+    chef:    "Chef Terminal",
+  };
+  const platformLabel = role ? (roleLabel[role] ?? "Staff Terminal") : "Staff Terminal";
   const { shift, closeShift } = useShift();
   const [confirmClose, setConfirmClose] = useState(false);
 
@@ -127,7 +137,7 @@ export default function AdminSidebar() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight">АС ТӨРІ</p>
             <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight">
-              {isOwner ? "Owner Platform" : "Staff Terminal"}
+              {platformLabel}
             </p>
           </div>
         </div>
