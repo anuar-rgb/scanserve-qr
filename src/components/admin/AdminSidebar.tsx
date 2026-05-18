@@ -73,7 +73,7 @@ const NAV: NavSection[] = [
     titleKey: "sectionSettings",
     ownerOnly: true,
     items: [
-      { labelKey: "navStaff",        icon: Users,      href: "/admin/settings/staff", strictOwner: true },
+      { labelKey: "navStaff",        icon: Users,      href: "/admin/settings/staff", ownerOnly: true },
       { labelKey: "navPaymentBanks", icon: CreditCard, href: "/admin/payment-banks",  strictOwner: true },
       { labelKey: "navProfile",      icon: Settings,   href: "/admin/settings",       ownerOnly: true },
     ],
