@@ -213,7 +213,10 @@ export default function HallPage() {
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
   const role                        = useRole();
+  const userId                      = useUserId();
   const isWaiter                    = role === "waiter";
+  const [waiterNewOrderPicker, setWaiterNewOrderPicker] = useState(false);
+  const [waiterAutoOrder, setWaiterAutoOrder]           = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
 
   useEffect(() => {
@@ -512,6 +515,11 @@ export default function HallPage() {
     return { table, status, order, orders: tableOrders, preorderOrder, elapsed: order ? getElapsed(order.created_at) : 0 };
   });
 
+  // For waiters: show only their own occupied tables
+  const displayedTables = isWaiter
+    ? tablesWithStatus.filter((tws) => tws.status === "occupied" && tws.order?.opened_by === userId)
+    : tablesWithStatus;
+
   const occupiedCount  = tablesWithStatus.filter((t) => t.status === "occupied").length;
   const freeCount      = tablesWithStatus.filter((t) => t.status === "free").length;
   const preorderCount  = tablesWithStatus.filter((t) => t.status === "preorder").length;
@@ -560,6 +568,16 @@ export default function HallPage() {
             )}
           </div>
         </div>
+
+        {isWaiter && activeTab === "dine-in" && (
+          <button
+            onClick={() => setWaiterNewOrderPicker(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors shrink-0"
+          >
+            <Plus size={12} />
+            <span className="hidden sm:inline">Новый заказ</span>
+          </button>
+        )}
 
         {!isWaiter && activeTab === "dine-in" && editMode && (
           <button
@@ -653,8 +671,12 @@ export default function HallPage() {
                   <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
                     <Loader2 size={16} className="animate-spin" /> Загрузка…
                   </div>
-                ) : tables.length === 0 ? (
-                  <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
+                ) : displayedTables.length === 0 ? (
+                  isWaiter ? (
+                    <WaiterEmptyDineIn onNew={() => setWaiterNewOrderPicker(true)} />
+                  ) : (
+                    <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
+                  )
                 ) : (
                   <div
                     className="grid gap-3"
@@ -662,7 +684,7 @@ export default function HallPage() {
                       ? "repeat(auto-fill, minmax(80px, 1fr))"
                       : "repeat(auto-fill, minmax(140px, 1fr))" }}
                   >
-                    {tablesWithStatus.map((tws) => (
+                    {displayedTables.map((tws) => (
                       <TableCard
                         key={tws.table.id}
                         tws={tws}
@@ -700,19 +722,21 @@ export default function HallPage() {
                   data={selectedData}
                   width={tableCreatingOrder || isMobile ? undefined : tablePanelW}
                   fullWidth={isMobile}
-                  onClose={() => { setSelected(null); setTableCreatingOrder(false); }}
+                  autoOrder={waiterAutoOrder}
+                  onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
-                  onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); }}
+                  onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onOrderTransferred={(orderId, newTableNumber) => {
                     setOrders((prev) =>
                       prev.map((o) => (o.id === orderId ? { ...o, table_number: newTableNumber } : o))
                     );
                     setSelected(null);
                     setTableCreatingOrder(false);
+                    setWaiterAutoOrder(false);
                   }}
                   allTables={tablesWithStatus}
                   onEnterOrderMode={() => setTableCreatingOrder(true)}
-                  onExitOrderMode={() => setTableCreatingOrder(false)}
+                  onExitOrderMode={() => { setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                 />
               </>
             )}
@@ -770,6 +794,20 @@ export default function HallPage() {
           onSaved={() => { setAddOpen(false); setEditTable(null); load(); }}
         />
       )}
+
+      {waiterNewOrderPicker && (
+        <WaiterTablePickerModal
+          allTables={tablesWithStatus}
+          currentUserId={userId}
+          onClose={() => setWaiterNewOrderPicker(false)}
+          onSelect={(table) => {
+            setWaiterNewOrderPicker(false);
+            setSelected(table.id);
+            setWaiterAutoOrder(true);
+            setTableCreatingOrder(true);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -804,6 +842,105 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         Добавить первый стол
       </button>
     </div>
+  );
+}
+
+// ── WaiterEmptyDineIn ─────────────────────────────────────────────────────────
+
+function WaiterEmptyDineIn({ onNew }: { onNew: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
+      <span className="text-5xl select-none">🪑</span>
+      <div className="text-center">
+        <p className="text-sm font-medium text-foreground">Нет активных столов</p>
+        <p className="text-xs mt-1 max-w-[220px] mx-auto">
+          У вас нет активных столов. Нажмите Плюс, чтобы открыть новый стол.
+        </p>
+      </div>
+      <button
+        onClick={onNew}
+        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+      >
+        <Plus size={13} />
+        Новый заказ
+      </button>
+    </div>
+  );
+}
+
+// ── WaiterTablePickerModal ────────────────────────────────────────────────────
+
+function WaiterTablePickerModal({
+  allTables,
+  currentUserId,
+  onClose,
+  onSelect,
+}: {
+  allTables: TableWithStatus[];
+  currentUserId: string | null;
+  onClose: () => void;
+  onSelect: (table: DbRestaurantTable) => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none">
+        <div
+          className="pointer-events-auto w-full sm:max-w-lg bg-background rounded-t-2xl sm:rounded-2xl border border-border flex flex-col overflow-hidden"
+          style={{ maxHeight: "80vh" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+            <p className="font-semibold text-sm">Выбрать стол</p>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {allTables.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-8">Столы не настроены</p>
+            ) : (
+              <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
+                {allTables.map((tws) => {
+                  const isFree     = tws.status === "free";
+                  const isOccupied = tws.status === "occupied";
+                  const isPreorder = tws.status === "preorder";
+                  return (
+                    <button
+                      key={tws.table.id}
+                      disabled={!isFree}
+                      onClick={() => isFree && onSelect(tws.table)}
+                      className={`relative flex flex-col items-center justify-center rounded-xl border py-3 px-2 transition-all active:scale-95 ${
+                        isFree
+                          ? "border-emerald-200 dark:border-emerald-700/40 bg-emerald-50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 cursor-pointer hover:shadow-sm"
+                          : "border-zinc-200 dark:border-zinc-700/40 bg-zinc-50 dark:bg-zinc-800/30 opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <p className="text-xs font-bold leading-tight text-center break-words w-full">{tws.table.label}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{tws.table.seats} мест</p>
+                      {isFree && <div className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                      {isOccupied && (
+                        <span className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          Занят
+                        </span>
+                      )}
+                      {isPreorder && (
+                        <span className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                          Бронь
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1833,6 +1970,7 @@ function TablePanel({
   allTables,
   width,
   fullWidth,
+  autoOrder,
   onEnterOrderMode,
   onExitOrderMode,
 }: {
@@ -1844,12 +1982,15 @@ function TablePanel({
   allTables: TableWithStatus[];
   width?: number;
   fullWidth?: boolean;
+  autoOrder?: boolean;
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
   const isWaiter = useRole() === "waiter";
   const { table, status, order, preorderOrder, elapsed } = data;
-  const [panelMode, setPanelMode]                 = useState<"info" | "order">("info");
+  const [panelMode, setPanelMode]                 = useState<"info" | "order">(() =>
+    (data.status === "free" && autoOrder) ? "order" : "info"
+  );
   const [showPaymentModal, setShowPaymentModal]   = useState(false);
   const [copiedId, setCopiedId]                   = useState(false);
   const [changingTable, setChangingTable]         = useState(false);
@@ -1865,6 +2006,14 @@ function TablePanel({
 
   const allTableOrders = data.orders.length > 0 ? data.orders : (order ? [order] : []);
   const activeOrder = allTableOrders.find((o) => o.id === viewingOrderId) ?? order ?? preorderOrder;
+
+  // When auto-order is triggered (waiter picked a free table), notify parent to hide grid
+  useEffect(() => {
+    if (autoOrder && data.status === "free") {
+      onEnterOrderMode?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openNewSubOrder() {
     const existingLabels = new Set(data.orders.map((o) => o.table_number));
