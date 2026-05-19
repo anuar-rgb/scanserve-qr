@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ shift, checkins: checkins ?? [] });
 }
 
-// POST — open a new shift (manager / owner only)
+// POST — open a new shift (owner / manager / cashier)
 export async function POST(request: NextRequest) {
   const role = getRole(request);
-  if (!role || (role !== "owner" && role !== "manager")) {
+  if (!role || (role !== "owner" && role !== "manager" && role !== "cashier")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -94,10 +94,10 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ shift: data });
 }
 
-// DELETE — close current shift (owner / manager only)
+// DELETE — close current shift (owner / manager / cashier)
 export async function DELETE(request: NextRequest) {
   const role = getRole(request);
-  if (!role || (role !== "owner" && role !== "manager")) {
+  if (!role || (role !== "owner" && role !== "manager" && role !== "cashier")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -102,8 +102,8 @@ export function ShiftGate({ children }: { children: ReactNode }) {
     router.replace("/admin/login");
   }
 
-  // Manager can open the shift
-  if (role === "manager") {
+  // Manager and cashier can open the shift
+  if (role === "manager" || role === "cashier") {
     async function handleOpen() {
       setOpening(true);
       const ok = await openShift();
