@@ -1237,12 +1237,12 @@ function InfoShowcaseSection({
 // ── Category Grid ─────────────────────────────────────────────────────────────
 
 const CARD_PALETTES = [
-  { bg: "linear-gradient(145deg, #2C1810 0%, #6B3D22 100%)", glow: "rgba(107,61,34,0.50)" },
-  { bg: "linear-gradient(145deg, #0D1F0D 0%, #245C24 100%)", glow: "rgba(36,92,36,0.50)" },
-  { bg: "linear-gradient(145deg, #0D1A2C 0%, #1E3F6B 100%)", glow: "rgba(30,63,107,0.50)" },
-  { bg: "linear-gradient(145deg, #2C2210 0%, #6B5415 100%)", glow: "rgba(107,84,21,0.50)" },
-  { bg: "linear-gradient(145deg, #1A0D2C 0%, #42246B 100%)", glow: "rgba(66,36,107,0.50)" },
-  { bg: "linear-gradient(145deg, #2C0D0D 0%, #6B2424 100%)", glow: "rgba(107,36,36,0.50)" },
+  { bg: "linear-gradient(145deg, #FF6B35 0%, #FFA33A 100%)", glow: "rgba(255,140,50,0.50)" },   // amber/orange
+  { bg: "linear-gradient(145deg, #00B894 0%, #1DD1A1 100%)", glow: "rgba(29,209,161,0.50)" },   // emerald
+  { bg: "linear-gradient(145deg, #00B4D8 0%, #48DBFB 100%)", glow: "rgba(72,219,251,0.45)" },   // cyan
+  { bg: "linear-gradient(145deg, #F0A500 0%, #FECA57 100%)", glow: "rgba(254,202,87,0.50)" },   // yellow
+  { bg: "linear-gradient(145deg, #7B2FBE 0%, #9F5AFD 100%)", glow: "rgba(159,90,253,0.50)" },   // purple
+  { bg: "linear-gradient(145deg, #FF4040 0%, #FF6B6B 100%)", glow: "rgba(255,107,107,0.50)" },  // coral/red
 ];
 
 function CategoryGrid({
@@ -1294,20 +1294,22 @@ function CategoryGrid({
               {/* Top: name + subtitle */}
               <div>
                 <p style={{
-                  color: "rgba(255,255,255,0.95)",
+                  color: "#fff",
                   fontWeight: 700,
                   fontSize: 15,
                   margin: 0,
                   lineHeight: 1.25,
                   letterSpacing: "0.01em",
+                  textShadow: "0 1px 6px rgba(0,0,0,0.35)",
                 }}>
                   {capFirst(resolve(cat.name, lang))}
                 </p>
                 <p style={{
-                  color: "rgba(255,255,255,0.42)",
+                  color: "rgba(255,255,255,0.80)",
                   fontSize: 11,
                   margin: "3px 0 0",
                   fontWeight: 500,
+                  textShadow: "0 1px 4px rgba(0,0,0,0.25)",
                 }}>
                   {dishesLabel(cat.dishes.length)}
                 </p>
@@ -1321,7 +1323,7 @@ function CategoryGrid({
                 width: 38,
                 height: 38,
                 borderRadius: R.full,
-                backgroundColor: "rgba(255,255,255,0.15)",
+                backgroundColor: "rgba(255,255,255,0.25)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1334,8 +1336,8 @@ function CategoryGrid({
               {/* Bottom-right: count badge */}
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <span style={{
-                  backgroundColor: "rgba(255,255,255,0.14)",
-                  color: "rgba(255,255,255,0.88)",
+                  backgroundColor: "rgba(255,255,255,0.22)",
+                  color: "#fff",
                   borderRadius: R.full,
                   padding: "4px 11px",
                   fontSize: 12,
