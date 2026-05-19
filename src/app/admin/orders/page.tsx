@@ -15,28 +15,46 @@ import { RESTAURANT_ID } from "@/constants";
 type OrderItem = {
   name: string; qty: number; price: number; currency: string;
   original_price?: number; created_at?: string; note?: string;
+  added_by?: string; added_by_role?: string; added_by_name?: string;
 };
 type HistoryTab = "dine-in" | "takeaway" | "delivery" | "preorder";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+type ItemGroup<T> = { label: string; timeMs: number; items: T[]; addedByRole?: string; addedByName?: string };
+
 function groupOrderItems<T extends { created_at?: string }>(
   items: T[],
   fallbackTimestamp: string,
-): Array<{ label: string; timeMs: number; items: T[] }> {
+): Array<ItemGroup<T>> {
   const withMs = items.map((it) => ({ it, ms: new Date(it.created_at || fallbackTimestamp).getTime() }));
   withMs.sort((a, b) => a.ms - b.ms);
-  const groups: Array<{ label: string; timeMs: number; items: T[] }> = [];
+  const groups: Array<ItemGroup<T>> = [];
   for (const { it, ms } of withMs) {
     const g = groups.find((gr) => ms - gr.timeMs < 2 * 60 * 1000);
     if (g) { g.items.push(it); }
     else {
       const d = new Date(ms);
       const label = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-      groups.push({ label, timeMs: ms, items: [it] });
+      const ai = it as Record<string, unknown>;
+      groups.push({
+        label, timeMs: ms, items: [it],
+        addedByRole: ai.added_by_role as string | undefined,
+        addedByName: ai.added_by_name as string | undefined,
+      });
     }
   }
   return groups;
+}
+
+function formatAddedByLabel(role?: string, name?: string): string {
+  if (!role) return "";
+  if (role === "owner")   return " (Владелец)";
+  if (role === "manager") return " (Администратор)";
+  if (role === "cashier") return " (Кассир)";
+  if (role === "waiter")  return name ? ` (Официант: ${name})` : " (Официант)";
+  if (role === "chef")    return name ? ` (Повар: ${name})` : " (Повар)";
+  return "";
 }
 
 function toLocalDateStr(d: Date): string {
@@ -572,7 +590,7 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
                     <div className="flex items-center gap-2 my-2.5">
                       <div className="flex-1 h-px bg-border" />
                       <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">
-                        Дозаказ — {group.label}
+                        Дозаказ — {group.label}{formatAddedByLabel(group.addedByRole, group.addedByName)}
                       </span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
