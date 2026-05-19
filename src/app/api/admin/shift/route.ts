@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const supabase = db();
   const { data: shift } = await supabase
     .from("shifts")
-    .select("id, opened_at, opened_by")
+    .select("id, opened_at")
     .eq("restaurant_id", RID())
     .eq("status", "open")
     .order("opened_at", { ascending: false })
@@ -60,20 +60,37 @@ export async function POST(request: NextRequest) {
   // Return existing open shift if already open
   const { data: existing } = await supabase
     .from("shifts")
-    .select("id, opened_at, opened_by")
+    .select("id, opened_at")
     .eq("restaurant_id", RID())
     .eq("status", "open")
     .maybeSingle();
 
   if (existing) return NextResponse.json({ shift: existing });
 
+  // Try to record who opened the shift; fall back silently if column missing
+  const insertPayload: Record<string, unknown> = { restaurant_id: RID(), status: "open" };
+  if (openedBy) insertPayload.opened_by = openedBy;
+
   const { data, error } = await supabase
     .from("shifts")
-    .insert({ restaurant_id: RID(), status: "open", opened_by: openedBy })
-    .select("id, opened_at, opened_by")
+    .insert(insertPayload)
+    .select("id, opened_at")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // If opened_by column doesn't exist yet, retry without it
+    if (error.message.includes("opened_by") || error.code === "42703") {
+      const { data: data2, error: error2 } = await supabase
+        .from("shifts")
+        .insert({ restaurant_id: RID(), status: "open" })
+        .select("id, opened_at")
+        .single();
+      if (error2) return NextResponse.json({ error: error2.message }, { status: 500 });
+      return NextResponse.json({ shift: data2 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
   return NextResponse.json({ shift: data });
 }
 
