@@ -610,16 +610,19 @@ export default function HallPage() {
       const r = await fetch("/api/admin/shift/checkin", { method: "POST" });
       const d = r.ok ? await r.json() : null;
       if (d?.checkin) {
-        setMyCheckin(true);
         setShiftCheckins((prev) => {
           const exists = prev.some((c) => c.staff_user_id === d.checkin.staff_user_id);
           return exists ? prev : [...prev, d.checkin];
         });
         toast.success("Смена начата! Удачной работы 👋");
       } else {
-        toast.error((d as { error?: string } | null)?.error ?? "Ошибка при начале смены");
+        // Analytics recording failed — let waiter work anyway (checkin is non-blocking)
+        toast.error("Аналитика входа недоступна, но смена начата");
       }
-    } catch { toast.error("Ошибка при начале смены"); }
+    } catch {
+      // Same — don't block on network error
+    }
+    setMyCheckin(true);
     setCheckingIn(false);
   }
 
