@@ -560,7 +560,7 @@ function PromoSlider({
           paddingBottom: SP.sm, scrollbarWidth: "none",
         } as React.CSSProperties}>
           {dishes.map((dish, idx) => {
-            const palette = CARD_PALETTES[idx % CARD_PALETTES.length];
+            const palette = PROMO_PALETTES[idx % PROMO_PALETTES.length];
             return (
               <button
                 key={dish.id}
@@ -1236,37 +1236,77 @@ function InfoShowcaseSection({
 
 // ── Category Grid ─────────────────────────────────────────────────────────────
 
-const CARD_PALETTES = [
-  { bg: "linear-gradient(145deg, #FF6B35 0%, #FFA33A 100%)", glow: "rgba(255,140,50,0.50)" },   // amber/orange
-  { bg: "linear-gradient(145deg, #00B894 0%, #1DD1A1 100%)", glow: "rgba(29,209,161,0.50)" },   // emerald
-  { bg: "linear-gradient(145deg, #00B4D8 0%, #48DBFB 100%)", glow: "rgba(72,219,251,0.45)" },   // cyan
-  { bg: "linear-gradient(145deg, #F0A500 0%, #FECA57 100%)", glow: "rgba(254,202,87,0.50)" },   // yellow
-  { bg: "linear-gradient(145deg, #7B2FBE 0%, #9F5AFD 100%)", glow: "rgba(159,90,253,0.50)" },   // purple
-  { bg: "linear-gradient(145deg, #FF4040 0%, #FF6B6B 100%)", glow: "rgba(255,107,107,0.50)" },  // coral/red
+// Used for horizontal promo/hit dish carousel cards
+const PROMO_PALETTES = [
+  { bg: "linear-gradient(145deg, #FF6B35 0%, #FFA33A 100%)" },
+  { bg: "linear-gradient(145deg, #00B894 0%, #1DD1A1 100%)" },
+  { bg: "linear-gradient(145deg, #00B4D8 0%, #48DBFB 100%)" },
+  { bg: "linear-gradient(145deg, #F0A500 0%, #FECA57 100%)" },
+  { bg: "linear-gradient(145deg, #7B2FBE 0%, #9F5AFD 100%)" },
+  { bg: "linear-gradient(145deg, #FF4040 0%, #FF6B6B 100%)" },
 ];
+
+const PASTEL_BLOBS = [
+  "rgba(255,182,193,0.42)",  // rose
+  "rgba(255,218,185,0.42)",  // peach
+  "rgba(186,225,255,0.42)",  // sky
+  "rgba(190,235,210,0.42)",  // mint
+  "rgba(255,231,175,0.42)",  // cream
+  "rgba(224,192,255,0.42)",  // lavender
+];
+
+const DECOR_ICONS = ["🌸", "🌿", "🍃", "🌺", "🍀", "🌼"];
+
+// keyword pattern → Unsplash photo ID for auto-matching common food categories
+const CATEGORY_PHOTO_MAP: Array<[RegExp, string]> = [
+  [/салат|salad/i,                      "photo-1512621776951-a57141f2eefd"],
+  [/суп|soup|борщ|шурп/i,               "photo-1547592180-85f173990554"],
+  [/бургер|burger|фаст|fast.?food/i,    "photo-1568901346375-23c9450c58cd"],
+  [/завтрак|breakfast/i,                "photo-1533089860892-a7c6f0a88666"],
+  [/пицц|pizza/i,                       "photo-1565299624946-b28f40a0ae38"],
+  [/десерт|dessert|торт|выпечк/i,       "photo-1488477181946-6428a0291777"],
+  [/суши|sushi|ролл|roll/i,             "photo-1553621042-f6e147245754"],
+  [/мяс|нарезк|steak|стейк/i,          "photo-1544025162-d76538647573"],
+  [/каш|oatmeal|porridge/i,             "photo-1517673132405-a56a62b18caf"],
+  [/паст|pasta|спаге/i,                 "photo-1473093295043-cdd812d0e601"],
+];
+
+function resolveCategoryPhoto(name: string | LS): string | null {
+  const text = typeof name === "string" ? name : (name.ru ?? name.en ?? name.kz ?? "");
+  for (const [pattern, id] of CATEGORY_PHOTO_MAP) {
+    if (pattern.test(text)) return `https://images.unsplash.com/${id}?w=300&h=300&fit=crop&q=80`;
+  }
+  return null;
+}
 
 function CategoryGrid({
   categories,
   lang,
+  theme,
   onSelect,
 }: {
   categories: MenuCategory[];
   lang: Lang;
+  theme: Theme;
   onSelect: (id: string) => void;
 }) {
   const [pressedId, setPressedId] = useState<string | null>(null);
+  const [failedImgs, setFailedImgs] = useState<Set<string>>(new Set());
 
-  const dishesLabel = (n: number) =>
-    lang === "kz" ? `${n} тағам`
-    : lang === "ru" ? `${n} блюд`
-    : `${n} dishes`;
+  const shadow = theme === "dark"
+    ? "0 2px 16px rgba(0,0,0,0.40)"
+    : "0 2px 14px rgba(0,0,0,0.09)";
 
   return (
     <section style={{ marginBottom: SP.lg }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
         {categories.map((cat, idx) => {
-          const palette = CARD_PALETTES[idx % CARD_PALETTES.length];
-          const pressed = pressedId === cat.id;
+          const blobColor = PASTEL_BLOBS[idx % PASTEL_BLOBS.length];
+          const decor     = DECOR_ICONS[idx % DECOR_ICONS.length];
+          const pressed   = pressedId === cat.id;
+          const autoPhoto = resolveCategoryPhoto(cat.name);
+          const photoSrc  = cat.imageUrl ?? (failedImgs.has(cat.id) ? null : autoPhoto);
+
           return (
             <button
               key={cat.id}
@@ -1276,76 +1316,104 @@ function CategoryGrid({
               onClick={() => onSelect(cat.id)}
               style={{
                 position: "relative",
-                height: 140,
-                borderRadius: 20,
-                border: "none",
+                height: 148,
+                borderRadius: 18,
+                border: "1px solid var(--border-color)",
                 cursor: "pointer",
-                padding: "14px 14px",
-                background: palette.bg,
+                padding: 0,
+                background: "var(--bg-card)",
                 overflow: "hidden",
+                boxShadow: shadow,
                 transform: pressed ? "scale(0.96)" : "scale(1)",
                 transition: "transform 0.12s ease",
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "space-between",
+                alignItems: "stretch",
                 textAlign: "left",
               } as React.CSSProperties}
             >
-              {/* Top: name + subtitle */}
-              <div>
+              {/* Pastel glow blob */}
+              <div style={{
+                position: "absolute",
+                bottom: 16,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 100,
+                height: 78,
+                borderRadius: "50%",
+                background: blobColor,
+                filter: "blur(24px)",
+                pointerEvents: "none",
+                zIndex: 0,
+              }} />
+
+              {/* Header: name left, decor right */}
+              <div style={{
+                padding: "10px 10px 0 10px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                position: "relative",
+                zIndex: 1,
+              }}>
                 <p style={{
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 15,
                   margin: 0,
-                  lineHeight: 1.25,
-                  letterSpacing: "0.01em",
-                  textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-color)",
+                  lineHeight: 1.3,
+                  maxWidth: "78%",
                 }}>
                   {capFirst(resolve(cat.name, lang))}
                 </p>
-                <p style={{
-                  color: "rgba(255,255,255,0.80)",
-                  fontSize: 11,
-                  margin: "3px 0 0",
-                  fontWeight: 500,
-                  textShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                }}>
-                  {dishesLabel(cat.dishes.length)}
-                </p>
+                <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{decor}</span>
               </div>
 
-              {/* Floating icon badge */}
+              {/* Food photo or emoji */}
               <div style={{
-                position: "absolute",
-                bottom: 12,
-                right: 12,
-                width: 38,
-                height: 38,
-                borderRadius: R.full,
-                backgroundColor: "rgba(255,255,255,0.25)",
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 20,
-                pointerEvents: "none",
-              } as React.CSSProperties}>
-                {cat.icon}
+                position: "relative",
+                zIndex: 1,
+                paddingBottom: 14,
+              }}>
+                {photoSrc ? (
+                  <img
+                    src={photoSrc}
+                    alt=""
+                    onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
+                    style={{
+                      width: 82,
+                      height: 82,
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                      display: "block",
+                      pointerEvents: "none",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 42, display: "block", lineHeight: 1, pointerEvents: "none" }}>
+                    {cat.icon}
+                  </span>
+                )}
               </div>
 
-              {/* Bottom-right: count badge */}
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <span style={{
-                  backgroundColor: "rgba(255,255,255,0.22)",
-                  color: "#fff",
-                  borderRadius: R.full,
-                  padding: "4px 11px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.02em",
-                }}>
-                  {cat.dishes.length}
-                </span>
+              {/* Count — bottom right */}
+              <div style={{
+                position: "absolute",
+                bottom: 8,
+                right: 8,
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--text-muted)",
+                background: "var(--bg-surface)",
+                borderRadius: 99,
+                padding: "2px 7px",
+                zIndex: 1,
+              }}>
+                {cat.dishes.length}
               </div>
             </button>
           );
@@ -2704,6 +2772,7 @@ export function MenuTemplate({
             <CategoryGrid
               categories={categories}
               lang={lang}
+              theme={theme}
               onSelect={goToCatalogCategory}
             />
           )
