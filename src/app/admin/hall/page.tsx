@@ -1640,9 +1640,6 @@ function OrderSlotPanel({
                               <span className="text-muted-foreground break-words">
                                 {capFirst(item.name)}
                                 <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
-                                {item.created_at && (
-                                  <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
-                                )}
                               </span>
                               {!isWaiter && (
                                 <button
@@ -2596,9 +2593,6 @@ function TablePanel({
                                 <span className="text-muted-foreground break-words">
                                   {capFirst(item.name)}
                                   <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
-                                  {item.created_at && (
-                                    <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
-                                  )}
                                 </span>
                                 {!isWaiter && (
                                   <button
