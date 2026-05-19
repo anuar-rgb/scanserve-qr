@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useRole, useDisplayName } from "@/lib/role-context";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -17,6 +19,10 @@ export default function MobileAdminHeader() {
   const role        = useRole();
   const displayName = useDisplayName();
   const isWaiter    = role === "waiter";
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = !mounted || theme === "dark";
 
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -45,6 +51,16 @@ export default function MobileAdminHeader() {
           </>
         )}
       </div>
+      <button
+        onClick={() => mounted && setTheme(isDark ? "light" : "dark")}
+        className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        title={isDark ? "Светлая тема" : "Тёмная тема"}
+      >
+        {isDark
+          ? <Moon size={16} />
+          : <Sun size={16} className="text-amber-500" />
+        }
+      </button>
       <button
         onClick={signOut}
         className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
