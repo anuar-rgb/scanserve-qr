@@ -1654,6 +1654,9 @@ function OrderSlotPanel({
                                 </button>
                               )}
                             </div>
+                            {item.modifiers?.map((mod, mi) => (
+                              <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
+                            ))}
                             {item.note && editingNoteIdx !== item._idx && (
                               <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                 ✎ {item.note}
@@ -2609,6 +2612,9 @@ function TablePanel({
                                   </button>
                                 )}
                               </div>
+                              {item.modifiers?.map((mod, mi) => (
+                                <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
+                              ))}
                               {item.note && editingNoteIdx !== item._idx && (
                                 <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                   ✎ {item.note}
@@ -3333,7 +3339,12 @@ function PosMenuBrowser({
                               <Minus size={8} />
                             </button>
                             <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
-                            <span className="flex-1 min-w-0 text-[10px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[10px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
+                              {item.modifiers?.map((mod, mi) => (
+                                <p key={mi} className="text-[9px] text-violet-400 leading-tight">+ {mod.name}</p>
+                              ))}
+                            </div>
                             <span className="shrink-0 text-[9px] text-muted-foreground">×{item.qty}</span>
                             <span className="shrink-0 text-[10px] tabular-nums min-w-[44px] text-right">
                               {(item.price * item.qty).toLocaleString("ru-RU")} ₸
@@ -4557,6 +4568,9 @@ function PreorderDayCard({
                           <span className="ml-1 text-[9px] text-muted-foreground/40 tabular-nums">({new Date(item.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })})</span>
                         )}
                       </span>
+                      {item.modifiers?.map((mod, mi) => (
+                        <p key={mi} className="text-[10px] text-violet-400 leading-tight mt-0.5">+ {mod.name}</p>
+                      ))}
                       {item.note && (
                         <p className="text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                           ✎ {item.note}

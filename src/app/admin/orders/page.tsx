@@ -16,6 +16,7 @@ type OrderItem = {
   name: string; qty: number; price: number; currency: string;
   original_price?: number; created_at?: string; note?: string;
   added_by?: string; added_by_role?: string; added_by_name?: string;
+  modifiers?: { name: string; price: number }[];
 };
 type HistoryTab = "dine-in" | "takeaway" | "delivery" | "preorder";
 
@@ -606,6 +607,11 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
                         <div className="min-w-0 pr-2">
                           <span className="text-foreground">{capFirst(item.name)}</span>
                           <span className="ml-1.5 text-muted-foreground/60 text-xs">× {item.qty}</span>
+                          {item.modifiers?.map((mod, mi) => (
+                            <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 mt-0.5 leading-tight">
+                              + {mod.name} <span className="text-muted-foreground/60">(+{mod.price} ₸)</span>
+                            </p>
+                          ))}
                           {item.note && (
                             <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                               ✎ {item.note}
