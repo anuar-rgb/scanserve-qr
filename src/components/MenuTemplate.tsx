@@ -3103,7 +3103,7 @@ export function MenuTemplate({
               })}
             </div>
 
-            {/* Total + confirm button */}
+            {/* Total + confirm buttons */}
             <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
                 <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
@@ -3118,21 +3118,38 @@ export function MenuTemplate({
                   ).toLocaleString("ru-RU")} {modPickerCur || restaurant.currency}
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  const mods = (modPickerDish.modifiers ?? []).filter(m => selectedMods.has(m.id));
-                  addToCart(modPickerDish, modPickerCur, 1, mods);
-                  setModPickerDish(null);
-                }}
-                style={{
-                  width: "100%", padding: "14px", borderRadius: R.full,
-                  border: "none", background: "var(--cta-bg)", color: "var(--cta-fg)",
-                  fontSize: 15, fontWeight: 700, cursor: "pointer",
-                  fontFamily: "'Montserrat', system-ui, sans-serif",
-                }}
-              >
-                {lang === "ru" ? "Добавить в корзину" : lang === "kz" ? "Себетке қосу" : "Add to Cart"}
-              </button>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => {
+                    addToCart(modPickerDish, modPickerCur, 1, []);
+                    setModPickerDish(null);
+                  }}
+                  style={{
+                    flex: 1, padding: "14px 0", borderRadius: R.full,
+                    border: "1.5px solid var(--border-color)",
+                    background: "transparent", color: "var(--text-color)",
+                    fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "'Montserrat', system-ui, sans-serif",
+                  }}
+                >
+                  {lang === "ru" ? "Без добавок" : lang === "kz" ? "Қосымшасыз" : "No add-ons"}
+                </button>
+                <button
+                  onClick={() => {
+                    const mods = (modPickerDish.modifiers ?? []).filter(m => selectedMods.has(m.id));
+                    addToCart(modPickerDish, modPickerCur, 1, mods);
+                    setModPickerDish(null);
+                  }}
+                  style={{
+                    flex: 1, padding: "14px 0", borderRadius: R.full,
+                    border: "none", background: "var(--cta-bg)", color: "var(--cta-fg)",
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
+                    fontFamily: "'Montserrat', system-ui, sans-serif",
+                  }}
+                >
+                  {lang === "ru" ? "Добавить" : lang === "kz" ? "Себетке қосу" : "Add to Cart"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
