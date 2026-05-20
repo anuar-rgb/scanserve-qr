@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
 
-const RESTAURANT_TABLES = ["products", "banners", "hero_slides", "info_showcases"] as const;
+const RESTAURANT_TABLES = ["products", "banners", "hero_slides", "info_showcases", "categories", "modifiers"] as const;
 
 export function RealtimeRefresher({ restaurantId }: { restaurantId: string }) {
   const router = useRouter();
