@@ -3076,7 +3076,10 @@ function PosMenuBrowser({
         p.name.kz.toLowerCase().includes(trimmed)
       );
     }
-    return p.category_id === currentCatId;
+    if (!currentCatId) return false;
+    if (p.category_id === currentCatId) return true;
+    // Also show products of subcategories when currentCatId is a parent category
+    return categories.some(c => c.parent_id === currentCatId && c.id === p.category_id);
   });
 
   const productMap = new Map(products.map((p) => [p.id, p]));
@@ -3178,6 +3181,25 @@ function PosMenuBrowser({
                 </div>
               )}
               <div className="p-3 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+                {/* "All [parent]" virtual card shown when inside a parent with direct products */}
+                {parentCatId && (() => {
+                  const directCount = products.filter(p => p.category_id === parentCatId && p.is_available).length;
+                  if (directCount === 0) return null;
+                  const allCount = products.filter(p =>
+                    (p.category_id === parentCatId || categories.some(c => c.parent_id === parentCatId && c.id === p.category_id)) && p.is_available
+                  ).length;
+                  return (
+                    <button
+                      onClick={() => setCurrentCatId(parentCatId)}
+                      className="relative flex flex-col justify-between rounded-xl border border-violet-400/50 bg-violet-50 dark:bg-violet-600/10 p-3 hover:border-violet-400 active:scale-[0.97] transition-all text-left min-h-[56px]"
+                    >
+                      <p className="text-xs font-semibold leading-tight text-violet-700 dark:text-violet-300">
+                        Все {parentCat?.name.ru || parentCat?.name.en}
+                      </p>
+                      <span className="text-[10px] text-violet-500 mt-1.5">{allCount} поз.</span>
+                    </button>
+                  );
+                })()}
                 {(parentCatId ? subcatsOf(parentCatId) : rootCategories).map((cat) => {
                   const isParent  = hasChildren(cat.id);
                   // Count products in this cat + all its subcats
