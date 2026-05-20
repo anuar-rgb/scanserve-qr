@@ -92,8 +92,11 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
         if (err) throw err;
         onSaved(data as DbCategory);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error
+        ? e.message
+        : (e as { message?: string })?.message ?? JSON.stringify(e);
+      setError(msg || "Save failed.");
       setSaving(false);
     }
   }
