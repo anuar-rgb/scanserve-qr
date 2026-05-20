@@ -21,6 +21,18 @@ export interface DbCategory {
   icon: string | null;
   image_url: string | null;
   order_index: number;
+  parent_id?: string | null;
+}
+
+export interface DbModifier {
+  id: string;
+  restaurant_id: string;
+  category_id: string | null;
+  name: string;
+  price: number;
+  order_index: number;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface DbProduct {

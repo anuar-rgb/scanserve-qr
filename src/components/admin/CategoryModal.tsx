@@ -11,6 +11,7 @@ const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 interface Props {
   mode: "create" | "edit";
   category?: DbCategory;
+  categories?: DbCategory[];
   onClose: () => void;
   onSaved: (category: DbCategory) => void;
 }
@@ -27,14 +28,20 @@ async function uploadCategoryImage(file: File): Promise<string> {
   return publicUrl;
 }
 
-export default function CategoryModal({ mode, category, onClose, onSaved }: Props) {
+export default function CategoryModal({ mode, category, categories, onClose, onSaved }: Props) {
   const { t } = useTranslations();
   const fileInputRef              = useRef<HTMLInputElement>(null);
   const [name, setName]           = useState(category?.name.ru ?? category?.name.en ?? "");
   const [imageUrl, setImageUrl]   = useState(category?.image_url ?? "");
+  const [parentId, setParentId]   = useState<string>(category?.parent_id ?? "");
   const [saving, setSaving]       = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError]         = useState<string | null>(null);
+
+  // Only top-level categories (no parent) can be parents, excluding the category being edited
+  const parentOptions = (categories ?? []).filter(
+    c => !c.parent_id && c.id !== category?.id
+  );
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -70,6 +77,7 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
       name: { en: name.trim(), ru: name.trim(), kz: name.trim() } satisfies LS,
       icon: null,
       image_url: imageUrl.trim() || null,
+      parent_id: parentId || null,
       order_index: category?.order_index ?? 9999,
     };
 
@@ -133,6 +141,28 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
               className={inputCls}
             />
           </div>
+
+          {/* Parent category */}
+          {parentOptions.length > 0 && (
+            <div>
+              <label className={labelCls}>Родительская категория</label>
+              <select
+                value={parentId}
+                onChange={(e) => setParentId(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Корневая категория —</option>
+                {parentOptions.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name.ru || c.name.en}</option>
+                ))}
+              </select>
+              {parentId && (
+                <p className="mt-1 text-[11px] text-violet-500">
+                  Эта категория будет вложена в выбранную родительскую
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Image */}
           <div>

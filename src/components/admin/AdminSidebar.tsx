@@ -51,7 +51,8 @@ const NAV: NavSection[] = [
     titleKey: "sectionManagement",
     ownerOnly: true,
     items: [
-      { labelKey: "navCatalog", icon: Package, href: "/admin/dashboard", ownerOnly: true },
+      { labelKey: "navCatalog",    icon: Package,  href: "/admin/dashboard",  ownerOnly: true },
+      { labelKey: "navModifiers", icon: Settings, href: "/admin/modifiers",  ownerOnly: true },
     ],
   },
   {

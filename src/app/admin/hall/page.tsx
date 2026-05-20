@@ -8,7 +8,7 @@ import {
   Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct } from "@/lib/db-types";
+import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
@@ -17,8 +17,9 @@ import { useUserId, useRole, useDisplayName } from "@/lib/role-context";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TableStatus = "free" | "occupied" | "preorder";
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string; added_by?: string; added_by_role?: string; added_by_name?: string };
-type CartItem  = { productId: string; name: string; price: number; qty: number; addedAt: string; note?: string };
+type ModifierEntry = { name: string; price: number };
+type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string; added_by?: string; added_by_role?: string; added_by_name?: string; modifiers?: ModifierEntry[] };
+type CartItem  = { cartKey: string; productId: string; name: string; price: number; qty: number; addedAt: string; note?: string; modifiers?: ModifierEntry[] };
 
 interface TableWithStatus {
   table: DbRestaurantTable;
@@ -2925,7 +2926,9 @@ function PosMenuBrowser({
 }) {
   const [categories, setCategories]      = useState<DbCategory[]>([]);
   const [products, setProducts]          = useState<DbProduct[]>([]);
+  const [dbModifiers, setDbModifiers]    = useState<DbModifier[]>([]);
   const [catLoading, setCatLoading]      = useState(true);
+  const [parentCatId, setParentCatId]    = useState<string | null>(null);
   const [currentCatId, setCurrentCatId]     = useState<string | null>(null);
   const [search, setSearch]                 = useState("");
   const [cart, setCart]                     = useState<Map<string, CartItem>>(new Map());
@@ -2934,6 +2937,8 @@ function PosMenuBrowser({
   const [editingNoteId, setEditingNoteId]   = useState<string | null>(null);
   const [noteInput, setNoteInput]           = useState("");
   const [localExisting, setLocalExisting]   = useState<OrderItem[]>(existingItems ?? []);
+  const [pendingProduct, setPendingProduct] = useState<DbProduct | null>(null);
+  const [selectedMods, setSelectedMods]     = useState<Set<string>>(new Set());
   const { width: cartW, startResize: startCartResize }       = usePanelResize("hall:cartPanel", 360, 260, 520);
 
   function toggleIngredients(id: string) {
@@ -2955,12 +2960,14 @@ function PosMenuBrowser({
 
   useEffect(() => {
     async function fetchCatalog() {
-      const [catsRes, prodsRes] = await Promise.all([
+      const [catsRes, prodsRes, modsRes] = await Promise.all([
         supabase.from(DB_TABLES.categories).select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
         supabase.from(DB_TABLES.products).select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
+        supabase.from("modifiers").select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_active", true).order("order_index"),
       ]);
       setCategories((catsRes.data as DbCategory[]) ?? []);
       setProducts((prodsRes.data as DbProduct[]) ?? []);
+      setDbModifiers((modsRes.data as DbModifier[]) ?? []);
       setCatLoading(false);
     }
     fetchCatalog();
@@ -2973,47 +2980,69 @@ function PosMenuBrowser({
     return Math.round(product.price * (1 - pct / 100));
   }
 
+  function catModifiersFor(product: DbProduct): DbModifier[] {
+    return dbModifiers.filter(m => m.category_id === product.category_id);
+  }
+
   function addToCart(product: DbProduct) {
-    const name  = productName(product);
-    const price = effPrice(product);
+    const mods = catModifiersFor(product);
+    if (mods.length > 0) {
+      setPendingProduct(product);
+      setSelectedMods(new Set());
+      return;
+    }
+    commitToCart(product, []);
+  }
+
+  function commitToCart(product: DbProduct, chosenMods: DbModifier[]) {
+    const name      = productName(product);
+    const basePrice = effPrice(product);
+    const modPrice  = chosenMods.reduce((s, m) => s + m.price, 0);
+    const price     = basePrice + modPrice;
+    const modEntries: ModifierEntry[] = chosenMods.map(m => ({ name: m.name, price: m.price }));
+    const cartKey = chosenMods.length > 0
+      ? `${product.id}:${chosenMods.map(m => m.id).sort().join(",")}`
+      : product.id;
     setCart((prev) => {
       const next = new Map(prev);
-      const existing = next.get(product.id);
-      next.set(product.id, existing
+      const existing = next.get(cartKey);
+      next.set(cartKey, existing
         ? { ...existing, qty: existing.qty + 1 }
-        : { productId: product.id, name, price, qty: 1, addedAt: new Date().toISOString() }
+        : { cartKey, productId: product.id, name, price, qty: 1, addedAt: new Date().toISOString(), modifiers: modEntries.length > 0 ? modEntries : undefined }
       );
       return next;
     });
+    setPendingProduct(null);
+    setSelectedMods(new Set());
   }
 
-  function incrementCart(productId: string) {
+  function incrementCart(cartKey: string) {
     setCart((prev) => {
       const next = new Map(prev);
-      const existing = next.get(productId);
+      const existing = next.get(cartKey);
       if (!existing) return prev;
-      next.set(productId, { ...existing, qty: existing.qty + 1 });
+      next.set(cartKey, { ...existing, qty: existing.qty + 1 });
       return next;
     });
   }
 
-  function decrementCart(productId: string) {
+  function decrementCart(cartKey: string) {
     setCart((prev) => {
       const next = new Map(prev);
-      const existing = next.get(productId);
+      const existing = next.get(cartKey);
       if (!existing) return prev;
-      if (existing.qty <= 1) next.delete(productId);
-      else next.set(productId, { ...existing, qty: existing.qty - 1 });
+      if (existing.qty <= 1) next.delete(cartKey);
+      else next.set(cartKey, { ...existing, qty: existing.qty - 1 });
       return next;
     });
   }
 
-  function setNoteForItem(productId: string, note: string) {
+  function setNoteForItem(cartKey: string, note: string) {
     setCart((prev) => {
       const next = new Map(prev);
-      const item = next.get(productId);
+      const item = next.get(cartKey);
       if (!item) return prev;
-      next.set(productId, { ...item, note: note.trim() || undefined });
+      next.set(cartKey, { ...item, note: note.trim() || undefined });
       return next;
     });
   }
@@ -3031,6 +3060,12 @@ function PosMenuBrowser({
   const isSearching  = trimmed.length > 0;
   const showProducts = isSearching || currentCatId !== null;
   const currentCat   = categories.find((c) => c.id === currentCatId);
+
+  // Subcategory helpers
+  const rootCategories = categories.filter(c => !c.parent_id);
+  const subcatsOf = (parentId: string) => categories.filter(c => c.parent_id === parentId);
+  const hasChildren = (catId: string) => categories.some(c => c.parent_id === catId);
+  const parentCat = parentCatId ? categories.find(c => c.id === parentCatId) : null;
 
   const visibleProducts = products.filter((p) => {
     if (!p.is_available) return false;
@@ -3054,6 +3089,7 @@ function PosMenuBrowser({
       const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", created_at: ci.addedAt };
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
       if (ci.note) item.note = ci.note;
+      if (ci.modifiers?.length) item.modifiers = ci.modifiers;
       if (addedByRole) item.added_by_role = addedByRole;
       if (addedByName) item.added_by_name = addedByName;
       return item;
@@ -3127,31 +3163,64 @@ function PosMenuBrowser({
               <Loader2 size={14} className="animate-spin" /> Загрузка меню…
             </div>
           ) : !showProducts ? (
-            /* Screen 1: category grid — text-only, no images/icons for instant load */
-            <div className="p-3 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
-              {categories.map((cat) => {
-                const count = products.filter((p) => p.category_id === cat.id && p.is_available).length;
-                const cartInCat = products.filter((p) => p.category_id === cat.id).reduce((s, p) => s + (cart.get(p.id)?.qty ?? 0), 0);
-                return (
+            /* Screen 1: category / subcategory grid */
+            <div>
+              {/* Breadcrumb when in subcategory view */}
+              {parentCatId && (
+                <div className="sticky top-0 z-10 bg-background px-3 pt-2.5 pb-2 border-b border-border/50">
                   <button
-                    key={cat.id}
-                    onClick={() => setCurrentCatId(cat.id)}
-                    className="relative flex flex-col justify-between rounded-xl border border-border bg-card p-3 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left min-h-[56px]"
+                    onClick={() => setParentCatId(null)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 active:scale-[0.98] text-sm font-semibold text-foreground transition-all min-h-[42px]"
                   >
-                    <p className="text-xs font-semibold leading-tight line-clamp-3 text-foreground pr-5">
-                      {capFirst(cat.name.ru || cat.name.en)}
-                    </p>
-                    <div className="flex items-center justify-between mt-1.5 gap-1">
-                      <span className="text-[10px] text-muted-foreground">{count} поз.</span>
-                      {cartInCat > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                          {cartInCat}
-                        </span>
-                      )}
-                    </div>
+                    <ChevronLeft size={16} className="text-violet-500 shrink-0" />
+                    {parentCat ? capFirst(parentCat.name.ru || parentCat.name.en) : "Все категории"}
                   </button>
-                );
-              })}
+                </div>
+              )}
+              <div className="p-3 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+                {(parentCatId ? subcatsOf(parentCatId) : rootCategories).map((cat) => {
+                  const isParent  = hasChildren(cat.id);
+                  // Count products in this cat + all its subcats
+                  const catIds    = isParent
+                    ? [cat.id, ...subcatsOf(cat.id).map(s => s.id)]
+                    : [cat.id];
+                  const count     = products.filter(p => catIds.includes(p.category_id) && p.is_available).length;
+                  const cartInCat = products
+                    .filter(p => catIds.includes(p.category_id))
+                    .reduce((s, p) => {
+                      let q = 0;
+                      cart.forEach(ci => { if (ci.productId === p.id) q += ci.qty; });
+                      return s + q;
+                    }, 0);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        if (isParent) { setParentCatId(cat.id); }
+                        else { setCurrentCatId(cat.id); }
+                      }}
+                      className="relative flex flex-col justify-between rounded-xl border border-border bg-card p-3 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left min-h-[56px]"
+                    >
+                      <p className="text-xs font-semibold leading-tight line-clamp-3 text-foreground pr-5">
+                        {capFirst(cat.name.ru || cat.name.en)}
+                      </p>
+                      <div className="flex items-center justify-between mt-1.5 gap-1">
+                        <span className="text-[10px] text-muted-foreground">
+                          {isParent ? `${subcatsOf(cat.id).length} подкат.` : `${count} поз.`}
+                        </span>
+                        {cartInCat > 0 && (
+                          <span className="min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                            {cartInCat}
+                          </span>
+                        )}
+                        {isParent && (
+                          <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             /* Screen 2: product list — flat rows, no images, with ingredient accordion */
@@ -3163,7 +3232,7 @@ function PosMenuBrowser({
                     className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 active:scale-[0.98] text-sm font-semibold text-foreground transition-all min-h-[42px]"
                   >
                     <ChevronLeft size={16} className="text-violet-500 shrink-0" />
-                    Все категории
+                    {parentCatId && parentCat ? capFirst(parentCat.name.ru || parentCat.name.en) : "Все категории"}
                   </button>
                 </div>
               )}
@@ -3174,8 +3243,9 @@ function PosMenuBrowser({
               ) : (
                 <div className="divide-y divide-border">
                   {visibleProducts.map((product) => {
-                    const inCart = cart.get(product.id);
-                    const name   = productName(product);
+                    const hasMods = catModifiersFor(product).length > 0;
+                    const inCart  = hasMods ? null : cart.get(product.id);
+                    const name    = productName(product);
                     const ep     = effPrice(product);
                     const hasDiscount = product.is_promo && !!product.discount_label && ep < product.price;
                     const compositionText = product.ingredients || product.description?.ru || product.description?.en || "";
@@ -3326,11 +3396,13 @@ function PosMenuBrowser({
                       </p>
                     )}
                     <div className="space-y-1.5 mb-2">
-                      {group.items.map((item) => (
-                        <div key={item.productId}>
+                      {group.items.map((item) => {
+                        const ck = item.cartKey;
+                        return (
+                        <div key={ck}>
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => decrementCart(item.productId)}
+                              onClick={() => decrementCart(ck)}
                               className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
                             >
                               <Minus size={9} />
@@ -3339,31 +3411,34 @@ function PosMenuBrowser({
                               <div className="flex items-center gap-1">
                                 <span className="flex-1 min-w-0 text-[11px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
                                 <button
-                                  onClick={() => { setEditingNoteId(item.productId); setNoteInput(item.note ?? ""); }}
+                                  onClick={() => { setEditingNoteId(ck); setNoteInput(item.note ?? ""); }}
                                   className={`shrink-0 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
                                   title={item.note ? "Изменить заметку" : "Добавить заметку"}
                                 >
                                   <MessageSquare size={10} />
                                 </button>
                               </div>
-                              {item.note && editingNoteId !== item.productId && (
+                              {item.modifiers?.map((mod, mi) => (
+                                <p key={mi} className="text-[9px] text-violet-400 leading-tight">+ {mod.name} (+{mod.price} ₸)</p>
+                              ))}
+                              {item.note && editingNoteId !== ck && (
                                 <p className="text-[10px] italic text-amber-600 dark:text-amber-400 leading-tight mt-0.5">✎ {item.note}</p>
                               )}
-                              {editingNoteId === item.productId && (
+                              {editingNoteId === ck && (
                                 <div className="mt-1 flex items-center gap-1">
                                   <input
                                     autoFocus
                                     value={noteInput}
                                     onChange={(e) => setNoteInput(e.target.value)}
                                     onKeyDown={(e) => {
-                                      if (e.key === "Enter") { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }
+                                      if (e.key === "Enter") { setNoteForItem(ck, noteInput); setEditingNoteId(null); }
                                       if (e.key === "Escape") { setEditingNoteId(null); }
                                     }}
                                     placeholder="Пожелание к блюду…"
                                     className="flex-1 min-w-0 text-[10px] px-1.5 py-0.5 rounded border border-violet-400 bg-background focus:outline-none"
                                   />
                                   <button
-                                    onClick={() => { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }}
+                                    onClick={() => { setNoteForItem(ck, noteInput); setEditingNoteId(null); }}
                                     className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white hover:bg-violet-700 transition-colors"
                                   >OK</button>
                                   <button
@@ -3378,14 +3453,15 @@ function PosMenuBrowser({
                               {(item.price * item.qty).toLocaleString("ru-RU")} ₸
                             </span>
                             <button
-                              onClick={() => incrementCart(item.productId)}
+                              onClick={() => incrementCart(ck)}
                               className="w-6 h-6 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0"
                             >
                               <Plus size={9} />
                             </button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -3427,50 +3503,56 @@ function PosMenuBrowser({
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-violet-500 py-0.5">
                   {existingGroups.length > 0 || gi > 0 ? `Дозаказ — ${group.label}` : `+ ${group.label}`}
                 </p>
-                {group.items.map((item) => (
-                  <div key={item.productId} className="py-0.5">
+                {group.items.map((item) => {
+                  const ck = item.cartKey;
+                  return (
+                  <div key={ck} className="py-0.5">
                     <div className="flex items-center gap-1.5 text-xs">
-                      <button onClick={() => decrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
+                      <button onClick={() => decrementCart(ck)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0">
                         <Minus size={9} />
                       </button>
                       <span className="flex-1 truncate text-foreground">{capFirst(item.name)}</span>
                       <button
-                        onClick={() => { setEditingNoteId(item.productId); setNoteInput(item.note ?? ""); }}
+                        onClick={() => { setEditingNoteId(ck); setNoteInput(item.note ?? ""); }}
                         className={`shrink-0 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
                       >
                         <MessageSquare size={10} />
                       </button>
                       <span className="shrink-0 text-muted-foreground">{"×"}{item.qty}</span>
                       <span className="shrink-0 font-semibold tabular-nums">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</span>
-                      <button onClick={() => incrementCart(item.productId)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
+                      <button onClick={() => incrementCart(ck)} className="w-5 h-5 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors shrink-0">
                         <Plus size={9} />
                       </button>
                     </div>
-                    {item.note && editingNoteId !== item.productId && (
+                    {item.modifiers?.map((mod, mi) => (
+                      <p key={mi} className="text-[9px] text-violet-400 pl-6 leading-tight">+ {mod.name}</p>
+                    ))}
+                    {item.note && editingNoteId !== ck && (
                       <p className="text-[10px] italic text-amber-600 dark:text-amber-400 pl-6 leading-tight mt-0.5">✎ {item.note}</p>
                     )}
-                    {editingNoteId === item.productId && (
+                    {editingNoteId === ck && (
                       <div className="mt-1 pl-6 flex items-center gap-1">
                         <input
                           autoFocus
                           value={noteInput}
                           onChange={(e) => setNoteInput(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }
+                            if (e.key === "Enter") { setNoteForItem(ck, noteInput); setEditingNoteId(null); }
                             if (e.key === "Escape") { setEditingNoteId(null); }
                           }}
                           placeholder="Пожелание…"
                           className="flex-1 min-w-0 text-[10px] px-1.5 py-0.5 rounded border border-violet-400 bg-background focus:outline-none"
                         />
                         <button
-                          onClick={() => { setNoteForItem(item.productId, noteInput); setEditingNoteId(null); }}
+                          onClick={() => { setNoteForItem(ck, noteInput); setEditingNoteId(null); }}
                           className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white"
                         >OK</button>
                         <button onClick={() => setEditingNoteId(null)} className="shrink-0 text-[9px] px-1 py-0.5 rounded text-muted-foreground">✕</button>
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -3494,6 +3576,68 @@ function PosMenuBrowser({
           </button>
         </div>
       </div>
+
+      {/* Modifier picker modal */}
+      {pendingProduct && (() => {
+        const mods = catModifiersFor(pendingProduct);
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60">
+            <div className="w-full max-w-sm bg-background rounded-2xl border border-border shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{productName(pendingProduct)}</p>
+                  <p className="text-[11px] text-muted-foreground">Выберите добавки</p>
+                </div>
+                <button onClick={() => setPendingProduct(null)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors shrink-0">
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="p-4 space-y-2 max-h-64 overflow-y-auto admin-scroll">
+                {mods.map(mod => {
+                  const checked = selectedMods.has(mod.id);
+                  return (
+                    <button
+                      key={mod.id}
+                      onClick={() => setSelectedMods(prev => {
+                        const next = new Set(prev);
+                        if (next.has(mod.id)) next.delete(mod.id); else next.add(mod.id);
+                        return next;
+                      })}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                        checked
+                          ? "border-violet-500 bg-violet-50 dark:bg-violet-500/10"
+                          : "border-border hover:border-violet-300 hover:bg-accent"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        checked ? "border-violet-600 bg-violet-600" : "border-muted-foreground"
+                      }`}>
+                        {checked && <Check size={10} className="text-white" />}
+                      </div>
+                      <span className="flex-1 text-sm text-foreground">{mod.name}</span>
+                      <span className="text-sm font-semibold text-violet-500 shrink-0">+{mod.price.toLocaleString("ru-RU")} ₸</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="px-4 py-3 border-t border-border flex gap-2">
+                <button
+                  onClick={() => commitToCart(pendingProduct, [])}
+                  className="flex-1 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+                >
+                  Без добавок
+                </button>
+                <button
+                  onClick={() => commitToCart(pendingProduct, mods.filter(m => selectedMods.has(m.id)))}
+                  className="flex-1 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+                >
+                  {selectedMods.size > 0 ? `Добавить (+${mods.filter(m => selectedMods.has(m.id)).reduce((s, m) => s + m.price, 0).toLocaleString("ru-RU")} ₸)` : "Добавить"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

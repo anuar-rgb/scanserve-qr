@@ -175,50 +175,58 @@ export default function CatalogPage() {
                 </p>
               )}
 
-              {categories.map((cat) => {
-                const catProds   = products.filter((p) => p.category_id === cat.id && !p.is_archived);
-                const avail      = catProds.filter((p) => p.is_available).length;
-                const isSelected = cat.id === selectedCatId;
-                return (
-                  <div key={cat.id} className="group relative mb-1">
-                    <button
-                      onClick={() => setSelectedCatId(cat.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all ${
-                        isSelected
-                          ? "bg-violet-50 dark:bg-violet-600/15 border border-violet-200 dark:border-violet-500/20"
-                          : "border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
-                      }`}
-                    >
-                      <span className="text-xl leading-none shrink-0">{cat.icon ?? "🍽️"}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate leading-tight ${
-                          isSelected
-                            ? "text-violet-700 dark:text-violet-200"
-                            : "text-zinc-600 dark:text-zinc-300"
-                        }`}>
-                          {getName(cat.name, lang)}
-                        </p>
-                        <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-0.5">
-                          {avail}/{catProds.length} {t.admin.available}
-                        </p>
-                      </div>
-                    </button>
+              {/* Root categories + indented subcategories */}
+              {categories.filter(c => !c.parent_id).map((cat) => {
+                const subcats = categories.filter(c => c.parent_id === cat.id);
 
-                    {/* Category actions — show on hover */}
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5">
+                function CatRow({ c, indent }: { c: DbCategory; indent: boolean }) {
+                  const cp  = products.filter(p => p.category_id === c.id && !p.is_archived);
+                  const av  = cp.filter(p => p.is_available).length;
+                  const sel = c.id === selectedCatId;
+                  return (
+                    <div className={`group relative mb-0.5 ${indent ? "ml-4" : ""}`}>
                       <button
-                        onClick={() => setCategoryModal({ mode: "edit", category: cat })}
-                        className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                        onClick={() => setSelectedCatId(c.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all ${
+                          sel
+                            ? "bg-violet-50 dark:bg-violet-600/15 border border-violet-200 dark:border-violet-500/20"
+                            : "border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
+                        }`}
                       >
-                        <Pencil size={11} />
+                        {indent && <span className="text-zinc-300 dark:text-zinc-700 text-xs shrink-0">└</span>}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate leading-tight ${
+                            sel ? "text-violet-700 dark:text-violet-200" : "text-zinc-600 dark:text-zinc-300"
+                          }`}>
+                            {getName(c.name, lang)}
+                          </p>
+                          <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-0.5">
+                            {av}/{cp.length} {t.admin.available}
+                          </p>
+                        </div>
                       </button>
-                      <button
-                        onClick={() => setDeleteState({ type: "category", id: cat.id, label: getName(cat.name, lang) })}
-                        className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                      >
-                        <Trash2 size={11} />
-                      </button>
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5">
+                        <button
+                          onClick={() => setCategoryModal({ mode: "edit", category: c })}
+                          className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteState({ type: "category", id: c.id, label: getName(c.name, lang) })}
+                          className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
                     </div>
+                  );
+                }
+
+                return (
+                  <div key={cat.id} className="mb-1">
+                    <CatRow c={cat} indent={false} />
+                    {subcats.map(sub => <CatRow key={sub.id} c={sub} indent={true} />)}
                   </div>
                 );
               })}
@@ -420,6 +428,7 @@ export default function CatalogPage() {
         <CategoryModal
           mode={categoryModal.mode}
           category={categoryModal.category}
+          categories={categories}
           onClose={() => setCategoryModal(null)}
           onSaved={onCategorySaved}
         />
