@@ -22,6 +22,12 @@ export function resolve(s: string | LS, lang: Lang): string {
   return s[lang] ?? s.en;
 }
 
+export interface DishModifier {
+  id: string;
+  name: string;
+  price: number;
+}
+
 export interface Dish {
   id: string;
   emoji: string;
@@ -39,6 +45,7 @@ export interface Dish {
   isPromo?: boolean;
   isRecommended?: boolean;
   ingredients?: string;
+  modifiers?: DishModifier[];
 }
 
 export interface Banner {
@@ -1528,7 +1535,9 @@ function CatalogDishCard({
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const isLiked = !!liked[dish.id];
   const count   = getLikeCount(dish.id);
-  const qty     = cart[dish.id]?.qty ?? 0;
+  const qty = dish.modifiers?.length
+    ? Object.entries(cart).filter(([k]) => k === dish.id || k.startsWith(`${dish.id}:`)).reduce((s, [, v]) => s + v.qty, 0)
+    : cart[dish.id]?.qty ?? 0;
   const catBadges = catalogBadges(dish);
   const dishPct   = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const discountedPrice = !isNaN(dishPct) && dishPct > 0 && dishPct < 100
@@ -1681,7 +1690,29 @@ function CatalogDishCard({
           </button>
 
           {/* Cart stepper or add button */}
-          {qty > 0 ? (
+          {dish.modifiers?.length ? (
+            <div style={{ position: "relative", display: "inline-flex" }}>
+              <button
+                onClick={() => onAddToCart(dish, currency, +1)}
+                style={{
+                  width: 28, height: 28, borderRadius: R.full, border: "none",
+                  background: "var(--text-color)", color: "var(--bg-color)",
+                  cursor: "pointer", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 18, fontWeight: 700,
+                }}
+              >+</button>
+              {qty > 0 && (
+                <span style={{
+                  position: "absolute", top: -5, right: -5,
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: "#FF4D6D", color: "#fff",
+                  fontSize: 9, fontWeight: 800,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  pointerEvents: "none",
+                }}>{qty}</span>
+              )}
+            </div>
+          ) : qty > 0 ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button
                 onClick={() => onAddToCart(dish, currency, -1)}
@@ -1774,7 +1805,9 @@ function MenuDishRow({
   addToCart: (dish: Dish, currency: string, delta: number) => void;
 }) {
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
-  const qty    = cart[dish.id]?.qty ?? 0;
+  const qty = dish.modifiers?.length
+    ? Object.entries(cart).filter(([k]) => k === dish.id || k.startsWith(`${dish.id}:`)).reduce((s, [, v]) => s + v.qty, 0)
+    : cart[dish.id]?.qty ?? 0;
   const badges = dishBadges(dish);
   const rowPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const rowDiscountedPrice = !isNaN(rowPct) && rowPct > 0 && rowPct < 100
@@ -1878,7 +1911,14 @@ function MenuDishRow({
 
         {/* Cart control — pinned top-right */}
         <div style={{ flexShrink: 0, paddingTop: 2 }}>
-          {qty > 0 ? (
+          {dish.modifiers?.length ? (
+            <div style={{ position: "relative", display: "inline-flex" }}>
+              <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              {qty > 0 && (
+                <span style={{ position: "absolute", top: -5, right: -5, width: 16, height: 16, borderRadius: "50%", background: "#FF4D6D", color: "#fff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>{qty}</span>
+              )}
+            </div>
+          ) : qty > 0 ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button onClick={() => addToCart(dish, currency, -1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
               <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
@@ -2119,6 +2159,9 @@ export function MenuTemplate({
   const [hasUnseenOrder, setHasUnseenOrder] = useState(false);
   const [contentX, setContentX]             = useState(0);
   const [contentTrans, setContentTrans]     = useState("none");
+  const [modPickerDish, setModPickerDish]   = useState<Dish | null>(null);
+  const [modPickerCur, setModPickerCur]     = useState("");
+  const [selectedMods, setSelectedMods]     = useState<Set<string>>(new Set());
 
   const stripRef           = useRef<HTMLDivElement>(null);
   const pillRefs           = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -2268,28 +2311,38 @@ export function MenuTemplate({
   // Cart helpers
   const cartCount = Object.values(cart).reduce((s, { qty }) => s + qty, 0);
 
-  const addToCart = (dish: Dish, effectiveCurrency: string, delta: number) => {
+  const addToCart = (dish: Dish, effectiveCurrency: string, delta: number, forceMods?: DishModifier[]) => {
+    if (dish.modifiers?.length && delta > 0 && forceMods === undefined) {
+      setModPickerDish(dish);
+      setModPickerCur(effectiveCurrency);
+      setSelectedMods(new Set());
+      return;
+    }
+    const mods = forceMods ?? [];
+    const cartKey = mods.length > 0
+      ? `${dish.id}:${mods.map(m => m.id).sort().join(",")}`
+      : dish.id;
     setCart((prev) => {
-      const current = prev[dish.id]?.qty ?? 0;
+      const current = prev[cartKey]?.qty ?? 0;
       const next = Math.max(0, current + delta);
       if (next === 0) {
-        const { [dish.id]: _, ...rest } = prev;
+        const { [cartKey]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [dish.id]: { dish, qty: next, currency: effectiveCurrency } };
+      return { ...prev, [cartKey]: { dish, qty: next, currency: effectiveCurrency, cartKey, selectedModifiers: mods } };
     });
   };
 
-  const updateCartQty = (dishId: string, delta: number) => {
+  const updateCartQty = (cartKey: string, delta: number) => {
     setCart((prev) => {
-      const entry = prev[dishId];
+      const entry = prev[cartKey];
       if (!entry) return prev;
       const next = Math.max(0, entry.qty + delta);
       if (next === 0) {
-        const { [dishId]: _, ...rest } = prev;
+        const { [cartKey]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [dishId]: { ...entry, qty: next } };
+      return { ...prev, [cartKey]: { ...entry, qty: next } };
     });
   };
 
@@ -2974,6 +3027,116 @@ export function MenuTemplate({
         restaurantName={restaurant.name}
         whatsappPhone={restaurant.whatsappPhone}
       />
+
+      {/* ── Modifier picker bottom sheet ──────────────────────────────────── */}
+      {modPickerDish && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }}
+            onClick={() => setModPickerDish(null)}
+          />
+          <div style={{
+            position: "relative", zIndex: 1,
+            width: "100%", maxWidth: 480,
+            background: "var(--bg-card)",
+            borderRadius: "24px 24px 0 0",
+            padding: "20px 20px 32px",
+            maxHeight: "75vh",
+            overflowY: "auto",
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div>
+                <p style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
+                  {capFirst(resolve(modPickerDish.name, lang))}
+                </p>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}>
+                  {lang === "ru" ? "Выберите добавки" : lang === "kz" ? "Қосымшаларды таңдаңыз" : "Select add-ons"}
+                </p>
+              </div>
+              <button
+                onClick={() => setModPickerDish(null)}
+                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modifier list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {modPickerDish.modifiers?.map(mod => {
+                const on = selectedMods.has(mod.id);
+                return (
+                  <button
+                    key={mod.id}
+                    onClick={() => setSelectedMods(prev => {
+                      const next = new Set(prev);
+                      on ? next.delete(mod.id) : next.add(mod.id);
+                      return next;
+                    })}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "12px 14px", borderRadius: R.md, cursor: "pointer",
+                      border: `2px solid ${on ? "var(--cta-bg)" : "var(--border-color)"}`,
+                      background: on ? "var(--bg-surface)" : "transparent",
+                      transition: "all 0.15s", textAlign: "left",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                        border: `2px solid ${on ? "var(--cta-bg)" : "var(--border-color)"}`,
+                        background: on ? "var(--cta-bg)" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {on && <span style={{ color: "var(--cta-fg)", fontSize: 12, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-color)" }}>{mod.name}</span>
+                    </div>
+                    {mod.price > 0 && (
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", flexShrink: 0 }}>
+                        +{mod.price.toLocaleString("ru-RU")} {modPickerCur || restaurant.currency}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Total + confirm button */}
+            <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                  {lang === "ru" ? "Итого" : lang === "kz" ? "Барлығы" : "Total"}
+                </span>
+                <span style={{ fontSize: 17, fontWeight: 800, color: "var(--text-color)" }}>
+                  {(
+                    modPickerDish.price +
+                    (modPickerDish.modifiers ?? [])
+                      .filter(m => selectedMods.has(m.id))
+                      .reduce((s, m) => s + m.price, 0)
+                  ).toLocaleString("ru-RU")} {modPickerCur || restaurant.currency}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const mods = (modPickerDish.modifiers ?? []).filter(m => selectedMods.has(m.id));
+                  addToCart(modPickerDish, modPickerCur, 1, mods);
+                  setModPickerDish(null);
+                }}
+                style={{
+                  width: "100%", padding: "14px", borderRadius: R.full,
+                  border: "none", background: "var(--cta-bg)", color: "var(--cta-fg)",
+                  fontSize: 15, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                }}
+              >
+                {lang === "ru" ? "Добавить в корзину" : lang === "kz" ? "Себетке қосу" : "Add to Cart"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </div>
   );

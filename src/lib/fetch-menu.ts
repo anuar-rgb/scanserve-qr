@@ -16,7 +16,7 @@ export async function fetchRestaurantBySlug(slug: string): Promise<DbRestaurant 
 export async function fetchMenuCategories(restaurantId: string): Promise<MenuCategory[] | null> {
   if (!isConfigured || !restaurantId) return null;
 
-  const [catsRes, prodsRes] = await Promise.all([
+  const [catsRes, prodsRes, modsRes] = await Promise.all([
     supabase
       .from("categories")
       .select("*")
@@ -28,12 +28,19 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
       .eq("restaurant_id", restaurantId)
       .eq("is_archived", false)
       .order("order_index"),
+    supabase
+      .from("modifiers")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .eq("is_active", true)
+      .order("order_index"),
   ]);
 
   if (catsRes.error || prodsRes.error || !catsRes.data || !prodsRes.data) return null;
 
   const cats = catsRes.data as DbCategory[];
   const prods = prodsRes.data as DbProduct[];
+  const mods = (modsRes.data ?? []) as DbModifier[];
 
   return cats
     .map(cat => ({
@@ -59,6 +66,9 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           desc: p.description ?? { en: "", ru: "", kz: "" },
           price: p.price,
           ingredients: p.ingredients ?? undefined,
+          modifiers: mods
+            .filter(m => m.category_id === p.category_id)
+            .map(m => ({ id: m.id, name: m.name, price: m.price })),
         })),
     }))
     .filter(cat => cat.dishes.length > 0);

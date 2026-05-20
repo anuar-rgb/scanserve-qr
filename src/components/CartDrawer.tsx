@@ -11,7 +11,7 @@ import { capFirst } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type CartMap = Record<string, { dish: Dish; qty: number; currency: string }>;
+export type CartMap = Record<string, { dish: Dish; qty: number; currency: string; cartKey: string; selectedModifiers?: { id: string; name: string; price: number }[] }>;
 
 interface GuestTable { id: string; label: string; seats: number; }
 
@@ -65,11 +65,12 @@ const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const DELIVERY_FEE = 600;
 
-function effPrice(dish: Dish): number {
-  if (!dish.isPromo || !dish.discountLabel) return dish.price;
+function effPrice(dish: Dish, selectedModifiers?: { id: string; name: string; price: number }[]): number {
+  const modTotal = selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0;
+  if (!dish.isPromo || !dish.discountLabel) return dish.price + modTotal;
   const pct = parseInt(dish.discountLabel, 10);
-  if (isNaN(pct) || pct <= 0 || pct >= 100) return dish.price;
-  return Math.round(dish.price * (1 - pct / 100));
+  if (isNaN(pct) || pct <= 0 || pct >= 100) return dish.price + modTotal;
+  return Math.round(dish.price * (1 - pct / 100)) + modTotal;
 }
 
 // ── Kazakhstan cities ─────────────────────────────────────────────────────────
@@ -367,7 +368,7 @@ export interface CartDrawerProps {
   open: boolean;
   onClose: () => void;
   cart: CartMap;
-  onUpdateQty: (dishId: string, delta: number) => void;
+  onUpdateQty: (cartKey: string, delta: number) => void;
   lang: Lang;
   theme: "dark" | "light";
   restaurantName: string;
@@ -476,10 +477,15 @@ export function CartDrawer({
   const border  = isDark ? "#2A2A2A" : "#DDE1E6";
 
   const items        = Object.values(cart);
-  const total        = items.reduce((s, { dish, qty }) => s + effPrice(dish) * qty, 0);
+  const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
   const grandTotal   = total + deliveryFee;
-  const totalSavings = items.reduce((s, { dish, qty }) => s + (dish.price - effPrice(dish)) * qty, 0);
+  const totalSavings = items.reduce((s, { dish, qty }) => {
+    const promoBase = dish.isPromo && dish.discountLabel
+      ? (() => { const pct = parseInt(dish.discountLabel, 10); return isNaN(pct) || pct <= 0 || pct >= 100 ? dish.price : Math.round(dish.price * (1 - pct / 100)); })()
+      : dish.price;
+    return s + (dish.price - promoBase) * qty;
+  }, 0);
   const isEmpty      = items.length === 0;
 
   const phoneValid = (orderType === "pickup" || orderType === "delivery")
@@ -587,14 +593,17 @@ export function CartDrawer({
   const handlePlaceOrder = async () => {
     if (!canPlaceOrder || loading) return;
     setLoading(true);
-    const orderItems = items.map(({ dish, qty, currency: c }) => {
-      const finalPrice = effPrice(dish);
+    const orderItems = items.map(({ dish, qty, currency: c, selectedModifiers }) => {
+      const finalPrice = effPrice(dish, selectedModifiers);
+      const modSuffix = selectedModifiers?.length
+        ? ` (+ ${selectedModifiers.map(m => m.name).join(", ")})`
+        : "";
       return {
-        name: resolve(dish.name, lang),
+        name: resolve(dish.name, lang) + modSuffix,
         qty,
         price: finalPrice,
         currency: c || currency,
-        ...(finalPrice < dish.price ? { original_price: dish.price } : {}),
+        ...(dish.isPromo && dish.discountLabel ? { original_price: dish.price } : {}),
       };
     });
     const foundCity = KZ_CITIES.find((c) => c.id === city);
@@ -883,42 +892,51 @@ export function CartDrawer({
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: SP.sm, paddingBottom: SP.sm }}>
-                  {items.map(({ dish, qty, currency: ic }) => (
-                    <div key={dish.id} style={{ display: "flex", alignItems: "center", gap: SP.md - 4, padding: SP.sm + 2, background: card, borderRadius: R.md, border: `1px solid ${border}` }}>
+                  {items.map(({ dish, qty, currency: ic, cartKey: ck, selectedModifiers }) => {
+                    const fp = effPrice(dish, selectedModifiers);
+                    const hasPromoDiscount = fp - (selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0) < dish.price;
+                    return (
+                    <div key={ck} style={{ display: "flex", alignItems: "center", gap: SP.md - 4, padding: SP.sm + 2, background: card, borderRadius: R.md, border: `1px solid ${border}` }}>
                       <span style={{ fontSize: 26, flexShrink: 0 }}>{dish.emoji}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
                           <p style={{ fontSize: 14, fontWeight: 600, margin: 0, lineHeight: 1.3 }}>
                             {capFirst(resolve(dish.name, lang))}
                           </p>
-                          {effPrice(dish) < dish.price && (
+                          {hasPromoDiscount && (
                             <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 7px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", flexShrink: 0 }}>
                               -{dish.discountLabel}%
                             </span>
                           )}
                         </div>
-                        {effPrice(dish) < dish.price ? (
+                        {selectedModifiers && selectedModifiers.length > 0 && (
+                          <p style={{ fontSize: 11, color: muted, margin: "1px 0 2px", lineHeight: 1.3 }}>
+                            + {selectedModifiers.map(m => m.name).join(", ")}
+                          </p>
+                        )}
+                        {hasPromoDiscount ? (
                           <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
                             <span style={{ fontSize: 11, color: muted, textDecoration: "line-through" }}>
                               {(dish.price * qty).toLocaleString()}
                             </span>
                             <span style={{ fontSize: 13, fontWeight: 700 }}>
-                              {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
+                              {(fp * qty).toLocaleString()} {ic || currency}
                             </span>
                           </div>
                         ) : (
                           <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
-                            {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
+                            {(fp * qty).toLocaleString()} {ic || currency}
                           </p>
                         )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: SP.sm - 2, flexShrink: 0 }}>
-                        <button onClick={() => onUpdateQty(dish.id, -1)} style={iconBtn}><Minus size={12} /></button>
+                        <button onClick={() => onUpdateQty(ck, -1)} style={iconBtn}><Minus size={12} /></button>
                         <span style={{ fontSize: 14, fontWeight: 700, minWidth: 20, textAlign: "center" }}>{qty}</span>
-                        <button onClick={() => onUpdateQty(dish.id, +1)} style={iconBtn}><Plus size={12} /></button>
+                        <button onClick={() => onUpdateQty(ck, +1)} style={iconBtn}><Plus size={12} /></button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
