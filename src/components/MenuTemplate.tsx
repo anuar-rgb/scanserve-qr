@@ -1394,9 +1394,24 @@ function CategoryGrid({
                     }}
                   />
                 ) : (
-                  <span style={{ fontSize: 42, display: "block", lineHeight: 1, pointerEvents: "none" }}>
-                    {cat.icon}
-                  </span>
+                  <div style={{
+                    width: 82, height: 82, borderRadius: "50%",
+                    background: "var(--bg-surface)",
+                    border: "1.5px solid var(--border-color)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    pointerEvents: "none",
+                  }}>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
+                      style={{ color: "var(--text-muted)", opacity: 0.45 }}>
+                      <circle cx="12" cy="12" r="9" />
+                      <circle cx="12" cy="12" r="4" />
+                      <line x1="12" y1="3" x2="12" y2="8" />
+                      <line x1="12" y1="16" x2="12" y2="21" />
+                      <line x1="3" y1="12" x2="8" y2="12" />
+                      <line x1="16" y1="12" x2="21" y2="12" />
+                    </svg>
+                  </div>
                 )}
               </div>
 
