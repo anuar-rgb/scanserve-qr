@@ -35,39 +35,32 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
   const cats = catsRes.data as DbCategory[];
   const prods = prodsRes.data as DbProduct[];
 
-  // Build a set of child category IDs for quick lookup
-  const childIds = new Set(cats.filter(c => c.parent_id).map(c => c.id));
-
-  function mapProduct(p: DbProduct) {
-    return {
-      id: p.id,
-      emoji: p.emoji ?? "🍽️",
-      imageUrl: p.image_url ?? undefined,
-      badge: p.badge ?? undefined,
-      discountLabel: p.discount_label ?? undefined,
-      isNew: p.is_new,
-      isPopular: p.is_popular,
-      isSpicy: p.is_spicy,
-      isPromo: p.is_promo,
-      isRecommended: p.is_recommended,
-      badgeColor: p.badge_color ?? undefined,
-      name: p.name,
-      desc: p.description ?? { en: "", ru: "", kz: "" },
-      price: p.price,
-      ingredients: p.ingredients ?? undefined,
-    };
-  }
-
-  // Only root categories appear at top level; subcategory products are merged in
   return cats
-    .filter(cat => !cat.parent_id)
-    .map(cat => {
-      const subCatIds = cats.filter(c => c.parent_id === cat.id).map(c => c.id);
-      const dishes = prods
-        .filter(p => p.category_id === cat.id || subCatIds.includes(p.category_id))
-        .map(mapProduct);
-      return { id: cat.id, icon: cat.icon ?? "🍽️", name: cat.name, imageUrl: cat.image_url ?? undefined, dishes };
-    })
+    .map(cat => ({
+      id: cat.id,
+      icon: cat.icon ?? "🍽️",
+      name: cat.name,
+      imageUrl: cat.image_url ?? undefined,
+      dishes: prods
+        .filter(p => p.category_id === cat.id)
+        .map(p => ({
+          id: p.id,
+          emoji: p.emoji ?? "🍽️",
+          imageUrl: p.image_url ?? undefined,
+          badge: p.badge ?? undefined,
+          discountLabel: p.discount_label ?? undefined,
+          isNew: p.is_new,
+          isPopular: p.is_popular,
+          isSpicy: p.is_spicy,
+          isPromo: p.is_promo,
+          isRecommended: p.is_recommended,
+          badgeColor: p.badge_color ?? undefined,
+          name: p.name,
+          desc: p.description ?? { en: "", ru: "", kz: "" },
+          price: p.price,
+          ingredients: p.ingredients ?? undefined,
+        })),
+    }))
     .filter(cat => cat.dishes.length > 0);
 }
 

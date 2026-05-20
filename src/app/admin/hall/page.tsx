@@ -2928,7 +2928,6 @@ function PosMenuBrowser({
   const [products, setProducts]          = useState<DbProduct[]>([]);
   const [dbModifiers, setDbModifiers]    = useState<DbModifier[]>([]);
   const [catLoading, setCatLoading]      = useState(true);
-  const [parentCatId, setParentCatId]    = useState<string | null>(null);
   const [currentCatId, setCurrentCatId]     = useState<string | null>(null);
   const [search, setSearch]                 = useState("");
   const [cart, setCart]                     = useState<Map<string, CartItem>>(new Map());
@@ -3061,12 +3060,6 @@ function PosMenuBrowser({
   const showProducts = isSearching || currentCatId !== null;
   const currentCat   = categories.find((c) => c.id === currentCatId);
 
-  // Subcategory helpers
-  const rootCategories = categories.filter(c => !c.parent_id);
-  const subcatsOf = (parentId: string) => categories.filter(c => c.parent_id === parentId);
-  const hasChildren = (catId: string) => categories.some(c => c.parent_id === catId);
-  const parentCat = parentCatId ? categories.find(c => c.id === parentCatId) : null;
-
   const visibleProducts = products.filter((p) => {
     if (!p.is_available) return false;
     if (isSearching) {
@@ -3076,10 +3069,7 @@ function PosMenuBrowser({
         p.name.kz.toLowerCase().includes(trimmed)
       );
     }
-    if (!currentCatId) return false;
-    if (p.category_id === currentCatId) return true;
-    // Also show products of subcategories when currentCatId is a parent category
-    return categories.some(c => c.parent_id === currentCatId && c.id === p.category_id);
+    return p.category_id === currentCatId;
   });
 
   const productMap = new Map(products.map((p) => [p.id, p]));
@@ -3167,85 +3157,39 @@ function PosMenuBrowser({
             </div>
           ) : !showProducts ? (
             /* Screen 1: category / subcategory grid */
-            <div>
-              {/* Breadcrumb when in subcategory view */}
-              {parentCatId && (
-                <div className="sticky top-0 z-10 bg-background px-3 pt-2.5 pb-2 border-b border-border/50">
+            <div className="p-3 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+              {categories.map((cat) => {
+                const count     = products.filter(p => p.category_id === cat.id && p.is_available).length;
+                const cartInCat = products
+                  .filter(p => p.category_id === cat.id)
+                  .reduce((s, p) => {
+                    let q = 0;
+                    cart.forEach(ci => { if (ci.productId === p.id) q += ci.qty; });
+                    return s + q;
+                  }, 0);
+                return (
                   <button
-                    onClick={() => setParentCatId(null)}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 active:scale-[0.98] text-sm font-semibold text-foreground transition-all min-h-[42px]"
+                    key={cat.id}
+                    onClick={() => setCurrentCatId(cat.id)}
+                    className="relative flex flex-col justify-between rounded-xl border border-border bg-card p-3 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left min-h-[56px]"
                   >
-                    <ChevronLeft size={16} className="text-violet-500 shrink-0" />
-                    {parentCat ? capFirst(parentCat.name.ru || parentCat.name.en) : "Все категории"}
-                  </button>
-                </div>
-              )}
-              <div className="p-3 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
-                {/* "All [parent]" virtual card shown when inside a parent with direct products */}
-                {parentCatId && (() => {
-                  const directCount = products.filter(p => p.category_id === parentCatId && p.is_available).length;
-                  if (directCount === 0) return null;
-                  const allCount = products.filter(p =>
-                    (p.category_id === parentCatId || categories.some(c => c.parent_id === parentCatId && c.id === p.category_id)) && p.is_available
-                  ).length;
-                  return (
-                    <button
-                      onClick={() => setCurrentCatId(parentCatId)}
-                      className="relative flex flex-col justify-between rounded-xl border border-violet-400/50 bg-violet-50 dark:bg-violet-600/10 p-3 hover:border-violet-400 active:scale-[0.97] transition-all text-left min-h-[56px]"
-                    >
-                      <p className="text-xs font-semibold leading-tight text-violet-700 dark:text-violet-300">
-                        Все {parentCat?.name.ru || parentCat?.name.en}
-                      </p>
-                      <span className="text-[10px] text-violet-500 mt-1.5">{allCount} поз.</span>
-                    </button>
-                  );
-                })()}
-                {(parentCatId ? subcatsOf(parentCatId) : rootCategories).map((cat) => {
-                  const isParent  = hasChildren(cat.id);
-                  // Count products in this cat + all its subcats
-                  const catIds    = isParent
-                    ? [cat.id, ...subcatsOf(cat.id).map(s => s.id)]
-                    : [cat.id];
-                  const count     = products.filter(p => catIds.includes(p.category_id) && p.is_available).length;
-                  const cartInCat = products
-                    .filter(p => catIds.includes(p.category_id))
-                    .reduce((s, p) => {
-                      let q = 0;
-                      cart.forEach(ci => { if (ci.productId === p.id) q += ci.qty; });
-                      return s + q;
-                    }, 0);
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => {
-                        if (isParent) { setParentCatId(cat.id); }
-                        else { setCurrentCatId(cat.id); }
-                      }}
-                      className="relative flex flex-col justify-between rounded-xl border border-border bg-card p-3 hover:border-violet-400 dark:hover:border-violet-500 active:scale-[0.97] transition-all text-left min-h-[56px]"
-                    >
-                      <p className="text-xs font-semibold leading-tight line-clamp-3 text-foreground pr-5">
-                        {capFirst(cat.name.ru || cat.name.en)}
-                      </p>
-                      <div className="flex items-center justify-between mt-1.5 gap-1">
-                        <span className="text-[10px] text-muted-foreground">
-                          {isParent ? `${subcatsOf(cat.id).length} подкат.` : `${count} поз.`}
+                    <p className="text-xs font-semibold leading-tight line-clamp-3 text-foreground pr-5">
+                      {capFirst(cat.name.ru || cat.name.en)}
+                    </p>
+                    <div className="flex items-center justify-between mt-1.5 gap-1">
+                      <span className="text-[10px] text-muted-foreground">{count} поз.</span>
+                      {cartInCat > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                          {cartInCat}
                         </span>
-                        {cartInCat > 0 && (
-                          <span className="min-w-[18px] h-[18px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
-                            {cartInCat}
-                          </span>
-                        )}
-                        {isParent && (
-                          <ChevronRight size={12} className="text-muted-foreground shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
-            /* Screen 2: product list — flat rows, no images, with ingredient accordion */
+            /* Product list */
             <div>
               {mode === "panel" && !isSearching && (
                 <div className="sticky top-0 z-10 bg-background px-3 pt-2.5 pb-2 border-b border-border/50 shadow-[0_2px_8px_rgba(0,0,0,0.18)]">
@@ -3254,7 +3198,7 @@ function PosMenuBrowser({
                     className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border bg-accent/70 hover:bg-accent hover:border-violet-400 active:scale-[0.98] text-sm font-semibold text-foreground transition-all min-h-[42px]"
                   >
                     <ChevronLeft size={16} className="text-violet-500 shrink-0" />
-                    {parentCatId && parentCat ? capFirst(parentCat.name.ru || parentCat.name.en) : "Все категории"}
+                    Все категории
                   </button>
                 </div>
               )}
