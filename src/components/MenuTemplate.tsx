@@ -129,6 +129,7 @@ export interface MenuTemplateProps {
   featuredTitle?: string | LS;
   ctaLabel?: string;
   initialTableNumber?: string;
+  restaurantTables?: { id: string; label: string }[];
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -2139,6 +2140,7 @@ export function MenuTemplate({
   featuredItems,
   featuredTitle,
   initialTableNumber,
+  restaurantTables,
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -3026,6 +3028,8 @@ export function MenuTemplate({
         theme={theme}
         restaurantName={restaurant.name}
         whatsappPhone={restaurant.whatsappPhone}
+        initialTableNumber={initialTableNumber}
+        tables={restaurantTables}
       />
 
       {/* ── Modifier picker bottom sheet ──────────────────────────────────── */}

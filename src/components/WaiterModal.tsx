@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Bell } from "lucide-react";
+import { X, Bell, Lock, ChevronRight, TableProperties } from "lucide-react";
 import type { Lang } from "./MenuTemplate";
 
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
@@ -9,11 +9,18 @@ const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 
 type WaiterAction = "clean" | "bill" | "come" | "other";
 
+export interface TableOption {
+  id: string;
+  label: string;
+}
+
 const T: Record<string, Record<Lang, string>> = {
   title:         { en: "Call Waiter",              ru: "Вызов официанта",             kz: "Даяшы шақыру"                  },
   tableLabel:    { en: "Table / Area",              ru: "Стол / Место",                kz: "Үстел / Орын"                  },
   tableHint:     { en: "e.g. Table 5, VIP",         ru: "Напр.: Стол 5, VIP",          kz: "Мыс.: Үстел 5, VIP"            },
-  tableRequired: { en: "Please enter your table number or area name.", ru: "Укажите номер стола или название места.", kz: "Үстел нөмірін немесе орын атауын енгізіңіз." },
+  tablePlaceholder: { en: "Select a table...",      ru: "Выберите стол...",            kz: "Үстел таңдаңыз..."             },
+  tableRequired: { en: "Please select your table.", ru: "Выберите номер стола.",       kz: "Үстел нөмірін таңдаңыз."       },
+  tablePickerTitle: { en: "Select a Table",         ru: "Выберите стол",               kz: "Үстел таңдаңыз"                },
   actionClean:   { en: "Clean the Table",           ru: "Убрать со стола",             kz: "Столды жинау"                  },
   actionBill:    { en: "Bring Bill",                ru: "Принесите счёт",              kz: "Шот әкеліңіз"                  },
   actionCome:    { en: "Please come here",          ru: "Подойдите к столу",           kz: "Келіп жіберіңізші"             },
@@ -39,6 +46,8 @@ export interface WaiterModalProps {
   theme: "dark" | "light";
   whatsappPhone?: string;
   restaurantName: string;
+  initialTableNumber?: string;
+  tables?: TableOption[];
 }
 
 export function WaiterModal({
@@ -48,11 +57,17 @@ export function WaiterModal({
   theme,
   whatsappPhone = "77012345678",
   restaurantName,
+  initialTableNumber,
+  tables,
 }: WaiterModalProps) {
-  const [tableNumber, setTableNumber] = useState("");
+  const [tableNumber, setTableNumber] = useState(initialTableNumber ?? "");
   const [action, setAction]           = useState<WaiterAction | null>(null);
   const [customText, setCustomText]   = useState("");
   const [showError, setShowError]     = useState(false);
+  const [pickerOpen, setPickerOpen]   = useState(false);
+
+  const isTableLocked = Boolean(initialTableNumber);
+  const hasTables     = tables && tables.length > 0;
 
   const isDark  = theme === "dark";
   const bg      = isDark ? "#121212" : "#F5F5F7";
@@ -61,12 +76,13 @@ export function WaiterModal({
   const muted   = isDark ? "#9A9A9A" : "#6B7280";
   const border  = isDark ? "#2A2A2A" : "#DDE1E6";
 
-  const canSend = action !== null && (action !== "other" || customText.trim().length > 0);
+  const canSend = tableNumber.trim().length > 0 && action !== null && (action !== "other" || customText.trim().length > 0);
 
   const handleClose = () => {
     setAction(null);
     setCustomText("");
     setShowError(false);
+    setPickerOpen(false);
     onClose();
   };
 
@@ -117,7 +133,7 @@ export function WaiterModal({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Main backdrop */}
       <div
         onClick={handleClose}
         style={{
@@ -131,7 +147,7 @@ export function WaiterModal({
         }}
       />
 
-      {/* Sheet */}
+      {/* Main sheet */}
       <div
         style={{
           position: "fixed",
@@ -169,8 +185,8 @@ export function WaiterModal({
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", padding: `${SP.sm}px ${SP.md}px ${SP.lg}px` }}>
 
-          {/* Table number */}
-          <label style={{ display: "block", marginBottom: SP.lg }}>
+          {/* Table field */}
+          <div style={{ marginBottom: SP.lg }}>
             <span style={{
               fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
               textTransform: "uppercase", color: muted,
@@ -178,28 +194,75 @@ export function WaiterModal({
             }}>
               {tn("tableLabel", lang)}
             </span>
-            <input
-              type="text"
-              value={tableNumber}
-              onChange={(e) => { setTableNumber(e.target.value); setShowError(false); }}
-              placeholder={tn("tableHint", lang)}
-              style={{
-                display: "block", width: "100%",
+
+            {isTableLocked ? (
+              /* Locked — table from URL param */
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
                 padding: "13px 14px",
                 background: surface,
-                border: `1.5px solid ${showError ? "#E05555" : tableNumber.trim() ? textClr : border}`,
-                borderRadius: R.md, color: textClr, fontSize: 15,
-                outline: "none", boxSizing: "border-box",
-                transition: "border-color 0.15s",
-                fontFamily: "inherit",
-              } as React.CSSProperties}
-            />
-            {showError && (
-              <p style={{ fontSize: 12, color: "#E05555", margin: "6px 0 0", lineHeight: 1.4 }}>
-                {tn("tableRequired", lang)}
-              </p>
+                border: `1.5px solid ${border}`,
+                borderRadius: R.md,
+              }}>
+                <Lock size={14} style={{ color: muted, flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: textClr }}>{tableNumber}</span>
+              </div>
+            ) : hasTables ? (
+              /* Picker button — opens table card grid */
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setPickerOpen(true); setShowError(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", padding: "13px 14px",
+                    background: surface,
+                    border: `1.5px solid ${showError ? "#E05555" : tableNumber ? textClr : border}`,
+                    borderRadius: R.md,
+                    color: tableNumber ? textClr : muted,
+                    fontSize: 15, cursor: "pointer",
+                    textAlign: "left", boxSizing: "border-box",
+                    fontFamily: "inherit", fontWeight: tableNumber ? 600 : 400,
+                    transition: "border-color 0.15s",
+                  } as React.CSSProperties}
+                >
+                  <TableProperties size={15} style={{ color: muted, flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{tableNumber || tn("tablePlaceholder", lang)}</span>
+                  <ChevronRight size={16} style={{ color: muted, flexShrink: 0 }} />
+                </button>
+                {showError && (
+                  <p style={{ fontSize: 12, color: "#E05555", margin: "6px 0 0", lineHeight: 1.4 }}>
+                    {tn("tableRequired", lang)}
+                  </p>
+                )}
+              </>
+            ) : (
+              /* Fallback: plain text input (no tables in DB) */
+              <>
+                <input
+                  type="text"
+                  value={tableNumber}
+                  onChange={(e) => { setTableNumber(e.target.value); setShowError(false); }}
+                  placeholder={tn("tableHint", lang)}
+                  style={{
+                    display: "block", width: "100%",
+                    padding: "13px 14px",
+                    background: surface,
+                    border: `1.5px solid ${showError ? "#E05555" : tableNumber.trim() ? textClr : border}`,
+                    borderRadius: R.md, color: textClr, fontSize: 15,
+                    outline: "none", boxSizing: "border-box",
+                    transition: "border-color 0.15s",
+                    fontFamily: "inherit",
+                  } as React.CSSProperties}
+                />
+                {showError && (
+                  <p style={{ fontSize: 12, color: "#E05555", margin: "6px 0 0", lineHeight: 1.4 }}>
+                    {tn("tableRequired", lang)}
+                  </p>
+                )}
+              </>
             )}
-          </label>
+          </div>
 
           {/* Action label */}
           <p style={{
@@ -274,6 +337,104 @@ export function WaiterModal({
           </button>
         </div>
       </div>
+
+      {/* ── Table picker overlay ─────────────────────────────────────────────── */}
+      {hasTables && (
+        <>
+          {/* Picker backdrop */}
+          <div
+            onClick={() => setPickerOpen(false)}
+            style={{
+              position: "fixed", inset: 0,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              zIndex: 95,
+              opacity: pickerOpen ? 1 : 0,
+              pointerEvents: pickerOpen ? "auto" : "none",
+              transition: "opacity 0.25s",
+            }}
+          />
+
+          {/* Picker sheet */}
+          <div
+            style={{
+              position: "fixed",
+              bottom: 0,
+              left: "max(calc(50vw - 240px), 0px)",
+              width: "min(100vw, 480px)",
+              maxHeight: "72vh",
+              background: bg,
+              borderRadius: "24px 24px 0 0",
+              boxShadow: "0 -4px 40px rgba(0,0,0,0.5)",
+              zIndex: 100,
+              display: "flex",
+              flexDirection: "column",
+              transform: pickerOpen ? "translateY(0)" : "translateY(100%)",
+              transition: "transform 0.3s cubic-bezier(0.32,0.72,0,1)",
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+              color: textClr,
+            } as React.CSSProperties}
+          >
+            {/* Drag handle */}
+            <div style={{ padding: "12px 0 0", display: "flex", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: border }} />
+            </div>
+
+            {/* Picker header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${SP.sm}px ${SP.md}px` }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tn("tablePickerTitle", lang)}</h3>
+              <button onClick={() => setPickerOpen(false)} style={iconBtn}><X size={15} /></button>
+            </div>
+
+            {/* Table cards grid */}
+            <div style={{
+              flex: 1, overflowY: "auto",
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 10,
+              padding: `${SP.sm}px ${SP.md}px ${SP.xl}px`,
+            }}>
+              {tables!.map(t => {
+                const selected = tableNumber === t.label;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { setTableNumber(t.label); setPickerOpen(false); setShowError(false); }}
+                    style={{
+                      aspectRatio: "1",
+                      borderRadius: R.md,
+                      border: `2px solid ${selected ? textClr : border}`,
+                      background: selected
+                        ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)")
+                        : surface,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      color: selected ? textClr : muted,
+                      fontFamily: "inherit",
+                      padding: 8,
+                    } as React.CSSProperties}
+                  >
+                    <span style={{ fontSize: 22 }}>🪑</span>
+                    <span style={{
+                      fontSize: 12, fontWeight: selected ? 700 : 500,
+                      lineHeight: 1.2, textAlign: "center",
+                      color: selected ? textClr : textClr,
+                      wordBreak: "break-word",
+                    }}>
+                      {t.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

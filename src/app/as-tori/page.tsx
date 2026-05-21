@@ -1,7 +1,7 @@
 import { MenuTemplate, type HeroBanner, type Banner, type HeroSlide, type ShowcaseItem } from "@/components/MenuTemplate";
 import { RealtimeRefresher } from "@/components/RealtimeRefresher";
 import { restaurant } from "@/data/as-tori";
-import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchPaymentBanks, fetchRestaurantBySlug } from "@/lib/fetch-menu";
+import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchPaymentBanks, fetchRestaurantBySlug, fetchRestaurantTables } from "@/lib/fetch-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +25,14 @@ export default async function AsToriPage({
   const initialTableNumber = params.table?.trim() || undefined;
   const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
-  const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks] = await Promise.all([
+  const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables] = await Promise.all([
     fetchMenuCategories(restaurantId).then(r => r ?? []),
     fetchBanners(restaurantId).then(r => r ?? []),
     fetchRestaurantBySlug("as-tori"),
     fetchHeroSlides(restaurantId).then(r => r ?? []),
     fetchInfoShowcase(restaurantId).then(r => r ?? []),
     fetchPaymentBanks(restaurantId).then(r => r ?? []),
+    fetchRestaurantTables(restaurantId).then(r => r ?? []),
   ]);
 
   const heroBanner: HeroBanner = FALLBACK_HERO;
@@ -86,6 +87,7 @@ export default async function AsToriPage({
         banners={banners}
         showcaseItems={showcaseItems}
         initialTableNumber={initialTableNumber}
+        restaurantTables={dbTables.map(t => ({ id: t.id, label: t.label }))}
       />
     </>
   );
