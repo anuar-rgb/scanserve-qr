@@ -658,16 +658,11 @@ export function CartDrawer({
         }
       }
     } else {
-      // pickup/delivery: redirect to WhatsApp + fire-and-forget DB insert
+      // pickup/delivery: save to DB first, then redirect to WhatsApp
       const bankInfos = paymentBanks.map(b => ({ bankName: b.bank_name, phone: b.phone, recipientName: b.recipient_name ?? undefined }));
       const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId);
-      if (isMobile) {
-        window.location.href = url;
-      } else {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
       if (isConfigured) {
-        supabase.from(DB_TABLES.orders).insert({
+        await supabase.from(DB_TABLES.orders).insert({
           id: orderId,
           restaurant_id: RESTAURANT_ID,
           table_number: null,
@@ -684,7 +679,12 @@ export function CartDrawer({
           customer_phone: phoneNumber.trim() || null,
           customer_city: city ? (KZ_CITIES.find((c) => c.id === city)?.[lang] ?? city) : null,
           delivery_address: orderType === "delivery" ? (deliveryAddress.trim() || null) : null,
-        }).then(() => {});
+        });
+      }
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
       }
     }
 
