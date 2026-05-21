@@ -4,13 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import webpush from "web-push";
 
-// Configure VAPID once per cold-start
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT ?? "mailto:admin@example.com",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
-  process.env.VAPID_PRIVATE_KEY ?? "",
-);
-
 // Body: { title: string, body: string, url?: string }
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -18,6 +11,14 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const vapidPublic  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT ?? "mailto:admin@example.com";
+  if (!vapidPublic || !vapidPrivate) {
+    return NextResponse.json({ error: "VAPID keys not configured" }, { status: 500 });
+  }
+  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 
   const body = await request.json().catch(() => null);
   if (!body?.title || !body?.body) {
