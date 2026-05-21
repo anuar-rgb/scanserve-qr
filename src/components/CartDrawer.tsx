@@ -658,29 +658,33 @@ export function CartDrawer({
         }
       }
     } else {
-      // pickup/delivery: save to DB first, then redirect to WhatsApp
+      // pickup/delivery — build WhatsApp URL then save to DB, then redirect
       const bankInfos = paymentBanks.map(b => ({ bankName: b.bank_name, phone: b.phone, recipientName: b.recipient_name ?? undefined }));
       const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId);
+
       if (isConfigured) {
-        await supabase.from(DB_TABLES.orders).insert({
+        // Use values from `order` object — same source as WhatsApp message, avoids any state-read mismatch
+        const { error: insertError } = await supabase.from(DB_TABLES.orders).insert({
           id: orderId,
           restaurant_id: RESTAURANT_ID,
           table_number: null,
           items_json: orderItems,
-          total_price: grandTotal,
+          total_price: order.total,
           status: "pending",
-          type: orderType!,
-          order_type: timingMode,
-          payment_method: payment,
-          preorder_date: timingMode === "preorder" ? preorderDate : null,
-          preorder_time: timingMode === "preorder" ? preorderTime : null,
-          customer_comments: notes.trim() || null,
+          type: order.orderType,
+          order_type: order.timingMode,
+          payment_method: order.paymentMethod,
+          preorder_date: order.preorderDate ?? null,
+          preorder_time: order.preorderTime ?? null,
+          customer_comments: order.notes ?? null,
           customer_name: customerName.trim() || null,
-          customer_phone: phoneNumber.trim() || null,
-          customer_city: city ? (KZ_CITIES.find((c) => c.id === city)?.[lang] ?? city) : null,
-          delivery_address: orderType === "delivery" ? (deliveryAddress.trim() || null) : null,
+          customer_phone: order.phoneNumber ?? null,
+          customer_city: order.cityName ?? null,
+          delivery_address: order.deliveryAddress ?? null,
         });
+        if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
       }
+
       if (isMobile) {
         window.location.href = url;
       } else {
