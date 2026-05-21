@@ -105,6 +105,9 @@
     "copyright": "© 2025 ScanServe.qr. Все права защищены."
   },
   "admin": {
+    "sectionCRM": "CRM",
+    "navCRM": "Клиенты и Рассылки",
+    "descCRM": "База гостей и кампании Web Push уведомлений.",
     "sectionOwner": "Владелец",
     "navOwnerOverview": "Обзор прибыли",
     "descOwnerOverview": "Чистая прибыль, фудкост и финансовый итог.",

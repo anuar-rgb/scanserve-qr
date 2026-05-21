@@ -105,6 +105,9 @@
     "copyright": "© 2025 ScanServe.qr. All rights reserved."
   },
   "admin": {
+    "sectionCRM": "CRM",
+    "navCRM": "Clients & Broadcasts",
+    "descCRM": "Guest database and Web Push notification campaigns.",
     "sectionOwner": "Owner",
     "navOwnerOverview": "Profit Overview",
     "descOwnerOverview": "Net profit, food cost, and financial summary.",

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Sparkles, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -24,6 +24,13 @@ type NavSection = {
 };
 
 const NAV: NavSection[] = [
+  {
+    titleKey: "sectionCRM",
+    ownerOnly: true,
+    items: [
+      { labelKey: "navCRM", icon: MessageSquare, href: "/admin/crm", ownerOnly: true },
+    ],
+  },
   {
     titleKey: "sectionOwner",
     strictOwner: true,

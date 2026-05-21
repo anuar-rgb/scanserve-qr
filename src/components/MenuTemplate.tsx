@@ -9,6 +9,7 @@ import { BottomNav } from "./BottomNav";
 import { CartDrawer, type CartMap, type StoredOrder } from "./CartDrawer";
 import { WaiterModal } from "./WaiterModal";
 import { OrdersModal } from "./OrdersModal";
+import { PushNotificationBanner } from "./PushNotificationBanner";
 
 export type { StoredOrder };
 
@@ -3157,6 +3158,9 @@ export function MenuTemplate({
           </div>
         </div>
       )}
+
+      {/* ── Web Push subscription banner ──────────────────────────────────── */}
+      <PushNotificationBanner lang={lang} theme={theme} />
     </div>
     </div>
   );

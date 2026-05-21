@@ -204,3 +204,13 @@ export interface DbInvoiceItem {
   price_per_unit: number;
   total_item_price: number;
 }
+
+export interface DbCrmClient {
+  id: string;
+  restaurant_id: string;
+  phone: string | null;
+  name: string | null;
+  push_subscription: Record<string, unknown> | null;
+  created_at: string;
+  last_visit: string;
+}
