@@ -1577,39 +1577,52 @@ function OrderSlotPanel({
             </div>
           </div>
 
-          {(order.customer_name || order.customer_phone || order.customer_city) && (
-            <div className="px-4 py-3 rounded-xl bg-muted/30 border border-border">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Клиент</p>
-              <div className="space-y-1.5">
-                {order.customer_name && (
-                  <div className="flex items-center gap-2">
-                    <User size={12} className="text-muted-foreground shrink-0" />
-                    <span className="text-sm font-semibold">{order.customer_name}</span>
-                  </div>
-                )}
-                {order.customer_city && (
-                  <div className="flex items-center gap-2">
-                    <MapPin size={12} className="text-muted-foreground shrink-0" />
-                    <span className="text-sm text-muted-foreground">{order.customer_city}</span>
-                  </div>
-                )}
-                {order.customer_phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone size={12} className="text-muted-foreground shrink-0" />
-                    <a href={`tel:${order.customer_phone}`} className="text-sm text-violet-600 dark:text-violet-400 hover:underline">
-                      {order.customer_phone}
-                    </a>
-                  </div>
-                )}
-                {order.payment_method && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/60 mt-1">
-                    <span className="text-[12px] leading-none">{METHOD_META[order.payment_method]?.icon ?? "💳"}</span>
-                    <span className="text-sm text-muted-foreground">{METHOD_META[order.payment_method]?.label ?? order.payment_method}</span>
-                  </div>
-                )}
-              </div>
+          {/* Delivery / Pickup info block */}
+          <div className={`px-4 py-3 rounded-xl border ${
+            order.type === "delivery"
+              ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-700/40"
+              : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-700/40"
+          }`}>
+            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${
+              order.type === "delivery" ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"
+            }`}>
+              {order.type === "delivery" ? "🚚 Доставка" : "🛍️ С собой"}
+            </p>
+            <div className="space-y-1.5">
+              {order.customer_name && (
+                <div className="flex items-center gap-2">
+                  <User size={12} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm font-semibold">{order.customer_name}</span>
+                </div>
+              )}
+              {order.customer_phone && (
+                <div className="flex items-center gap-2">
+                  <Phone size={12} className="text-muted-foreground shrink-0" />
+                  <a href={`tel:${order.customer_phone}`} className="text-sm text-violet-600 dark:text-violet-400 hover:underline">
+                    {order.customer_phone}
+                  </a>
+                </div>
+              )}
+              {order.customer_city && (
+                <div className="flex items-center gap-2">
+                  <MapPin size={12} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground">{order.customer_city}</span>
+                </div>
+              )}
+              {order.delivery_address && (
+                <div className="flex items-start gap-2">
+                  <MapPin size={12} className="text-muted-foreground shrink-0 mt-0.5" />
+                  <span className="text-sm leading-snug">{order.delivery_address}</span>
+                </div>
+              )}
+              {order.payment_method && (
+                <div className="flex items-center gap-2 pt-1 border-t border-border/60 mt-1">
+                  <span className="text-[12px] leading-none">{METHOD_META[order.payment_method]?.icon ?? "💳"}</span>
+                  <span className="text-sm text-muted-foreground">{METHOD_META[order.payment_method]?.label ?? order.payment_method}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {order.customer_comments && (
             <div className="px-3 py-2.5 rounded-xl bg-muted/50 border border-border">
@@ -4496,20 +4509,22 @@ function PreorderDayCard({
         </div>
       )}
 
-      {expanded && (order.customer_name || order.customer_phone || order.customer_city) && (
+      {expanded && (order.customer_name || order.customer_phone || order.customer_city || order.delivery_address) && (
         <div className="px-3 pb-2">
-          <div className="flex flex-col gap-1 px-2.5 py-2 rounded-lg bg-muted/40 border border-border">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Клиент</p>
+          <div className={`flex flex-col gap-1 px-2.5 py-2 rounded-lg border ${
+            order.type === "delivery"
+              ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-700/40"
+              : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-700/40"
+          }`}>
+            <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${
+              order.type === "delivery" ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"
+            }`}>
+              {order.type === "delivery" ? "🚚 Доставка" : "🛍️ С собой"}
+            </p>
             {order.customer_name && (
               <div className="flex items-center gap-1.5">
                 <User size={10} className="text-muted-foreground shrink-0" />
                 <span className="text-[12px] font-semibold">{order.customer_name}</span>
-              </div>
-            )}
-            {order.customer_city && (
-              <div className="flex items-center gap-1.5">
-                <MapPin size={10} className="text-muted-foreground shrink-0" />
-                <span className="text-[11px] text-muted-foreground">{order.customer_city}</span>
               </div>
             )}
             {order.customer_phone && (
@@ -4522,6 +4537,18 @@ function PreorderDayCard({
                 >
                   {order.customer_phone}
                 </a>
+              </div>
+            )}
+            {order.customer_city && (
+              <div className="flex items-center gap-1.5">
+                <MapPin size={10} className="text-muted-foreground shrink-0" />
+                <span className="text-[11px] text-muted-foreground">{order.customer_city}</span>
+              </div>
+            )}
+            {order.delivery_address && (
+              <div className="flex items-start gap-1.5">
+                <MapPin size={10} className="text-muted-foreground shrink-0 mt-0.5" />
+                <span className="text-[11px] leading-snug">{order.delivery_address}</span>
               </div>
             )}
             {isPaid && pmLabel && (

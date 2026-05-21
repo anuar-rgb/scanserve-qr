@@ -680,11 +680,10 @@ export function CartDrawer({
           preorder_date: timingMode === "preorder" ? preorderDate : null,
           preorder_time: timingMode === "preorder" ? preorderTime : null,
           customer_comments: notes.trim() || null,
-          customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
-          customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
-          customer_city: timingMode === "preorder" && city
-            ? (KZ_CITIES.find((c) => c.id === city)?.[lang] ?? city)
-            : null,
+          customer_name: customerName.trim() || null,
+          customer_phone: phoneNumber.trim() || null,
+          customer_city: city ? (KZ_CITIES.find((c) => c.id === city)?.[lang] ?? city) : null,
+          delivery_address: orderType === "delivery" ? (deliveryAddress.trim() || null) : null,
         }).then(() => {});
       }
     }
