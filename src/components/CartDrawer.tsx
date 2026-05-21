@@ -1656,22 +1656,27 @@ export function CartDrawer({
                 <p style={{ fontSize: 11, fontWeight: 700, color: muted, margin: `0 0 ${SP.sm}px`, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                   {tn("summary", lang)}
                 </p>
-                {items.map(({ dish, qty, currency: ic }) => (
-                  <div key={dish.id} style={{ marginBottom: 6 }}>
+                {items.map(({ dish, qty, currency: ic, cartKey: ck, selectedModifiers }) => (
+                  <div key={ck} style={{ marginBottom: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13 }}>
                       <span style={{ color: muted, flex: 1, minWidth: 0 }}>
                         {capFirst(resolve(dish.name, lang))} × {qty}
                       </span>
                       <span style={{ fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
-                        {effPrice(dish) < dish.price && (
+                        {effPrice(dish, selectedModifiers) < dish.price && (
                           <span style={{ fontSize: 11, color: muted, textDecoration: "line-through", marginRight: 4, fontWeight: 400 }}>
                             {(dish.price * qty).toLocaleString()}
                           </span>
                         )}
-                        {(effPrice(dish) * qty).toLocaleString()} {ic || currency}
+                        {(effPrice(dish, selectedModifiers) * qty).toLocaleString()} {ic || currency}
                       </span>
                     </div>
-                    {effPrice(dish) < dish.price && (
+                    {selectedModifiers && selectedModifiers.length > 0 && (
+                      <p style={{ fontSize: 11, color: muted, margin: "1px 0 2px", lineHeight: 1.3 }}>
+                        + {selectedModifiers.map(m => m.name).join(", ")}
+                      </p>
+                    )}
+                    {effPrice(dish, selectedModifiers) < dish.price && (
                       <span style={{ display: "inline-block", marginTop: 2, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em" }}>
                         -{dish.discountLabel}%
                       </span>
