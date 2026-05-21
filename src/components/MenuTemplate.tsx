@@ -3027,7 +3027,6 @@ export function MenuTemplate({
         lang={lang}
         theme={theme}
         restaurantName={restaurant.name}
-        whatsappPhone={restaurant.whatsappPhone}
         initialTableNumber={initialTableNumber}
         tables={restaurantTables}
       />

@@ -18,6 +18,7 @@ export const DB_TABLES = {
   reviews: "reviews",
   heroSlides: "hero_slides",
   restaurantTables: "restaurant_tables",
+  waiterCalls: "waiter_calls",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

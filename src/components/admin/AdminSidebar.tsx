@@ -12,6 +12,7 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
 import { useIsOwner, useIsStrictOwner, useRole } from "@/lib/role-context";
 import { useShift } from "@/lib/shift-context";
+import { WaiterCallBell } from "./WaiterCallBell";
 
 type AdminKey = keyof Dict["admin"];
 
@@ -135,12 +136,13 @@ export default function AdminSidebar() {
           <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0 select-none">
             А
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight">АС ТӨРІ</p>
             <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight">
               {platformLabel}
             </p>
           </div>
+          <WaiterCallBell />
         </div>
       </div>
 

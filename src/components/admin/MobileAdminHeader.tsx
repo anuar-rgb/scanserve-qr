@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRole, useDisplayName } from "@/lib/role-context";
+import { WaiterCallBell } from "./WaiterCallBell";
 
 const ROLE_LABEL: Record<string, string> = {
   owner:   "Owner Platform",
@@ -51,6 +52,7 @@ export default function MobileAdminHeader() {
           </>
         )}
       </div>
+      <WaiterCallBell />
       <button
         onClick={() => mounted && setTheme(isDark ? "light" : "dark")}
         className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
