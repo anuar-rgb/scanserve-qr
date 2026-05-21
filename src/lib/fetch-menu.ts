@@ -67,7 +67,10 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           price: p.price,
           ingredients: p.ingredients ?? undefined,
           modifiers: mods
-            .filter(m => m.category_id === p.category_id)
+            .filter(m =>
+              m.product_id === p.id ||
+              (m.product_id === null && m.category_id === p.category_id)
+            )
             .map(m => ({ id: m.id, name: m.name, price: m.price })),
         })),
     }))

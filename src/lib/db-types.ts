@@ -28,6 +28,7 @@ export interface DbModifier {
   id: string;
   restaurant_id: string;
   category_id: string | null;
+  product_id: string | null;
   name: string;
   price: number;
   order_index: number;

@@ -1,25 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, X, Check } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus, Pencil, Trash2, Loader2, X, Check, Tag, Utensils } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import type { DbCategory, DbModifier } from "@/lib/db-types";
+import type { DbCategory, DbModifier, DbProduct } from "@/lib/db-types";
 import { RESTAURANT_ID } from "@/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ModalState = { mode: "create" | "edit"; modifier?: DbModifier } | null;
+type BindType = "category" | "product";
 
 // ── Modifier Modal ─────────────────────────────────────────────────────────────
 
 function ModifierModal({
   state,
   categories,
+  products,
   onClose,
   onSaved,
 }: {
   state: ModalState;
   categories: DbCategory[];
+  products: DbProduct[];
   onClose: () => void;
   onSaved: (m: DbModifier) => void;
 }) {
@@ -27,17 +30,54 @@ function ModifierModal({
   const s = state;
   const m = s.modifier;
 
-  const [name, setName]         = useState(m?.name ?? "");
-  const [price, setPrice]       = useState(String(m?.price ?? "0"));
-  const [catId, setCatId]       = useState(m?.category_id ?? "");
-  const [saving, setSaving]     = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const initBindType: BindType = m?.product_id ? "product" : "category";
+  const initProdName = m?.product_id
+    ? (products.find(p => p.id === m.product_id)?.name.ru ?? "")
+    : "";
+
+  const [name, setName]               = useState(m?.name ?? "");
+  const [price, setPrice]             = useState(String(m?.price ?? "0"));
+  const [bindType, setBindType]       = useState<BindType>(initBindType);
+  const [catId, setCatId]             = useState(m?.category_id ?? "");
+  const [prodId, setProdId]           = useState(m?.product_id ?? "");
+  const [prodSearch, setProdSearch]   = useState(initProdName);
+  const [dropOpen, setDropOpen]       = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const dropRef                       = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setDropOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filteredProds = products.filter(p => {
+    if (!prodSearch.trim()) return true;
+    const q = prodSearch.toLowerCase();
+    return (
+      (p.name.ru ?? "").toLowerCase().includes(q) ||
+      (p.name.en ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  function selectProduct(p: DbProduct) {
+    setProdId(p.id);
+    setProdSearch(p.name.ru || p.name.en || "");
+    setDropOpen(false);
+  }
 
   async function handleSave() {
     if (!isConfigured) { setError("DB not configured"); return; }
     if (!name.trim()) { setError("Введите название"); return; }
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum < 0) { setError("Укажите корректную цену"); return; }
+    if (bindType === "product" && !prodId) { setError("Выберите блюдо из списка"); return; }
 
     setSaving(true);
     setError(null);
@@ -46,8 +86,9 @@ function ModifierModal({
       restaurant_id: RESTAURANT_ID,
       name: name.trim(),
       price: priceNum,
-      category_id: catId || null,
       is_active: true,
+      category_id: bindType === "category" ? (catId || null) : null,
+      product_id: bindType === "product" ? prodId : null,
     };
 
     try {
@@ -85,30 +126,119 @@ function ModifierModal({
         </div>
 
         <div className="px-6 py-5 space-y-4">
+          {/* Name */}
           <div>
             <label className={labelCls}>Название <span className="text-red-500">*</span></label>
             <input type="text" value={name} onChange={e => setName(e.target.value)}
               placeholder="Карамельный сироп" className={inputCls} />
           </div>
 
+          {/* Price */}
           <div>
             <label className={labelCls}>Цена (₸) <span className="text-red-500">*</span></label>
             <input type="number" min="0" step="50" value={price} onChange={e => setPrice(e.target.value)}
               placeholder="200" className={inputCls} />
           </div>
 
+          {/* Bind type toggle */}
           <div>
-            <label className={labelCls}>Категория (необязательно)</label>
-            <select value={catId} onChange={e => setCatId(e.target.value)} className={inputCls}>
-              <option value="">— Любая категория —</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name.ru || c.name.en}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-[11px] text-zinc-400">
-              Добавки будут предлагаться при выборе блюд из этой категории
-            </p>
+            <label className={labelCls}>Привязать к</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setBindType("category")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  bindType === "category"
+                    ? "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300"
+                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Tag size={13} /> Категории
+              </button>
+              <button
+                type="button"
+                onClick={() => setBindType("product")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  bindType === "product"
+                    ? "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300"
+                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Utensils size={13} /> Конкретному блюду
+              </button>
+            </div>
           </div>
+
+          {/* Category select */}
+          {bindType === "category" && (
+            <div>
+              <label className={labelCls}>Категория (необязательно)</label>
+              <select value={catId} onChange={e => setCatId(e.target.value)} className={inputCls}>
+                <option value="">— Любая категория —</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name.ru || c.name.en}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Добавки будут предлагаться при выборе любого блюда из этой категории
+              </p>
+            </div>
+          )}
+
+          {/* Product searchable select */}
+          {bindType === "product" && (
+            <div ref={dropRef}>
+              <label className={labelCls}>Блюдо <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={prodSearch}
+                  onChange={e => {
+                    setProdSearch(e.target.value);
+                    setProdId("");
+                    setDropOpen(true);
+                  }}
+                  onFocus={() => setDropOpen(true)}
+                  placeholder="Поиск блюда…"
+                  className={inputCls}
+                  autoComplete="off"
+                />
+                {dropOpen && filteredProds.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 max-h-44 overflow-y-auto bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg">
+                    {filteredProds.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); selectProduct(p); }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                          prodId === p.id
+                            ? "bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 font-medium"
+                            : "hover:bg-zinc-50 dark:hover:bg-zinc-700/50 text-zinc-800 dark:text-zinc-200"
+                        }`}
+                      >
+                        {p.name.ru || p.name.en}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {dropOpen && prodSearch.trim() && filteredProds.length === 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg px-3 py-2 text-sm text-zinc-400">
+                    Блюда не найдены
+                  </div>
+                )}
+              </div>
+              {prodId && (
+                <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                  ✓ Добавка будет показываться только для выбранного блюда
+                </p>
+              )}
+              {!prodId && (
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  Добавка будет привязана строго к этому блюду
+                </p>
+              )}
+            </div>
+          )}
 
           {error && (
             <p className="text-xs text-red-500 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg border border-red-200 dark:border-red-500/20">
@@ -138,18 +268,21 @@ function ModifierModal({
 export default function ModifiersPage() {
   const [modifiers, setModifiers]   = useState<DbModifier[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
+  const [products, setProducts]     = useState<DbProduct[]>([]);
   const [loading, setLoading]       = useState(true);
   const [modal, setModal]           = useState<ModalState>(null);
   const [deleting, setDeleting]     = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
-    const [modsRes, catsRes] = await Promise.all([
+    const [modsRes, catsRes, prodsRes] = await Promise.all([
       supabase.from("modifiers").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
       supabase.from("categories").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
+      supabase.from("products").select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
     ]);
     setModifiers((modsRes.data as DbModifier[]) ?? []);
     setCategories((catsRes.data as DbCategory[]) ?? []);
+    setProducts((prodsRes.data as DbProduct[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -175,17 +308,23 @@ export default function ModifiersPage() {
     setDeleting(null);
   }
 
-  const catName = (id: string | null) => {
-    if (!id) return "Все категории";
-    return categories.find(c => c.id === id)?.name.ru ?? "—";
-  };
-
-  // Group modifiers by category_id
-  const grouped = new Map<string | null, DbModifier[]>();
+  // Group: product_id → "product:<id>", else category_id → "cat:<id|null>"
+  const grouped = new Map<string, DbModifier[]>();
   for (const m of modifiers) {
-    const key = m.category_id ?? null;
+    const key = m.product_id ? `product:${m.product_id}` : `cat:${m.category_id ?? ""}`;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(m);
+  }
+
+  function groupLabel(key: string): string {
+    if (key.startsWith("product:")) {
+      const pid = key.slice(8);
+      const p = products.find(pr => pr.id === pid);
+      return p ? `🍽 ${p.name.ru || p.name.en}` : "Конкретное блюдо";
+    }
+    const catId = key.slice(4) || null;
+    if (!catId) return "Все категории";
+    return categories.find(c => c.id === catId)?.name.ru ?? "—";
   }
 
   if (loading) {
@@ -203,7 +342,7 @@ export default function ModifiersPage() {
           <div className="flex-1">
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Модификаторы</h1>
             <p className="text-xs text-zinc-500 mt-0.5">
-              Добавки и сиропы — показываются при выборе блюда из нужной категории
+              Добавки и сиропы — привязываются к категории или к конкретному блюду
             </p>
           </div>
           <button
@@ -227,11 +366,18 @@ export default function ModifiersPage() {
             </div>
           ) : (
             <div className="space-y-6 max-w-2xl">
-              {Array.from(grouped.entries()).map(([catId, mods]) => (
-                <div key={catId ?? "__none__"}>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-2">
-                    {catName(catId)}
-                  </p>
+              {Array.from(grouped.entries()).map(([key, mods]) => (
+                <div key={key}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    {key.startsWith("product:") ? (
+                      <Utensils size={11} className="text-violet-400 shrink-0" />
+                    ) : (
+                      <Tag size={11} className="text-zinc-400 shrink-0" />
+                    )}
+                    <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
+                      {groupLabel(key)}
+                    </p>
+                  </div>
                   <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800/40">
                     {mods.map(mod => (
                       <div key={mod.id} className={`flex items-center gap-3 px-5 py-3 bg-white dark:bg-zinc-900/30 transition-opacity ${!mod.is_active ? "opacity-50" : ""}`}>
@@ -273,7 +419,13 @@ export default function ModifiersPage() {
         </div>
       </div>
 
-      <ModifierModal state={modal} categories={categories} onClose={() => setModal(null)} onSaved={onSaved} />
+      <ModifierModal
+        state={modal}
+        categories={categories}
+        products={products}
+        onClose={() => setModal(null)}
+        onSaved={onSaved}
+      />
     </>
   );
 }
