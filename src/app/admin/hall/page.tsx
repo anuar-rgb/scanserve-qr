@@ -308,14 +308,15 @@ export default function HallPage() {
         (payload) => {
           const newOrder = payload.new as DbOrder;
           if (newOrder.status !== "pending" || knownOrderIds.current.has(newOrder.id)) return;
-          knownOrderIds.current.add(newOrder.id);
-          setOrders((prev) => [newOrder, ...prev]);
           playNewOrderSound();
           const label =
             newOrder.type === "delivery"   ? "Доставка" :
             newOrder.type === "dine-in"    ? `Стол ${newOrder.table_number ?? "—"}` :
             "С собой";
           toast.success(`Новый заказ · ${label}`, { duration: 6000 });
+          // Full re-fetch ensures all columns (incl. customer_phone, delivery_address)
+          // are loaded — realtime payload may omit recently-added columns.
+          load();
         }
       )
       // UPDATE: completed orders are removed from state instantly; other changes trigger full re-fetch
