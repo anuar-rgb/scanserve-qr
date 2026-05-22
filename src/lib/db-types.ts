@@ -183,6 +183,7 @@ export interface DbShiftCheckin {
   staff_user_id: string;
   restaurant_id: string;
   checked_in_at: string;
+  checked_out_at: string | null;
   created_at: string;
 }
 

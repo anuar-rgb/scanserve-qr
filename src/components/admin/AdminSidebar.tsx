@@ -5,14 +5,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  BarChart2, Star, Tag, Package, Sparkles, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare,
+  BarChart2, Star, Tag, Package, Monitor,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
 import { useIsOwner, useIsStrictOwner, useRole } from "@/lib/role-context";
 import { useShift } from "@/lib/shift-context";
+import { useCheckin } from "@/lib/checkin-context";
 import { WaiterCallBell } from "./WaiterCallBell";
+import dynamic from "next/dynamic";
+import { toast } from "sonner";
+
+const QrScannerModal = dynamic(() => import("./QrScannerModal"), { ssr: false });
 
 type AdminKey = keyof Dict["admin"];
 
@@ -108,7 +113,12 @@ export default function AdminSidebar() {
   };
   const platformLabel = role ? (roleLabel[role] ?? "Staff Terminal") : "Staff Terminal";
   const { shift, closeShift } = useShift();
+  const { isCheckedIn, checkout } = useCheckin();
   const [confirmClose, setConfirmClose] = useState(false);
+  const [checkoutScanning, setCheckoutScanning] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+
+  const isStaff = role === "waiter" || role === "chef";
 
   useEffect(() => setMounted(true), []);
 
@@ -120,6 +130,18 @@ export default function AdminSidebar() {
   async function handleCloseShift() {
     await closeShift();
     setConfirmClose(false);
+  }
+
+  async function handleCheckoutScan(token: string) {
+    setCheckoutScanning(false);
+    setCheckoutBusy(true);
+    const result = await checkout(token);
+    setCheckoutBusy(false);
+    if (result.ok) {
+      toast.success("Смена завершена. До свидания!");
+    } else {
+      toast.error(result.error ?? "Неверный QR-код");
+    }
   }
 
   const isDark = !mounted || theme === "dark";
@@ -274,6 +296,18 @@ export default function AdminSidebar() {
           </div>
         )}
 
+        {/* Завершить работу — only for waiter / chef */}
+        {isStaff && isCheckedIn && (
+          <button
+            onClick={() => setCheckoutScanning(true)}
+            disabled={checkoutBusy}
+            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-60"
+          >
+            <LogIn size={14} className="shrink-0 rotate-180" />
+            {checkoutBusy ? "Проверяем…" : "Завершить работу"}
+          </button>
+        )}
+
         {/* Sign out */}
         <button
           onClick={signOut}
@@ -283,6 +317,15 @@ export default function AdminSidebar() {
           {t.admin.signOut}
         </button>
       </div>
+
+      {checkoutScanning && (
+        <QrScannerModal
+          title="Завершение работы"
+          hint="Отсканируйте QR-код у выхода для фиксации ухода"
+          onScan={handleCheckoutScan}
+          onClose={() => setCheckoutScanning(false)}
+        />
+      )}
     </aside>
   );
 }

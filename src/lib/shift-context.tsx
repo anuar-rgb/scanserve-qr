@@ -8,9 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Clock } from "lucide-react";
+import { Lock, Clock, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useRole } from "./role-context";
+import { useCheckin } from "./checkin-context";
+import dynamic from "next/dynamic";
+
+const QrScannerModal = dynamic(() => import("@/components/admin/QrScannerModal"), { ssr: false });
 
 type ShiftData = { id: string; opened_at: string } | null;
 
@@ -175,5 +179,76 @@ export function ShiftGate({ children }: { children: ReactNode }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// Blocks waiter / chef until they scan the entrance QR
+export function CheckinGate({ children }: { children: ReactNode }) {
+  const role = useRole();
+  const { isCheckedIn, isLoading, checkin } = useCheckin();
+  const [scanning, setScanning] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Only waiter and chef are subject to this gate
+  if (role === null || role === "owner" || role === "manager" || role === "cashier") {
+    return <>{children}</>;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="w-6 h-6 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (isCheckedIn) return <>{children}</>;
+
+  async function handleScan(token: string) {
+    setScanning(false);
+    setBusy(true);
+    const result = await checkin(token);
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error ?? "Неверный QR-код");
+    }
+  }
+
+  return (
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
+        <div className="w-full max-w-xs text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center mx-auto">
+            <QrCode size={28} className="text-violet-600 dark:text-violet-400" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+              Отметьтесь на входе
+            </h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Отсканируйте QR-код у входа, чтобы начать работу
+            </p>
+          </div>
+
+          <button
+            onClick={() => setScanning(true)}
+            disabled={busy}
+            className="w-full py-2.5 px-4 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            {busy ? "Проверяем…" : "Отсканировать QR у входа"}
+          </button>
+        </div>
+      </div>
+
+      {scanning && (
+        <QrScannerModal
+          title="Отметка прихода"
+          hint="Наведите камеру на QR-код у входа в заведение"
+          onScan={handleScan}
+          onClose={() => setScanning(false)}
+        />
+      )}
+    </>
   );
 }

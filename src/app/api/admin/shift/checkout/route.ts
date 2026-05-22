@@ -12,7 +12,7 @@ function db() {
 
 const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
-// POST — staff checks into the current active shift (requires QR token)
+// POST — staff checks out (requires QR token scan)
 export async function POST(request: NextRequest) {
   const role = request.cookies.get("admin_session")?.value ?? null;
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -44,16 +44,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Нет открытой смены" }, { status: 404 });
   }
 
-  // Upsert checkin — reset checked_out_at so re-checkin after checkout works
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("shift_checkins")
-    .upsert(
-      { shift_id: shift.id, staff_user_id: staffUserId, restaurant_id: RID(), checked_out_at: null },
-      { onConflict: "shift_id,staff_user_id", ignoreDuplicates: false },
-    )
-    .select("staff_user_id, checked_in_at")
-    .single();
+    .update({ checked_out_at: new Date().toISOString() })
+    .eq("shift_id", shift.id)
+    .eq("staff_user_id", staffUserId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ checkin: data });
+  return NextResponse.json({ ok: true });
 }
