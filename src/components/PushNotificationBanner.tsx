@@ -16,11 +16,6 @@ const T: Record<string, Record<Lang, string>> = {
     ru: "Подпишитесь на уведомления — узнавайте об акциях первыми.",
     kz: "Хабарламаларға жазылыңыз — акцияларды бірінші біліңіз.",
   },
-  phonePlaceholder: {
-    en: "Phone (optional)",
-    ru: "Телефон (необязательно)",
-    kz: "Телефон (міндетті емес)",
-  },
   allow: { en: "Subscribe", ru: "Подписаться", kz: "Жазылу" },
   dismiss: { en: "Not now", ru: "Не сейчас", kz: "Кейінірек" },
   success: {
@@ -56,7 +51,6 @@ interface PushNotificationBannerProps {
 export function PushNotificationBanner({ lang, theme }: PushNotificationBannerProps) {
   const [visible, setVisible]       = useState(false);
   const [state, setState]           = useState<"idle" | "loading" | "success" | "denied">("idle");
-  const [phone, setPhone]           = useState("");
   const isDark  = theme === "dark";
   const bg      = isDark ? "#1C1C1C" : "#FFFFFF";
   const textClr = isDark ? "#E0E0E0" : "#121212";
@@ -102,11 +96,10 @@ export function PushNotificationBanner({ lang, theme }: PushNotificationBannerPr
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToArrayBuffer(VAPID_PUBLIC_KEY),
       });
-      const phoneVal = phone.trim() || null;
       await fetch("/api/crm/subscribe", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ subscription: sub.toJSON(), phone: phoneVal }),
+        body:    JSON.stringify({ subscription: sub.toJSON() }),
       });
       setState("success");
       sessionStorage.setItem(STORAGE_KEY, "1");
@@ -178,27 +171,6 @@ export function PushNotificationBanner({ lang, theme }: PushNotificationBannerPr
           </button>
         )}
       </div>
-
-      {(state === "idle" || state === "loading") && (
-        <input
-          type="tel"
-          placeholder={tn("phonePlaceholder", lang)}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "9px 12px",
-            borderRadius: 12,
-            border: `1px solid ${border}`,
-            background: isDark ? "#252525" : "#F5F5F7",
-            color: textClr,
-            fontSize: 13,
-            fontFamily: "inherit",
-            outline: "none",
-            boxSizing: "border-box",
-          }}
-        />
-      )}
 
       {(state === "idle" || state === "loading") && (
         <div style={{ display: "flex", gap: 8 }}>

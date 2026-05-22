@@ -685,6 +685,18 @@ export function CartDrawer({
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
       }
 
+      // Save phone to CRM (fire-and-forget — don't block WhatsApp redirect)
+      if (order.phoneNumber) {
+        fetch("/api/crm/register-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: order.phoneNumber,
+            ...(customerName.trim() ? { name: customerName.trim() } : {}),
+          }),
+        }).catch(() => {/* ignore */});
+      }
+
       if (isMobile) {
         window.location.href = url;
       } else {
