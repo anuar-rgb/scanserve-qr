@@ -687,7 +687,7 @@ export default function HallPage() {
       <div className="flex shrink-0 border-b border-border bg-background px-4 gap-1 pt-1">
         {([
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
-          { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length },
+          { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
           { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
           { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true },
         ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean }>)
