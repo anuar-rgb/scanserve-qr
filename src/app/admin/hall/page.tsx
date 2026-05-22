@@ -80,57 +80,153 @@ function playNewOrderSound() {
   } catch { /* audio context unavailable */ }
 }
 
-// ── Print stub ────────────────────────────────────────────────────────────────
+// ── Print helpers ─────────────────────────────────────────────────────────────
 
-function handlePrint(order: DbOrder) {
-  const items = (Array.isArray(order.items_json) ? order.items_json : []) as OrderItem[];
-  const time  = new Date(order.created_at).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
-  const tableLabel = order.type === "dine-in" ? `Стол ${order.table_number ?? "—"}` : order.type === "delivery" ? "Доставка" : "С собой";
-
-  const rows = items.map((it) => `
-    <tr>
-      <td class="name">${capFirst(it.name)}<br/>${it.note ? `<span class="note">✎ ${it.note}</span>` : ""}</td>
-      <td class="qty">× ${it.qty}</td>
-      <td class="price">${(it.price * it.qty).toLocaleString("ru-RU")} ₸</td>
-    </tr>
-  `).join("");
-
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Чек</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', monospace; font-size: 14px; padding: 16px; max-width: 380px; margin: auto; }
-    h1 { font-size: 20px; text-align: center; margin-bottom: 4px; }
-    .sub { text-align: center; font-size: 12px; color: #555; margin-bottom: 12px; }
-    .divider { border-top: 2px dashed #000; margin: 10px 0; }
-    table { width: 100%; border-collapse: collapse; }
-    td { vertical-align: top; padding: 5px 2px; font-size: 13px; }
-    td.name { width: 55%; font-weight: bold; }
-    td.qty  { width: 12%; text-align: center; color: #333; }
-    td.price{ width: 33%; text-align: right; font-weight: bold; }
-    .note { display: block; font-size: 13px; font-weight: bold; font-style: italic; color: #000; background: #ffe; border-left: 3px solid #f90; padding: 2px 6px; margin-top: 3px; }
-    .total-row td { font-size: 16px; font-weight: bold; padding-top: 8px; border-top: 2px solid #000; }
-    .footer { text-align: center; font-size: 11px; color: #777; margin-top: 12px; }
-    @media print { body { padding: 0; } button { display: none; } }
-  </style></head><body>
-  <h1>🍽️ Кухонный чек</h1>
-  <div class="sub">${tableLabel} &nbsp;·&nbsp; ${time}</div>
-  <div class="divider"></div>
-  <table>
-    <tbody>${rows}</tbody>
-    <tfoot>
-      <tr class="total-row">
-        <td colspan="2">Итого</td>
-        <td>${(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</td>
-      </tr>
-    </tfoot>
-  </table>
-  <div class="footer">ID: ${order.id.slice(0, 8).toUpperCase()}</div>
-  <script>window.onload = () => { window.print(); }<\/script>
-  </body></html>`;
-
-  const w = window.open("", "_blank", "width=420,height=600");
+function openPrintPopup(html: string) {
+  const w = window.open("", "_blank", "width=420,height=700");
   if (w) { w.document.write(html); w.document.close(); }
-  else    { toast.error("Заблокировано браузером — разрешите всплывающие окна"); }
+  else   { toast.error("Заблокировано браузером — разрешите всплывающие окна"); }
+}
+
+/** Кассовый пречек для гостя (с ценами) */
+function handlePreCheck(
+  order: DbOrder,
+  opts: { restaurantName?: string; waiterName?: string; tableLabel?: string },
+) {
+  const items = (Array.isArray(order.items_json) ? order.items_json : []) as OrderItem[];
+  const { restaurantName = "Ресторан", waiterName = "—" } = opts;
+  const label = opts.tableLabel ?? (
+    order.type === "dine-in" ? `Стол ${order.table_number ?? "—"}` :
+    order.type === "delivery" ? "Доставка" : "С собой"
+  );
+  const d = new Date(order.created_at);
+  const dateStr = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeStr = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
+  const total    = order.total_price ?? 0;
+  const prepaid  = order.paid_amount ?? 0;
+  const balanceDue = Math.max(0, total - prepaid);
+
+  const itemRows = items.map(it => {
+    const mods = (it.modifiers ?? []).map((m: { name: string }) =>
+      `<tr><td colspan="4" class="sub-row mod">+ ${m.name}</td></tr>`).join("");
+    const note = it.note
+      ? `<tr><td colspan="4" class="sub-row note">✎ ${it.note}</td></tr>` : "";
+    return `<tr>
+      <td class="name">${capFirst(it.name)}</td>
+      <td class="qty">${it.qty}</td>
+      <td class="uprice">${it.price.toLocaleString("ru-RU")}</td>
+      <td class="linetotal">${(it.price * it.qty).toLocaleString("ru-RU")}</td>
+    </tr>${mods}${note}`;
+  }).join("");
+
+  const discountRow = savedAmount > 0
+    ? `<div class="sum-row"><span>Скидка</span><span>-${savedAmount.toLocaleString("ru-RU")} ₸</span></div>` : "";
+  const prepaidRow = prepaid > 0
+    ? `<div class="sum-row"><span>Предоплата</span><span>-${prepaid.toLocaleString("ru-RU")} ₸</span></div>` : "";
+  const balanceRow = (savedAmount > 0 || prepaid > 0)
+    ? `<div class="sum-row balance"><span>К ОПЛАТЕ</span><span>${balanceDue.toLocaleString("ru-RU")} ₸</span></div>` : "";
+
+  openPrintPopup(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Пречек</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  @page{size:80mm auto;margin:4mm 2mm}
+  body{font-family:'Courier New',monospace;font-size:12px;width:80mm;padding:6px 4px}
+  @media print{body{padding:0}}
+  h1{font-size:15px;font-weight:900;text-align:center;margin-bottom:2px}
+  .center{text-align:center;font-size:10px;margin-bottom:4px;letter-spacing:1px}
+  .info{font-size:11px;margin-bottom:1px}
+  .dash{border:none;border-top:1px dashed #000;margin:5px 0}
+  table{width:100%;border-collapse:collapse}
+  thead th{font-size:9px;text-align:left;padding:1px 0;border-bottom:1px solid #000;font-weight:bold}
+  thead th.r{text-align:right}
+  td{vertical-align:top;padding:3px 0;font-size:11px}
+  td.name{font-weight:bold;width:50%}
+  td.qty{width:8%;text-align:center}
+  td.uprice{width:18%;text-align:right;color:#555}
+  td.linetotal{width:24%;text-align:right;font-weight:bold}
+  td.sub-row{font-size:10px;padding:1px 0 1px 10px}
+  td.mod{color:#444}
+  td.note{font-style:italic}
+  .sum-row{display:flex;justify-content:space-between;font-size:11px;padding:1px 0}
+  .sum-row.big{font-size:14px;font-weight:bold;padding-top:4px;border-top:2px solid #000;margin-top:4px}
+  .sum-row.balance{font-size:14px;font-weight:bold}
+  .footer{text-align:center;font-size:10px;color:#666;margin-top:8px}
+</style></head><body>
+<h1>${restaurantName}</h1>
+<div class="center">— ПРЕЧЕК —</div>
+<hr class="dash"/>
+<div class="info"><b>${label}</b></div>
+<div class="info">Дата: ${dateStr} &nbsp; Время: ${timeStr}</div>
+<div class="info">Официант: ${waiterName}</div>
+<hr class="dash"/>
+<table>
+  <thead><tr>
+    <th>Наименование</th>
+    <th style="text-align:center">Кол</th>
+    <th class="r">Цена</th>
+    <th class="r">Сумма</th>
+  </tr></thead>
+  <tbody>${itemRows}</tbody>
+</table>
+<hr class="dash"/>
+<div class="sum-row big"><span>ИТОГО</span><span>${total.toLocaleString("ru-RU")} ₸</span></div>
+${discountRow}${prepaidRow}${balanceRow}
+<hr class="dash"/>
+<div class="footer">Спасибо за визит! &nbsp;·&nbsp; #${order.id.slice(0,8).toUpperCase()}</div>
+<script>window.onload=()=>{window.print()}<\/script>
+</body></html>`);
+}
+
+/** Кухонный бегунок (без цен, крупный шрифт) */
+function handleKitchenPrint(
+  order: DbOrder,
+  opts: { tableLabel?: string },
+) {
+  const items = (Array.isArray(order.items_json) ? order.items_json : []) as OrderItem[];
+  const rawLabel = opts.tableLabel ?? (
+    order.type === "dine-in" ? `Стол ${order.table_number ?? "—"}` :
+    order.type === "delivery" ? "Доставка" : "С собой"
+  );
+  const typeLabel = order.type === "dine-in" ? "ЗАЛ" : order.type === "delivery" ? "ДОСТАВКА" : "С СОБОЙ";
+  const timeStr = new Date(order.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+  const itemRows = items.map(it => {
+    const mods = (it.modifiers ?? []).map((m: { name: string }) =>
+      `<div class="mod">👉 ${m.name.toUpperCase()}</div>`).join("");
+    const note = it.note ? `<div class="mod">✎ ${it.note.toUpperCase()}</div>` : "";
+    return `<div class="item">
+      <span class="qty">[${it.qty}&nbsp;шт]</span>
+      <span class="iname">${it.name.toUpperCase()}</span>
+    </div>${mods}${note}<div class="sep"></div>`;
+  }).join("");
+
+  openPrintPopup(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Кухня</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  @page{size:80mm auto;margin:4mm 2mm}
+  body{font-family:'Courier New',monospace;font-size:13px;width:80mm;padding:6px 4px}
+  @media print{body{padding:0}}
+  .hdr{text-align:center;font-size:16px;font-weight:900;letter-spacing:3px;margin-bottom:4px}
+  .tbl{text-align:center;font-size:24px;font-weight:900;margin:4px 0}
+  .meta{text-align:center;font-size:12px;margin-bottom:4px}
+  .dash{border:none;border-top:1px dashed #000;margin:5px 0}
+  .item{display:flex;align-items:baseline;gap:6px;padding:6px 0 2px}
+  .qty{font-size:17px;font-weight:900;white-space:nowrap}
+  .iname{font-size:14px;font-weight:bold}
+  .mod{font-size:12px;font-weight:bold;padding:1px 0 3px 18px;text-decoration:underline}
+  .sep{border-top:1px dotted #bbb;margin:4px 0}
+  .footer{text-align:center;font-size:10px;color:#666;margin-top:6px}
+</style></head><body>
+<div class="hdr">*** КУХНЯ ***</div>
+<div class="tbl">${rawLabel.toUpperCase()}</div>
+<div class="meta">ТИП: ${typeLabel} &nbsp;·&nbsp; ${timeStr}</div>
+<hr class="dash"/>
+${itemRows}
+<hr class="dash"/>
+<div class="footer">#${order.id.slice(0,8).toUpperCase()}</div>
+<script>window.onload=()=>{window.print()}<\/script>
+</body></html>`);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -866,6 +962,7 @@ export default function HallPage() {
                   autoOrder={waiterAutoOrder}
                   waiterNames={waiterNames}
                   activeWaiters={activeWaiters}
+                  restaurantName={restaurant?.name ?? ""}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
                   onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
@@ -899,6 +996,7 @@ export default function HallPage() {
           activatedPreorderIds={activatedPreorderIds}
           waiterNames={waiterNames}
           activeWaiters={activeWaiters}
+          restaurantName={restaurant?.name ?? ""}
         />
       )}
 
@@ -914,6 +1012,7 @@ export default function HallPage() {
           activatedPreorderIds={activatedPreorderIds}
           waiterNames={waiterNames}
           activeWaiters={activeWaiters}
+          restaurantName={restaurant?.name ?? ""}
         />
       )}
 
@@ -1735,6 +1834,7 @@ function OrderSlotPanel({
   width,
   waiterNames = {},
   activeWaiters = [],
+  restaurantName = "",
 }: {
   order: DbOrder;
   onClose: () => void;
@@ -1744,6 +1844,7 @@ function OrderSlotPanel({
   width?: number;
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
+  restaurantName?: string;
 }) {
   const isWaiter   = useRole() === "waiter";
   const userId     = useUserId();
@@ -1918,11 +2019,29 @@ function OrderSlotPanel({
               <span className="max-w-[140px] truncate">#{order.id}</span>
               {copiedId ? <Check size={11} className="text-emerald-500 shrink-0" /> : <Copy size={11} className="shrink-0" />}
             </button>
-            {!isWaiter && (
-              <button onClick={() => handlePrint(order)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-                <Printer size={12} /> Чек
+            <div className="flex items-center gap-1.5">
+              {!isWaiter && (
+                <button
+                  onClick={() => handlePreCheck(order, {
+                    restaurantName,
+                    waiterName: order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : (displayName ?? "Администратор"),
+                    tableLabel: typeLabel,
+                  })}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  title="Пречек для гостя"
+                >
+                  <Printer size={11} />
+                  Пречек
+                </button>
+              )}
+              <button
+                onClick={() => handleKitchenPrint(order, { tableLabel: typeLabel })}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                title="Кухонный бегунок"
+              >
+                🍳 Кухня
               </button>
-            )}
+            </div>
           </div>
 
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30">
@@ -2260,6 +2379,7 @@ function PickupDeliveryGrid({
   activatedPreorderIds,
   waiterNames = {},
   activeWaiters = [],
+  restaurantName = "",
 }: {
   orders: DbOrder[];
   loading: boolean;
@@ -2270,6 +2390,7 @@ function PickupDeliveryGrid({
   activatedPreorderIds?: Set<string>;
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
+  restaurantName?: string;
 }) {
   const [selected, setSelected]     = useState<string | null>(null);
   const [creating, setCreating]     = useState(false);
@@ -2346,6 +2467,7 @@ function PickupDeliveryGrid({
             allTables={allTables}
             waiterNames={waiterNames}
             activeWaiters={activeWaiters}
+            restaurantName={restaurantName}
           />
         </>
       )}
@@ -2624,6 +2746,7 @@ function TablePanel({
   autoOrder,
   waiterNames = {},
   activeWaiters = [],
+  restaurantName = "",
   onEnterOrderMode,
   onExitOrderMode,
 }: {
@@ -2638,6 +2761,7 @@ function TablePanel({
   autoOrder?: boolean;
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
+  restaurantName?: string;
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
@@ -3025,16 +3149,29 @@ function TablePanel({
                   : <Copy size={11} className="shrink-0" />
                 }
               </button>
-              {!isWaiter && (
+              <div className="flex items-center gap-1.5">
+                {!isWaiter && (
+                  <button
+                    onClick={() => handlePreCheck(activeOrder, {
+                      restaurantName,
+                      waiterName: activeOrder.opened_by ? (waiterNames[activeOrder.opened_by] ?? "Сотрудник") : (displayName ?? "Администратор"),
+                      tableLabel: `Стол ${table.label}`,
+                    })}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    title="Пречек для гостя"
+                  >
+                    <Printer size={11} />
+                    Пречек
+                  </button>
+                )}
                 <button
-                  onClick={() => handlePrint(activeOrder)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  title="Печать чека"
+                  onClick={() => handleKitchenPrint(activeOrder, { tableLabel: `Стол ${table.label}` })}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  title="Кухонный бегунок"
                 >
-                  <Printer size={12} />
-                  Чек
+                  🍳 Кухня
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Time / preorder badge */}
