@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   const {
     order_id, item_name, item_price, quantity,
-    reason, voided_by, voided_by_name, table_number,
+    reason, void_type, voided_by, voided_by_name, table_number,
   } = body as Record<string, unknown>;
 
   if (!order_id || !item_name || !item_price || !quantity || !reason) {
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       item_price: Number(item_price),
       quantity: Number(quantity),
       reason,
+      void_type: (void_type as string) ?? "waste",
       voided_by: voided_by ?? null,
       voided_by_name: voided_by_name ?? null,
       table_number: table_number ?? null,

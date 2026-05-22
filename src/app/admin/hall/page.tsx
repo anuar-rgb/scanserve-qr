@@ -1385,23 +1385,25 @@ function OrderSlotCard({
 
 // ── VoidItemModal ─────────────────────────────────────────────────────────────
 
-const VOID_REASONS = ["Ошибка официанта", "Брак кухни", "Отказ гостя"] as const;
+type VoidType = "input_error" | "waste";
+const VOID_REASONS = ["Перепутал стол", "Брак кухни", "Отказ гостя"] as const;
 
 function VoidItemModal({
   item, maxQty, onConfirm, onClose,
 }: {
   item: OrderItem;
   maxQty: number;
-  onConfirm: (qty: number, reason: string) => Promise<void>;
+  onConfirm: (qty: number, reason: string, voidType: VoidType) => Promise<void>;
   onClose: () => void;
 }) {
-  const [qty, setQty]       = useState(1);
-  const [reason, setReason] = useState<string>(VOID_REASONS[0]);
-  const [busy, setBusy]     = useState(false);
+  const [qty, setQty]           = useState(1);
+  const [voidType, setVoidType] = useState<VoidType>("input_error");
+  const [reason, setReason]     = useState<string>(VOID_REASONS[0]);
+  const [busy, setBusy]         = useState(false);
 
   async function handleConfirm() {
     setBusy(true);
-    await onConfirm(qty, reason);
+    await onConfirm(qty, reason, voidType);
     setBusy(false);
   }
 
@@ -1413,7 +1415,7 @@ function VoidItemModal({
             <Trash2 size={14} className="text-red-500" />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm">Списать на «КОСЯК»</p>
+            <p className="font-semibold text-sm">Удалить позицию</p>
             <p className="text-xs text-muted-foreground truncate">{capFirst(item.name)}</p>
           </div>
         </div>
@@ -1435,21 +1437,36 @@ function VoidItemModal({
           </div>
         )}
 
-        <div className="space-y-1 mb-5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Причина списания:</p>
-          {VOID_REASONS.map(r => (
-            <button key={r} onClick={() => setReason(r)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
-                reason === r
-                  ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 font-medium border border-red-200 dark:border-red-800"
-                  : "hover:bg-accent text-foreground border border-transparent"
-              }`}>
-              <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${reason === r ? "border-red-500 bg-red-500" : "border-border"}`}>
-                {reason === r && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-              </div>
-              {r}
-            </button>
-          ))}
+        <div className="space-y-2 mb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Тип отмены:</p>
+          <button onClick={() => setVoidType("input_error")}
+            className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-colors text-left ${voidType === "input_error" ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20" : "border-border hover:bg-accent"}`}>
+            <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${voidType === "input_error" ? "border-amber-500 bg-amber-500" : "border-border"}`}>
+              {voidType === "input_error" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+            <div>
+              <p className="text-sm font-medium leading-tight">Ошибка ввода</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Без списания продуктов</p>
+            </div>
+          </button>
+          <button onClick={() => setVoidType("waste")}
+            className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-colors text-left ${voidType === "waste" ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20" : "border-border hover:bg-accent"}`}>
+            <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${voidType === "waste" ? "border-red-500 bg-red-500" : "border-border"}`}>
+              {voidType === "waste" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+            <div>
+              <p className="text-sm font-medium leading-tight">Косяк / Списание</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Продукты списываются со склада</p>
+            </div>
+          </button>
+        </div>
+
+        <div className="mb-5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Причина:</p>
+          <select value={reason} onChange={e => setReason(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-xl border border-border bg-background focus:outline-none focus:border-violet-400">
+            {VOID_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
         </div>
 
         <div className="flex gap-2">
@@ -1458,8 +1475,8 @@ function VoidItemModal({
             Отмена
           </button>
           <button onClick={handleConfirm} disabled={busy}
-            className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white text-sm font-semibold transition-colors">
-            {busy ? "…" : `Списать${qty > 1 ? ` ×${qty}` : ""}`}
+            className={`flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-60 ${voidType === "waste" ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}>
+            {busy ? "…" : `Удалить${qty > 1 ? ` ×${qty}` : ""}`}
           </button>
         </div>
       </div>
@@ -1500,6 +1517,7 @@ function OrderSlotPanel({
   const [noteInput, setNoteInput]               = useState("");
   const [savingNote, setSavingNote]             = useState(false);
   const [voidingItem, setVoidingItem]           = useState<{ idx: number; item: OrderItem } | null>(null);
+  const [selectedItemIdx, setSelectedItemIdx]   = useState<number | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassigning, setReassigning]             = useState(false);
 
@@ -1533,7 +1551,7 @@ function OrderSlotPanel({
     onRefresh();
   }
 
-  async function voidItem(idx: number, qty: number, reason: string) {
+  async function voidItem(idx: number, qty: number, reason: string, voidType: string) {
     const item = items[idx];
     await fetch("/api/admin/voids", {
       method: "POST",
@@ -1544,6 +1562,7 @@ function OrderSlotPanel({
         item_price: item.price,
         quantity: qty,
         reason,
+        void_type: voidType,
         voided_by: userId ?? undefined,
         voided_by_name: displayName ?? undefined,
         table_number: order.table_number ?? order.type,
@@ -1555,8 +1574,9 @@ function OrderSlotPanel({
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
     const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-    toast.success(`Списано: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
     setVoidingItem(null);
+    setSelectedItemIdx(null);
     onRefresh();
   }
 
@@ -1749,7 +1769,11 @@ function OrderSlotPanel({
                   )}
                   <div className="rounded-xl border border-border overflow-hidden mb-1">
                     {group.items.map((item, i) => (
-                      <div key={i} className={`px-3 py-2 text-sm ${i < group.items.length - 1 ? "border-b border-border" : ""}`}>
+                      <div
+                        key={i}
+                        onClick={() => { setSelectedItemIdx(prev => prev === item._idx ? null : item._idx); if (editingNoteIdx !== null && editingNoteIdx !== item._idx) setEditingNoteIdx(null); }}
+                        className={`px-3 py-2 text-sm cursor-pointer transition-colors ${selectedItemIdx === item._idx ? "bg-violet-50 dark:bg-violet-900/20" : "hover:bg-accent/50"} ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
+                      >
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0 mr-3">
                             <div className="flex items-start gap-1.5 flex-wrap">
@@ -1757,15 +1781,6 @@ function OrderSlotPanel({
                                 {capFirst(item.name)}
                                 <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                               </span>
-                              {!isWaiter && (
-                                <button
-                                  onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
-                                  className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
-                                  title={item.note ? "Изменить заметку" : "Добавить заметку"}
-                                >
-                                  <MessageSquare size={11} />
-                                </button>
-                              )}
                             </div>
                             {item.modifiers?.map((mod, mi) => (
                               <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
@@ -1775,8 +1790,8 @@ function OrderSlotPanel({
                                 ✎ {item.note}
                               </p>
                             )}
-                            {!isWaiter && editingNoteIdx === item._idx && (
-                              <div className="mt-1.5 flex items-center gap-1">
+                            {editingNoteIdx === item._idx && (
+                              <div className="mt-1.5 flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                 <input
                                   autoFocus
                                   value={noteInput}
@@ -1804,27 +1819,16 @@ function OrderSlotPanel({
                               </div>
                             )}
                           </div>
-                          <div className="flex items-start gap-1 shrink-0">
-                              {!isWaiter && (
-                                <button
-                                  onClick={() => setVoidingItem({ idx: item._idx, item })}
-                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                  title="Списать на КОСЯК"
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              )}
-                              <div className="flex flex-col items-end">
-                                {item.original_price != null && (
-                                  <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                                    {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                                  </span>
-                                )}
-                                <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                                  {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                                </span>
-                              </div>
-                            </div>
+                          <div className="flex flex-col items-end shrink-0">
+                            {item.original_price != null && (
+                              <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                              </span>
+                            )}
+                            <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                              {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1833,6 +1837,34 @@ function OrderSlotPanel({
               ))}
             </div>
           )}
+
+          {selectedItemIdx !== null && !isWaiter && (() => {
+            const selItem = items[selectedItemIdx];
+            if (!selItem) return null;
+            return (
+              <div className="rounded-xl border border-violet-200 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-900/10 p-2.5">
+                <p className="text-[10px] text-violet-600 dark:text-violet-400 font-medium mb-2 truncate px-0.5">
+                  {capFirst(selItem.name)} ×{selItem.qty}
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => { setEditingNoteIdx(selectedItemIdx); setNoteInput(selItem.note ?? ""); }}
+                    className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-border bg-background text-[11px] text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors"
+                  >
+                    <MessageSquare size={11} />
+                    {selItem.note ? "Изменить заметку" : "Добавить заметку"}
+                  </button>
+                  <button
+                    onClick={() => setVoidingItem({ idx: selectedItemIdx, item: selItem })}
+                    className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 dark:border-red-800 bg-background text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 size={11} />
+                    Удалить / Списать
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           <div>
             <button
@@ -1946,7 +1978,7 @@ function OrderSlotPanel({
         <VoidItemModal
           item={voidingItem.item}
           maxQty={voidingItem.item.qty}
-          onConfirm={(qty, reason) => voidItem(voidingItem.idx, qty, reason)}
+          onConfirm={(qty, reason, voidType) => voidItem(voidingItem.idx, qty, reason, voidType)}
           onClose={() => setVoidingItem(null)}
         />
       )}
@@ -2366,6 +2398,7 @@ function TablePanel({
   const [reassigning, setReassigning]             = useState(false);
   const [savingNote, setSavingNote]               = useState(false);
   const [voidingItem, setVoidingItem]             = useState<{ idx: number; item: OrderItem } | null>(null);
+  const [selectedItemIdx, setSelectedItemIdx]     = useState<number | null>(null);
   const [viewingOrderId, setViewingOrderId]       = useState<string | null>(null);
   const [subOrderLabel, setSubOrderLabel]         = useState<string | null>(null);
 
@@ -2450,7 +2483,7 @@ function TablePanel({
     onRefresh();
   }
 
-  async function voidItem(idx: number, qty: number, reason: string) {
+  async function voidItem(idx: number, qty: number, reason: string, voidType: string) {
     if (!activeOrder) return;
     const item = items[idx];
     await fetch("/api/admin/voids", {
@@ -2462,6 +2495,7 @@ function TablePanel({
         item_price: item.price,
         quantity: qty,
         reason,
+        void_type: voidType,
         voided_by: userId ?? undefined,
         voided_by_name: displayName ?? undefined,
         table_number: table.label,
@@ -2473,8 +2507,9 @@ function TablePanel({
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
     const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-    toast.success(`Списано: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
     setVoidingItem(null);
+    setSelectedItemIdx(null);
     onRefresh();
   }
 
@@ -2729,7 +2764,8 @@ function TablePanel({
                       {group.items.map((item, i) => (
                         <div
                           key={i}
-                          className={`px-3 py-2 text-sm ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
+                          onClick={() => { setSelectedItemIdx(prev => prev === item._idx ? null : item._idx); if (editingNoteIdx !== null && editingNoteIdx !== item._idx) setEditingNoteIdx(null); }}
+                          className={`px-3 py-2 text-sm cursor-pointer transition-colors ${selectedItemIdx === item._idx ? "bg-violet-50 dark:bg-violet-900/20" : "hover:bg-accent/50"} ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0 mr-3">
@@ -2738,15 +2774,6 @@ function TablePanel({
                                   {capFirst(item.name)}
                                   <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                                 </span>
-                                {!isWaiter && (
-                                  <button
-                                    onClick={() => { setEditingNoteIdx(item._idx); setNoteInput(item.note ?? ""); }}
-                                    className={`shrink-0 mt-0.5 transition-colors ${item.note ? "text-amber-500" : "text-muted-foreground/30 hover:text-violet-500"}`}
-                                    title={item.note ? "Изменить заметку" : "Добавить заметку"}
-                                  >
-                                    <MessageSquare size={11} />
-                                  </button>
-                                )}
                               </div>
                               {item.modifiers?.map((mod, mi) => (
                                 <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
@@ -2756,8 +2783,8 @@ function TablePanel({
                                   ✎ {item.note}
                                 </p>
                               )}
-                              {!isWaiter && editingNoteIdx === item._idx && (
-                                <div className="mt-1.5 flex items-center gap-1">
+                              {editingNoteIdx === item._idx && (
+                                <div className="mt-1.5 flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                   <input
                                     autoFocus
                                     value={noteInput}
@@ -2785,26 +2812,15 @@ function TablePanel({
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-start gap-1 shrink-0">
-                              {!isWaiter && (
-                                <button
-                                  onClick={() => setVoidingItem({ idx: item._idx, item })}
-                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                  title="Списать на КОСЯК"
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              )}
-                              <div className="flex flex-col items-end">
-                                {item.original_price != null && (
-                                  <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                                    {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                                  </span>
-                                )}
-                                <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                                  {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            <div className="flex flex-col items-end shrink-0">
+                              {item.original_price != null && (
+                                <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                  {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
                                 </span>
-                              </div>
+                              )}
+                              <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                                {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -2814,6 +2830,34 @@ function TablePanel({
                 ))}
               </div>
             )}
+
+            {selectedItemIdx !== null && !isWaiter && (() => {
+              const selItem = items[selectedItemIdx];
+              if (!selItem) return null;
+              return (
+                <div className="rounded-xl border border-violet-200 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-900/10 p-2.5">
+                  <p className="text-[10px] text-violet-600 dark:text-violet-400 font-medium mb-2 truncate px-0.5">
+                    {capFirst(selItem.name)} ×{selItem.qty}
+                  </p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => { setEditingNoteIdx(selectedItemIdx); setNoteInput(selItem.note ?? ""); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-border bg-background text-[11px] text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors"
+                    >
+                      <MessageSquare size={11} />
+                      {selItem.note ? "Изменить заметку" : "Добавить заметку"}
+                    </button>
+                    <button
+                      onClick={() => setVoidingItem({ idx: selectedItemIdx, item: selItem })}
+                      className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 dark:border-red-800 bg-background text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <Trash2 size={11} />
+                      Удалить / Списать
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Add from menu + action buttons */}
             {status === "occupied" && activeOrder && (
@@ -2994,7 +3038,7 @@ function TablePanel({
         <VoidItemModal
           item={voidingItem.item}
           maxQty={voidingItem.item.qty}
-          onConfirm={(qty, reason) => voidItem(voidingItem.idx, qty, reason)}
+          onConfirm={(qty, reason, voidType) => voidItem(voidingItem.idx, qty, reason, voidType)}
           onClose={() => setVoidingItem(null)}
         />
       )}
