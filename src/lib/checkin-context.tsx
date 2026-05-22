@@ -36,7 +36,10 @@ export function useCheckin() {
 }
 
 // Roles that must scan QR to start/end their work session
-const GATED_ROLES = new Set(["waiter", "chef"]);
+const GATED_ROLES = new Set([
+  "waiter", "chef", "bartender", "hostess", "courier", "cleaner",
+  "doorman", "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+]);
 
 export function CheckinProvider({ children }: { children: ReactNode }) {
   const role = useRole();

@@ -25,7 +25,8 @@ export default function MobileAdminHeader() {
   const role        = useRole();
   const displayName = useDisplayName();
   const isWaiter    = role === "waiter";
-  const isStaff     = role === "waiter" || role === "chef";
+  const STAFF_ROLES = new Set(["waiter", "chef", "bartender", "hostess", "courier", "cleaner", "doorman", "sommelier", "senior_waiter", "runner", "storekeeper", "accountant"]);
+  const isStaff     = role !== null && STAFF_ROLES.has(role);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { isCheckedIn, checkout } = useCheckin();

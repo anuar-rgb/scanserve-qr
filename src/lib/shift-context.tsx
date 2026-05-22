@@ -189,8 +189,8 @@ export function CheckinGate({ children }: { children: ReactNode }) {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Only waiter and chef are subject to this gate
-  if (role === null || role === "owner" || role === "manager" || role === "cashier") {
+  const NON_GATED = new Set(["owner", "manager", "cashier"]);
+  if (role === null || NON_GATED.has(role)) {
     return <>{children}</>;
   }
 

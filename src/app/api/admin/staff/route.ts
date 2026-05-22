@@ -65,7 +65,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const VALID_ROLES = ["owner", "manager", "cashier", "waiter", "chef"];
+  const VALID_ROLES = [
+    "owner", "manager", "cashier", "waiter", "chef",
+    "bartender", "hostess", "courier", "cleaner", "doorman",
+    "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+  ];
   if (!VALID_ROLES.includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }

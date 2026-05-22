@@ -38,7 +38,11 @@ export async function PATCH(
   }
 
   if (update.role) {
-    const VALID_ROLES = ["owner", "manager", "cashier", "waiter", "chef"];
+    const VALID_ROLES = [
+      "owner", "manager", "cashier", "waiter", "chef",
+      "bartender", "hostess", "courier", "cleaner", "doorman",
+      "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+    ];
     if (!VALID_ROLES.includes(update.role as string)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }

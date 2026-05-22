@@ -118,7 +118,8 @@ export default function AdminSidebar() {
   const [checkoutScanning, setCheckoutScanning] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
 
-  const isStaff = role === "waiter" || role === "chef";
+  const STAFF_ROLES = new Set(["waiter", "chef", "bartender", "hostess", "courier", "cleaner", "doorman", "sommelier", "senior_waiter", "runner", "storekeeper", "accountant"]);
+  const isStaff = role !== null && STAFF_ROLES.has(role);
 
   useEffect(() => setMounted(true), []);
 

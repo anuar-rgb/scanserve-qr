@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export type AdminRole = "owner" | "manager" | "cashier" | "waiter" | "chef";
+export type AdminRole =
+  | "owner" | "manager" | "cashier" | "waiter" | "chef"
+  | "bartender" | "hostess" | "courier" | "cleaner" | "doorman"
+  | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant";
 
-const VALID_ROLES: AdminRole[] = ["owner", "manager", "cashier", "waiter", "chef"];
+const VALID_ROLES: AdminRole[] = [
+  "owner", "manager", "cashier", "waiter", "chef",
+  "bartender", "hostess", "courier", "cleaner", "doorman",
+  "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+];
 
 export async function GET(request: NextRequest) {
   const session = request.cookies.get("admin_session");

@@ -10,7 +10,10 @@ import { useRole } from "@/lib/role-context";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type StaffRole = "owner" | "manager" | "cashier" | "waiter" | "chef";
+type StaffRole =
+  | "owner" | "manager" | "cashier" | "waiter" | "chef"
+  | "bartender" | "hostess" | "courier" | "cleaner" | "doorman"
+  | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant";
 
 interface StaffUser {
   id: string;
@@ -24,19 +27,39 @@ interface StaffUser {
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const ROLES: { value: StaffRole; label: string }[] = [
-  { value: "owner",   label: "Владелец"  },
-  { value: "manager", label: "Менеджер"  },
-  { value: "cashier", label: "Кассир"    },
-  { value: "waiter",  label: "Официант"  },
-  { value: "chef",    label: "Повар"     },
+  { value: "owner",        label: "Владелец"         },
+  { value: "manager",      label: "Менеджер"         },
+  { value: "cashier",      label: "Кассир"           },
+  { value: "waiter",       label: "Официант"         },
+  { value: "senior_waiter",label: "Старший официант" },
+  { value: "chef",         label: "Повар"            },
+  { value: "bartender",    label: "Бармен"           },
+  { value: "sommelier",    label: "Сомелье"          },
+  { value: "hostess",      label: "Хостес"           },
+  { value: "runner",       label: "Раннер"           },
+  { value: "courier",      label: "Курьер"           },
+  { value: "storekeeper",  label: "Кладовщик"        },
+  { value: "accountant",   label: "Бухгалтер"        },
+  { value: "cleaner",      label: "Уборщик"          },
+  { value: "doorman",      label: "Швейцар"          },
 ];
 
 const ROLE_COLOR: Record<StaffRole, string> = {
-  owner:   "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  manager: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-  cashier: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  waiter:  "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  chef:    "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
+  owner:        "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+  manager:      "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  cashier:      "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  waiter:       "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  senior_waiter:"bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  chef:         "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
+  bartender:    "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
+  sommelier:    "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
+  hostess:      "bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300",
+  runner:       "bg-lime-100 text-lime-700 dark:bg-lime-500/15 dark:text-lime-300",
+  courier:      "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+  storekeeper:  "bg-zinc-100 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300",
+  accountant:   "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+  cleaner:      "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
+  doorman:      "bg-stone-100 text-stone-700 dark:bg-stone-500/15 dark:text-stone-300",
 };
 
 // ─── component ────────────────────────────────────────────────────────────────

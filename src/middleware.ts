@@ -26,7 +26,11 @@ const OWNER_EXCLUSIVE: string[] = [
   "/admin/payment-banks",
 ];
 
-const POS_ONLY_ROLES = ["cashier", "waiter", "chef"];
+const POS_ONLY_ROLES = [
+  "cashier", "waiter", "chef",
+  "bartender", "hostess", "courier", "cleaner", "doorman",
+  "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
