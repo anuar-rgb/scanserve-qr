@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -1383,6 +1383,128 @@ function OrderSlotCard({
   );
 }
 
+// ── TransferItemModal ─────────────────────────────────────────────────────────
+
+function TransferItemModal({
+  item,
+  itemIdx,
+  sourceOrderId,
+  sourceTableLabel,
+  allTables,
+  currentTableId,
+  userId,
+  userName,
+  onDone,
+  onClose,
+}: {
+  item: OrderItem;
+  itemIdx: number;
+  sourceOrderId: string;
+  sourceTableLabel: string;
+  allTables: TableWithStatus[];
+  currentTableId: string;
+  userId: string | null;
+  userName: string | null;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const targetTables = allTables.filter((tws) => tws.table.id !== currentTableId);
+
+  async function transfer(targetTws: TableWithStatus) {
+    if (busy) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/transfer-item", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_order_id: sourceOrderId,
+        item_idx: itemIdx,
+        target_table_label: targetTws.table.label,
+        source_table_label: sourceTableLabel,
+        user_id: userId,
+        user_name: userName,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({})) as { error?: string };
+      toast.error(d.error ?? "Ошибка переноса");
+      return;
+    }
+    toast.success(`${capFirst(item.name)} → стол ${targetTws.table.label}`);
+    onDone();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card rounded-2xl p-5 shadow-xl w-80 mx-4 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm">Перенос блюда</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {capFirst(item.name)} ×{item.qty} · стол {sourceTableLabel}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 ml-2 p-1 rounded-lg hover:bg-accent transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          Выберите стол назначения:
+        </p>
+
+        <div className="overflow-y-auto admin-scroll flex-1 -mx-1 px-1">
+          <div className="grid grid-cols-3 gap-1.5">
+            {targetTables.map((tws) => {
+              const isFree = tws.status === "free";
+              const posCount = tws.order && Array.isArray(tws.order.items_json)
+                ? (tws.order.items_json as unknown[]).length
+                : 0;
+              return (
+                <button
+                  key={tws.table.id}
+                  onClick={() => transfer(tws)}
+                  disabled={busy}
+                  className={`flex flex-col items-center justify-center gap-0.5 h-16 rounded-xl border text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isFree
+                      ? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                      : "border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/20"
+                  }`}
+                >
+                  <span className="font-bold text-sm leading-none">{tws.table.label}</span>
+                  <span className="text-[9px] text-current opacity-70">
+                    {isFree ? "Свободен" : `Занят · ${posCount} поз.`}
+                  </span>
+                  {busy && <Loader2 size={10} className="animate-spin mt-0.5" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="mt-3 w-full h-9 rounded-xl border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
+        >
+          Отмена
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── VoidItemModal ─────────────────────────────────────────────────────────────
 
 type VoidType = "input_error" | "waste";
@@ -2399,6 +2521,7 @@ function TablePanel({
   const [savingNote, setSavingNote]               = useState(false);
   const [voidingItem, setVoidingItem]             = useState<{ idx: number; item: OrderItem } | null>(null);
   const [selectedItemIdx, setSelectedItemIdx]     = useState<number | null>(null);
+  const [transferringItem, setTransferringItem]   = useState<{ idx: number; item: OrderItem } | null>(null);
   const [viewingOrderId, setViewingOrderId]       = useState<string | null>(null);
   const [subOrderLabel, setSubOrderLabel]         = useState<string | null>(null);
 
@@ -2839,7 +2962,7 @@ function TablePanel({
                   <p className="text-[10px] text-violet-600 dark:text-violet-400 font-medium mb-2 truncate px-0.5">
                     {capFirst(selItem.name)} ×{selItem.qty}
                   </p>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 mb-1.5">
                     <button
                       onClick={() => { setEditingNoteIdx(selectedItemIdx); setNoteInput(selItem.note ?? ""); }}
                       className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-border bg-background text-[11px] text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors"
@@ -2855,6 +2978,13 @@ function TablePanel({
                       Удалить / Списать
                     </button>
                   </div>
+                  <button
+                    onClick={() => setTransferringItem({ idx: selectedItemIdx, item: selItem })}
+                    className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-sky-200 dark:border-sky-700 bg-background text-[11px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
+                  >
+                    <ArrowRight size={11} />
+                    Перенести блюдо на другой стол
+                  </button>
                 </div>
               );
             })()}
@@ -3040,6 +3170,20 @@ function TablePanel({
           maxQty={voidingItem.item.qty}
           onConfirm={(qty, reason, voidType) => voidItem(voidingItem.idx, qty, reason, voidType)}
           onClose={() => setVoidingItem(null)}
+        />
+      )}
+      {transferringItem && activeOrder && (
+        <TransferItemModal
+          item={transferringItem.item}
+          itemIdx={transferringItem.idx}
+          sourceOrderId={activeOrder.id}
+          sourceTableLabel={table.label}
+          allTables={allTables}
+          currentTableId={table.id}
+          userId={userId}
+          userName={displayName}
+          onDone={() => { setTransferringItem(null); setSelectedItemIdx(null); onRefresh(); }}
+          onClose={() => setTransferringItem(null)}
         />
       )}
     </aside>
