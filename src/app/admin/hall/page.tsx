@@ -1450,7 +1450,7 @@ function TransferItemModal({
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sm">Перенос блюда</p>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {capFirst(item.name)} ×{item.qty} · стол {sourceTableLabel}
+              {capFirst(item.name)} ×{item.qty} · {sourceTableLabel}
             </p>
           </div>
           <button
@@ -1640,6 +1640,7 @@ function OrderSlotPanel({
   const [savingNote, setSavingNote]             = useState(false);
   const [voidingItem, setVoidingItem]           = useState<{ idx: number; item: OrderItem } | null>(null);
   const [selectedItemIdx, setSelectedItemIdx]   = useState<number | null>(null);
+  const [transferringItem, setTransferringItem] = useState<{ idx: number; item: OrderItem } | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassigning, setReassigning]             = useState(false);
 
@@ -1968,7 +1969,7 @@ function OrderSlotPanel({
                 <p className="text-[10px] text-violet-600 dark:text-violet-400 font-medium mb-2 truncate px-0.5">
                   {capFirst(selItem.name)} ×{selItem.qty}
                 </p>
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 mb-1.5">
                   <button
                     onClick={() => { setEditingNoteIdx(selectedItemIdx); setNoteInput(selItem.note ?? ""); }}
                     className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-border bg-background text-[11px] text-muted-foreground hover:text-violet-600 hover:border-violet-400 transition-colors"
@@ -1984,6 +1985,13 @@ function OrderSlotPanel({
                     Удалить / Списать
                   </button>
                 </div>
+                <button
+                  onClick={() => setTransferringItem({ idx: selectedItemIdx, item: selItem })}
+                  className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-sky-200 dark:border-sky-700 bg-background text-[11px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
+                >
+                  <ArrowRight size={11} />
+                  Перенести блюдо на другой стол
+                </button>
               </div>
             );
           })()}
@@ -2102,6 +2110,20 @@ function OrderSlotPanel({
           maxQty={voidingItem.item.qty}
           onConfirm={(qty, reason, voidType) => voidItem(voidingItem.idx, qty, reason, voidType)}
           onClose={() => setVoidingItem(null)}
+        />
+      )}
+      {transferringItem && (
+        <TransferItemModal
+          item={transferringItem.item}
+          itemIdx={transferringItem.idx}
+          sourceOrderId={order.id}
+          sourceTableLabel={typeLabel}
+          allTables={allTables}
+          currentTableId=""
+          userId={userId}
+          userName={displayName}
+          onDone={() => { setTransferringItem(null); setSelectedItemIdx(null); onRefresh(); }}
+          onClose={() => setTransferringItem(null)}
         />
       )}
     </aside>
@@ -3177,7 +3199,7 @@ function TablePanel({
           item={transferringItem.item}
           itemIdx={transferringItem.idx}
           sourceOrderId={activeOrder.id}
-          sourceTableLabel={table.label}
+          sourceTableLabel={`Стол ${table.label}`}
           allTables={allTables}
           currentTableId={table.id}
           userId={userId}
