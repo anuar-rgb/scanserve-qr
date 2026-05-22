@@ -3000,7 +3000,10 @@ function PosMenuBrowser({
   }
 
   function catModifiersFor(product: DbProduct): DbModifier[] {
-    return dbModifiers.filter(m => m.category_id === product.category_id);
+    return dbModifiers.filter(
+      m => m.product_id === product.id ||
+           (m.product_id === null && m.category_id === product.category_id)
+    );
   }
 
   function addToCart(product: DbProduct) {
