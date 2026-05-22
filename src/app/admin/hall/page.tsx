@@ -178,10 +178,10 @@ ${discountRow}${prepaidRow}${balanceRow}
 </body></html>`);
 }
 
-/** Кухонный бегунок (без цен, крупный шрифт) */
-function handleKitchenPrint(
+/** Кухонный бегунок — сначала пробует отправить на LAN-принтер, fallback на popup */
+async function handleKitchenPrint(
   order: DbOrder,
-  opts: { tableLabel?: string },
+  opts: { tableLabel?: string; restaurantId?: string },
 ) {
   const items = (Array.isArray(order.items_json) ? order.items_json : []) as OrderItem[];
   const rawLabel = opts.tableLabel ?? (
@@ -191,6 +191,43 @@ function handleKitchenPrint(
   const typeLabel = order.type === "dine-in" ? "ЗАЛ" : order.type === "delivery" ? "ДОСТАВКА" : "С СОБОЙ";
   const timeStr = new Date(order.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
+  // ── Try LAN printer via API ──────────────────────────────────────────────────
+  if (opts.restaurantId) {
+    try {
+      const res = await fetch("/api/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type:         "kitchen",
+          restaurantId: opts.restaurantId,
+          tableLabel:   rawLabel,
+          order: {
+            id:           order.id,
+            type:         order.type,
+            created_at:   order.created_at,
+            table_number: order.table_number,
+            items_json:   order.items_json,
+          },
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as {
+          noPrinters?: boolean;
+          results?: { printerName: string; success: boolean; error?: string }[];
+        };
+        if (!json.noPrinters && json.results && json.results.length > 0) {
+          for (const r of json.results) {
+            if (r.success) toast.success(`Кухня: отправлено на ${r.printerName}`);
+            else toast.error(`${r.printerName}: ${r.error ?? "ошибка"}`);
+          }
+          return; // sent via LAN — no need for popup
+        }
+        // noPrinters → fall through to popup
+      }
+    } catch { /* network error → fall through to popup */ }
+  }
+
+  // ── Fallback: browser popup ─────────────────────────────────────────────────
   const itemRows = items.map(it => {
     const mods = (it.modifiers ?? []).map((m: { name: string }) =>
       `<div class="mod">👉 ${m.name.toUpperCase()}</div>`).join("");
@@ -2035,7 +2072,7 @@ function OrderSlotPanel({
                 </button>
               )}
               <button
-                onClick={() => handleKitchenPrint(order, { tableLabel: typeLabel })}
+                onClick={() => handleKitchenPrint(order, { tableLabel: typeLabel, restaurantId: RESTAURANT_ID })}
                 className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 title="Кухонный бегунок"
               >
@@ -3165,7 +3202,7 @@ function TablePanel({
                   </button>
                 )}
                 <button
-                  onClick={() => handleKitchenPrint(activeOrder, { tableLabel: `Стол ${table.label}` })}
+                  onClick={() => handleKitchenPrint(activeOrder, { tableLabel: `Стол ${table.label}`, restaurantId: RESTAURANT_ID })}
                   className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                   title="Кухонный бегунок"
                 >

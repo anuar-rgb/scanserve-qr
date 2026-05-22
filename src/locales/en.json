@@ -285,6 +285,7 @@
     "orderIdCopied": "Order ID copied!",
     "navStaff": "Staff",
     "descStaff": "Manage staff members and roles.",
+    "navPrinters": "Network Printers",
     "navPaymentBanks": "Payment Banks",
     "descPaymentBanks": "Card transfer recipients and bank details.",
     "addPaymentBank": "Add bank",
