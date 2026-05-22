@@ -556,8 +556,14 @@ export default function HallPage() {
     return { table, status, order, orders: tableOrders, preorderOrder, elapsed: order ? getElapsed(order.created_at) : 0 };
   });
 
-  // All users see all tables; visual distinction added in TableCard
-  const displayedTables = tablesWithStatus;
+  // Waiters see only their tables: assigned to them OR with an active order opened by them
+  const displayedTables = isWaiter
+    ? tablesWithStatus.filter(
+        (tws) =>
+          tws.table.assigned_waiter_id === userId ||
+          (tws.status === "occupied" && tws.order?.opened_by === userId),
+      )
+    : tablesWithStatus;
 
   const occupiedCount  = tablesWithStatus.filter((t) => t.status === "occupied").length;
   const freeCount      = tablesWithStatus.filter((t) => t.status === "free").length;
