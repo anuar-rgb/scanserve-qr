@@ -556,10 +556,8 @@ export default function HallPage() {
     return { table, status, order, orders: tableOrders, preorderOrder, elapsed: order ? getElapsed(order.created_at) : 0 };
   });
 
-  // For waiters: show only their own occupied tables
-  const displayedTables = isWaiter
-    ? tablesWithStatus.filter((tws) => tws.status === "occupied" && tws.order?.opened_by === userId)
-    : tablesWithStatus;
+  // All users see all tables; visual distinction added in TableCard
+  const displayedTables = tablesWithStatus;
 
   const occupiedCount  = tablesWithStatus.filter((t) => t.status === "occupied").length;
   const freeCount      = tablesWithStatus.filter((t) => t.status === "free").length;
@@ -827,6 +825,7 @@ export default function HallPage() {
                         editMode={editMode}
                         compact={isWaiter}
                         waiterNames={waiterNames}
+                        currentUserId={isWaiter ? userId : undefined}
                         onClick={() => {
                           if (editMode) return;
                           const next = selected === tws.table.id ? null : tws.table.id;
@@ -941,12 +940,16 @@ export default function HallPage() {
         <WaiterTablePickerModal
           allTables={tablesWithStatus}
           currentUserId={userId}
+          waiterNames={waiterNames}
           onClose={() => setWaiterNewOrderPicker(false)}
           onSelect={(table) => {
             setWaiterNewOrderPicker(false);
             setSelected(table.id);
-            setWaiterAutoOrder(true);
-            setTableCreatingOrder(true);
+            const tws = tablesWithStatus.find((t) => t.table.id === table.id);
+            if (tws?.status === "free") {
+              setWaiterAutoOrder(true);
+              setTableCreatingOrder(true);
+            }
           }}
         />
       )}
@@ -1015,11 +1018,13 @@ function WaiterEmptyDineIn({ onNew }: { onNew: () => void }) {
 function WaiterTablePickerModal({
   allTables,
   currentUserId,
+  waiterNames = {},
   onClose,
   onSelect,
 }: {
   allTables: TableWithStatus[];
   currentUserId: string | null;
+  waiterNames?: Record<string, string>;
   onClose: () => void;
   onSelect: (table: DbRestaurantTable) => void;
 }) {
@@ -1033,7 +1038,10 @@ function WaiterTablePickerModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-            <p className="font-semibold text-sm">Выбрать стол</p>
+            <div>
+              <p className="font-semibold text-sm">Выбрать стол</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Нажмите на любой стол — свой или чужой</p>
+            </div>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -1050,20 +1058,28 @@ function WaiterTablePickerModal({
                   const isFree     = tws.status === "free";
                   const isOccupied = tws.status === "occupied";
                   const isPreorder = tws.status === "preorder";
+                  const isMyTable  = !!currentUserId && tws.table.assigned_waiter_id === currentUserId;
+                  const isOtherTable = !!tws.table.assigned_waiter_id && tws.table.assigned_waiter_id !== currentUserId;
+                  const assignedName = isOtherTable
+                    ? (waiterNames[tws.table.assigned_waiter_id!] ?? "Офиц.")
+                    : null;
                   return (
                     <button
                       key={tws.table.id}
-                      disabled={!isFree}
-                      onClick={() => isFree && onSelect(tws.table)}
-                      className={`relative flex flex-col items-center justify-center rounded-xl border py-3 px-2 transition-all active:scale-95 ${
+                      onClick={() => onSelect(tws.table)}
+                      className={`relative flex flex-col items-center justify-center rounded-xl border py-3 px-2 transition-all active:scale-95 cursor-pointer hover:shadow-sm ${
                         isFree
-                          ? "border-emerald-200 dark:border-emerald-700/40 bg-emerald-50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 cursor-pointer hover:shadow-sm"
-                          : "border-zinc-200 dark:border-zinc-700/40 bg-zinc-50 dark:bg-zinc-800/30 opacity-50 cursor-not-allowed"
+                          ? isMyTable
+                            ? "border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/10 hover:bg-violet-100 dark:hover:bg-violet-900/20"
+                            : "border-emerald-200 dark:border-emerald-700/40 bg-emerald-50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
+                          : isOccupied
+                          ? "border-red-200 dark:border-red-700/40 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20"
+                          : "border-amber-200 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/20"
                       }`}
                     >
                       <p className="text-xs font-bold leading-tight text-center break-words w-full">{tws.table.label}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">{tws.table.seats} мест</p>
-                      {isFree && <div className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                      {isFree && !isOtherTable && <div className={`mt-1 w-1.5 h-1.5 rounded-full ${isMyTable ? "bg-violet-500" : "bg-emerald-500"}`} />}
                       {isOccupied && (
                         <span className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
                           Занят
@@ -1073,6 +1089,12 @@ function WaiterTablePickerModal({
                         <span className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
                           Бронь
                         </span>
+                      )}
+                      {isOtherTable && (
+                        <span className="mt-1 text-[8px] font-semibold text-amber-600 dark:text-amber-400 truncate w-full text-center">{assignedName}</span>
+                      )}
+                      {isMyTable && (
+                        <span className="mt-1 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
                       )}
                     </button>
                   );
@@ -1094,6 +1116,7 @@ function TableCard({
   editMode,
   compact = false,
   waiterNames = {},
+  currentUserId,
   onClick,
   onEdit,
   onDelete,
@@ -1105,6 +1128,7 @@ function TableCard({
   editMode: boolean;
   compact?: boolean;
   waiterNames?: Record<string, string>;
+  currentUserId?: string | null;
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1136,6 +1160,11 @@ function TableCard({
   }[status];
 
   if (compact) {
+    const isMyTable    = !!currentUserId && table.assigned_waiter_id === currentUserId;
+    const isOtherTable = !!table.assigned_waiter_id && table.assigned_waiter_id !== currentUserId;
+    const assignedName = isOtherTable
+      ? (waiterNames[table.assigned_waiter_id!] ?? "Офиц.")
+      : null;
     return (
       <div
         onClick={onClick}
@@ -1143,7 +1172,12 @@ function TableCard({
           relative flex flex-col items-center justify-center rounded-xl border select-none py-2.5 px-1
           transition-all duration-150 cursor-pointer active:scale-95
           ${palette.card}
-          ${isSelected ? "ring-2 ring-violet-500 ring-offset-1 shadow-md" : "hover:shadow-sm"}
+          ${isSelected
+            ? "ring-2 ring-violet-500 ring-offset-1 shadow-md"
+            : isMyTable
+            ? "ring-1 ring-violet-400 ring-offset-0"
+            : "hover:shadow-sm"
+          }
         `}
       >
         <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
@@ -1154,6 +1188,12 @@ function TableCard({
             <Clock size={9} className="text-red-500 shrink-0" />
             <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">{formatElapsed(elapsed)}</span>
           </div>
+        )}
+        {isMyTable && (
+          <span className="mt-0.5 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
+        )}
+        {isOtherTable && (
+          <span className="mt-0.5 text-[8px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-none px-0.5 truncate w-full">{assignedName}</span>
         )}
       </div>
     );
@@ -1379,6 +1419,78 @@ function OrderSlotCard({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── AssignTableWaiterModal ────────────────────────────────────────────────────
+
+function AssignTableWaiterModal({
+  table,
+  activeWaiters,
+  waiterNames,
+  onDone,
+  onClose,
+}: {
+  table: DbRestaurantTable;
+  activeWaiters: { id: string; name: string }[];
+  waiterNames: Record<string, string>;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  async function assign(waiterId: string | null) {
+    setSaving(true);
+    const { error } = await supabase
+      .from(DB_TABLES.restaurantTables)
+      .update({ assigned_waiter_id: waiterId })
+      .eq("id", table.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    setSaving(false);
+    if (error) { toast.error("Ошибка: " + error.message); return; }
+    toast.success(waiterId ? "Официант привязан к столу" : "Привязка снята");
+    onDone();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-card rounded-2xl p-5 shadow-xl w-72 mx-4" onClick={(e) => e.stopPropagation()}>
+        <p className="font-semibold text-sm mb-0.5">Привязать официанта к столу</p>
+        <p className="text-xs text-muted-foreground mb-4">Стол {table.label}</p>
+        <div className="space-y-1 mb-3">
+          {activeWaiters.map((w) => (
+            <button
+              key={w.id}
+              onClick={() => assign(w.id)}
+              disabled={saving}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
+                table.assigned_waiter_id === w.id
+                  ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 font-medium"
+                  : "hover:bg-accent text-foreground"
+              }`}
+            >
+              <User size={13} className="shrink-0 text-muted-foreground" />
+              {w.name}
+              {table.assigned_waiter_id === w.id && <Check size={12} className="ml-auto text-violet-600" />}
+            </button>
+          ))}
+          <button
+            onClick={() => assign(null)}
+            disabled={saving}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-accent transition-colors"
+          >
+            <X size={13} className="shrink-0" />
+            Снять привязку
+          </button>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full h-9 rounded-xl border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
+        >
+          Отмена
+        </button>
+      </div>
     </div>
   );
 }
@@ -2540,6 +2652,8 @@ function TablePanel({
   const [noteInput, setNoteInput]                 = useState("");
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassigning, setReassigning]             = useState(false);
+  const [showAssignModal, setShowAssignModal]     = useState(false);
+  const [claiming, setClaiming]                   = useState(false);
   const [savingNote, setSavingNote]               = useState(false);
   const [voidingItem, setVoidingItem]             = useState<{ idx: number; item: OrderItem } | null>(null);
   const [selectedItemIdx, setSelectedItemIdx]     = useState<number | null>(null);
@@ -2673,6 +2787,26 @@ function TablePanel({
     onRefresh();
   }
 
+  async function handleClaimTable() {
+    setClaiming(true);
+    const { error } = await supabase
+      .from(DB_TABLES.restaurantTables)
+      .update({ assigned_waiter_id: userId })
+      .eq("id", table.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    if (error) { toast.error("Ошибка при захвате стола"); setClaiming(false); return; }
+    if (activeOrder && userId) {
+      await supabase
+        .from(DB_TABLES.orders)
+        .update({ opened_by: userId })
+        .eq("id", activeOrder.id)
+        .eq("restaurant_id", RESTAURANT_ID);
+    }
+    toast.success("Стол теперь ваш");
+    setClaiming(false);
+    onRefresh();
+  }
+
   return (
     <aside
       className={fullWidth ? "flex-1 flex flex-col bg-background overflow-hidden" : "shrink-0 flex flex-col bg-background overflow-hidden"}
@@ -2709,6 +2843,28 @@ function TablePanel({
                   onClick={() => setShowReassignModal(true)}
                   className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
                   title="Переназначить официанта"
+                >
+                  <UserCog size={10} />
+                </button>
+              )}
+            </div>
+          )}
+          {!isWaiter && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <MapPin size={9} className="shrink-0" />
+                Привязан:{" "}
+                <span className="font-medium">
+                  {table.assigned_waiter_id
+                    ? (waiterNames[table.assigned_waiter_id] ?? "Официант")
+                    : "Не назначен"}
+                </span>
+              </p>
+              {activeWaiters.length > 0 && (
+                <button
+                  onClick={() => setShowAssignModal(true)}
+                  className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
+                  title="Привязать официанта к столу"
                 >
                   <UserCog size={10} />
                 </button>
@@ -2763,6 +2919,37 @@ function TablePanel({
               Отмена
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Assign table waiter modal (admin only) */}
+      {showAssignModal && (
+        <AssignTableWaiterModal
+          table={table}
+          activeWaiters={activeWaiters}
+          waiterNames={waiterNames}
+          onDone={() => { setShowAssignModal(false); onRefresh(); }}
+          onClose={() => setShowAssignModal(false)}
+        />
+      )}
+
+      {/* Waiter claim banner — shown when this table is assigned to a different waiter */}
+      {isWaiter && table.assigned_waiter_id && table.assigned_waiter_id !== userId && (
+        <div className="mx-4 mt-3 shrink-0 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-center gap-3">
+          <User size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">
+              Стол закреплён за {waiterNames[table.assigned_waiter_id] ?? "другим официантом"}
+            </p>
+          </div>
+          <button
+            onClick={handleClaimTable}
+            disabled={claiming}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-60 transition-colors shrink-0"
+          >
+            {claiming ? <Loader2 size={12} className="animate-spin" /> : <ArrowRight size={12} />}
+            Забрать
+          </button>
         </div>
       )}
 
@@ -4027,6 +4214,15 @@ function OrderPanel({
       ...(currentUserId ? { opened_by: currentUserId } : {}),
     });
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    // Auto-assign table to current waiter if table exists and is still unassigned
+    if (table && currentUserId && !table.assigned_waiter_id && orderType === "dine-in") {
+      await supabase
+        .from(DB_TABLES.restaurantTables)
+        .update({ assigned_waiter_id: currentUserId })
+        .eq("id", table.id)
+        .eq("restaurant_id", RESTAURANT_ID)
+        .is("assigned_waiter_id", null);
+    }
     const dest =
       orderType === "dine-in"  ? `стола ${displayLabel}` :
       orderType === "delivery" ? "доставки"               : "самовывоза";

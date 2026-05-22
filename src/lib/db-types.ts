@@ -149,6 +149,7 @@ export interface DbRestaurantTable {
   seats: number;
   is_active: boolean;
   created_at: string;
+  assigned_waiter_id: string | null;
 }
 
 export interface DbPaymentBank {
