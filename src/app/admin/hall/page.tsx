@@ -1383,6 +1383,90 @@ function OrderSlotCard({
   );
 }
 
+// ── VoidItemModal ─────────────────────────────────────────────────────────────
+
+const VOID_REASONS = ["Ошибка официанта", "Брак кухни", "Отказ гостя"] as const;
+
+function VoidItemModal({
+  item, maxQty, onConfirm, onClose,
+}: {
+  item: OrderItem;
+  maxQty: number;
+  onConfirm: (qty: number, reason: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [qty, setQty]       = useState(1);
+  const [reason, setReason] = useState<string>(VOID_REASONS[0]);
+  const [busy, setBusy]     = useState(false);
+
+  async function handleConfirm() {
+    setBusy(true);
+    await onConfirm(qty, reason);
+    setBusy(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card rounded-2xl p-5 shadow-2xl w-80 mx-4 border border-border" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-8 h-8 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+            <Trash2 size={14} className="text-red-500" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">Списать на «КОСЯК»</p>
+            <p className="text-xs text-muted-foreground truncate">{capFirst(item.name)}</p>
+          </div>
+        </div>
+
+        {maxQty > 1 && (
+          <div className="flex items-center justify-between mb-4 px-1">
+            <span className="text-xs text-muted-foreground font-medium">Количество:</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setQty(q => Math.max(1, q - 1))} disabled={qty <= 1}
+                className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-accent disabled:opacity-30 transition-colors">
+                <Minus size={12} />
+              </button>
+              <span className="w-6 text-center text-sm font-bold tabular-nums">{qty}</span>
+              <button onClick={() => setQty(q => Math.min(maxQty, q + 1))} disabled={qty >= maxQty}
+                className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-accent disabled:opacity-30 transition-colors">
+                <Plus size={12} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-1 mb-5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Причина списания:</p>
+          {VOID_REASONS.map(r => (
+            <button key={r} onClick={() => setReason(r)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
+                reason === r
+                  ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 font-medium border border-red-200 dark:border-red-800"
+                  : "hover:bg-accent text-foreground border border-transparent"
+              }`}>
+              <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${reason === r ? "border-red-500 bg-red-500" : "border-border"}`}>
+                {reason === r && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              </div>
+              {r}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:bg-accent transition-colors">
+            Отмена
+          </button>
+          <button onClick={handleConfirm} disabled={busy}
+            className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white text-sm font-semibold transition-colors">
+            {busy ? "…" : `Списать${qty > 1 ? ` ×${qty}` : ""}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── OrderSlotPanel ────────────────────────────────────────────────────────────
 
 function OrderSlotPanel({
@@ -1404,7 +1488,9 @@ function OrderSlotPanel({
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
 }) {
-  const isWaiter = useRole() === "waiter";
+  const isWaiter   = useRole() === "waiter";
+  const userId     = useUserId();
+  const displayName = useDisplayName();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [copiedId, setCopiedId]                 = useState(false);
   const [showMenuPicker, setShowMenuPicker]     = useState(false);
@@ -1413,7 +1499,7 @@ function OrderSlotPanel({
   const [editingNoteIdx, setEditingNoteIdx]     = useState<number | null>(null);
   const [noteInput, setNoteInput]               = useState("");
   const [savingNote, setSavingNote]             = useState(false);
-  const [removingIdx, setRemovingIdx]           = useState<number | null>(null);
+  const [voidingItem, setVoidingItem]           = useState<{ idx: number; item: OrderItem } | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassigning, setReassigning]             = useState(false);
 
@@ -1447,17 +1533,30 @@ function OrderSlotPanel({
     onRefresh();
   }
 
-  async function removeItem(idx: number) {
-    if (removingIdx !== null) return;
+  async function voidItem(idx: number, qty: number, reason: string) {
     const item = items[idx];
-    setRemovingIdx(idx);
-    const updated = item.qty > 1
-      ? items.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it)
-      : items.filter((_, i) => i !== idx);
+    await fetch("/api/admin/voids", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.id,
+        item_name: item.name,
+        item_price: item.price,
+        quantity: qty,
+        reason,
+        voided_by: userId ?? undefined,
+        voided_by_name: displayName ?? undefined,
+        table_number: order.table_number ?? order.type,
+      }),
+    }).catch(() => {/* non-blocking */});
+    const updated = qty >= item.qty
+      ? items.filter((_, i) => i !== idx)
+      : items.map((it, i) => i === idx ? { ...it, qty: it.qty - qty } : it);
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
     const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
-    setRemovingIdx(null);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    toast.success(`Списано: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    setVoidingItem(null);
     onRefresh();
   }
 
@@ -1708,12 +1807,11 @@ function OrderSlotPanel({
                           <div className="flex items-start gap-1 shrink-0">
                               {!isWaiter && (
                                 <button
-                                  onClick={() => void removeItem(item._idx)}
-                                  disabled={removingIdx !== null}
-                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
-                                  title={item.qty > 1 ? "−1" : "Удалить"}
+                                  onClick={() => setVoidingItem({ idx: item._idx, item })}
+                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  title="Списать на КОСЯК"
                                 >
-                                  {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                                  <Trash2 size={11} />
                                 </button>
                               )}
                               <div className="flex flex-col items-end">
@@ -1842,6 +1940,14 @@ function OrderSlotPanel({
           order={order}
           onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
           onClose={() => setShowPaymentModal(false)}
+        />
+      )}
+      {voidingItem && (
+        <VoidItemModal
+          item={voidingItem.item}
+          maxQty={voidingItem.item.qty}
+          onConfirm={(qty, reason) => voidItem(voidingItem.idx, qty, reason)}
+          onClose={() => setVoidingItem(null)}
         />
       )}
     </aside>
@@ -2241,7 +2347,9 @@ function TablePanel({
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
-  const isWaiter = useRole() === "waiter";
+  const isWaiter    = useRole() === "waiter";
+  const userId      = useUserId();
+  const displayName = useDisplayName();
   const { table, status, order, preorderOrder, elapsed } = data;
   const [panelMode, setPanelMode]                 = useState<"info" | "order">(() =>
     (data.status === "free" && autoOrder) ? "order" : "info"
@@ -2257,7 +2365,7 @@ function TablePanel({
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassigning, setReassigning]             = useState(false);
   const [savingNote, setSavingNote]               = useState(false);
-  const [removingIdx, setRemovingIdx]             = useState<number | null>(null);
+  const [voidingItem, setVoidingItem]             = useState<{ idx: number; item: OrderItem } | null>(null);
   const [viewingOrderId, setViewingOrderId]       = useState<string | null>(null);
   const [subOrderLabel, setSubOrderLabel]         = useState<string | null>(null);
 
@@ -2342,17 +2450,31 @@ function TablePanel({
     onRefresh();
   }
 
-  async function removeItem(idx: number) {
-    if (removingIdx !== null || !activeOrder) return;
+  async function voidItem(idx: number, qty: number, reason: string) {
+    if (!activeOrder) return;
     const item = items[idx];
-    setRemovingIdx(idx);
-    const updated = item.qty > 1
-      ? items.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it)
-      : items.filter((_, i) => i !== idx);
+    await fetch("/api/admin/voids", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: activeOrder.id,
+        item_name: item.name,
+        item_price: item.price,
+        quantity: qty,
+        reason,
+        voided_by: userId ?? undefined,
+        voided_by_name: displayName ?? undefined,
+        table_number: table.label,
+      }),
+    }).catch(() => {/* non-blocking */});
+    const updated = qty >= item.qty
+      ? items.filter((_, i) => i !== idx)
+      : items.map((it, i) => i === idx ? { ...it, qty: it.qty - qty } : it);
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
     const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
-    setRemovingIdx(null);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+    toast.success(`Списано: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    setVoidingItem(null);
     onRefresh();
   }
 
@@ -2666,12 +2788,11 @@ function TablePanel({
                             <div className="flex items-start gap-1 shrink-0">
                               {!isWaiter && (
                                 <button
-                                  onClick={() => void removeItem(item._idx)}
-                                  disabled={removingIdx !== null}
-                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30"
-                                  title={item.qty > 1 ? "−1" : "Удалить"}
+                                  onClick={() => setVoidingItem({ idx: item._idx, item })}
+                                  className="mt-0.5 p-1 rounded-md text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  title="Списать на КОСЯК"
                                 >
-                                  {removingIdx === item._idx ? <Loader2 size={11} className="animate-spin" /> : <Minus size={11} />}
+                                  <Trash2 size={11} />
                                 </button>
                               )}
                               <div className="flex flex-col items-end">
@@ -2867,6 +2988,14 @@ function TablePanel({
           tableName={table.label}
           onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
           onClose={() => setShowPaymentModal(false)}
+        />
+      )}
+      {voidingItem && (
+        <VoidItemModal
+          item={voidingItem.item}
+          maxQty={voidingItem.item.qty}
+          onConfirm={(qty, reason) => voidItem(voidingItem.idx, qty, reason)}
+          onClose={() => setVoidingItem(null)}
         />
       )}
     </aside>

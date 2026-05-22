@@ -20,6 +20,7 @@ export const DB_TABLES = {
   restaurantTables: "restaurant_tables",
   waiterCalls: "waiter_calls",
   crmClients: "crm_clients",
+  orderVoids: "order_voids",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

@@ -78,6 +78,7 @@ interface TopDish        { name: string; count: number; }
 interface Breakdown      { label: string; count: number; pct: number; bg: string; }
 interface InvoiceRow     { supplier_name: string; total_amount: number; created_at: string; }
 interface SupplierStat   { name: string; total: number; pct: number; }
+interface VoidRow        { id: string; item_name: string; item_price: number; quantity: number; reason: string; voided_by_name: string | null; table_number: string | null; created_at: string; }
 
 // ─── static maps ─────────────────────────────────────────────────────────────
 
@@ -337,6 +338,9 @@ export default function AnalyticsPage() {
   // ── invoices / expenses state ──
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
 
+  // ── voids / списания state ──
+  const [voidRows, setVoidRows]       = useState<VoidRow[]>([]);
+
   // ── shift state ──
   const [activeShift, setActiveShift]     = useState<ShiftRow | null | undefined>(undefined);
   const [reportingShift, setReportingShift] = useState<ShiftRow | null>(null);
@@ -361,7 +365,7 @@ export default function AnalyticsPage() {
     const prevFrom = prevFromDate(p).toISOString();
     const now      = new Date().toISOString();
 
-    const [curRes, prevRes, revRes, promoRes, invRes] = await Promise.all([
+    const [curRes, prevRes, revRes, promoRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
         .select("total_price, status, type, created_at, items_json")
         .eq("restaurant_id", RESTAURANT_ID)
@@ -380,6 +384,11 @@ export default function AnalyticsPage() {
         .select("supplier_name, total_amount, created_at")
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", from).lte("created_at", now),
+      supabase.from("order_voids")
+        .select("id, item_name, item_price, quantity, reason, voided_by_name, table_number, created_at")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .gte("created_at", from).lte("created_at", now)
+        .order("created_at", { ascending: false }),
     ]);
 
     setOrders((curRes.data ?? []) as OrderRow[]);
@@ -389,6 +398,7 @@ export default function AnalyticsPage() {
     setReviewAvg(revs.length ? revs.reduce((s, r) => s + r.rating, 0) / revs.length : null);
     setPromoProducts((promoRes.data as PromoProduct[]) ?? []);
     setInvoiceRows((invRes.data ?? []) as InvoiceRow[]);
+    setVoidRows((voidRes.data ?? []) as VoidRow[]);
     setLoading(false);
   }, []);
 
@@ -1092,6 +1102,109 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
+
+        {/* ── Voids / Списания ── */}
+        {(() => {
+          const totalVoidAmount = voidRows.reduce((s, v) => s + v.item_price * v.quantity, 0);
+          const byReason = voidRows.reduce<Record<string, { count: number; amount: number }>>((acc, v) => {
+            const r = v.reason;
+            if (!acc[r]) acc[r] = { count: 0, amount: 0 };
+            acc[r].count  += v.quantity;
+            acc[r].amount += v.item_price * v.quantity;
+            return acc;
+          }, {});
+          const reasonColors: Record<string, string> = {
+            "Ошибка официанта": "bg-amber-500",
+            "Брак кухни":       "bg-orange-500",
+            "Отказ гостя":      "bg-red-500",
+          };
+          return (
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
+                  <Archive size={15} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Отчёт по списаниям</h2>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                    {voidRows.length > 0
+                      ? `${voidRows.length} позиций · потери ${totalVoidAmount.toLocaleString("ru-RU")} ₸`
+                      : PERIOD_LABEL[period]}
+                  </p>
+                </div>
+                {voidRows.length > 0 && (
+                  <span className="ml-auto text-lg font-black tabular-nums text-red-500">
+                    −{totalVoidAmount.toLocaleString("ru-RU")} ₸
+                  </span>
+                )}
+              </div>
+
+              {loading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => <div key={i} className="h-8 bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />)}
+                </div>
+              ) : voidRows.length === 0 ? (
+                <p className="text-sm text-zinc-400 dark:text-zinc-600 text-center py-6">
+                  Списаний за период нет
+                </p>
+              ) : (
+                <div className="space-y-5">
+                  {/* Breakdown by reason */}
+                  {Object.keys(byReason).length > 0 && (
+                    <div className="space-y-2.5">
+                      {Object.entries(byReason).sort((a, b) => b[1].amount - a[1].amount).map(([reason, stat]) => (
+                        <div key={reason}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${reasonColors[reason] ?? "bg-zinc-400"}`} />
+                              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{reason}</span>
+                              <span className="text-[10px] text-zinc-400">({stat.count} шт)</span>
+                            </div>
+                            <span className="text-xs font-semibold tabular-nums text-red-500">
+                              −{stat.amount.toLocaleString("ru-RU")} ₸
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${reasonColors[reason] ?? "bg-zinc-400"}`}
+                              style={{ width: `${Math.round(stat.amount / (totalVoidAmount || 1) * 100)}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Recent void log */}
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 mb-2">
+                      Последние списания
+                    </p>
+                    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {voidRows.slice(0, 15).map(v => (
+                        <div key={v.id} className="flex items-center gap-3 px-3 py-2.5">
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${reasonColors[v.reason] ?? "bg-zinc-400"}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">{v.item_name}</p>
+                            <p className="text-[10px] text-zinc-400 truncate">
+                              {v.reason}
+                              {v.table_number ? ` · стол ${v.table_number}` : ""}
+                              {v.voided_by_name ? ` · ${v.voided_by_name}` : ""}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs font-semibold text-red-500 tabular-nums">
+                              −{(v.item_price * v.quantity).toLocaleString("ru-RU")} ₸
+                            </p>
+                            <p className="text-[9px] text-zinc-400">{v.quantity > 1 ? `×${v.quantity}` : ""} {new Date(v.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       </div>
     </div>
