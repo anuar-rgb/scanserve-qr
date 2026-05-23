@@ -72,6 +72,19 @@ interface RecentOrder {
   table_number: string | null;
 }
 
+interface InvoiceRow {
+  supplier_name: string;
+  total_amount:  number;
+  created_at:    string;
+}
+
+interface InvoicesData {
+  total:     number;
+  count:     number;
+  suppliers: { name: string; total: number; pct: number }[];
+  recent:    InvoiceRow[];
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) => n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
@@ -172,6 +185,7 @@ export default function OwnerPage() {
   const [weekData,      setWeekData]      = useState<WeekData | null>(null);
   const [topDishes,     setTopDishes]     = useState<TopDish[] | null>(null);
   const [recentOrders,  setRecentOrders]  = useState<RecentOrder[] | null>(null);
+  const [invoicesData,  setInvoicesData]  = useState<InvoicesData | null>(null);
   const [busy,          setBusy]          = useState(false);
   const [realtimeOk,    setRealtimeOk]    = useState(false);
   const [updatedAt,     setUpdatedAt]     = useState<Date | null>(null);
@@ -313,6 +327,23 @@ export default function OwnerPage() {
     setTopDishes(Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })));
   }, []);
 
+  const fetchInvoices = useCallback(async () => {
+    if (!isConfigured) return;
+    const { data } = await supabase.from("invoices")
+      .select("supplier_name, total_amount, created_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .gte("created_at", startOfDaysAgo(30).toISOString())
+      .order("created_at", { ascending: false });
+    const rows = (data ?? []) as InvoiceRow[];
+    const total = rows.reduce((s, r) => s + (r.total_amount ?? 0), 0);
+    const map = new Map<string, number>();
+    for (const r of rows) map.set(r.supplier_name, (map.get(r.supplier_name) ?? 0) + (r.total_amount ?? 0));
+    const suppliers = [...map.entries()]
+      .map(([name, t]) => ({ name, total: t, pct: total > 0 ? (t / total) * 100 : 0 }))
+      .sort((a, b) => b.total - a.total);
+    setInvoicesData({ total, count: rows.length, suppliers, recent: rows.slice(0, 3) });
+  }, []);
+
   const fetchRecent = useCallback(async () => {
     if (!isConfigured) return;
     const { data } = await supabase.from(DB_TABLES.orders).select("id, total_price, type, created_at, table_number")
@@ -323,10 +354,10 @@ export default function OwnerPage() {
 
   const fetchAll = useCallback(async () => {
     setBusy(true);
-    await Promise.all([fetchHall(), fetchToday(), fetchShiftAndStaff(), fetchReviews(), fetchWeek(), fetchTopDishes(), fetchRecent()]);
+    await Promise.all([fetchHall(), fetchToday(), fetchShiftAndStaff(), fetchReviews(), fetchWeek(), fetchTopDishes(), fetchRecent(), fetchInvoices()]);
     setUpdatedAt(new Date());
     setBusy(false);
-  }, [fetchHall, fetchToday, fetchShiftAndStaff, fetchReviews, fetchWeek, fetchTopDishes, fetchRecent]);
+  }, [fetchHall, fetchToday, fetchShiftAndStaff, fetchReviews, fetchWeek, fetchTopDishes, fetchRecent, fetchInvoices]);
 
   // ── Realtime + initial load ────────────────────────────────────────────────
 
@@ -437,6 +468,9 @@ export default function OwnerPage() {
 
         {/* 8 — Последние заказы */}
         <RecentOrdersCard data={recentOrders} />
+
+        {/* 9 — Накладные */}
+        <InvoicesCard data={invoicesData} />
 
       </div>
     </div>
@@ -640,6 +674,38 @@ function TopDishesCard({ data }: { data: TopDish[] | null }) {
             </div>
           ))}
         </div>
+      )}
+    </Card>
+  );
+}
+
+function InvoicesCard({ data }: { data: InvoicesData | null }) {
+  return (
+    <Card>
+      <Label>Накладные (30 дней)</Label>
+      {data === null ? <Skeleton lines={3} /> : data.count === 0 ? (
+        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет накладных за 30 дней</p>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
+            <Big>₸ {fmt(data.total)}</Big>
+          </div>
+          <p style={{ color: MUTED, fontSize: 13, margin: "0 0 14px" }}>{data.count} накладных</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {data.suppliers.map((s, i) => (
+              <div key={i}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: TEXT, fontSize: 13, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                  <span style={{ color: RED, fontSize: 13, fontWeight: 700, flexShrink: 0, marginLeft: 10 }}>₸ {fmt(s.total)}</span>
+                  <span style={{ color: MUTED, fontSize: 11, width: 38, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{s.pct.toFixed(1)}%</span>
+                </div>
+                <div style={{ height: 5, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 999, background: RED, width: `${s.pct}%`, opacity: 0.7 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </Card>
   );
