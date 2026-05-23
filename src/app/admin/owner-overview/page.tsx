@@ -1,672 +1,309 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Loader2, Star } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Loader2, ShoppingBag, Receipt, DollarSign } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID, DB_TABLES } from "@/constants";
-import { useTranslations } from "@/lib/i18n";
+import { RESTAURANT_ID } from "@/constants";
+import { Button } from "@/components/ui/button";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-interface HallData {
-  totalTables: number;
-  occupiedCount: number;
-  preorderCount: number;
-  totalSeats: number;
-  occupiedSeats: number;
-}
+type Period = "today" | "week" | "month" | "all";
 
-interface TodayData {
-  revenue: number;
-  ordersCount: number;
-  avgCheck: number;
-  deltaRevenuePct: number | null;
-  paymentBreakdown: Record<string, number>;
-}
+interface OrderRow  { total_price: number; created_at: string; }
+interface InvoiceRow { supplier_name: string; total_amount: number; created_at: string; }
 
-interface ShiftData {
-  isOpen: boolean;
-  openedAt: string | null;
-  shiftRevenue: number | null;
-  shiftOrdersCount: number | null;
-}
-
-interface ReviewsData {
-  avgRating: number | null;
-  count: number;
-  recent: { rating: number; comment: string | null; created_at: string }[];
-}
-
-interface StaffMember {
-  id: string;
-  displayName: string;
-  role: string;
-}
-
-interface StaffData {
-  members: StaffMember[];
-}
-
-interface WeekData {
-  revenue: number;
-  ordersCount: number;
-  prevRevenue: number;
-}
+interface DayBar { label: string; revenue: number; expenses: number; }
+interface SupplierRow { name: string; total: number; pct: number; }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+const PERIOD_LABEL: Record<Period, string> = {
+  today: "Сегодня",
+  week:  "7 дней",
+  month: "30 дней",
+  all:   "Всё время",
+};
+
+function fromDate(p: Period): Date | null {
+  if (p === "all") return null;
+  const d = new Date();
+  if (p === "today") { d.setHours(0, 0, 0, 0); return d; }
+  if (p === "week")  { d.setDate(d.getDate() - 6); d.setHours(0, 0, 0, 0); return d; }
+  d.setDate(d.getDate() - 29); d.setHours(0, 0, 0, 0); return d;
+}
 
 function fmt(n: number): string {
   return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
 }
 
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+function fmtPct(n: number): string {
+  return n.toFixed(1) + "%";
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
-}
-
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function startOfDaysAgo(n: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "Наличные",
-  kaspi: "Kaspi",
-  halyk: "Halyk",
-  terminal: "Терминал",
-  "card-transfer": "Перевод",
-  "remote-payment": "Онлайн",
-};
-
-function buildPaymentBreakdown(
-  orders: { payment_method: string | null; payment_details: Record<string, number> | null; paid_amount: number | null; total_price: number }[]
-): Record<string, number> {
-  const map: Record<string, number> = {};
-  for (const o of orders) {
-    if (o.payment_details && typeof o.payment_details === "object") {
-      for (const [method, amount] of Object.entries(o.payment_details)) {
-        if (typeof amount === "number" && amount > 0) {
-          map[method] = (map[method] ?? 0) + amount;
-        }
-      }
-    } else if (o.payment_method) {
-      const amount = (o.total_price ?? 0) - (o.paid_amount ?? 0);
-      const total = amount > 0 ? amount : (o.total_price ?? 0);
-      map[o.payment_method] = (map[o.payment_method] ?? 0) + total;
+function buildDayBars(orders: OrderRow[], invoices: InvoiceRow[], p: Period): DayBar[] {
+  if (p === "today") {
+    const h = new Date().getHours();
+    const bars: DayBar[] = Array.from({ length: h + 1 }, (_, i) => ({
+      label: `${i}:00`, revenue: 0, expenses: 0,
+    }));
+    for (const o of orders) {
+      const oh = new Date(o.created_at).getHours();
+      if (oh <= h) bars[oh].revenue += o.total_price ?? 0;
     }
+    for (const inv of invoices) {
+      const ih = new Date(inv.created_at).getHours();
+      if (ih <= h) bars[ih].expenses += inv.total_amount ?? 0;
+    }
+    return bars;
   }
-  return map;
+  if (p === "all") return [];
+  const dayCount = p === "week" ? 7 : 30;
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const bars: DayBar[] = Array.from({ length: dayCount }, (_, i) => {
+    const d = new Date(todayMs);
+    d.setDate(d.getDate() - (dayCount - 1 - i));
+    return { label: p === "week" ? ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][d.getDay()] : String(d.getDate()), revenue: 0, expenses: 0 };
+  });
+  for (const o of orders) {
+    const oMs = new Date(new Date(o.created_at).setHours(0, 0, 0, 0));
+    const idx = dayCount - 1 - Math.round((todayMs - oMs.getTime()) / 86_400_000);
+    if (idx >= 0 && idx < dayCount) bars[idx].revenue += o.total_price ?? 0;
+  }
+  for (const inv of invoices) {
+    const iMs = new Date(new Date(inv.created_at).setHours(0, 0, 0, 0));
+    const idx = dayCount - 1 - Math.round((todayMs - iMs.getTime()) / 86_400_000);
+    if (idx >= 0 && idx < dayCount) bars[idx].expenses += inv.total_amount ?? 0;
+  }
+  return bars;
 }
 
-// ─── main page ────────────────────────────────────────────────────────────────
+function buildSuppliers(invoices: InvoiceRow[]): SupplierRow[] {
+  const map = new Map<string, number>();
+  for (const inv of invoices) {
+    map.set(inv.supplier_name, (map.get(inv.supplier_name) ?? 0) + inv.total_amount);
+  }
+  const total = [...map.values()].reduce((s, v) => s + v, 0) || 1;
+  return [...map.entries()]
+    .map(([name, t]) => ({ name, total: t, pct: (t / total) * 100 }))
+    .sort((a, b) => b.total - a.total);
+}
 
-export default function OwnerDashboardPage() {
-  const { t } = useTranslations();
+// ─── component ────────────────────────────────────────────────────────────────
 
-  const [hallData,    setHallData]    = useState<HallData | null>(null);
-  const [todayData,   setTodayData]   = useState<TodayData | null>(null);
-  const [shiftData,   setShiftData]   = useState<ShiftData | null>(null);
-  const [reviewsData, setReviewsData] = useState<ReviewsData | null>(null);
-  const [staffData,   setStaffData]   = useState<StaffData | null>(null);
-  const [weekData,    setWeekData]    = useState<WeekData | null>(null);
-  const [loading,     setLoading]     = useState(true);
-  const [realtimeOk,  setRealtimeOk]  = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+export default function OwnerOverviewPage() {
+  const [period, setPeriod] = useState<Period>("month");
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
 
-  // ── fetch hall (called by realtime too) ───────────────────────────────────
-
-  const fetchHall = useCallback(async () => {
-    if (!isConfigured) return;
-    const today = new Date().toISOString().slice(0, 10);
-
-    const [{ data: tablesData }, { data: ordersData }] = await Promise.all([
-      supabase
-        .from(DB_TABLES.restaurantTables)
-        .select("id, label, seats")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("is_active", true),
-      supabase
-        .from(DB_TABLES.orders)
-        .select("id, table_number, type, order_type, preorder_date, status")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .in("status", ["pending", "confirmed", "preparing", "ready"]),
-    ]);
-
-    const tables = (tablesData ?? []) as { id: string; label: string; seats: number }[];
-    const orders = (ordersData ?? []) as {
-      id: string;
-      table_number: string | null;
-      type: string | null;
-      order_type: string | null;
-      preorder_date: string | null;
-      status: string;
-    }[];
-
-    let occupiedCount = 0;
-    let preorderCount = 0;
-    let occupiedSeats = 0;
-    let totalSeats    = 0;
-
-    for (const table of tables) {
-      totalSeats += table.seats ?? 0;
-      const hasDineIn = orders.some(
-        (o) => o.type === "dine-in" && o.table_number === table.label,
-      );
-      const hasPreorder = !hasDineIn && orders.some(
-        (o) => o.order_type === "preorder" && o.table_number === table.label && o.preorder_date === today,
-      );
-      if (hasDineIn) { occupiedCount++; occupiedSeats += table.seats ?? 0; }
-      else if (hasPreorder) { preorderCount++; }
-    }
-
-    setHallData({ totalTables: tables.length, occupiedCount, preorderCount, totalSeats, occupiedSeats });
-  }, []);
-
-  // ── fetch today ───────────────────────────────────────────────────────────
-
-  const fetchToday = useCallback(async () => {
-    if (!isConfigured) return;
-    const todayStart     = startOfToday().toISOString();
-    const yesterdayStart = startOfDaysAgo(1).toISOString();
-
-    const [{ data: todayOrders }, { data: yesterdayOrders }] = await Promise.all([
-      supabase
-        .from(DB_TABLES.orders)
-        .select("total_price, payment_method, payment_details, paid_amount")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("status", "completed")
-        .gte("created_at", todayStart),
-      supabase
-        .from(DB_TABLES.orders)
-        .select("total_price")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("status", "completed")
-        .gte("created_at", yesterdayStart)
-        .lt("created_at", todayStart),
-    ]);
-
-    const rows = (todayOrders ?? []) as {
-      total_price: number;
-      payment_method: string | null;
-      payment_details: Record<string, number> | null;
-      paid_amount: number | null;
-    }[];
-
-    const revenue    = rows.reduce((s, o) => s + (o.total_price ?? 0), 0);
-    const count      = rows.length;
-    const avgCheck   = count > 0 ? Math.round(revenue / count) : 0;
-    const yRevenue   = ((yesterdayOrders ?? []) as { total_price: number }[]).reduce((s, o) => s + (o.total_price ?? 0), 0);
-    const deltaPct   = yRevenue > 0 ? Math.round(((revenue - yRevenue) / yRevenue) * 100) : null;
-
-    setTodayData({
-      revenue,
-      ordersCount: count,
-      avgCheck,
-      deltaRevenuePct: deltaPct,
-      paymentBreakdown: buildPaymentBreakdown(rows),
-    });
-  }, []);
-
-  // ── fetch shift + staff ───────────────────────────────────────────────────
-
-  const fetchShiftAndStaff = useCallback(async () => {
-    const resp = await fetch("/api/admin/shift")
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null) as { shift: { id: string; opened_at: string } | null; checkins: { staff_user_id: string }[] } | null;
-
-    const shift    = resp?.shift ?? null;
-    const checkins = resp?.checkins ?? [];
-
-    let shiftRevenue: number | null = null;
-    let shiftOrdersCount: number | null = null;
-
-    if (shift && isConfigured) {
-      const { data } = await supabase
-        .from("shifts")
-        .select("total_revenue, orders_count")
-        .eq("id", shift.id)
-        .single();
-      const row = data as { total_revenue: number | null; orders_count: number | null } | null;
-      shiftRevenue      = row?.total_revenue ?? null;
-      shiftOrdersCount  = row?.orders_count  ?? null;
-    }
-
-    setShiftData({
-      isOpen: shift !== null,
-      openedAt: shift?.opened_at ?? null,
-      shiftRevenue,
-      shiftOrdersCount,
-    });
-
-    const userIds = checkins.map((c) => c.staff_user_id).filter(Boolean);
-    if (userIds.length > 0 && isConfigured) {
-      const { data: staffRows } = await supabase
-        .from("staff_users")
-        .select("id, display_name, username, role")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .in("id", userIds);
-
-      setStaffData({
-        members: ((staffRows ?? []) as { id: string; display_name: string | null; username: string; role: string }[]).map((s) => ({
-          id: s.id,
-          displayName: s.display_name ?? s.username,
-          role: s.role,
-        })),
-      });
-    } else {
-      setStaffData({ members: [] });
-    }
-  }, []);
-
-  // ── fetch reviews ─────────────────────────────────────────────────────────
-
-  const fetchReviews = useCallback(async () => {
-    if (!isConfigured) return;
-    const { data } = await supabase
-      .from(DB_TABLES.reviews)
-      .select("rating, comment, created_at")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .gte("created_at", startOfDaysAgo(30).toISOString())
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    const rows = (data ?? []) as { rating: number; comment: string | null; created_at: string }[];
-    const avg  = rows.length > 0 ? rows.reduce((s, r) => s + r.rating, 0) / rows.length : null;
-
-    setReviewsData({ avgRating: avg, count: rows.length, recent: rows.slice(0, 3) });
-  }, []);
-
-  // ── fetch week ────────────────────────────────────────────────────────────
-
-  const fetchWeek = useCallback(async () => {
-    if (!isConfigured) return;
-    const [{ data: curWeek }, { data: prevWeek }] = await Promise.all([
-      supabase
-        .from(DB_TABLES.orders)
-        .select("total_price")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("status", "completed")
-        .gte("created_at", startOfDaysAgo(7).toISOString()),
-      supabase
-        .from(DB_TABLES.orders)
-        .select("total_price")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("status", "completed")
-        .gte("created_at", startOfDaysAgo(14).toISOString())
-        .lt("created_at", startOfDaysAgo(7).toISOString()),
-    ]);
-
-    const sumArr = (arr: { total_price: number }[] | null) =>
-      (arr ?? []).reduce((s, o) => s + (o.total_price ?? 0), 0);
-
-    setWeekData({
-      revenue: sumArr(curWeek as { total_price: number }[] | null),
-      ordersCount: (curWeek ?? []).length,
-      prevRevenue: sumArr(prevWeek as { total_price: number }[] | null),
-    });
-  }, []);
-
-  // ── fetch all ─────────────────────────────────────────────────────────────
-
-  const fetchAll = useCallback(async () => {
+  const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
-    await Promise.all([fetchHall(), fetchToday(), fetchShiftAndStaff(), fetchReviews(), fetchWeek()]);
-    setLastUpdated(new Date());
+    const from = fromDate(period);
+
+    const ordersQ = supabase
+      .from("orders")
+      .select("total_price, created_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("status", "completed");
+    if (from) ordersQ.gte("created_at", from.toISOString());
+
+    const invoicesQ = supabase
+      .from("invoices")
+      .select("supplier_name, total_amount, created_at")
+      .eq("restaurant_id", RESTAURANT_ID);
+    if (from) invoicesQ.gte("created_at", from.toISOString());
+
+    const [{ data: ord }, { data: inv }] = await Promise.all([ordersQ, invoicesQ]);
+    setOrders((ord ?? []) as OrderRow[]);
+    setInvoices((inv ?? []) as InvoiceRow[]);
     setLoading(false);
-  }, [fetchHall, fetchToday, fetchShiftAndStaff, fetchReviews, fetchWeek]);
+  }, [period]);
 
-  // ── effects ───────────────────────────────────────────────────────────────
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    fetchAll();
-    if (!isConfigured) return;
+  const revenue  = orders.reduce((s, o) => s + (o.total_price ?? 0), 0);
+  const expenses = invoices.reduce((s, i) => s + (i.total_amount ?? 0), 0);
+  const profit   = revenue - expenses;
+  const foodCost = revenue > 0 ? (expenses / revenue) * 100 : 0;
 
-    const channel = supabase
-      .channel(`owner-dashboard-${RESTAURANT_ID}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` },
-        () => fetchHall(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: DB_TABLES.restaurantTables },
-        () => fetchHall(),
-      )
-      .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
-
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchAll, fetchHall]);
-
-  // ── render ────────────────────────────────────────────────────────────────
+  const bars      = buildDayBars(orders, invoices, period);
+  const suppliers = buildSuppliers(invoices);
+  const barMax    = Math.max(...bars.map((b) => Math.max(b.revenue, b.expenses)), 1);
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4 space-y-4 pb-20">
-      <DashboardHeader t={t.admin} onRefresh={fetchAll} lastUpdated={lastUpdated} loading={loading} />
-      <HallOccupancyCard  t={t.admin} data={hallData}    realtimeOk={realtimeOk} />
-      <TodayRevenueCard   t={t.admin} data={todayData} />
-      <CurrentShiftCard   t={t.admin} data={shiftData} />
-      <ReviewsCard        t={t.admin} data={reviewsData} />
-      <StaffOnDutyCard    t={t.admin} data={staffData} />
-      <WeekSummaryCard    t={t.admin} data={weekData} />
-    </div>
-  );
-}
-
-// ─── shared skeleton ──────────────────────────────────────────────────────────
-
-function SkeletonBlock({ lines }: { lines: number }) {
-  const widths = ["60%", "80%", "50%", "70%"];
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: lines }).map((_, i) => (
-        <div
-          key={i}
-          className="h-4 rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse"
-          style={{ width: widths[i % widths.length] }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── card wrapper ─────────────────────────────────────────────────────────────
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40 p-5">
-      {children}
-    </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
-      {children}
-    </p>
-  );
-}
-
-// ─── header ───────────────────────────────────────────────────────────────────
-
-type AdminDict = ReturnType<typeof useTranslations>["t"]["admin"];
-
-function DashboardHeader({
-  t, onRefresh, lastUpdated, loading,
-}: { t: AdminDict; onRefresh: () => void; lastUpdated: Date | null; loading: boolean }) {
-  return (
-    <div className="flex items-center justify-between pt-1">
-      <div>
-        <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-tight">АС ТӨРІ</h1>
-        {lastUpdated && (
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-            {t.ownerUpdatedAt} {fmtTime(lastUpdated.toISOString())}
-          </p>
-        )}
-      </div>
-      <button
-        onClick={onRefresh}
-        disabled={loading}
-        className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
-      >
-        {loading
-          ? <Loader2 size={18} className="animate-spin" />
-          : <RefreshCw size={18} />
-        }
-      </button>
-    </div>
-  );
-}
-
-// ─── hall occupancy ───────────────────────────────────────────────────────────
-
-function HallOccupancyCard({ t, data, realtimeOk }: { t: AdminDict; data: HallData | null; realtimeOk: boolean }) {
-  const pct      = data && data.totalTables > 0 ? Math.round((data.occupiedCount / data.totalTables) * 100) : 0;
-  const barColor = pct < 50 ? "bg-emerald-500" : pct < 80 ? "bg-amber-500" : "bg-red-500";
-
-  return (
-    <Card>
-      <div className="flex items-center justify-between mb-3">
-        <SectionLabel>{t.ownerSectionHall}</SectionLabel>
-        <div className="flex items-center gap-1.5 -mt-1">
-          <div className={`w-2 h-2 rounded-full ${realtimeOk ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
-          <span className="text-[11px] text-zinc-400">{t.ownerLive}</span>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <header className="px-8 py-5 border-b border-border shrink-0 flex items-center gap-4">
+        <div className="flex-1">
+          <h1 className="text-lg font-semibold">Обзор прибыли</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Выручка, расходы и чистая прибыль ресторана</p>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {(["today", "week", "month", "all"] as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                period === p
+                  ? "bg-violet-600 text-white"
+                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+              }`}
+            >
+              {PERIOD_LABEL[p]}
+            </button>
+          ))}
+          <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          </Button>
+        </div>
+      </header>
 
-      {data === null ? (
-        <SkeletonBlock lines={2} />
-      ) : (
-        <>
-          <p className="text-3xl font-black tabular-nums text-zinc-900 dark:text-zinc-100 mb-1">
-            {data.occupiedCount}{" "}
-            <span className="text-xl font-normal text-zinc-400">/ {data.totalTables} {t.hallSeats}</span>
-          </p>
-          <div className="h-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden mb-2">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-xs text-zinc-500">
-            {data.occupiedSeats} {t.ownerSeatsOf} {data.totalSeats} {t.ownerTablesOccupied}
-          </p>
-        </>
-      )}
-    </Card>
-  );
-}
+      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            icon={<ShoppingBag size={16} className="text-emerald-500" />}
+            label="Выручка"
+            value={`${fmt(revenue)} ₸`}
+            sub={`${orders.length} завершённых заказов`}
+            color="emerald"
+          />
+          <KpiCard
+            icon={<Receipt size={16} className="text-red-400" />}
+            label="Расходы (накладные)"
+            value={`${fmt(expenses)} ₸`}
+            sub={`${invoices.length} накладных`}
+            color="red"
+          />
+          <KpiCard
+            icon={
+              profit >= 0
+                ? <TrendingUp size={16} className="text-violet-500" />
+                : <TrendingDown size={16} className="text-red-500" />
+            }
+            label="Чистая прибыль"
+            value={`${profit >= 0 ? "+" : ""}${fmt(profit)} ₸`}
+            sub={`Фудкост: ${fmtPct(foodCost)}`}
+            color={profit >= 0 ? "violet" : "red"}
+            highlight
+          />
+          <KpiCard
+            icon={<DollarSign size={16} className="text-blue-500" />}
+            label="Фудкост %"
+            value={fmtPct(foodCost)}
+            sub={foodCost < 30 ? "Отлично (< 30%)" : foodCost < 40 ? "Норма (30–40%)" : "Высокий (> 40%)"}
+            color={foodCost < 30 ? "emerald" : foodCost < 40 ? "amber" : "red"}
+          />
+        </div>
 
-// ─── today revenue ────────────────────────────────────────────────────────────
-
-function TodayRevenueCard({ t, data }: { t: AdminDict; data: TodayData | null }) {
-  const deltaPos = (data?.deltaRevenuePct ?? 0) >= 0;
-
-  return (
-    <Card>
-      <SectionLabel>{t.ownerSectionToday}</SectionLabel>
-      {data === null ? (
-        <SkeletonBlock lines={3} />
-      ) : (
-        <>
-          <div className="flex items-baseline gap-3 mb-1">
-            <p className="text-3xl font-black tabular-nums text-zinc-900 dark:text-zinc-100">
-              ₸ {fmt(data.revenue)}
-            </p>
-            {data.deltaRevenuePct !== null && (
-              <span className={`text-sm font-semibold ${deltaPos ? "text-emerald-500" : "text-red-500"}`}>
-                {deltaPos ? "↑ +" : "↓ "}{data.deltaRevenuePct}%
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-xs text-zinc-500 mb-3">
-            <span>{data.ordersCount} {t.ownerOrders}</span>
-            <span>·</span>
-            <span>{t.ownerAvgCheck} ₸ {fmt(data.avgCheck)}</span>
-          </div>
-          {Object.keys(data.paymentBreakdown).length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(data.paymentBreakdown).map(([method, amount]) => (
-                <span
-                  key={method}
-                  className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
-                >
-                  {PAYMENT_LABELS[method] ?? method} ₸ {fmt(amount)}
-                </span>
+        {/* Bar chart */}
+        {bars.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-semibold mb-4">Выручка vs Расходы — {PERIOD_LABEL[period]}</p>
+            <div className="flex items-end gap-1 h-36 overflow-x-auto">
+              {bars.map((bar, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5 flex-1 min-w-[20px]">
+                  <div className="w-full flex flex-col justify-end gap-px" style={{ height: 112 }}>
+                    <div
+                      className="w-full rounded-t bg-emerald-500/80"
+                      style={{ height: `${(bar.revenue / barMax) * 100}%`, minHeight: bar.revenue > 0 ? 2 : 0 }}
+                    />
+                    <div
+                      className="w-full rounded-t bg-red-400/70"
+                      style={{ height: `${(bar.expenses / barMax) * 100}%`, minHeight: bar.expenses > 0 ? 2 : 0 }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-muted-foreground truncate w-full text-center">{bar.label}</span>
+                </div>
               ))}
             </div>
-          )}
-        </>
-      )}
-    </Card>
-  );
-}
-
-// ─── current shift ────────────────────────────────────────────────────────────
-
-function CurrentShiftCard({ t, data }: { t: AdminDict; data: ShiftData | null }) {
-  return (
-    <Card>
-      <SectionLabel>{t.ownerSectionShift}</SectionLabel>
-      {data === null ? (
-        <SkeletonBlock lines={1} />
-      ) : data.isOpen && data.openedAt ? (
-        <div>
-          <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            {t.ownerShiftSince} {fmtTime(data.openedAt)}
-          </p>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 mt-1">
-            {data.shiftOrdersCount !== null && (
-              <span>{data.shiftOrdersCount} {t.ownerOrders}</span>
-            )}
-            {data.shiftRevenue !== null && data.shiftRevenue > 0 && (
-              <><span>·</span><span>₸ {fmt(data.shiftRevenue)}</span></>
-            )}
+            <div className="flex items-center gap-4 mt-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-emerald-500/80" />
+                <span className="text-xs text-muted-foreground">Выручка</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-red-400/70" />
+                <span className="text-xs text-muted-foreground">Расходы</span>
+              </div>
+            </div>
           </div>
-        </div>
-      ) : (
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 italic">{t.ownerNoShift}</p>
-      )}
-    </Card>
-  );
-}
+        )}
 
-// ─── reviews ──────────────────────────────────────────────────────────────────
-
-function ReviewsCard({ t, data }: { t: AdminDict; data: ReviewsData | null }) {
-  return (
-    <Card>
-      <SectionLabel>{t.ownerSectionReviews}</SectionLabel>
-      {data === null ? (
-        <SkeletonBlock lines={3} />
-      ) : data.count === 0 ? (
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 italic">{t.ownerNoReviews}</p>
-      ) : (
-        <>
-          <div className="flex items-baseline gap-2 mb-3">
-            <span className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">
-              ★ {data.avgRating?.toFixed(1)}
-            </span>
-            <span className="text-sm text-zinc-400">{data.count} {t.ownerReviews30d}</span>
-          </div>
-          <div className="space-y-2.5">
-            {data.recent.map((r, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <div className="flex gap-0.5 shrink-0 mt-0.5">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      size={10}
-                      className={s <= r.rating ? "text-amber-400 fill-amber-400" : "text-zinc-200 dark:text-zinc-700"}
+        {/* Supplier breakdown */}
+        {suppliers.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-semibold mb-4">Расходы по поставщикам</p>
+            <div className="space-y-3">
+              {suppliers.map((s, i) => (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm truncate flex-1">{s.name}</span>
+                    <span className="text-sm font-medium tabular-nums ml-4">{fmt(s.total)} ₸</span>
+                    <span className="text-xs text-muted-foreground ml-3 w-10 text-right">{fmtPct(s.pct)}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-violet-500/70"
+                      style={{ width: `${s.pct}%` }}
                     />
-                  ))}
+                  </div>
                 </div>
-                <p className="text-xs text-zinc-600 dark:text-zinc-300 flex-1 min-w-0 truncate">
-                  {r.comment ? (r.comment.length > 60 ? r.comment.slice(0, 60) + "…" : r.comment) : "—"}
-                </p>
-                <span className="text-[10px] text-zinc-400 shrink-0 ml-1">{fmtDate(r.created_at)}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </>
-      )}
-    </Card>
-  );
-}
+        )}
 
-// ─── staff on duty ────────────────────────────────────────────────────────────
-
-const ROLE_LABELS: Record<string, string> = {
-  owner: "Владелец", manager: "Менеджер", cashier: "Кассир",
-  waiter: "Официант", chef: "Повар", bartender: "Бармен",
-  hostess: "Хостес", courier: "Курьер", cleaner: "Уборщик",
-  doorman: "Охранник", sommelier: "Сомелье", senior_waiter: "Ст. официант",
-  runner: "Раннер", storekeeper: "Кладовщик", accountant: "Бухгалтер",
-};
-
-function pluralStaff(n: number): string {
-  if (n % 10 === 1 && n % 100 !== 11) return "сотрудник";
-  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return "сотрудника";
-  return "сотрудников";
-}
-
-function StaffOnDutyCard({ t, data }: { t: AdminDict; data: StaffData | null }) {
-  return (
-    <Card>
-      <SectionLabel>{t.ownerSectionStaff}</SectionLabel>
-      {data === null ? (
-        <SkeletonBlock lines={2} />
-      ) : data.members.length === 0 ? (
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 italic">{t.ownerNoStaff}</p>
-      ) : (
-        <>
-          <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
-            {data.members.length} {pluralStaff(data.members.length)} {t.ownerOnShift}
-          </p>
-          <div className="space-y-2.5">
-            {data.members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-violet-600 dark:text-violet-400 select-none">
-                    {m.displayName.slice(0, 2).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{m.displayName}</p>
-                  <p className="text-[11px] text-zinc-400 truncate">{ROLE_LABELS[m.role] ?? m.role}</p>
-                </div>
-              </div>
-            ))}
+        {!loading && orders.length === 0 && invoices.length === 0 && (
+          <div className="text-center py-16 text-sm text-muted-foreground">
+            Нет данных за выбранный период
           </div>
-        </>
-      )}
-    </Card>
-  );
-}
-
-// ─── week summary ─────────────────────────────────────────────────────────────
-
-function WeekSummaryCard({ t, data }: { t: AdminDict; data: WeekData | null }) {
-  if (data === null) {
-    return (
-      <Card>
-        <SectionLabel>{t.ownerSectionWeek}</SectionLabel>
-        <SkeletonBlock lines={2} />
-      </Card>
-    );
-  }
-
-  const revDelta = data.prevRevenue > 0
-    ? Math.round(((data.revenue - data.prevRevenue) / data.prevRevenue) * 100)
-    : null;
-  const deltaPos = (revDelta ?? 0) >= 0;
-
-  return (
-    <Card>
-      <SectionLabel>{t.ownerSectionWeek}</SectionLabel>
-      <div className="flex items-baseline gap-3 mb-1">
-        <p className="text-3xl font-black tabular-nums text-zinc-900 dark:text-zinc-100">
-          ₸ {fmt(data.revenue)}
-        </p>
-        {revDelta !== null && (
-          <span className={`text-sm font-semibold ${deltaPos ? "text-emerald-500" : "text-red-500"}`}>
-            {deltaPos ? "↑ +" : "↓ "}{revDelta}% {t.ownerVsPrevWeek}
-          </span>
         )}
       </div>
-      <p className="text-xs text-zinc-500">{data.ordersCount} {t.ownerOrders}</p>
-    </Card>
+    </div>
+  );
+}
+
+// ─── KPI card ─────────────────────────────────────────────────────────────────
+
+type Color = "emerald" | "red" | "violet" | "amber" | "blue";
+
+const COLOR_BG: Record<Color, string> = {
+  emerald: "bg-emerald-50 dark:bg-emerald-500/10",
+  red:     "bg-red-50 dark:bg-red-500/10",
+  violet:  "bg-violet-50 dark:bg-violet-500/10",
+  amber:   "bg-amber-50 dark:bg-amber-500/10",
+  blue:    "bg-blue-50 dark:bg-blue-500/10",
+};
+
+const COLOR_BORDER: Record<Color, string> = {
+  emerald: "border-emerald-200 dark:border-emerald-500/20",
+  red:     "border-red-200 dark:border-red-500/20",
+  violet:  "border-violet-200 dark:border-violet-500/20",
+  amber:   "border-amber-200 dark:border-amber-500/20",
+  blue:    "border-blue-200 dark:border-blue-500/20",
+};
+
+function KpiCard({
+  icon, label, value, sub, color, highlight,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  color: Color;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border p-4 ${highlight ? `${COLOR_BG[color]} ${COLOR_BORDER[color]}` : "border-border bg-card"}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
+      <p className="text-2xl font-bold tabular-nums leading-tight">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{sub}</p>
+    </div>
   );
 }
