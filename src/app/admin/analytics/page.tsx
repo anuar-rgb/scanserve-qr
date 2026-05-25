@@ -20,6 +20,7 @@ interface OrderRow {
   type: string;
   created_at: string;
   items_json: unknown;
+  tips_amount: number | null;
 }
 
 interface ShiftOrderRow {
@@ -33,6 +34,8 @@ interface ShiftOrderRow {
   paid_amount: number | null;
   prepayment_method: string | null;
   opened_by: string | null;
+  tips_amount: number | null;
+  table_number: string | null;
 }
 
 interface StaffUser {
@@ -70,6 +73,7 @@ interface ZReportData {
   paymentBreakdown: Record<string, number>;
   prepayBreakdown: Record<string, number>;
   totalPrepay: number;
+  totalTips: number;
 }
 
 interface PromoProduct   { id: string; name: LS; price: number; discount_label: string | null; }
@@ -258,8 +262,9 @@ function computeZReport(orders: ShiftOrderRow[]): ZReportData {
   const paymentBreakdown = buildPaymentBreakdown(orders);
   const prepayBreakdown  = buildPrepayBreakdown(orders);
   const totalPrepay      = Object.values(prepayBreakdown).reduce((s, v) => s + v, 0);
+  const totalTips        = orders.reduce((s, o) => s + (o.tips_amount ?? 0), 0);
   return { totalRevenue, ordersCount: orders.length, completedCount: completedOrders.length,
-    typeRevenue, paymentBreakdown, prepayBreakdown, totalPrepay };
+    typeRevenue, paymentBreakdown, prepayBreakdown, totalPrepay, totalTips };
 }
 
 function formatShiftDuration(openedAt: string): string {
@@ -278,7 +283,7 @@ function fmtDate(iso: string): string {
 }
 
 function openPrintWindow(shift: ShiftRow, data: ZReportData) {
-  const { totalRevenue, ordersCount, completedCount, typeRevenue, paymentBreakdown, prepayBreakdown, totalPrepay } = data;
+  const { totalRevenue, ordersCount, completedCount, typeRevenue, paymentBreakdown, prepayBreakdown, totalPrepay, totalTips } = data;
   const closedTime = shift.closed_at ? fmtTime(shift.closed_at) : fmtTime(new Date().toISOString());
   const row = (l: string, v: string) =>
     `<div style="display:flex;justify-content:space-between;margin:3px 0"><span>${l}</span><strong>${v}</strong></div>`;
@@ -309,6 +314,11 @@ function openPrintWindow(shift: ShiftRow, data: ZReportData) {
       `<div style="font-size:11px;font-weight:bold;color:#b45309;margin-bottom:6px">ПРЕДОПЛАТЫ</div>`,
       ...Object.entries(prepayBreakdown).map(([m, a]) => row(PAYMENT_META[m]?.label ?? m, `${a.toLocaleString("ru-RU")} ₸`)),
       row("Итого предоплат", `${totalPrepay.toLocaleString("ru-RU")} ₸`),
+    ].join("") : "",
+    totalTips > 0 ? [
+      sep,
+      `<div style="font-size:11px;font-weight:bold;color:#7c3aed;margin-bottom:6px">💝 ЧАЕВЫЕ (к выдаче персоналу)</div>`,
+      row("Итого чаевых", `${totalTips.toLocaleString("ru-RU")} ₸`),
     ].join("") : "",
     sep,
     `<div style="text-align:center;font-size:11px;color:#999">ScanServe QR · ${new Date().toLocaleString("ru-RU")}</div>`,
@@ -367,11 +377,11 @@ export default function AnalyticsPage() {
 
     const [curRes, prevRes, revRes, promoRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
-        .select("total_price, status, type, created_at, items_json")
+        .select("total_price, status, type, created_at, items_json, tips_amount")
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("orders")
-        .select("total_price")
+        .select("total_price, tips_amount")
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", prevFrom).lt("created_at", from),
       supabase.from("reviews")
@@ -420,7 +430,7 @@ export default function AnalyticsPage() {
     if (!isConfigured) return [];
     let q = supabase
       .from("orders")
-      .select("id, total_price, status, type, created_at, payment_method, payment_details, paid_amount, prepayment_method, opened_by")
+      .select("id, total_price, status, type, created_at, payment_method, payment_details, paid_amount, prepayment_method, opened_by, tips_amount, table_number")
       .eq("restaurant_id", RESTAURANT_ID)
       .gte("created_at", shift.opened_at);
     if (shift.closed_at) q = q.lte("created_at", shift.closed_at);
@@ -570,6 +580,7 @@ export default function AnalyticsPage() {
 
   // ── derived analytics ──
   const totalRevenue = orders.reduce((s, o) => s + (o.total_price ?? 0), 0);
+  const totalTips    = orders.reduce((s, o) => s + (o.tips_amount ?? 0), 0);
   const totalOrders  = orders.length;
   const avgCheck     = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
   const prevRevenue  = prevOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
@@ -689,6 +700,38 @@ export default function AnalyticsPage() {
             value={reviewAvg !== null ? `${reviewAvg.toFixed(1)} / 5` : "—"}
             delta={reviewCount > 0 ? `${reviewCount} отзывов` : "нет отзывов"} />
         </div>
+
+        {/* ── tips card ── */}
+        {totalTips > 0 && (
+          <div className="rounded-2xl border border-violet-200 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-500/5 p-5 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center text-xl shrink-0">
+              💝
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-violet-600 dark:text-violet-400 uppercase tracking-wider mb-0.5">Электронные чаевые за период</p>
+              <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">{totalTips.toLocaleString("ru-RU")} ₸</p>
+              <p className="text-xs text-zinc-400 mt-0.5">Собраны через гостевое меню · к выдаче персоналу</p>
+            </div>
+            {/* per-table breakdown */}
+            {orders.filter(o => (o.tips_amount ?? 0) > 0).length > 0 && (
+              <div className="shrink-0 text-right space-y-0.5 max-h-28 overflow-y-auto pr-1">
+                {orders
+                  .filter(o => (o.tips_amount ?? 0) > 0)
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .slice(0, 10)
+                  .map((o, i) => (
+                    <div key={i} className="text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+                      {new Date(o.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                      {" · "}
+                      <span className="font-semibold text-violet-600 dark:text-violet-400">
+                        +{(o.tips_amount ?? 0).toLocaleString("ru-RU")} ₸
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── expenses + profit row ── */}
         <div className="grid grid-cols-2 gap-4">
@@ -1030,6 +1073,7 @@ export default function AnalyticsPage() {
                               paymentBreakdown: shift.revenue_by_payment ?? {},
                               prepayBreakdown: {},
                               totalPrepay: shift.prepayments_total ?? 0,
+                              totalTips: 0,
                             };
                             openPrintWindow(shift, archiveData);
                           }}
@@ -1223,7 +1267,7 @@ function ZReportModal({ shift, data, waiterRevenues, confirmed, closing, onConfi
   onPrint: () => void;
   onClose: () => void;
 }) {
-  const { totalRevenue, ordersCount, completedCount, typeRevenue, paymentBreakdown, prepayBreakdown, totalPrepay } = data;
+  const { totalRevenue, ordersCount, completedCount, typeRevenue, paymentBreakdown, prepayBreakdown, totalPrepay, totalTips } = data;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -1245,6 +1289,22 @@ function ZReportModal({ shift, data, waiterRevenues, confirmed, closing, onConfi
 
         {/* Body */}
         <div className="p-6 space-y-4">
+
+          {/* Tips block in Z-report */}
+          {totalTips > 0 && (
+            <div className="rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">💝</span>
+                <div>
+                  <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">Чаевые за смену</p>
+                  <p className="text-[10px] text-violet-500 dark:text-violet-400">К выдаче персоналу</p>
+                </div>
+              </div>
+              <span className="text-xl font-black tabular-nums text-violet-700 dark:text-violet-300">
+                {totalTips.toLocaleString("ru-RU")} ₸
+              </span>
+            </div>
+          )}
 
           {/* Total Revenue */}
           <div className="rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/20 p-4 text-center">

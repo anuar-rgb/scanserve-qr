@@ -41,6 +41,7 @@ interface PlacedOrder {
   currency: string;
   deliveryFee?: number;
   savings?: number;
+  tipsAmount?: number;
 }
 
 export interface StoredOrder {
@@ -203,6 +204,10 @@ const T: Record<string, Record<Lang, string>> = {
   reviewSend:           { en: "Submit Review",                            ru: "Отправить отзыв",                             kz: "Пікір жіберу"                          },
   reviewThanks:         { en: "Thank you for your review!",               ru: "Спасибо за ваш отзыв!",                      kz: "Пікіріңізге рахмет!"                   },
   reviewHint:           { en: "Your comment (optional)",                  ru: "Комментарий (необязательно)",                 kz: "Түсініктеме (міндетті емес)"           },
+  tipsToggle:           { en: "Leave a tip for the team",                 ru: "Оставить чаевые команде",                     kz: "Команда үшін чаевые қалдыру"           },
+  tipsPlaceholder:      { en: "Enter amount in ₸",                        ru: "Введите сумму в ₸",                           kz: "₸ сомасын енгізіңіз"                   },
+  tipsApply:            { en: "Apply",                                    ru: "Применить",                                   kz: "Қолдану"                               },
+  tipsLabel:            { en: "Tips",                                     ru: "Чаевые",                                      kz: "Чаевые"                                },
   timingLabel:          { en: "When?",                                    ru: "Когда?",                                      kz: "Қашан?"                                },
   asap:                 { en: "As Soon As Possible",                      ru: "Как можно быстрее",                           kz: "Мүмкіндігінше тез"                     },
   preorderMode:         { en: "Pre-order",                                ru: "Предзаказ",                                   kz: "Алдын ала тапсырыс"                    },
@@ -229,6 +234,7 @@ function buildWhatsAppUrl(
   kaspiPhone?: string,
   cardTransferOptions?: PaymentInfo[],
   orderId?: string,
+  tipsAmount?: number,
 ): string {
   // Message-only translations (not shown in the UI, only in the WA message)
   const MSG: Record<string, Record<Lang, string>> = {
@@ -264,6 +270,7 @@ function buildWhatsAppUrl(
     preorderDateLabel:    { en: "Date",                        ru: "Дата",                                 kz: "Күн"                                  },
     preorderTimeLabel:    { en: "Time",                        ru: "Время",                                kz: "Уақыт"                                },
     commentsLabel:        { en: "Comments",                    ru: "Пожелания",                            kz: "Ескертулер"                           },
+    tipsLabel:            { en: "Tips",                        ru: "Чаевые",                               kz: "Чаевые"                               },
   };
 
   const m = (key: string): string => MSG[key]?.[lang] ?? MSG[key]?.en ?? key;
@@ -332,6 +339,7 @@ function buildWhatsAppUrl(
       (i) => `• ${i.name} x${i.qty} — ${(i.price * i.qty).toLocaleString("ru-RU")} ${i.currency}`,
     ),
     ...(order.deliveryFee ? [`• 🚚 ${m("deliveryFeeLabel")}: ${order.deliveryFee.toLocaleString("ru-RU")} ${order.currency}`] : []),
+    ...((tipsAmount && tipsAmount > 0) ? [`• 💝 ${m("tipsLabel")}: ${tipsAmount.toLocaleString("ru-RU")} ${order.currency}`] : []),
     `---`,
     `>> *${m("totalLabel")}: ${order.total.toLocaleString("ru-RU")} ${order.currency}*`,
     ...(order.timingMode === "preorder" ? [
@@ -433,6 +441,9 @@ export function CartDrawer({
   const [subTableConfirmBase, setSubTableConfirmBase] = useState<string | null>(null);
   const [paymentBanks, setPaymentBanks]               = useState<DbPaymentBank[]>([]);
   const [copiedIdx, setCopiedIdx]                     = useState<number | null>(null);
+  const [tipsEnabled, setTipsEnabled]                 = useState(false);
+  const [tipsInput, setTipsInput]                     = useState("");
+  const [tipsAmount, setTipsAmount]                   = useState(0);
 
   useEffect(() => {
     if (!open || !isConfigured) return;
@@ -479,7 +490,7 @@ export function CartDrawer({
   const items        = Object.values(cart);
   const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
-  const grandTotal   = total + deliveryFee;
+  const grandTotal   = total + deliveryFee + tipsAmount;
   const totalSavings = items.reduce((s, { dish, qty }) => {
     const promoBase = dish.isPromo && dish.discountLabel
       ? (() => { const pct = parseInt(dish.discountLabel, 10); return isNaN(pct) || pct <= 0 || pct >= 100 ? dish.price : Math.round(dish.price * (1 - pct / 100)); })()
@@ -565,6 +576,9 @@ export function CartDrawer({
     setReviewRating(0);
     setReviewComment("");
     setReviewSubmitted(false);
+    setTipsEnabled(false);
+    setTipsInput("");
+    setTipsAmount(0);
   };
 
   const handleClose = () => {
@@ -628,6 +642,7 @@ export function CartDrawer({
       currency,
       deliveryFee: deliveryFee || undefined,
       savings: totalSavings || undefined,
+      tipsAmount: tipsAmount || undefined,
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     setPlacedOrderId(orderId);
@@ -641,6 +656,7 @@ export function CartDrawer({
           table_number: tableNumber.trim() || null,
           items_json: orderItems,
           total_price: grandTotal,
+          tips_amount: tipsAmount || 0,
           status: "pending",
           type: "dine-in",
           order_type: timingMode,
@@ -660,7 +676,7 @@ export function CartDrawer({
     } else {
       // pickup/delivery — build WhatsApp URL then save to DB, then redirect
       const bankInfos = paymentBanks.map(b => ({ bankName: b.bank_name, phone: b.phone, recipientName: b.recipient_name ?? undefined }));
-      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId);
+      const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId, tipsAmount || undefined);
 
       if (isConfigured) {
         // Use values from `order` object — same source as WhatsApp message, avoids any state-read mismatch
@@ -670,6 +686,7 @@ export function CartDrawer({
           table_number: null,
           items_json: orderItems,
           total_price: order.total,
+          tips_amount: order.tipsAmount ?? 0,
           status: "pending",
           type: order.orderType,
           order_type: order.timingMode,
@@ -1666,6 +1683,117 @@ export function CartDrawer({
                 />
               </label>
 
+              {/* ── Tips ── */}
+              <div style={{ marginBottom: SP.lg }}>
+                {/* Toggle row */}
+                <button
+                  onClick={() => {
+                    const next = !tipsEnabled;
+                    setTipsEnabled(next);
+                    if (!next) { setTipsInput(""); setTipsAmount(0); }
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    width: "100%", padding: "12px 14px",
+                    background: tipsEnabled
+                      ? (isDark ? "rgba(124,58,237,0.14)" : "rgba(124,58,237,0.07)")
+                      : surface,
+                    border: `1.5px solid ${tipsEnabled ? "rgba(124,58,237,0.5)" : border}`,
+                    borderRadius: tipsEnabled ? `${R.md}px ${R.md}px 0 0` : R.md,
+                    color: textClr, cursor: "pointer",
+                    transition: "all 0.2s",
+                  } as React.CSSProperties}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>
+                    💝 {tn("tipsToggle", lang)}
+                  </span>
+                  {/* pill toggle */}
+                  <div style={{
+                    width: 42, height: 24, borderRadius: 12,
+                    background: tipsEnabled ? "#7C3AED" : (isDark ? "#3A3A3A" : "#D1D5DB"),
+                    position: "relative", transition: "background 0.2s", flexShrink: 0,
+                  }}>
+                    <div style={{
+                      position: "absolute", top: 3, left: tipsEnabled ? 21 : 3,
+                      width: 18, height: 18, borderRadius: "50%", background: "#FFFFFF",
+                      transition: "left 0.2s",
+                    }} />
+                  </div>
+                </button>
+
+                {/* Expanded panel */}
+                {tipsEnabled && (
+                  <div style={{
+                    padding: "14px 14px 12px",
+                    background: isDark ? "rgba(124,58,237,0.07)" : "rgba(124,58,237,0.04)",
+                    border: `1.5px solid rgba(124,58,237,0.35)`,
+                    borderTop: "none",
+                    borderRadius: `0 0 ${R.md}px ${R.md}px`,
+                  }}>
+                    {/* Quick amounts */}
+                    <div style={{ display: "flex", gap: SP.sm, marginBottom: SP.sm }}>
+                      {[300, 500, 1000].map((amt) => (
+                        <button
+                          key={amt}
+                          onClick={() => { setTipsInput(String(amt)); setTipsAmount(amt); }}
+                          style={{
+                            flex: 1, padding: "8px 0", borderRadius: R.sm,
+                            border: `1.5px solid ${tipsAmount === amt ? "#7C3AED" : border}`,
+                            background: tipsAmount === amt
+                              ? (isDark ? "rgba(124,58,237,0.25)" : "rgba(124,58,237,0.12)")
+                              : surface,
+                            color: tipsAmount === amt ? "#7C3AED" : textClr,
+                            fontSize: 13, fontWeight: 700, cursor: "pointer",
+                            transition: "all 0.15s",
+                          } as React.CSSProperties}
+                        >
+                          {amt.toLocaleString()} ₸
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom amount input + Apply */}
+                    <div style={{ display: "flex", gap: SP.sm }}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={tipsInput}
+                        onChange={(e) => setTipsInput(e.target.value)}
+                        placeholder={tn("tipsPlaceholder", lang)}
+                        style={{
+                          flex: 1, padding: "10px 12px",
+                          background: surface,
+                          border: `1.5px solid ${tipsInput ? "#7C3AED" : border}`,
+                          borderRadius: R.sm, color: textClr, fontSize: 14,
+                          outline: "none", boxSizing: "border-box",
+                          fontFamily: "inherit",
+                        } as React.CSSProperties}
+                      />
+                      <button
+                        onClick={() => {
+                          const v = parseInt(tipsInput, 10);
+                          setTipsAmount(isNaN(v) || v < 0 ? 0 : v);
+                        }}
+                        style={{
+                          padding: "10px 16px", borderRadius: R.sm, border: "none",
+                          background: "#7C3AED", color: "#FFFFFF",
+                          fontSize: 13, fontWeight: 700, cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {tn("tipsApply", lang)}
+                      </button>
+                    </div>
+
+                    {tipsAmount > 0 && (
+                      <p style={{ fontSize: 12, color: "#7C3AED", marginTop: 8, fontWeight: 600 }}>
+                        ✓ {tn("tipsLabel", lang)}: {tipsAmount.toLocaleString()} ₸
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* ── Order summary ── */}
               <div style={{ background: surface, borderRadius: R.md, padding: SP.md, border: `1px solid ${border}` }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: muted, margin: `0 0 ${SP.sm}px`, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1708,6 +1836,12 @@ export function CartDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: isDark ? "#6DB86D" : "#2E7D32" }}>
                     <span>🎉 {tn("savings", lang)}</span>
                     <span style={{ fontWeight: 700 }}>-{totalSavings.toLocaleString()} {currency}</span>
+                  </div>
+                )}
+                {tipsAmount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#7C3AED" }}>
+                    <span>💝 {tn("tipsLabel", lang)}</span>
+                    <span style={{ fontWeight: 700 }}>+{tipsAmount.toLocaleString()} {currency}</span>
                   </div>
                 )}
                 <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.sm, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700 }}>
@@ -1843,6 +1977,12 @@ export function CartDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: isDark ? "#6DB86D" : "#2E7D32" }}>
                     <span>🎉 {tn("savings", lang)}</span>
                     <span style={{ fontWeight: 700 }}>-{placedOrder.savings.toLocaleString()} {placedOrder.currency}</span>
+                  </div>
+                ) : null}
+                {placedOrder.tipsAmount && placedOrder.tipsAmount > 0 ? (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#7C3AED" }}>
+                    <span>💝 {tn("tipsLabel", lang)}</span>
+                    <span style={{ fontWeight: 700 }}>+{placedOrder.tipsAmount.toLocaleString()} {placedOrder.currency}</span>
                   </div>
                 ) : null}
                 <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.sm, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}>

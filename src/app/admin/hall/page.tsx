@@ -120,11 +120,14 @@ function handlePreCheck(
     </tr>${mods}${note}`;
   }).join("");
 
+  const tipsAmt = order.tips_amount ?? 0;
   const discountRow = savedAmount > 0
     ? `<div class="sum-row"><span>Скидка</span><span>-${savedAmount.toLocaleString("ru-RU")} ₸</span></div>` : "";
+  const tipsRow = tipsAmt > 0
+    ? `<div class="sum-row"><span>💝 Чаевые</span><span>+${tipsAmt.toLocaleString("ru-RU")} ₸</span></div>` : "";
   const prepaidRow = prepaid > 0
     ? `<div class="sum-row"><span>Предоплата</span><span>-${prepaid.toLocaleString("ru-RU")} ₸</span></div>` : "";
-  const balanceRow = (savedAmount > 0 || prepaid > 0)
+  const balanceRow = (savedAmount > 0 || prepaid > 0 || tipsAmt > 0)
     ? `<div class="sum-row balance"><span>К ОПЛАТЕ</span><span>${balanceDue.toLocaleString("ru-RU")} ₸</span></div>` : "";
 
   openPrintPopup(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Пречек</title>
@@ -171,7 +174,7 @@ function handlePreCheck(
 </table>
 <hr class="dash"/>
 <div class="sum-row big"><span>ИТОГО</span><span>${total.toLocaleString("ru-RU")} ₸</span></div>
-${discountRow}${prepaidRow}${balanceRow}
+${discountRow}${tipsRow}${prepaidRow}${balanceRow}
 <hr class="dash"/>
 <div class="footer">Спасибо за визит! &nbsp;·&nbsp; #${order.id.slice(0,8).toUpperCase()}</div>
 <script>window.onload=()=>{window.print()}<\/script>
@@ -3507,6 +3510,14 @@ function TablePanel({
                   <span className="text-xs text-emerald-600 dark:text-emerald-400">Скидка</span>
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">
                     −{savedAmount.toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+              )}
+              {(activeOrder.tips_amount ?? 0) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-violet-600 dark:text-violet-400">💝 Чаевые</span>
+                  <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">
+                    +{(activeOrder.tips_amount ?? 0).toLocaleString("ru-RU")} ₸
                   </span>
                 </div>
               )}

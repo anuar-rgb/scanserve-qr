@@ -94,6 +94,7 @@ export interface DbOrder {
   prepayment_method: string | null;
   closed_at: string | null;
   opened_by: string | null;
+  tips_amount: number | null;
 }
 
 export interface DbWaiterShiftRevenue {
