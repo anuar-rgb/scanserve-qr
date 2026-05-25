@@ -185,7 +185,8 @@ export default function OwnerPage() {
   const [weekData,      setWeekData]      = useState<WeekData | null>(null);
   const [topDishes,     setTopDishes]     = useState<TopDish[] | null>(null);
   const [recentOrders,  setRecentOrders]  = useState<RecentOrder[] | null>(null);
-  const [invoicesData,  setInvoicesData]  = useState<InvoicesData | null>(null);
+  const [invoicesData,   setInvoicesData]   = useState<InvoicesData | null>(null);
+  const [invoicesPeriod, setInvoicesPeriod] = useState<"today" | "7d" | "30d" | "90d">("30d");
   const [busy,          setBusy]          = useState(false);
   const [realtimeOk,    setRealtimeOk]    = useState(false);
   const [updatedAt,     setUpdatedAt]     = useState<Date | null>(null);
@@ -327,12 +328,16 @@ export default function OwnerPage() {
     setTopDishes(Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })));
   }, []);
 
-  const fetchInvoices = useCallback(async () => {
+  const fetchInvoices = useCallback(async (period: "today" | "7d" | "30d" | "90d" = "30d") => {
     if (!isConfigured) return;
+    const from = period === "today" ? startOfToday()
+      : period === "7d"  ? startOfDaysAgo(7)
+      : period === "30d" ? startOfDaysAgo(30)
+      : startOfDaysAgo(90);
     const { data } = await supabase.from("invoices")
       .select("supplier_name, total_amount, created_at")
       .eq("restaurant_id", RESTAURANT_ID)
-      .gte("created_at", startOfDaysAgo(30).toISOString())
+      .gte("created_at", from.toISOString())
       .order("created_at", { ascending: false });
     const rows = (data ?? []) as InvoiceRow[];
     const total = rows.reduce((s, r) => s + (r.total_amount ?? 0), 0);
@@ -354,10 +359,10 @@ export default function OwnerPage() {
 
   const fetchAll = useCallback(async () => {
     setBusy(true);
-    await Promise.all([fetchHall(), fetchToday(), fetchShiftAndStaff(), fetchReviews(), fetchWeek(), fetchTopDishes(), fetchRecent(), fetchInvoices()]);
+    await Promise.all([fetchHall(), fetchToday(), fetchShiftAndStaff(), fetchReviews(), fetchWeek(), fetchTopDishes(), fetchRecent(), fetchInvoices(invoicesPeriod)]);
     setUpdatedAt(new Date());
     setBusy(false);
-  }, [fetchHall, fetchToday, fetchShiftAndStaff, fetchReviews, fetchWeek, fetchTopDishes, fetchRecent, fetchInvoices]);
+  }, [fetchHall, fetchToday, fetchShiftAndStaff, fetchReviews, fetchWeek, fetchTopDishes, fetchRecent, fetchInvoices, invoicesPeriod]);
 
   // ── Realtime + initial load ────────────────────────────────────────────────
 
@@ -470,7 +475,11 @@ export default function OwnerPage() {
         <RecentOrdersCard data={recentOrders} />
 
         {/* 9 — Накладные */}
-        <InvoicesCard data={invoicesData} />
+        <InvoicesCard
+          data={invoicesData}
+          period={invoicesPeriod}
+          onPeriod={(p) => { setInvoicesPeriod(p); setInvoicesData(null); fetchInvoices(p); }}
+        />
 
       </div>
     </div>
@@ -679,18 +688,49 @@ function TopDishesCard({ data }: { data: TopDish[] | null }) {
   );
 }
 
-function InvoicesCard({ data }: { data: InvoicesData | null }) {
+const INVOICE_PERIODS: { key: "today" | "7d" | "30d" | "90d"; label: string }[] = [
+  { key: "today", label: "Сегодня" },
+  { key: "7d",    label: "7 дней"  },
+  { key: "30d",   label: "30 дней" },
+  { key: "90d",   label: "90 дней" },
+];
+
+function InvoicesCard({ data, period, onPeriod }: {
+  data:     InvoicesData | null;
+  period:   "today" | "7d" | "30d" | "90d";
+  onPeriod: (p: "today" | "7d" | "30d" | "90d") => void;
+}) {
   return (
     <Card>
-      <Label>Накладные (30 дней)</Label>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <Label>Накладные</Label>
+        <div style={{ display: "flex", gap: 5, marginTop: -8 }}>
+          {INVOICE_PERIODS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => onPeriod(key)}
+              style={{
+                background: period === key ? RED : "rgba(255,255,255,0.06)",
+                border: period === key ? "none" : "1px solid rgba(255,255,255,0.10)",
+                borderRadius: 8,
+                color: period === key ? "#fff" : MUTED,
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "4px 8px",
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       {data === null ? <Skeleton lines={3} /> : data.count === 0 ? (
-        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет накладных за 30 дней</p>
+        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет накладных за выбранный период</p>
       ) : (
         <>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
-            <Big>₸ {fmt(data.total)}</Big>
-          </div>
-          <p style={{ color: MUTED, fontSize: 13, margin: "0 0 14px" }}>{data.count} накладных</p>
+          <Big>₸ {fmt(data.total)}</Big>
+          <p style={{ color: MUTED, fontSize: 13, margin: "4px 0 14px" }}>{data.count} накладных</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {data.suppliers.map((s, i) => (
               <div key={i}>
