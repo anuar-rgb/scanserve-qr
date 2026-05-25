@@ -21,6 +21,8 @@ export const DB_TABLES = {
   waiterCalls: "waiter_calls",
   crmClients: "crm_clients",
   orderVoids: "order_voids",
+  ingredients: "ingredients",
+  recipeItems: "recipe_items",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

@@ -350,7 +350,9 @@
     "ownerUpdatedAt": "Жаңартылды",
     "navDocuments": "Құжаттар",
     "descDocuments": "Қызметкерлер шарттары және цифрлық қол қою басқармасы.",
-    "sectionDocuments": "Құжаттар"
+    "sectionDocuments": "Құжаттар",
+    "navWarehouse": "Қойма / Ингредиенттер",
+    "sectionWarehouseNav": "Қойма"
   },
   "receipt": {
     "title": "ТҮБІРТЕК",

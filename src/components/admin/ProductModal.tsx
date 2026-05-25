@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { X, Upload, Loader2, ImageIcon, Flame, Star, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X, Loader2, ImageIcon, Flame, Star, Sparkles, Plus, Trash2 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import type { DbCategory, DbProduct, LS } from "@/lib/db-types";
+import type { DbCategory, DbIngredient, DbProduct, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 import { useIsStrictOwner } from "@/lib/role-context";
 import { ImageCropModal } from "./ImageCropModal";
@@ -66,6 +66,31 @@ const BADGE_COLORS = [
   { hex: "#FF6B2B", label: "Orange" },
   { hex: "#A855F7", label: "Purple" },
 ];
+
+// ── Recipe / калькуляция ──────────────────────────────────────────────────────
+
+interface RecipeRow {
+  key: string;
+  dbId?: string;
+  ingredientId: string;
+  weightGross: string;
+  weightNet: string;
+}
+
+const UNIT_INPUT_LABEL: Record<DbIngredient["unit"], string> = {
+  kg:    "г",
+  liter: "мл",
+  pcs:   "шт",
+};
+
+function calcLineCost(ing: DbIngredient, weightGross: number): number {
+  if (ing.unit === "kg" || ing.unit === "liter") return (weightGross / 1000) * ing.purchase_price;
+  return weightGross * ing.purchase_price;
+}
+
+function fmtNum(n: number, decimals = 2) {
+  return n.toLocaleString("ru-RU", { minimumFractionDigits: 0, maximumFractionDigits: decimals });
+}
 
 export const ALLERGEN_TAGS = [
   { key: "spicy",        emoji: "🌶️", label: "Острое",           activeCls: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30" },
@@ -203,6 +228,65 @@ export default function ProductModal({ mode, product, categories, defaultCategor
     setAllergens(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   }
 
+  // Recipe / калькуляция
+  const [dbIngredients, setDbIngredients] = useState<DbIngredient[]>([]);
+  const [recipeRows, setRecipeRows]       = useState<RecipeRow[]>([]);
+
+  const loadRecipeData = useCallback(async () => {
+    if (!isConfigured) return;
+    const { data: ingData } = await supabase
+      .from("ingredients")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("name");
+    setDbIngredients((ingData ?? []) as DbIngredient[]);
+
+    if (product?.id) {
+      const { data: recipeData } = await supabase
+        .from("recipe_items")
+        .select("*")
+        .eq("product_id", product.id);
+      setRecipeRows(
+        ((recipeData ?? []) as { id: string; ingredient_id: string; weight_gross: number; weight_net: number }[])
+          .map(r => ({
+            key:          r.id,
+            dbId:         r.id,
+            ingredientId: r.ingredient_id,
+            weightGross:  String(r.weight_gross),
+            weightNet:    String(r.weight_net),
+          }))
+      );
+    }
+  }, [product?.id]);
+
+  useEffect(() => { loadRecipeData(); }, [loadRecipeData]);
+
+  function addRecipeRow() {
+    setRecipeRows(prev => [...prev, {
+      key: `new-${Date.now()}`, ingredientId: dbIngredients[0]?.id ?? "", weightGross: "", weightNet: "",
+    }]);
+  }
+
+  function removeRecipeRow(key: string) {
+    setRecipeRows(prev => prev.filter(r => r.key !== key));
+  }
+
+  function updateRecipeRow(key: string, patch: Partial<RecipeRow>) {
+    setRecipeRows(prev => prev.map(r => r.key === key ? { ...r, ...patch } : r));
+  }
+
+  const totalCost = recipeRows.reduce((sum, row) => {
+    const ing = dbIngredients.find(i => i.id === row.ingredientId);
+    if (!ing) return sum;
+    return sum + calcLineCost(ing, parseFloat(row.weightGross) || 0);
+  }, 0);
+
+  const priceForCost = parseInt(price, 10);
+  const markupPct    = totalCost > 0 && !isNaN(priceForCost) && priceForCost > totalCost
+    ? ((priceForCost - totalCost) / totalCost) * 100 : null;
+  const foodCostPct  = !isNaN(priceForCost) && priceForCost > 0 && totalCost > 0
+    ? (totalCost / priceForCost) * 100 : null;
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.image_url ?? null);
   const [file, setFile]             = useState<File | null>(null);
   const [saving, setSaving]         = useState(false);
@@ -268,6 +352,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         allergens,
       };
 
+      let savedProduct: DbProduct;
       if (mode === "edit" && product) {
         const { data, error: err } = await supabase
           .from("products")
@@ -276,7 +361,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
           .select()
           .single();
         if (err) throw err;
-        onSaved(data as DbProduct);
+        savedProduct = data as DbProduct;
       } else {
         const { data, error: err } = await supabase
           .from("products")
@@ -284,8 +369,24 @@ export default function ProductModal({ mode, product, categories, defaultCategor
           .select()
           .single();
         if (err) throw err;
-        onSaved(data as DbProduct);
+        savedProduct = data as DbProduct;
       }
+
+      // Save recipe items (калькуляция)
+      await supabase.from("recipe_items").delete().eq("product_id", savedProduct.id);
+      const validRows = recipeRows.filter(r => r.ingredientId && parseFloat(r.weightGross) > 0);
+      if (validRows.length > 0) {
+        await supabase.from("recipe_items").insert(
+          validRows.map(r => ({
+            product_id:    savedProduct.id,
+            ingredient_id: r.ingredientId,
+            weight_gross:  parseFloat(r.weightGross) || 0,
+            weight_net:    parseFloat(r.weightNet)   || 0,
+          }))
+        );
+      }
+
+      onSaved(savedProduct);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed. Check Supabase permissions.");
       setSaving(false);
@@ -428,6 +529,126 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Recipe / Калькуляция */}
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-700/60">
+                  <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Технологическая карта
+                  </label>
+                  {dbIngredients.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={addRecipeRow}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 transition-colors"
+                    >
+                      <Plus size={12} />
+                      Добавить
+                    </button>
+                  )}
+                </div>
+
+                {dbIngredients.length === 0 ? (
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-4 py-3">
+                    Сначала добавьте ингредиенты в разделе{" "}
+                    <a href="/admin/warehouse" target="_blank" className="text-violet-600 dark:text-violet-400 underline">Склад / Ингредиенты</a>.
+                  </p>
+                ) : recipeRows.length === 0 ? (
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-4 py-3">
+                    Нет ингредиентов. Нажмите «Добавить» для создания калькуляции.
+                  </p>
+                ) : (
+                  <div>
+                    {/* Table header */}
+                    <div className="grid grid-cols-[1fr_80px_70px_60px_28px] gap-1.5 px-3 pt-2 pb-1">
+                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Ингредиент</span>
+                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Брутто</span>
+                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Нетто</span>
+                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">₸</span>
+                      <span />
+                    </div>
+                    {/* Rows */}
+                    <div className="px-3 pb-2 space-y-1.5">
+                      {recipeRows.map(row => {
+                        const ing      = dbIngredients.find(i => i.id === row.ingredientId);
+                        const unitLbl  = ing ? UNIT_INPUT_LABEL[ing.unit] : "г";
+                        const lineCost = ing ? calcLineCost(ing, parseFloat(row.weightGross) || 0) : 0;
+                        return (
+                          <div key={row.key} className="grid grid-cols-[1fr_80px_70px_60px_28px] gap-1.5 items-center">
+                            <select
+                              value={row.ingredientId}
+                              onChange={e => updateRecipeRow(row.key, { ingredientId: e.target.value })}
+                              className="w-full px-2 py-1.5 text-xs rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                            >
+                              {dbIngredients.map(i => (
+                                <option key={i.id} value={i.id}>{i.name}</option>
+                              ))}
+                            </select>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.1"
+                                value={row.weightGross}
+                                onChange={e => updateRecipeRow(row.key, { weightGross: e.target.value })}
+                                placeholder="0"
+                                className="w-full pr-6 pl-2 py-1.5 text-xs rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/40 text-right"
+                              />
+                              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">{unitLbl}</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.1"
+                                value={row.weightNet}
+                                onChange={e => updateRecipeRow(row.key, { weightNet: e.target.value })}
+                                placeholder="0"
+                                className="w-full pr-6 pl-2 py-1.5 text-xs rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/40 text-right"
+                              />
+                              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">{unitLbl}</span>
+                            </div>
+                            <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 text-right tabular-nums">
+                              {lineCost > 0 ? fmtNum(lineCost) : "—"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeRecipeRow(row.key)}
+                              className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-300 dark:text-zinc-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Summary */}
+                    {totalCost > 0 && (
+                      <div className="border-t border-zinc-200 dark:border-zinc-700/60 px-3 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/30 flex flex-wrap gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Себестоимость</span>
+                          <span className="text-xs font-black tabular-nums text-zinc-800 dark:text-zinc-200">{fmtNum(totalCost)} ₸</span>
+                        </div>
+                        {markupPct !== null && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Наценка</span>
+                            <span className="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400">{fmtNum(markupPct)}%</span>
+                          </div>
+                        )}
+                        {foodCostPct !== null && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Фудкост</span>
+                            <span className={`text-xs font-black tabular-nums ${foodCostPct > 35 ? "text-red-500" : "text-amber-500"}`}>
+                              {fmtNum(foodCostPct)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Price + Category */}

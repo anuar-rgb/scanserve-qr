@@ -219,3 +219,22 @@ export interface DbCrmClient {
   created_at: string;
   last_visit: string;
 }
+
+export interface DbIngredient {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  unit: "kg" | "liter" | "pcs";
+  current_stock: number;
+  purchase_price: number;
+  created_at: string;
+}
+
+export interface DbRecipeItem {
+  id: string;
+  product_id: string;
+  ingredient_id: string;
+  weight_gross: number;
+  weight_net: number;
+  created_at: string;
+}

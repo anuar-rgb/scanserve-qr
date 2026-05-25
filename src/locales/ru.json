@@ -350,7 +350,9 @@
     "ownerUpdatedAt": "Обновлено в",
     "navDocuments": "Документы",
     "descDocuments": "Договоры сотрудников и управление цифровыми подписями.",
-    "sectionDocuments": "Документы"
+    "sectionDocuments": "Документы",
+    "navWarehouse": "Склад / Ингредиенты",
+    "sectionWarehouseNav": "Склад"
   },
   "receipt": {
     "title": "ЧЕК",

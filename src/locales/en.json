@@ -350,7 +350,9 @@
     "ownerUpdatedAt": "Updated at",
     "navDocuments": "Documents",
     "descDocuments": "Employee contracts and digital signature management.",
-    "sectionDocuments": "Documents"
+    "sectionDocuments": "Documents",
+    "navWarehouse": "Warehouse / Ingredients",
+    "sectionWarehouseNav": "Warehouse"
   },
   "receipt": {
     "title": "RECEIPT",
