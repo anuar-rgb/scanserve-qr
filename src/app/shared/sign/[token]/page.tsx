@@ -213,7 +213,28 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
             <><br />Подписан: {new Date(data.signedAt).toLocaleString("ru-RU")}</>
           )}
         </p>
-        <p style={{ color: MUTED, fontSize: 13, marginTop: 8 }}>Вы можете закрыть эту страницу</p>
+        <a
+          href={`/print/sign/${token}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display:        "inline-flex",
+            alignItems:     "center",
+            gap:            8,
+            marginTop:      8,
+            padding:        "13px 24px",
+            background:     VIOLET,
+            color:          "#fff",
+            borderRadius:   12,
+            fontSize:       14,
+            fontWeight:     700,
+            textDecoration: "none",
+            letterSpacing:  0.2,
+          }}
+        >
+          📄 Скачать копию договора в PDF
+        </a>
+        <p style={{ color: MUTED, fontSize: 13, marginTop: 4 }}>Вы можете закрыть эту страницу</p>
       </div>
     );
   }

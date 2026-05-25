@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil, Eye, X } from "lucide-react";
+import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil, Eye, X, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -213,6 +213,19 @@ function SignatureModal({
                     🌐 IP: <span className="font-mono text-zinc-600 dark:text-zinc-400">{ipAddress}</span>
                   </p>
                 )}
+              </div>
+
+              {/* PDF download */}
+              <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <a
+                  href={`/print/signature?docId=${view.docId}&staffId=${view.staffId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+                >
+                  <Download size={14} />
+                  Скачать PDF договора
+                </a>
               </div>
             </>
           )}

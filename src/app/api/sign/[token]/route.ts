@@ -24,6 +24,7 @@ export async function GET(
       id,
       status,
       signed_at,
+      signature_image,
       document_id,
       staff_user_id,
       company_documents (
@@ -48,9 +49,10 @@ export async function GET(
     : sig.company_documents;
 
   return NextResponse.json({
-    status:     sig.status,
-    signedAt:   sig.signed_at,
-    staffName:  staff?.display_name ?? staff?.username ?? "Сотрудник",
+    status:         sig.status,
+    signedAt:       sig.signed_at,
+    staffName:      staff?.display_name ?? staff?.username ?? "Сотрудник",
+    signatureImage: sig.status === "signed" ? (sig.signature_image ?? null) : null,
     document: {
       title:   doc?.title   ?? "",
       content: doc?.content ?? "",
