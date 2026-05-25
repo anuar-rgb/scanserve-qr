@@ -67,6 +67,14 @@ const BADGE_COLORS = [
   { hex: "#A855F7", label: "Purple" },
 ];
 
+export const ALLERGEN_TAGS = [
+  { key: "spicy",        emoji: "🌶️", label: "Острое",           activeCls: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30" },
+  { key: "nuts",         emoji: "🥜",  label: "Содержит орехи",   activeCls: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" },
+  { key: "vegetarian",   emoji: "🌱",  label: "Вегетарианское",   activeCls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" },
+  { key: "lactose_free", emoji: "🥛",  label: "Без лактозы",      activeCls: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30" },
+  { key: "gluten",       emoji: "🌾",  label: "Содержит глютен",  activeCls: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30" },
+];
+
 function fgFromHex(hex: string): string {
   const h = hex.replace("#", "");
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
@@ -189,6 +197,11 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const [isAvail, setIsAvail]     = useState(product?.is_available ?? true);
   const [isPromo, setIsPromo]     = useState(product?.is_promo ?? false);
   const [discountPct, setDiscountPct] = useState(product?.is_promo ? (product?.discount_label ?? "") : "");
+  const [allergens, setAllergens] = useState<string[]>(product?.allergens ?? []);
+
+  function toggleAllergen(key: string) {
+    setAllergens(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  }
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.image_url ?? null);
   const [file, setFile]             = useState<File | null>(null);
@@ -252,6 +265,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         discount_label: isPromo && discountPct.trim() ? discountPct.trim() : null,
         is_archived: product?.is_archived ?? false,
         order_index: product?.order_index ?? 9999,
+        allergens,
       };
 
       if (mode === "edit" && product) {
@@ -391,6 +405,30 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   className={inputCls + " resize-none"}
                 />
               </Field>
+
+              {/* Allergens */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
+                  Аллергены и особенности
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {ALLERGEN_TAGS.map(({ key, emoji, label, activeCls }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleAllergen(key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                        allergens.includes(key)
+                          ? activeCls
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700"
+                      }`}
+                    >
+                      <span>{emoji}</span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Price + Category */}
               <div className="grid grid-cols-2 gap-3">

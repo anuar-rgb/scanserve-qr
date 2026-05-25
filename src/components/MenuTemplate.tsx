@@ -46,6 +46,7 @@ export interface Dish {
   isPromo?: boolean;
   isRecommended?: boolean;
   ingredients?: string;
+  allergens?: string[];
   modifiers?: DishModifier[];
 }
 
