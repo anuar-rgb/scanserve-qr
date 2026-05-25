@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, CreditCard, Star, Tag, RefreshCw,
   Clock, Play, Printer, Archive, ChevronDown, X, CheckCircle2, FileText, Users,
+  DollarSign, BarChart2, TrendingDown,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { LS, DbShift } from "@/lib/db-types";
@@ -83,6 +84,14 @@ interface Breakdown      { label: string; count: number; pct: number; bg: string
 interface InvoiceRow     { supplier_name: string; total_amount: number; created_at: string; }
 interface SupplierStat   { name: string; total: number; pct: number; }
 interface VoidRow        { id: string; item_name: string; item_price: number; quantity: number; reason: string; voided_by_name: string | null; table_number: string | null; created_at: string; }
+
+interface DailyPoint { date: string; label: string; revenue: number; cost: number; profit: number; }
+interface DishProfit  {
+  productId: string; name: string; sold: number;
+  costPerPortion: number; totalRevenue: number; totalCost: number;
+  netProfit: number; foodCostPct: number;
+}
+interface FoodCostSummary { totalCost: number; netProfit: number; foodCostPct: number; daily: DailyPoint[]; dishes: DishProfit[]; }
 
 // ─── static maps ─────────────────────────────────────────────────────────────
 
@@ -367,6 +376,12 @@ export default function AnalyticsPage() {
   const [waiterPerf, setWaiterPerf]         = useState<WaiterPerfRow[]>([]);
   const [waiterPerfLoading, setWaiterPerfLoading] = useState(false);
 
+  // ── food cost state ──
+  const [activeSection, setActiveSection] = useState<"analytics" | "foodcost">("analytics");
+  const [foodCost,    setFoodCost]    = useState<FoodCostSummary | null>(null);
+  const [fcLoading,   setFcLoading]   = useState(false);
+  const [fcSort,      setFcSort]      = useState<"profit" | "revenue" | "foodcost">("profit");
+
   // ── analytics load ──
   const load = useCallback(async (p: Period) => {
     if (!isConfigured) { setLoading(false); return; }
@@ -487,7 +502,146 @@ export default function AnalyticsPage() {
     setWaiterPerfLoading(false);
   }, []);
 
-  useEffect(() => { load(period); loadWaiterPerf(period); }, [load, loadWaiterPerf, period]);
+  // ── food cost load ──
+  const loadFoodCost = useCallback(async (p: Period) => {
+    if (!isConfigured) return;
+    setFcLoading(true);
+
+    const from = fromDate(p).toISOString();
+    const now  = new Date().toISOString();
+
+    // 1. Completed orders in period
+    const { data: ordData } = await supabase
+      .from("orders")
+      .select("id, total_price, items_json, created_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("status", "completed")
+      .gte("created_at", from).lte("created_at", now)
+      .order("created_at");
+
+    const completedOrders = (ordData ?? []) as {
+      id: string; total_price: number; items_json: unknown; created_at: string;
+    }[];
+
+    // 2. Parse items_json → per-product sales map
+    type SaleEntry = { name: string; qty: number; revenue: number };
+    const productSales = new Map<string, SaleEntry>();
+
+    for (const order of completedOrders) {
+      const items = order.items_json as Array<{
+        product_id?: string; name?: string; qty?: number; price?: number;
+      }> | null;
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (!item.product_id) continue;
+        const qty = item.qty ?? 1;
+        const price = item.price ?? 0;
+        const existing = productSales.get(item.product_id);
+        if (existing) {
+          existing.qty += qty;
+          existing.revenue += price * qty;
+        } else {
+          productSales.set(item.product_id, { name: item.name ?? "—", qty, revenue: price * qty });
+        }
+      }
+    }
+
+    const productIds = [...productSales.keys()];
+
+    // 3. Recipe items + ingredient purchase prices
+    const recipeMap = new Map<string, number>(); // product_id → cost per portion
+
+    if (productIds.length > 0) {
+      const { data: recData } = await supabase
+        .from("recipe_items")
+        .select("product_id, weight_gross, ingredients(purchase_price, unit)")
+        .in("product_id", productIds);
+
+      for (const ri of (recData ?? []) as unknown as {
+        product_id: string; weight_gross: number;
+        ingredients: { purchase_price: number; unit: string } | null;
+      }[]) {
+        const ing = ri.ingredients;
+        if (!ing) continue;
+        const deduction = ing.unit === "pcs" ? ri.weight_gross : ri.weight_gross / 1000;
+        const cost = deduction * ing.purchase_price;
+        recipeMap.set(ri.product_id, (recipeMap.get(ri.product_id) ?? 0) + cost);
+      }
+    }
+
+    // 4. Build dish profitability
+    const dishes: DishProfit[] = [];
+    let totalRevenueFc = 0;
+    let totalCostFc    = 0;
+
+    for (const [pid, sales] of productSales) {
+      const costPerPortion = recipeMap.get(pid) ?? 0;
+      const totalRevDish  = sales.revenue;
+      const totalCostDish = costPerPortion * sales.qty;
+      const netProfitDish = totalRevDish - totalCostDish;
+      const fcPct = totalRevDish > 0 ? (totalCostDish / totalRevDish) * 100 : 0;
+
+      totalRevenueFc += totalRevDish;
+      totalCostFc    += totalCostDish;
+
+      dishes.push({
+        productId: pid,
+        name: sales.name,
+        sold: sales.qty,
+        costPerPortion,
+        totalRevenue: totalRevDish,
+        totalCost: totalCostDish,
+        netProfit: netProfitDish,
+        foodCostPct: fcPct,
+      });
+    }
+
+    const netProfit   = totalRevenueFc - totalCostFc;
+    const foodCostPct = totalRevenueFc > 0 ? (totalCostFc / totalRevenueFc) * 100 : 0;
+
+    // 5. Daily series
+    const dayCount = p === "today" ? 24 : p === "week" ? 7 : 30;
+    const todayMs  = new Date().setHours(0, 0, 0, 0);
+
+    const daily: DailyPoint[] = Array.from({ length: dayCount }, (_, i) => {
+      if (p === "today") return { date: String(i), label: `${i}:00`, revenue: 0, cost: 0, profit: 0 };
+      const d = new Date(todayMs);
+      d.setDate(d.getDate() - (dayCount - 1 - i));
+      return {
+        date: d.toISOString().slice(0, 10),
+        label: p === "week" ? RU_DAYS[d.getDay()] : String(d.getDate()),
+        revenue: 0, cost: 0, profit: 0,
+      };
+    });
+
+    for (const order of completedOrders) {
+      let idx: number;
+      if (p === "today") {
+        idx = new Date(order.created_at).getHours();
+      } else {
+        const oMs = new Date(new Date(order.created_at).setHours(0, 0, 0, 0)).getTime();
+        idx = dayCount - 1 - Math.round((todayMs - oMs) / 86_400_000);
+      }
+      if (idx < 0 || idx >= dayCount) continue;
+
+      daily[idx].revenue += order.total_price ?? 0;
+
+      const items = order.items_json as Array<{ product_id?: string; qty?: number }> | null;
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (!item.product_id) continue;
+        daily[idx].cost += (recipeMap.get(item.product_id) ?? 0) * (item.qty ?? 1);
+      }
+    }
+    for (const d of daily) d.profit = d.revenue - d.cost;
+
+    dishes.sort((a, b) => b.netProfit - a.netProfit);
+
+    setFoodCost({ totalCost: totalCostFc, netProfit, foodCostPct, daily, dishes });
+    setFcLoading(false);
+  }, []);
+
+  useEffect(() => { load(period); loadWaiterPerf(period); loadFoodCost(period); }, [load, loadWaiterPerf, loadFoodCost, period]);
   useEffect(() => { loadShifts(); }, [loadShifts]);
 
   // ── shift actions ──
@@ -599,6 +753,15 @@ export default function AnalyticsPage() {
 
   const zReportData = computeZReport(shiftOrders);
 
+  // ── food cost derived ──
+  const sortedDishes = foodCost
+    ? [...foodCost.dishes].sort((a, b) =>
+        fcSort === "profit"   ? b.netProfit - a.netProfit :
+        fcSort === "revenue"  ? b.totalRevenue - a.totalRevenue :
+        b.foodCostPct - a.foodCostPct
+      )
+    : [];
+
   // ── expenses derived ──
   const totalExpenses  = invoiceRows.reduce((s, i) => s + (i.total_amount ?? 0), 0);
   const grossProfit    = totalRevenue - totalExpenses;
@@ -655,7 +818,27 @@ export default function AnalyticsPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+      {/* ── Section tabs ── */}
+      <div className="px-8 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 flex items-center gap-0.5">
+        {([
+          ["analytics", "Продажи"],
+          ["foodcost",  "Food Cost / Маржинальность"],
+        ] as [string, string][]).map(([key, label]) => (
+          <button key={key}
+            onClick={() => setActiveSection(key as "analytics" | "foodcost")}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeSection === key
+                ? "border-violet-500 text-violet-600 dark:text-violet-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+
+      {activeSection === "analytics" && <div className="p-8 space-y-6">
 
         {/* ── Active shift control — only show Z-report when shift is open ── */}
         {activeShift && (
@@ -1250,6 +1433,193 @@ export default function AnalyticsPage() {
           );
         })()}
 
+      </div>}
+
+      {/* ── Food Cost / Маржинальность tab ── */}
+      {activeSection === "foodcost" && <div className="p-8 space-y-6">
+
+        {fcLoading ? (
+          <div className="grid grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-800 animate-pulse" />)}
+          </div>
+        ) : foodCost ? (
+          <>
+            {/* ── 4 metric cards ── */}
+            <div className="grid grid-cols-4 gap-4">
+              <MetricCard loading={false} icon={<CreditCard size={16} />} color="violet"
+                label="Выручка (оплачено)"
+                value={`${(foodCost.dishes.reduce((s, d) => s + d.totalRevenue, 0) / 1000).toFixed(1)}K ₸`}
+                delta={`${foodCost.dishes.reduce((s, d) => s + d.sold, 0)} порций с рецептурой`} />
+              <MetricCard loading={false} icon={<DollarSign size={16} />} color="red"
+                label="Себестоимость"
+                value={`${(foodCost.totalCost / 1000).toFixed(1)}K ₸`}
+                delta="по рецептуре блюд" />
+              <MetricCard loading={false} icon={<TrendingUp size={16} />} color="emerald"
+                label="Чистая прибыль"
+                value={`${(foodCost.netProfit / 1000).toFixed(1)}K ₸`}
+                delta={foodCost.dishes.reduce((s, d) => s + d.totalRevenue, 0) > 0
+                  ? `маржа ${Math.round(foodCost.netProfit / foodCost.dishes.reduce((s, d) => s + d.totalRevenue, 0) * 100)}%`
+                  : "—"}
+                deltaUp={foodCost.netProfit >= 0} />
+              <MetricCard loading={false} icon={<BarChart2 size={16} />} color="amber"
+                label="Food Cost"
+                value={`${foodCost.foodCostPct.toFixed(1)}%`}
+                delta={foodCost.foodCostPct < 30 ? "отлично (< 30%)" : foodCost.foodCostPct < 40 ? "норма (30–40%)" : "высокий (> 40%)"}
+                deltaUp={foodCost.foodCostPct < 35} />
+            </div>
+
+            {/* ── Revenue vs Profit line chart ── */}
+            {foodCost.daily.some(d => d.revenue > 0) && (
+              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Выручка vs Чистая прибыль</h2>
+                    <p className="text-xs text-zinc-400 mt-0.5">{PERIOD_LABEL[period]}</p>
+                  </div>
+                  <div className="flex items-center gap-5 text-xs text-zinc-500">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-0.5 rounded-full bg-violet-500" />
+                      Выручка
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-0.5 rounded-full bg-emerald-500" />
+                      Прибыль
+                    </div>
+                  </div>
+                </div>
+                <ProfitLineChart data={foodCost.daily} />
+              </div>
+            )}
+
+            {/* ── Dish profitability table ── */}
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+              <div className="flex items-center justify-between mb-5 gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                    <BarChart2 size={15} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Рейтинг маржинальности блюд</h2>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      {foodCost.dishes.length} позиций с рецептурой · {PERIOD_LABEL[period]}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl text-xs shrink-0">
+                  {([
+                    ["profit",   "По прибыли"],
+                    ["revenue",  "По выручке"],
+                    ["foodcost", "По FC%"],
+                  ] as [typeof fcSort, string][]).map(([k, l]) => (
+                    <button key={k} onClick={() => setFcSort(k)}
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                        fcSort === k
+                          ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                          : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                      }`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+
+              {sortedDishes.length === 0 ? (
+                <div className="text-center py-10">
+                  <TrendingDown size={28} className="mx-auto mb-3 text-zinc-300 dark:text-zinc-600" />
+                  <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                    Нет блюд с рецептурой за период.
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Добавьте рецептуру блюд в разделе «Склад».</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto -mx-1">
+                  <table className="w-full text-xs min-w-[640px]">
+                    <thead>
+                      <tr className="text-zinc-400 border-b border-zinc-100 dark:border-zinc-800/60">
+                        <th className="text-left pb-2.5 pr-2 font-semibold w-6">#</th>
+                        <th className="text-left pb-2.5 font-semibold">Блюдо</th>
+                        <th className="text-right pb-2.5 px-3 font-semibold">Продано</th>
+                        <th className="text-right pb-2.5 px-3 font-semibold">Цена</th>
+                        <th className="text-right pb-2.5 px-3 font-semibold">С/С порции</th>
+                        <th className="text-right pb-2.5 px-3 font-semibold">Выручка</th>
+                        <th className="text-right pb-2.5 px-3 font-semibold">Прибыль</th>
+                        <th className="text-right pb-2.5 pl-3 font-semibold">FC%</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
+                      {sortedDishes.map((d, i) => {
+                        const avgPrice = d.sold > 0 ? Math.round(d.totalRevenue / d.sold) : 0;
+                        const hasCost  = d.costPerPortion > 0;
+                        const fcColor  = !hasCost ? "text-zinc-400"
+                          : d.foodCostPct < 30 ? "text-emerald-600 dark:text-emerald-400"
+                          : d.foodCostPct < 40 ? "text-amber-600 dark:text-amber-400"
+                          : "text-red-500";
+                        return (
+                          <tr key={d.productId} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors group">
+                            <td className="py-2.5 pr-2 font-bold text-zinc-300 dark:text-zinc-600">{i + 1}</td>
+                            <td className="py-2.5 max-w-[200px]">
+                              <span className="block truncate font-medium text-zinc-700 dark:text-zinc-300">{d.name}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums text-zinc-500">{d.sold}</td>
+                            <td className="py-2.5 px-3 text-right tabular-nums text-zinc-500">{avgPrice.toLocaleString("ru-RU")} ₸</td>
+                            <td className="py-2.5 px-3 text-right tabular-nums text-zinc-500">
+                              {hasCost ? `${Math.round(d.costPerPortion).toLocaleString("ru-RU")} ₸` : <span className="text-zinc-300 dark:text-zinc-600">—</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-zinc-800 dark:text-zinc-200">
+                              {d.totalRevenue.toLocaleString("ru-RU")} ₸
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
+                              {d.netProfit >= 0 ? "+" : ""}{Math.round(d.netProfit).toLocaleString("ru-RU")} ₸
+                            </td>
+                            <td className={`py-2.5 pl-3 text-right tabular-nums font-bold ${fcColor}`}>
+                              {hasCost ? `${Math.round(d.foodCostPct)}%` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {sortedDishes.length > 0 && (
+                      <tfoot className="border-t-2 border-zinc-200 dark:border-zinc-800">
+                        <tr className="font-bold text-zinc-800 dark:text-zinc-200">
+                          <td colSpan={5} className="pt-2.5 text-xs text-zinc-500 font-semibold">Итого</td>
+                          <td className="pt-2.5 px-3 text-right tabular-nums">
+                            {sortedDishes.reduce((s, d) => s + d.totalRevenue, 0).toLocaleString("ru-RU")} ₸
+                          </td>
+                          <td className="pt-2.5 px-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                            +{Math.round(sortedDishes.reduce((s, d) => s + d.netProfit, 0)).toLocaleString("ru-RU")} ₸
+                          </td>
+                          <td className={`pt-2.5 pl-3 text-right tabular-nums ${
+                            foodCost.foodCostPct < 30 ? "text-emerald-600 dark:text-emerald-400"
+                            : foodCost.foodCostPct < 40 ? "text-amber-600 dark:text-amber-400"
+                            : "text-red-500"
+                          }`}>
+                            {foodCost.foodCostPct.toFixed(0)}%
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* ── FC% explanation ── */}
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-800/20 p-5">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <strong className="text-zinc-700 dark:text-zinc-300">Food Cost (FC%)</strong> — доля
+                себестоимости ингредиентов в выручке. Норма для ресторана: <strong>25–35%</strong>.
+                Себестоимость рассчитывается по рецептуре блюд и текущим ценам закупки ингредиентов.
+                Блюда без рецептуры в таблице не отображаются.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-16 text-zinc-400">
+            <BarChart2 size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Нет данных за период</p>
+          </div>
+        )}
+
+      </div>}
+
       </div>
     </div>
   );
@@ -1473,6 +1843,52 @@ function MetricCard({ loading, icon, color, label, value, delta, deltaUp }: {
                             "text-zinc-400 dark:text-zinc-600"
       }`}>{loading ? "…" : delta}</p>
     </div>
+  );
+}
+
+// ─── ProfitLineChart ─────────────────────────────────────────────────────────
+
+function ProfitLineChart({ data }: { data: DailyPoint[] }) {
+  if (data.length < 2) return null;
+
+  const W = 800, H = 140;
+  const PAD = { x: 8, y: 12, b: 22 };
+  const iW = W - PAD.x * 2;
+  const iH = H - PAD.y - PAD.b;
+
+  const allVals = data.flatMap(d => [d.revenue, d.profit]);
+  const maxV = Math.max(...allVals, 1);
+  const minV = Math.min(...allVals, 0);
+  const range = maxV - minV || 1;
+
+  const cx = (i: number) => PAD.x + (i / (data.length - 1)) * iW;
+  const cy = (v: number) => PAD.y + (1 - (v - minV) / range) * iH;
+
+  const makePath = (key: "revenue" | "profit") =>
+    data.map((d, i) => `${i === 0 ? "M" : "L"}${cx(i).toFixed(1)} ${cy(d[key]).toFixed(1)}`).join(" ");
+
+  const showLabel = (i: number) => {
+    if (data.length <= 9) return true;
+    return i === 0 || i === data.length - 1 || i % Math.ceil(data.length / 8) === 0;
+  };
+
+  const last = data[data.length - 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: "block", height: H }}>
+      <path d={makePath("revenue")} fill="none" stroke="#7c3aed" strokeWidth="2.5"
+        strokeLinecap="round" strokeLinejoin="round" />
+      <path d={makePath("profit")} fill="none" stroke="#10b981" strokeWidth="2.5"
+        strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={cx(data.length - 1)} cy={cy(last.revenue)} r={4} fill="#7c3aed" />
+      <circle cx={cx(data.length - 1)} cy={cy(last.profit)}  r={4} fill="#10b981" />
+      {data.map((d, i) => showLabel(i) ? (
+        <text key={i} x={cx(i)} y={H - 4} textAnchor="middle" fontSize={10}
+          fill="#a1a1aa" fontFamily="sans-serif">
+          {d.label}
+        </text>
+      ) : null)}
+    </svg>
   );
 }
 
