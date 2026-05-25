@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X, Loader2, Boxes, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Loader2, Boxes, Search, AlertTriangle, History } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
-import type { DbIngredient } from "@/lib/db-types";
+import type { DbIngredient, DbStockMovement } from "@/lib/db-types";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -189,12 +189,16 @@ function IngredientModal({ ingredient, onClose, onSaved }: ModalProps) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+const UNIT_LABELS_RU: Record<string, string> = { kg: "кг", liter: "л", pcs: "шт" };
+
 export default function WarehousePage() {
   const [ingredients, setIngredients] = useState<DbIngredient[]>([]);
+  const [movements,   setMovements]   = useState<DbStockMovement[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [modal, setModal]             = useState<"create" | DbIngredient | null>(null);
   const [deleting, setDeleting]       = useState<string | null>(null);
+  const [activeTab, setActiveTab]     = useState<"stock" | "history">("stock");
 
   const fetchIngredients = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -208,7 +212,21 @@ export default function WarehousePage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchIngredients(); }, [fetchIngredients]);
+  const fetchMovements = useCallback(async () => {
+    if (!isConfigured) return;
+    const { data } = await supabase
+      .from(DB_TABLES.stockMovements)
+      .select("*, ingredients(name, unit)")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setMovements((data ?? []) as DbStockMovement[]);
+  }, []);
+
+  useEffect(() => {
+    fetchIngredients();
+    fetchMovements();
+  }, [fetchIngredients, fetchMovements]);
 
   async function handleDelete(id: string) {
     if (!confirm("Удалить ингредиент? Это также удалит его из всех технологических карт.")) return;
@@ -232,6 +250,12 @@ export default function WarehousePage() {
     });
     toast.success(modal === "create" ? "Ингредиент добавлен" : "Сохранено");
     setModal(null);
+  }
+
+  function fmtMovementDate(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + " " +
+      String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
   }
 
   const filtered = ingredients.filter(i =>
@@ -279,6 +303,97 @@ export default function WarehousePage() {
         </div>
       )}
 
+      {/* Low-stock warning banner */}
+      {!loading && ingredients.some(i => i.current_stock <= 0) && (
+        <div className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1.5">
+                Внимание! Заканчиваются ингредиенты:
+              </p>
+              <ul className="space-y-0.5">
+                {ingredients.filter(i => i.current_stock <= 0).map(i => (
+                  <li key={i.id} className="text-xs text-red-600 dark:text-red-400">
+                    {i.name} — остаток: <strong>{fmt(i.current_stock)} {UNIT_LABELS[i.unit]}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+        <button
+          onClick={() => setActiveTab("stock")}
+          className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors ${
+            activeTab === "stock"
+              ? "border-violet-600 text-violet-700 dark:text-violet-400"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          }`}
+        >
+          <Boxes size={13} /> Остатки
+        </button>
+        <button
+          onClick={() => { setActiveTab("history"); fetchMovements(); }}
+          className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors ${
+            activeTab === "history"
+              ? "border-violet-600 text-violet-700 dark:text-violet-400"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          }`}
+        >
+          <History size={13} /> История движений
+        </button>
+      </div>
+
+      {activeTab === "history" ? (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+          {movements.length === 0 ? (
+            <div className="text-center py-12 text-zinc-400 text-sm">Движений ещё нет</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Дата</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Ингредиент</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Тип</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Кол-во</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden md:table-cell">Примечание</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movements.map((mv, idx) => {
+                  const ingUnit = UNIT_LABELS_RU[mv.ingredients?.unit ?? ""] ?? "";
+                  const typeLabel = mv.type === "sale" ? "Списание" : mv.type === "supply" ? "Приход" : "Порча";
+                  const typeColor = mv.type === "supply"
+                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10"
+                    : mv.type === "waste"
+                    ? "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10"
+                    : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10";
+                  return (
+                    <tr key={mv.id} className={`border-b border-zinc-100 dark:border-zinc-800/50 last:border-0 ${idx % 2 === 0 ? "bg-white dark:bg-zinc-900" : "bg-zinc-50/50 dark:bg-zinc-900/50"}`}>
+                      <td className="px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{fmtMovementDate(mv.created_at)}</td>
+                      <td className="px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">{mv.ingredients?.name ?? "—"}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${typeColor}`}>{typeLabel}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-semibold">
+                        <span className={mv.amount < 0 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}>
+                          {mv.amount > 0 ? "+" : ""}{fmt(mv.amount)} {ingUnit}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-zinc-400 hidden md:table-cell">{mv.notes ?? ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : (
+        <>
       {/* Search */}
       <div className="relative max-w-sm">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -367,6 +482,9 @@ export default function WarehousePage() {
             </tbody>
           </table>
         </div>
+      )}
+
+        </>
       )}
 
       {/* Modal */}

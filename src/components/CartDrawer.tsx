@@ -617,6 +617,7 @@ export function CartDrawer({
         qty,
         price: finalPrice,
         currency: c || currency,
+        product_id: dish.id,
         ...(dish.isPromo && dish.discountLabel ? { original_price: dish.price } : {}),
       };
     });

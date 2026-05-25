@@ -23,6 +23,7 @@ export const DB_TABLES = {
   orderVoids: "order_voids",
   ingredients: "ingredients",
   recipeItems: "recipe_items",
+  stockMovements: "stock_movements",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

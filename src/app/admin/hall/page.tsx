@@ -18,7 +18,7 @@ import { useUserId, useRole, useDisplayName } from "@/lib/role-context";
 
 type TableStatus = "free" | "occupied" | "preorder";
 type ModifierEntry = { name: string; price: number };
-type OrderItem = { name: string; qty: number; price: number; currency: string; original_price?: number; created_at?: string; note?: string; added_by?: string; added_by_role?: string; added_by_name?: string; modifiers?: ModifierEntry[] };
+type OrderItem = { name: string; qty: number; price: number; currency: string; product_id?: string; original_price?: number; created_at?: string; note?: string; added_by?: string; added_by_role?: string; added_by_name?: string; modifiers?: ModifierEntry[] };
 type CartItem  = { cartKey: string; productId: string; name: string; price: number; qty: number; addedAt: string; note?: string; modifiers?: ModifierEntry[] };
 
 interface TableWithStatus {
@@ -2614,6 +2614,22 @@ function PaymentModal({
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     if (!data || data.length === 0) { toast.error("Заказ не обновлён — проверьте RLS в Supabase"); return; }
     toast.success("Оплата принята!");
+
+    // Deduct ingredients from warehouse stock (non-blocking)
+    supabase.rpc("deduct_order_stock", { p_order_id: order.id }).then(({ data: res }) => {
+      if (!res) return;
+      const result = res as { ok: boolean; warnings?: { ingredient: string; stock: number; unit: string }[]; error?: string };
+      if (!result.ok && result.error) {
+        toast.error("Склад: ошибка списания — " + result.error);
+      }
+      if (result.warnings && result.warnings.length > 0) {
+        const unitLabel: Record<string, string> = { kg: "кг", liter: "л", pcs: "шт" };
+        for (const w of result.warnings) {
+          toast.warning(`⚠️ Заканчивается: ${w.ingredient} (осталось ${w.stock <= 0 ? "0" : w.stock} ${unitLabel[w.unit] ?? w.unit})`);
+        }
+      }
+    });
+
     onDone();
   }
 
@@ -3820,6 +3836,7 @@ function PosMenuBrowser({
     const newItems: OrderItem[] = cartItems.map((ci) => {
       const prod = productMap.get(ci.productId);
       const item: OrderItem = { name: ci.name, qty: ci.qty, price: ci.price, currency: "₸", created_at: ci.addedAt };
+      if (ci.productId) item.product_id = ci.productId;
       if (prod && prod.is_promo && prod.discount_label) item.original_price = prod.price;
       if (ci.note) item.note = ci.note;
       if (ci.modifiers?.length) item.modifiers = ci.modifiers;

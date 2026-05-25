@@ -238,3 +238,15 @@ export interface DbRecipeItem {
   weight_net: number;
   created_at: string;
 }
+
+export interface DbStockMovement {
+  id: string;
+  restaurant_id: string;
+  ingredient_id: string;
+  amount: number;
+  type: "sale" | "waste" | "supply";
+  order_id: string | null;
+  notes: string | null;
+  created_at: string;
+  ingredients?: { name: string; unit: string } | null;
+}
