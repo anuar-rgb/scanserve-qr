@@ -19,6 +19,15 @@ const VIOLET = "#A855F7";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type Period = "today" | "7d" | "30d" | "90d";
+
+const PERIOD_LABEL: Record<Period, string> = {
+  today: "Сегодня",
+  "7d":  "7 дней",
+  "30d": "30 дней",
+  "90d": "90 дней",
+};
+
 interface HallData {
   totalTables:   number;
   occupiedCount: number;
@@ -27,7 +36,7 @@ interface HallData {
   occupiedSeats: number;
 }
 
-interface TodayData {
+interface RevenueData {
   revenue:          number;
   ordersCount:      number;
   avgCheck:         number;
@@ -53,12 +62,6 @@ interface ReviewsData {
   recent:    { rating: number; comment: string | null; created_at: string }[];
 }
 
-interface WeekData {
-  revenue:     number;
-  ordersCount: number;
-  prevRevenue: number;
-}
-
 interface TopDish {
   name:  string;
   count: number;
@@ -82,7 +85,6 @@ interface InvoicesData {
   total:     number;
   count:     number;
   suppliers: { name: string; total: number; pct: number }[];
-  recent:    InvoiceRow[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -96,6 +98,18 @@ function startOfToday(): Date {
 }
 function startOfDaysAgo(n: number): Date {
   const d = new Date(); d.setDate(d.getDate() - n); d.setHours(0, 0, 0, 0); return d;
+}
+function periodFrom(p: Period): Date {
+  if (p === "today") return startOfToday();
+  if (p === "7d")    return startOfDaysAgo(7);
+  if (p === "30d")   return startOfDaysAgo(30);
+  return startOfDaysAgo(90);
+}
+function periodPrev(p: Period): { from: Date; to: Date } {
+  if (p === "today") return { from: startOfDaysAgo(1),   to: startOfToday() };
+  if (p === "7d")    return { from: startOfDaysAgo(14),  to: startOfDaysAgo(7) };
+  if (p === "30d")   return { from: startOfDaysAgo(60),  to: startOfDaysAgo(30) };
+  return                      { from: startOfDaysAgo(180), to: startOfDaysAgo(90) };
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -171,27 +185,26 @@ function Skeleton({ lines = 2 }: { lines?: number }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OwnerPage() {
-  const [view,         setView]         = useState<"loading" | "login" | "dashboard">("loading");
-  const [loginUser,    setLoginUser]    = useState("");
-  const [loginPass,    setLoginPass]    = useState("");
-  const [loginErr,     setLoginErr]     = useState("");
-  const [loginBusy,    setLoginBusy]    = useState(false);
+  const [view,        setView]        = useState<"loading" | "login" | "dashboard">("loading");
+  const [loginUser,   setLoginUser]   = useState("");
+  const [loginPass,   setLoginPass]   = useState("");
+  const [loginErr,    setLoginErr]    = useState("");
+  const [loginBusy,   setLoginBusy]   = useState(false);
 
-  const [hallData,      setHallData]      = useState<HallData | null>(null);
-  const [todayData,     setTodayData]     = useState<TodayData | null>(null);
-  const [shiftData,     setShiftData]     = useState<ShiftData | null>(null);
-  const [staffMembers,  setStaffMembers]  = useState<StaffMember[] | null>(null);
-  const [reviewsData,   setReviewsData]   = useState<ReviewsData | null>(null);
-  const [weekData,      setWeekData]      = useState<WeekData | null>(null);
-  const [topDishes,     setTopDishes]     = useState<TopDish[] | null>(null);
-  const [recentOrders,  setRecentOrders]  = useState<RecentOrder[] | null>(null);
-  const [invoicesData,   setInvoicesData]   = useState<InvoicesData | null>(null);
-  const [invoicesPeriod, setInvoicesPeriod] = useState<"today" | "7d" | "30d" | "90d">("30d");
-  const [busy,          setBusy]          = useState(false);
-  const [realtimeOk,    setRealtimeOk]    = useState(false);
-  const [updatedAt,     setUpdatedAt]     = useState<Date | null>(null);
+  const [period,       setPeriod]       = useState<Period>("today");
+  const [hallData,     setHallData]     = useState<HallData | null>(null);
+  const [revenueData,  setRevenueData]  = useState<RevenueData | null>(null);
+  const [shiftData,    setShiftData]    = useState<ShiftData | null>(null);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[] | null>(null);
+  const [reviewsData,  setReviewsData]  = useState<ReviewsData | null>(null);
+  const [topDishes,    setTopDishes]    = useState<TopDish[] | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[] | null>(null);
+  const [invoicesData, setInvoicesData] = useState<InvoicesData | null>(null);
+  const [busy,         setBusy]         = useState(false);
+  const [realtimeOk,   setRealtimeOk]   = useState(false);
+  const [updatedAt,    setUpdatedAt]    = useState<Date | null>(null);
 
-  // ── Auth check on mount ────────────────────────────────────────────────────
+  // ── Auth ───────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetch("/api/admin/me")
@@ -245,22 +258,23 @@ export default function OwnerPage() {
     setHallData({ totalTables: tables.length, occupiedCount: occupied, preorderCount: preorder, totalSeats: totSeats, occupiedSeats: occSeats });
   }, []);
 
-  const fetchToday = useCallback(async () => {
+  const fetchRevenue = useCallback(async (p: Period) => {
     if (!isConfigured) return;
-    const todayISO = startOfToday().toISOString();
-    const yestISO  = startOfDaysAgo(1).toISOString();
-    const [{ data: tOrd }, { data: yOrd }] = await Promise.all([
+    const { from: prevFrom, to: prevTo } = periodPrev(p);
+    const [{ data: cur }, { data: prev }] = await Promise.all([
       supabase.from(DB_TABLES.orders).select("total_price, payment_method, payment_details")
-        .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed").gte("created_at", todayISO),
+        .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed")
+        .gte("created_at", periodFrom(p).toISOString()),
       supabase.from(DB_TABLES.orders).select("total_price")
-        .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed").gte("created_at", yestISO).lt("created_at", todayISO),
+        .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed")
+        .gte("created_at", prevFrom.toISOString()).lt("created_at", prevTo.toISOString()),
     ]);
-    const rows = (tOrd ?? []) as { total_price: number; payment_method: string | null; payment_details: Record<string, number> | null }[];
-    const revenue  = rows.reduce((s, o) => s + (o.total_price ?? 0), 0);
-    const count    = rows.length;
-    const yRev     = ((yOrd ?? []) as { total_price: number }[]).reduce((s, o) => s + (o.total_price ?? 0), 0);
-    const deltaPct = yRev > 0 ? Math.round(((revenue - yRev) / yRev) * 100) : null;
-    setTodayData({ revenue, ordersCount: count, avgCheck: count > 0 ? Math.round(revenue / count) : 0, deltaRevenuePct: deltaPct, paymentBreakdown: buildPaymentBreakdown(rows) });
+    const rows    = (cur ?? []) as { total_price: number; payment_method: string | null; payment_details: Record<string, number> | null }[];
+    const revenue = rows.reduce((s, o) => s + (o.total_price ?? 0), 0);
+    const count   = rows.length;
+    const prevRev = ((prev ?? []) as { total_price: number }[]).reduce((s, o) => s + (o.total_price ?? 0), 0);
+    const delta   = prevRev > 0 ? Math.round(((revenue - prevRev) / prevRev) * 100) : null;
+    setRevenueData({ revenue, ordersCount: count, avgCheck: count > 0 ? Math.round(revenue / count) : 0, deltaRevenuePct: delta, paymentBreakdown: buildPaymentBreakdown(rows) });
   }, []);
 
   const fetchShiftAndStaff = useCallback(async () => {
@@ -289,34 +303,21 @@ export default function OwnerPage() {
     }
   }, []);
 
-  const fetchReviews = useCallback(async () => {
+  const fetchReviews = useCallback(async (p: Period) => {
     if (!isConfigured) return;
     const { data } = await supabase.from(DB_TABLES.reviews).select("rating, comment, created_at")
-      .eq("restaurant_id", RESTAURANT_ID).gte("created_at", startOfDaysAgo(30).toISOString())
+      .eq("restaurant_id", RESTAURANT_ID).gte("created_at", periodFrom(p).toISOString())
       .order("created_at", { ascending: false }).limit(20);
     const rows = (data ?? []) as { rating: number; comment: string | null; created_at: string }[];
     const avg  = rows.length > 0 ? rows.reduce((s, r) => s + r.rating, 0) / rows.length : null;
     setReviewsData({ avgRating: avg, count: rows.length, recent: rows.slice(0, 3) });
   }, []);
 
-  const fetchWeek = useCallback(async () => {
-    if (!isConfigured) return;
-    const [{ data: cur }, { data: prev }] = await Promise.all([
-      supabase.from(DB_TABLES.orders).select("total_price")
-        .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed").gte("created_at", startOfDaysAgo(7).toISOString()),
-      supabase.from(DB_TABLES.orders).select("total_price")
-        .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed")
-        .gte("created_at", startOfDaysAgo(14).toISOString()).lt("created_at", startOfDaysAgo(7).toISOString()),
-    ]);
-    const sum = (a: { total_price: number }[] | null) => (a ?? []).reduce((s, o) => s + (o.total_price ?? 0), 0);
-    setWeekData({ revenue: sum(cur as { total_price: number }[] | null), ordersCount: (cur ?? []).length, prevRevenue: sum(prev as { total_price: number }[] | null) });
-  }, []);
-
-  const fetchTopDishes = useCallback(async () => {
+  const fetchTopDishes = useCallback(async (p: Period) => {
     if (!isConfigured) return;
     const { data } = await supabase.from(DB_TABLES.orders).select("items_json")
       .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed")
-      .gte("created_at", startOfDaysAgo(7).toISOString());
+      .gte("created_at", periodFrom(p).toISOString());
     const map: Record<string, number> = {};
     for (const o of (data ?? []) as { items_json: unknown }[]) {
       const items = o.items_json as Array<{ name?: string; qty?: number }> | null;
@@ -328,54 +329,75 @@ export default function OwnerPage() {
     setTopDishes(Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })));
   }, []);
 
-  const fetchInvoices = useCallback(async (period: "today" | "7d" | "30d" | "90d" = "30d") => {
+  const fetchRecent = useCallback(async (p: Period) => {
     if (!isConfigured) return;
-    const from = period === "today" ? startOfToday()
-      : period === "7d"  ? startOfDaysAgo(7)
-      : period === "30d" ? startOfDaysAgo(30)
-      : startOfDaysAgo(90);
+    const q = supabase.from(DB_TABLES.orders).select("id, total_price, type, created_at, table_number")
+      .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed")
+      .gte("created_at", periodFrom(p).toISOString())
+      .order("created_at", { ascending: false }).limit(5);
+    const { data } = await q;
+    setRecentOrders((data ?? []) as RecentOrder[]);
+  }, []);
+
+  const fetchInvoices = useCallback(async (p: Period) => {
+    if (!isConfigured) return;
     const { data } = await supabase.from("invoices")
       .select("supplier_name, total_amount, created_at")
       .eq("restaurant_id", RESTAURANT_ID)
-      .gte("created_at", from.toISOString())
+      .gte("created_at", periodFrom(p).toISOString())
       .order("created_at", { ascending: false });
-    const rows = (data ?? []) as InvoiceRow[];
+    const rows  = (data ?? []) as InvoiceRow[];
     const total = rows.reduce((s, r) => s + (r.total_amount ?? 0), 0);
-    const map = new Map<string, number>();
+    const map   = new Map<string, number>();
     for (const r of rows) map.set(r.supplier_name, (map.get(r.supplier_name) ?? 0) + (r.total_amount ?? 0));
     const suppliers = [...map.entries()]
       .map(([name, t]) => ({ name, total: t, pct: total > 0 ? (t / total) * 100 : 0 }))
       .sort((a, b) => b.total - a.total);
-    setInvoicesData({ total, count: rows.length, suppliers, recent: rows.slice(0, 3) });
+    setInvoicesData({ total, count: rows.length, suppliers });
   }, []);
 
-  const fetchRecent = useCallback(async () => {
-    if (!isConfigured) return;
-    const { data } = await supabase.from(DB_TABLES.orders).select("id, total_price, type, created_at, table_number")
-      .eq("restaurant_id", RESTAURANT_ID).eq("status", "completed")
-      .order("created_at", { ascending: false }).limit(5);
-    setRecentOrders((data ?? []) as RecentOrder[]);
-  }, []);
-
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (p: Period) => {
     setBusy(true);
-    await Promise.all([fetchHall(), fetchToday(), fetchShiftAndStaff(), fetchReviews(), fetchWeek(), fetchTopDishes(), fetchRecent(), fetchInvoices(invoicesPeriod)]);
+    await Promise.all([
+      fetchHall(),
+      fetchRevenue(p),
+      fetchShiftAndStaff(),
+      fetchReviews(p),
+      fetchTopDishes(p),
+      fetchRecent(p),
+      fetchInvoices(p),
+    ]);
     setUpdatedAt(new Date());
     setBusy(false);
-  }, [fetchHall, fetchToday, fetchShiftAndStaff, fetchReviews, fetchWeek, fetchTopDishes, fetchRecent, fetchInvoices, invoicesPeriod]);
+  }, [fetchHall, fetchRevenue, fetchShiftAndStaff, fetchReviews, fetchTopDishes, fetchRecent, fetchInvoices]);
+
+  function changePeriod(p: Period) {
+    setPeriod(p);
+    setRevenueData(null);
+    setReviewsData(null);
+    setTopDishes(null);
+    setRecentOrders(null);
+    setInvoicesData(null);
+    fetchRevenue(p);
+    fetchReviews(p);
+    fetchTopDishes(p);
+    fetchRecent(p);
+    fetchInvoices(p);
+  }
 
   // ── Realtime + initial load ────────────────────────────────────────────────
 
   useEffect(() => {
     if (view !== "dashboard") return;
-    fetchAll();
+    fetchAll(period);
     if (!isConfigured) return;
     const ch = supabase.channel(`owner-page-${RESTAURANT_ID}`)
       .on("postgres_changes", { event: "*", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` }, () => fetchHall())
       .on("postgres_changes", { event: "*", schema: "public", table: DB_TABLES.restaurantTables }, () => fetchHall())
       .subscribe(s => setRealtimeOk(s === "SUBSCRIBED"));
     return () => { supabase.removeChannel(ch); };
-  }, [view, fetchAll, fetchHall]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   // ── Render: loading ────────────────────────────────────────────────────────
 
@@ -422,39 +444,64 @@ export default function OwnerPage() {
     <div style={{ minHeight: "100dvh", background: BG, fontFamily: "system-ui, -apple-system, sans-serif", paddingBottom: 40 }}>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 16px 0" }}>
-        <div>
-          <h1 style={{ color: TEXT, fontSize: 18, fontWeight: 800, margin: 0 }}>АС ТӨРІ</h1>
-          <p style={{ color: MUTED, fontSize: 11, margin: "2px 0 0" }}>
-            {updatedAt ? `Обновлено в ${fmtTime(updatedAt.toISOString())}` : "Загрузка…"}
-          </p>
+      <div style={{ padding: "18px 16px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div>
+            <h1 style={{ color: TEXT, fontSize: 18, fontWeight: 800, margin: 0 }}>АС ТӨРІ</h1>
+            <p style={{ color: MUTED, fontSize: 11, margin: "2px 0 0" }}>
+              {updatedAt ? `Обновлено в ${fmtTime(updatedAt.toISOString())}` : "Загрузка…"}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => fetchAll(period)} disabled={busy} style={{
+              background: "rgba(255,255,255,0.06)", border: BORDER, borderRadius: 10,
+              padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", opacity: busy ? 0.5 : 1,
+            }}>
+              {busy
+                ? <Loader2 size={16} className="animate-spin" style={{ color: MUTED }} />
+                : <RefreshCw size={16} style={{ color: MUTED }} />}
+            </button>
+            <button onClick={logout} style={{
+              background: "rgba(255,255,255,0.06)", border: BORDER, borderRadius: 10,
+              padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center",
+            }}>
+              <LogOut size={16} style={{ color: MUTED }} />
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={fetchAll} disabled={busy} style={{
-            background: "rgba(255,255,255,0.06)", border: BORDER, borderRadius: 10,
-            padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", opacity: busy ? 0.5 : 1,
-          }}>
-            {busy
-              ? <Loader2 size={16} className="animate-spin" style={{ color: MUTED }} />
-              : <RefreshCw size={16} style={{ color: MUTED }} />}
-          </button>
-          <button onClick={logout} style={{
-            background: "rgba(255,255,255,0.06)", border: BORDER, borderRadius: 10,
-            padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center",
-          }}>
-            <LogOut size={16} style={{ color: MUTED }} />
-          </button>
+
+        {/* Period selector */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+          {(["today", "7d", "30d", "90d"] as Period[]).map(p => (
+            <button
+              key={p}
+              onClick={() => changePeriod(p)}
+              style={{
+                flex: 1,
+                background: period === p ? VIOLET : "rgba(255,255,255,0.06)",
+                border: period === p ? "none" : "1px solid rgba(255,255,255,0.10)",
+                borderRadius: 10,
+                color: period === p ? "#fff" : MUTED,
+                fontSize: 12,
+                fontWeight: 700,
+                padding: "8px 0",
+                cursor: "pointer",
+              }}
+            >
+              {PERIOD_LABEL[p]}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Cards */}
-      <div style={{ padding: "14px 16px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ padding: "10px 16px 0", display: "flex", flexDirection: "column", gap: 10 }}>
 
-        {/* 1 — Зал */}
+        {/* 1 — Зал (всегда live) */}
         <HallCard data={hallData} realtimeOk={realtimeOk} />
 
-        {/* 2 — Сегодня */}
-        <TodayCard data={todayData} />
+        {/* 2 — Выручка */}
+        <RevenueCard data={revenueData} period={period} />
 
         {/* 3 — Смена */}
         <ShiftCard data={shiftData} />
@@ -463,23 +510,16 @@ export default function OwnerPage() {
         <StaffCard members={staffMembers} />
 
         {/* 5 — Оценки */}
-        <ReviewsCard data={reviewsData} />
+        <ReviewsCard data={reviewsData} period={period} />
 
-        {/* 6 — Неделя */}
-        <WeekCard data={weekData} />
+        {/* 6 — Топ блюд */}
+        <TopDishesCard data={topDishes} period={period} />
 
-        {/* 7 — Топ блюд */}
-        <TopDishesCard data={topDishes} />
+        {/* 7 — Последние заказы */}
+        <RecentOrdersCard data={recentOrders} period={period} />
 
-        {/* 8 — Последние заказы */}
-        <RecentOrdersCard data={recentOrders} />
-
-        {/* 9 — Накладные */}
-        <InvoicesCard
-          data={invoicesData}
-          period={invoicesPeriod}
-          onPeriod={(p) => { setInvoicesPeriod(p); setInvoicesData(null); fetchInvoices(p); }}
-        />
+        {/* 8 — Накладные */}
+        <InvoicesCard data={invoicesData} period={period} />
 
       </div>
     </div>
@@ -523,11 +563,11 @@ function HallCard({ data, realtimeOk }: { data: HallData | null; realtimeOk: boo
   );
 }
 
-function TodayCard({ data }: { data: TodayData | null }) {
+function RevenueCard({ data, period }: { data: RevenueData | null; period: Period }) {
   const pos = (data?.deltaRevenuePct ?? 0) >= 0;
   return (
     <Card>
-      <Label>Сегодня</Label>
+      <Label>Выручка — {PERIOD_LABEL[period]}</Label>
       {data === null ? <Skeleton lines={3} /> : (
         <>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
@@ -611,12 +651,12 @@ function StaffCard({ members }: { members: StaffMember[] | null }) {
   );
 }
 
-function ReviewsCard({ data }: { data: ReviewsData | null }) {
+function ReviewsCard({ data, period }: { data: ReviewsData | null; period: Period }) {
   return (
     <Card>
-      <Label>Оценки (30 дней)</Label>
+      <Label>Оценки — {PERIOD_LABEL[period]}</Label>
       {data === null ? <Skeleton lines={3} /> : data.count === 0 ? (
-        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет отзывов за 30 дней</p>
+        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет отзывов за выбранный период</p>
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
@@ -644,35 +684,12 @@ function ReviewsCard({ data }: { data: ReviewsData | null }) {
   );
 }
 
-function WeekCard({ data }: { data: WeekData | null }) {
-  const delta = data && data.prevRevenue > 0 ? Math.round(((data.revenue - data.prevRevenue) / data.prevRevenue) * 100) : null;
-  const pos   = (delta ?? 0) >= 0;
+function TopDishesCard({ data, period }: { data: TopDish[] | null; period: Period }) {
   return (
     <Card>
-      <Label>Неделя (7 дней)</Label>
-      {data === null ? <Skeleton lines={2} /> : (
-        <>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
-            <Big>₸ {fmt(data.revenue)}</Big>
-            {delta !== null && (
-              <span style={{ color: pos ? GREEN : RED, fontSize: 13, fontWeight: 700 }}>
-                {pos ? "↑ +" : "↓ "}{delta}% vs прошлая неделя
-              </span>
-            )}
-          </div>
-          <p style={{ color: MUTED, fontSize: 13, margin: 0 }}>{data.ordersCount} заказов</p>
-        </>
-      )}
-    </Card>
-  );
-}
-
-function TopDishesCard({ data }: { data: TopDish[] | null }) {
-  return (
-    <Card>
-      <Label>Топ блюд (7 дней)</Label>
+      <Label>Топ блюд — {PERIOD_LABEL[period]}</Label>
       {data === null ? <Skeleton lines={4} /> : data.length === 0 ? (
-        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет данных</p>
+        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет данных за выбранный период</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {data.map((d, i) => (
@@ -688,43 +705,36 @@ function TopDishesCard({ data }: { data: TopDish[] | null }) {
   );
 }
 
-const INVOICE_PERIODS: { key: "today" | "7d" | "30d" | "90d"; label: string }[] = [
-  { key: "today", label: "Сегодня" },
-  { key: "7d",    label: "7 дней"  },
-  { key: "30d",   label: "30 дней" },
-  { key: "90d",   label: "90 дней" },
-];
-
-function InvoicesCard({ data, period, onPeriod }: {
-  data:     InvoicesData | null;
-  period:   "today" | "7d" | "30d" | "90d";
-  onPeriod: (p: "today" | "7d" | "30d" | "90d") => void;
-}) {
+function RecentOrdersCard({ data, period }: { data: RecentOrder[] | null; period: Period }) {
   return (
     <Card>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <Label>Накладные</Label>
-        <div style={{ display: "flex", gap: 5, marginTop: -8 }}>
-          {INVOICE_PERIODS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => onPeriod(key)}
-              style={{
-                background: period === key ? RED : "rgba(255,255,255,0.06)",
-                border: period === key ? "none" : "1px solid rgba(255,255,255,0.10)",
-                borderRadius: 8,
-                color: period === key ? "#fff" : MUTED,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "4px 8px",
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
+      <Label>Последние заказы — {PERIOD_LABEL[period]}</Label>
+      {data === null ? <Skeleton lines={4} /> : data.length === 0 ? (
+        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет завершённых заказов за выбранный период</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {data.map(o => (
+            <div key={o.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ color: TEXT, fontSize: 14, fontWeight: 600, margin: 0 }}>
+                  {ORDER_TYPE_LABEL[o.type ?? ""] ?? o.type ?? "—"}
+                  {o.table_number ? ` · стол ${o.table_number}` : ""}
+                </p>
+                <p style={{ color: MUTED, fontSize: 12, margin: 0 }}>{fmtTime(o.created_at)}</p>
+              </div>
+              <span style={{ color: GREEN, fontSize: 15, fontWeight: 700 }}>₸ {fmt(o.total_price)}</span>
+            </div>
           ))}
         </div>
-      </div>
+      )}
+    </Card>
+  );
+}
+
+function InvoicesCard({ data, period }: { data: InvoicesData | null; period: Period }) {
+  return (
+    <Card>
+      <Label>Накладные — {PERIOD_LABEL[period]}</Label>
       {data === null ? <Skeleton lines={3} /> : data.count === 0 ? (
         <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет накладных за выбранный период</p>
       ) : (
@@ -746,32 +756,6 @@ function InvoicesCard({ data, period, onPeriod }: {
             ))}
           </div>
         </>
-      )}
-    </Card>
-  );
-}
-
-function RecentOrdersCard({ data }: { data: RecentOrder[] | null }) {
-  return (
-    <Card>
-      <Label>Последние заказы</Label>
-      {data === null ? <Skeleton lines={4} /> : data.length === 0 ? (
-        <p style={{ color: MUTED, fontSize: 14, fontStyle: "italic", margin: 0 }}>Нет завершённых заказов</p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {data.map(o => (
-            <div key={o.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <p style={{ color: TEXT, fontSize: 14, fontWeight: 600, margin: 0 }}>
-                  {ORDER_TYPE_LABEL[o.type ?? ""] ?? o.type ?? "—"}
-                  {o.table_number ? ` · стол ${o.table_number}` : ""}
-                </p>
-                <p style={{ color: MUTED, fontSize: 12, margin: 0 }}>{fmtTime(o.created_at)}</p>
-              </div>
-              <span style={{ color: GREEN, fontSize: 15, fontWeight: 700 }}>₸ {fmt(o.total_price)}</span>
-            </div>
-          ))}
-        </div>
       )}
     </Card>
   );
