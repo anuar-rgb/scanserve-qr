@@ -374,7 +374,7 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-6 pb-24 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Документы сотрудников</h1>
@@ -448,9 +448,9 @@ export default function DocumentsPage() {
                 <textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
-                  rows={10}
+                  rows={6}
                   placeholder="Текст документа…"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-zinc-400"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-3 py-2 resize-y max-h-[200px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-zinc-400"
                 />
                 <p className="text-xs text-zinc-400">
                   Поддерживаются переносы строк. Сотрудник увидит текст таким, как он введён здесь.

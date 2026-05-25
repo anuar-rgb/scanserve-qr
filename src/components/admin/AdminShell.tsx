@@ -24,7 +24,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               <CheckinGate>
                 <div className="flex h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 transition-colors duration-200">
                   <AdminSidebar />
-                  <main className="flex-1 md:ml-60 overflow-hidden flex flex-col">
+                  <main className="flex-1 md:ml-60 overflow-y-auto flex flex-col">
                     <MobileAdminHeader />
                     {children}
                   </main>
