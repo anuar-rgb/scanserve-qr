@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -26,7 +26,7 @@ const todayStr = new Date().toLocaleDateString("ru-RU", {
   day: "2-digit", month: "long", year: "numeric",
 });
 
-export default function PrintSignaturePage() {
+function PrintSignatureContent() {
   const params  = useSearchParams();
   const docId   = params.get("docId");
   const staffId = params.get("staffId");
@@ -244,5 +244,19 @@ export default function PrintSignaturePage() {
 
       </div>
     </>
+  );
+}
+
+export default function PrintSignaturePage() {
+  return (
+    <Suspense fallback={
+      <div style={{ padding: 40, fontFamily: "Arial, sans-serif", display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", gap: 12 }}>
+        <Loader2 size={24} style={{ animation: "spin 1s linear infinite", color: "#7C3AED" }} />
+        <p style={{ color: "#666", fontSize: 14 }}>Загружаем документ…</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
+      <PrintSignatureContent />
+    </Suspense>
   );
 }
