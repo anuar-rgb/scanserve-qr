@@ -30,6 +30,32 @@ export async function POST(request: NextRequest) {
 
   const supabase = db();
 
+  // Verify all required documents are signed by this staff member
+  const { data: requiredDocs } = await supabase
+    .from("company_documents")
+    .select("id")
+    .eq("restaurant_id", RID())
+    .eq("is_required", true);
+
+  if (requiredDocs && requiredDocs.length > 0) {
+    const { data: signedDocs } = await supabase
+      .from("employee_signatures")
+      .select("document_id")
+      .eq("restaurant_id", RID())
+      .eq("staff_user_id", staffUserId)
+      .eq("status", "signed");
+
+    const signedIds = new Set((signedDocs ?? []).map((s) => s.document_id));
+    const hasUnsigned = requiredDocs.some((d) => !signedIds.has(d.id));
+
+    if (hasUnsigned) {
+      return NextResponse.json(
+        { error: "Доступ заблокирован. Сначала подпишите обязательные документы." },
+        { status: 403 },
+      );
+    }
+  }
+
   // Find the current open shift
   const { data: shift } = await supabase
     .from("shifts")

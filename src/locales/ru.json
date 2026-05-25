@@ -347,7 +347,10 @@
     "ownerNoStaff": "Нет сотрудников на смене",
     "ownerSectionWeek": "Неделя (7 дней)",
     "ownerVsPrevWeek": "vs прошлая неделя",
-    "ownerUpdatedAt": "Обновлено в"
+    "ownerUpdatedAt": "Обновлено в",
+    "navDocuments": "Документы",
+    "descDocuments": "Договоры сотрудников и управление цифровыми подписями.",
+    "sectionDocuments": "Документы"
   },
   "receipt": {
     "title": "ЧЕК",

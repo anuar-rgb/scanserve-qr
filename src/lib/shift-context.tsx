@@ -189,15 +189,77 @@ export function CheckinGate({ children }: { children: ReactNode }) {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Pending documents state
+  const [pendingDocs, setPendingDocs] = useState<{ id: string; title: string; signToken: string | null }[] | null>(null);
+  const [docsLoading, setDocsLoading] = useState(true);
+
   const NON_GATED = new Set(["owner", "manager", "cashier"]);
+  const isGated = role !== null && !NON_GATED.has(role);
+
+  useEffect(() => {
+    if (!isGated) { setDocsLoading(false); return; }
+    fetch("/api/admin/documents/my-pending")
+      .then((r) => (r.ok ? r.json() : { docs: [] }))
+      .then((d: { docs?: { id: string; title: string; signToken: string | null }[] }) =>
+        setPendingDocs(d.docs ?? []),
+      )
+      .catch(() => setPendingDocs([]))
+      .finally(() => setDocsLoading(false));
+  }, [isGated]);
+
   if (role === null || NON_GATED.has(role)) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading || docsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
         <div className="w-6 h-6 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // Block access if there are unsigned required documents
+  if (pendingDocs && pendingDocs.length > 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
+        <div className="w-full max-w-xs text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-500/15 flex items-center justify-center mx-auto">
+            <Lock size={28} className="text-red-500 dark:text-red-400" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+              Доступ заблокирован
+            </h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Сначала подпишите обязательные документы, затем вернитесь для отметки прихода
+            </p>
+          </div>
+
+          <div className="text-left space-y-2">
+            {pendingDocs.map((doc) => (
+              <a
+                key={doc.id}
+                href={doc.signToken ? `/shared/sign/${doc.signToken}` : "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border text-sm transition-colors ${
+                  doc.signToken
+                    ? "border-violet-200 dark:border-violet-800/40 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-500/20"
+                    : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 cursor-not-allowed"
+                }`}
+              >
+                <span className="flex-1 truncate">{doc.title}</span>
+                {doc.signToken && <span className="shrink-0 text-xs">→ Подписать</span>}
+              </a>
+            ))}
+          </div>
+
+          <p className="text-xs text-zinc-400">
+            После подписания всех документов обновите эту страницу
+          </p>
+        </div>
       </div>
     );
   }

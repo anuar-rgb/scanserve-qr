@@ -347,7 +347,10 @@
     "ownerNoStaff": "Сменада қызметкер жоқ",
     "ownerSectionWeek": "Апта (7 күн)",
     "ownerVsPrevWeek": "vs өткен апта",
-    "ownerUpdatedAt": "Жаңартылды"
+    "ownerUpdatedAt": "Жаңартылды",
+    "navDocuments": "Құжаттар",
+    "descDocuments": "Қызметкерлер шарттары және цифрлық қол қою басқармасы.",
+    "sectionDocuments": "Құжаттар"
   },
   "receipt": {
     "title": "ТҮБІРТЕК",

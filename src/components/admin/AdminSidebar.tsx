@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -88,6 +88,7 @@ const NAV: NavSection[] = [
     ownerOnly: true,
     items: [
       { labelKey: "navStaff",        icon: Users,        href: "/admin/settings/staff",     ownerOnly: true },
+      { labelKey: "navDocuments",    icon: FilePen,      href: "/admin/documents",          ownerOnly: true },
       { labelKey: "navPaymentBanks", icon: CreditCard,  href: "/admin/payment-banks",      strictOwner: true },
       { labelKey: "navPrinters",     icon: PrinterIcon, href: "/admin/settings/printers",  ownerOnly: true },
       { labelKey: "navProfile",      icon: Settings,    href: "/admin/settings",            ownerOnly: true },

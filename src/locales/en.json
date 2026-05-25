@@ -347,7 +347,10 @@
     "ownerNoStaff": "No staff on shift",
     "ownerSectionWeek": "Week (7 days)",
     "ownerVsPrevWeek": "vs prev. week",
-    "ownerUpdatedAt": "Updated at"
+    "ownerUpdatedAt": "Updated at",
+    "navDocuments": "Documents",
+    "descDocuments": "Employee contracts and digital signature management.",
+    "sectionDocuments": "Documents"
   },
   "receipt": {
     "title": "RECEIPT",
