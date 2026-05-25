@@ -243,11 +243,12 @@ export default function DocumentsPage() {
   const [deleting,     setDeleting]     = useState(false);
 
   // Form state (shared for create + edit)
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [formTitle,     setFormTitle]     = useState("");
-  const [formContent,   setFormContent]   = useState("");
-  const [formRequired,  setFormRequired]  = useState(true);
-  const [savingForm,    setSavingForm]    = useState(false);
+  const [selectedDocId,    setSelectedDocId]    = useState<string | null>(null);
+  const [formTitle,        setFormTitle]        = useState("");
+  const [formContent,      setFormContent]      = useState("");
+  const [formRequired,     setFormRequired]     = useState(true);
+  const [savingForm,       setSavingForm]       = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -287,11 +288,21 @@ export default function DocumentsPage() {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  async function handleSaveForm() {
+  function requestSave() {
     if (!formTitle.trim() || !formContent.trim()) {
       toast.error("Заголовок и содержимое обязательны");
       return;
     }
+    // Editing existing — confirm reset of all signatures
+    if (selectedDocId) {
+      setShowResetConfirm(true);
+      return;
+    }
+    void handleSaveForm();
+  }
+
+  async function handleSaveForm() {
+    setShowResetConfirm(false);
     setSavingForm(true);
     try {
       if (selectedDocId) {
@@ -301,10 +312,14 @@ export default function DocumentsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), is_required: formRequired }),
         });
-        const d = await res.json() as { document?: Doc; error?: string };
+        const d = await res.json() as { document?: Doc; signaturesReset?: boolean; error?: string };
         if (!res.ok || !d.document) throw new Error(d.error ?? "Ошибка сохранения");
         setDocs((prev) => prev.map((x) => x.id === selectedDocId ? d.document! : x));
-        toast.success("Изменения сохранены");
+        if (d.signaturesReset) {
+          toast.success("Документ обновлён. Все сотрудники должны подписать его заново.");
+        } else {
+          toast.success("Изменения сохранены");
+        }
       } else {
         // Create new
         const res = await fetch("/api/admin/documents", {
@@ -457,7 +472,7 @@ export default function DocumentsPage() {
 
               <div className="flex gap-2 pt-1">
                 <Button
-                  onClick={handleSaveForm}
+                  onClick={requestSave}
                   disabled={savingForm}
                   className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
                 >
@@ -577,6 +592,30 @@ export default function DocumentsPage() {
 
       {/* Signatures Tab */}
       {tab === "signatures" && <SignaturesTab />}
+
+      {/* Reset signatures confirm modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 space-y-4 shadow-xl">
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Сохранить изменения?</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              После сохранения <span className="font-semibold text-zinc-800 dark:text-zinc-200">все сотрудники потеряют статус «Подписано»</span> и будут обязаны подписать документ заново. Сотрудники увидят новый текст по тем же ссылкам.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button
+                onClick={() => void handleSaveForm()}
+                disabled={savingForm}
+                className="flex-1 bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {savingForm ? "Сохраняем…" : "Да, сохранить"}
+              </Button>
+              <Button variant="ghost" onClick={() => setShowResetConfirm(false)} className="flex-1">
+                Отмена
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirm modal */}
       {deleteTarget && (

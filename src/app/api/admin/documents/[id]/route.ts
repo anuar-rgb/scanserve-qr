@@ -47,7 +47,18 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ document: data });
+
+  // If document content changed — reset all employee signatures so they must re-sign
+  const signaturesReset = body.content !== undefined;
+  if (signaturesReset) {
+    await supabase
+      .from("employee_signatures")
+      .update({ status: "pending", signature_image: null, signed_at: null, ip_address: null })
+      .eq("document_id", id)
+      .eq("restaurant_id", RID());
+  }
+
+  return NextResponse.json({ document: data, signaturesReset });
 }
 
 // DELETE — remove a document (also cascades to employee_signatures)
