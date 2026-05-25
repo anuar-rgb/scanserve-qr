@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   const supabase = serverSupabase();
   let query = supabase
     .from("staff_users")
-    .select("id, username, role, display_name, is_active, created_at")
+    .select("id, username, role, display_name, is_active, phone, created_at")
     .eq("restaurant_id", getRestaurantId())
     .order("created_at", { ascending: true });
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { username, password, role, display_name } = await request.json();
+  const { username, password, role, display_name, phone } = await request.json();
 
   if (!username?.trim() || !password?.trim() || !role) {
     return NextResponse.json({ error: "username, password and role are required" }, { status: 400 });
@@ -88,6 +88,15 @@ export async function POST(request: NextRequest) {
       ? "Пользователь с таким логином уже существует"
       : error.message;
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // Save phone if provided (RPC doesn't accept it, so we update separately)
+  if (phone?.trim()) {
+    await supabase
+      .from("staff_users")
+      .update({ phone: phone.trim() })
+      .eq("id", data as string)
+      .eq("restaurant_id", getRestaurantId());
   }
 
   return NextResponse.json({ id: data }, { status: 201 });

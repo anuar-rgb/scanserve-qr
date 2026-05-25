@@ -58,13 +58,51 @@ export async function GET(
   });
 }
 
+// Parses a raw User-Agent string into a human-readable device description.
+function parseUserAgent(ua: string): string {
+  if (!ua) return "Неизвестное устройство";
+
+  const ios     = /iPhone|iPad|iPod/.test(ua);
+  const android = /Android/.test(ua);
+  const safari  = /Safari\//.test(ua) && !/Chrome\//.test(ua);
+  const chrome  = /Chrome\//.test(ua) && !/Edg\//.test(ua);
+  const firefox = /Firefox\//.test(ua);
+  const edge    = /Edg\//.test(ua);
+  const samsung = /SamsungBrowser/.test(ua);
+
+  let browser = chrome ? "Chrome" : firefox ? "Firefox" : edge ? "Edge" : samsung ? "Samsung" : safari ? "Safari" : "Browser";
+
+  if (ios) {
+    const match = ua.match(/OS (\d+[_\d]*)/);
+    const ver   = match ? ` ${match[1].replace(/_/g, ".")}` : "";
+    const dev   = /iPad/.test(ua) ? "iPadOS" : "iOS";
+    return `${dev}${ver} / ${browser}`;
+  }
+
+  if (android) {
+    const verMatch   = ua.match(/Android ([\d.]+)/);
+    const ver        = verMatch ? ` ${verMatch[1]}` : "";
+    // Try to extract device brand/model between "; " and " Build/"
+    const modelMatch = ua.match(/;\s+([^;()]+)\s+Build\//);
+    const model      = modelMatch ? ` / ${modelMatch[1].trim()}` : "";
+    return `Android${ver} / ${browser}${model}`;
+  }
+
+  const win = /Windows NT/.test(ua);
+  const mac = /Macintosh/.test(ua);
+  if (win) return `Windows / ${browser}`;
+  if (mac) return `macOS / ${browser}`;
+
+  return `${browser}`;
+}
+
 // POST — public endpoint: submit handwritten signature
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const body = await req.json().catch(() => ({})) as { signatureImage?: string };
+  const body = await req.json().catch(() => ({})) as { signatureImage?: string; userAgent?: string };
 
   if (!body.signatureImage) {
     return NextResponse.json({ error: "signatureImage required" }, { status: 400 });
@@ -76,12 +114,14 @@ export async function POST(
     req.headers.get("x-real-ip") ??
     "unknown";
 
+  const deviceModel = parseUserAgent(body.userAgent ?? req.headers.get("user-agent") ?? "");
+
   const supabase = db();
 
-  // Verify token exists and is still pending
+  // Verify token exists and is still pending; also get staff_user_id for phone lookup
   const { data: sig } = await supabase
     .from("employee_signatures")
-    .select("id, status")
+    .select("id, status, staff_user_id")
     .eq("sign_token", token)
     .maybeSingle();
 
@@ -90,12 +130,21 @@ export async function POST(
     return NextResponse.json({ error: "Already signed" }, { status: 409 });
   }
 
+  // Fetch phone from staff profile (server-side — cannot be spoofed by client)
+  const { data: staff } = await supabase
+    .from("staff_users")
+    .select("phone")
+    .eq("id", sig.staff_user_id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("employee_signatures")
     .update({
       signature_image: body.signatureImage,
       signed_at:       new Date().toISOString(),
       ip_address:      ip,
+      device_model:    deviceModel,
+      phone_number:    staff?.phone ?? null,
       status:          "signed",
     })
     .eq("id", sig.id);

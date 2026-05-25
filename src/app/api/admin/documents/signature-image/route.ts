@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const supabase = db();
   const { data, error } = await supabase
     .from("employee_signatures")
-    .select("signature_image, signed_at, ip_address")
+    .select("signature_image, signed_at, ip_address, phone_number, device_model")
     .eq("restaurant_id", RID())
     .eq("document_id",   docId)
     .eq("staff_user_id", staffId)
@@ -43,5 +43,7 @@ export async function GET(req: NextRequest) {
     signatureImage: data.signature_image ?? null,
     signedAt:       data.signed_at       ?? null,
     ipAddress:      data.ip_address      ?? null,
+    phoneNumber:    data.phone_number    ?? null,
+    deviceModel:    data.device_model    ?? null,
   });
 }

@@ -117,21 +117,25 @@ function SignatureModal({
   view: SignatureViewState;
   onClose: () => void;
 }) {
-  const [img,       setImg]       = useState<string | null>(null);
-  const [signedAt,  setSignedAt]  = useState<string | null>(null);
-  const [ipAddress, setIpAddress] = useState<string | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
+  const [img,         setImg]         = useState<string | null>(null);
+  const [signedAt,    setSignedAt]    = useState<string | null>(null);
+  const [ipAddress,   setIpAddress]   = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+  const [deviceModel, setDeviceModel] = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     fetch(`/api/admin/documents/signature-image?docId=${view.docId}&staffId=${view.staffId}`)
       .then((r) => r.json())
-      .then((d: { signatureImage?: string | null; signedAt?: string | null; ipAddress?: string | null; error?: string }) => {
+      .then((d: { signatureImage?: string | null; signedAt?: string | null; ipAddress?: string | null; phoneNumber?: string | null; deviceModel?: string | null; error?: string }) => {
         if (d.error) { setError(d.error); return; }
         setImg(d.signatureImage ?? null);
         setSignedAt(d.signedAt ?? null);
         setIpAddress(d.ipAddress ?? null);
+        setPhoneNumber(d.phoneNumber ?? null);
+        setDeviceModel(d.deviceModel ?? null);
       })
       .catch(() => setError("Не удалось загрузить подпись"))
       .finally(() => setLoading(false));
@@ -188,10 +192,20 @@ function SignatureModal({
                 </div>
               )}
 
-              <div className="mt-3 space-y-1">
+              <div className="mt-3 space-y-1.5">
                 {signedAt && (
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     📅 Подписан: <span className="font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(signedAt)}</span>
+                  </p>
+                )}
+                {phoneNumber && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    📱 Телефон: <span className="font-medium text-zinc-700 dark:text-zinc-300">{phoneNumber}</span>
+                  </p>
+                )}
+                {deviceModel && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    💻 Устройство: <span className="font-medium text-zinc-700 dark:text-zinc-300">{deviceModel}</span>
                   </p>
                 )}
                 {ipAddress && ipAddress !== "unknown" && (

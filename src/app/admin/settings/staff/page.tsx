@@ -20,6 +20,7 @@ interface StaffUser {
   username: string;
   role: StaffRole;
   display_name: string | null;
+  phone: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -246,6 +247,7 @@ function AddModal({
 }) {
   const [username, setUsername]       = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone]             = useState("");
   const [role, setRole]               = useState<StaffRole>("cashier");
   const [password, setPassword]       = useState("");
   const [confirm, setConfirm]         = useState("");
@@ -260,7 +262,7 @@ function AddModal({
     const res = await fetch("/api/admin/staff", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role, display_name: displayName }),
+      body: JSON.stringify({ username, password, role, display_name: displayName, phone: phone || undefined }),
     });
     const json = await res.json();
     setSaving(false);
@@ -272,6 +274,7 @@ function AddModal({
       username,
       role,
       display_name: displayName || null,
+      phone: phone || null,
       is_active: true,
       created_at: new Date().toISOString(),
     });
@@ -294,6 +297,10 @@ function AddModal({
 
         <Field label="Роль *">
           <RoleSelect value={role} onChange={setRole} excludeOwner={excludeOwner} />
+        </Field>
+
+        <Field label="Номер телефона">
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+7 777 123 4567" type="tel" />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -328,6 +335,7 @@ function EditModal({
   onSaved: (u: Partial<StaffUser> & { id: string }) => void;
 }) {
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
+  const [phone, setPhone]             = useState(user.phone ?? "");
   const [role, setRole]               = useState<StaffRole>(user.role);
   const [isActive, setIsActive]       = useState(user.is_active);
   const [saving, setSaving]           = useState(false);
@@ -338,12 +346,12 @@ function EditModal({
     const res = await fetch(`/api/admin/staff/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, display_name: displayName || null, is_active: isActive }),
+      body: JSON.stringify({ role, display_name: displayName || null, is_active: isActive, phone: phone || null }),
     });
     const json = await res.json();
     setSaving(false);
     if (!res.ok) { toast.error(json.error ?? "Ошибка"); return; }
-    onSaved({ id: user.id, role, display_name: displayName || null, is_active: isActive });
+    onSaved({ id: user.id, role, display_name: displayName || null, phone: phone || null, is_active: isActive });
     toast.success("Сохранено");
   }
 
@@ -354,6 +362,10 @@ function EditModal({
 
         <Field label="Имя (отображаемое)">
           <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Иван К." />
+        </Field>
+
+        <Field label="Номер телефона">
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+7 777 123 4567" type="tel" />
         </Field>
 
         <Field label="Роль">

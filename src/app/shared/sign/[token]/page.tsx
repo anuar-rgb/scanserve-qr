@@ -146,7 +146,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
       const res = await fetch(`/api/sign/${token}`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ signatureImage }),
+        body:    JSON.stringify({ signatureImage, userAgent: navigator.userAgent }),
       });
       const d = await res.json() as { ok?: boolean; error?: string };
       if (!res.ok) throw new Error(d.error ?? "Ошибка подписания");
