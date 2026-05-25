@@ -120,7 +120,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
   function handleDocScroll() {
     const el = docScrollRef.current;
     if (!el) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 10) {
+    if (Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight) {
       setScrolledToEnd(true);
     }
   }
@@ -355,7 +355,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
             {submitting
               ? "Подписываем…"
               : !scrolledToEnd
-                ? "Сначала прочитайте документ"
+                ? "Прокрутите документ вниз"
                 : !hasSignature
                   ? "Поставьте подпись"
                   : "✓ Я ознакомлен и подтверждаю подпись"

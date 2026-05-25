@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2 } from "lucide-react";
+import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,93 +57,6 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-// ─── Document Form ────────────────────────────────────────────────────────────
-
-function DocForm({
-  initial,
-  onSave,
-  onCancel,
-}: {
-  initial?: Doc;
-  onSave: (doc: Doc) => void;
-  onCancel: () => void;
-}) {
-  const [title,      setTitle]      = useState(initial?.title      ?? "");
-  const [content,    setContent]    = useState(initial?.content    ?? "");
-  const [isRequired, setIsRequired] = useState(initial?.is_required ?? true);
-  const [saving,     setSaving]     = useState(false);
-
-  async function handleSave() {
-    if (!title.trim() || !content.trim()) {
-      toast.error("Заголовок и содержимое обязательны");
-      return;
-    }
-    setSaving(true);
-    try {
-      const method = initial ? "PATCH" : "POST";
-      const url    = initial ? `/api/admin/documents/${initial.id}` : "/api/admin/documents";
-      const res    = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), is_required: isRequired }),
-      });
-      const d = await res.json() as { document?: Doc; error?: string };
-      if (!res.ok || !d.document) throw new Error(d.error ?? "Ошибка сохранения");
-      toast.success("Документ сохранён");
-      onSave(d.document);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label>Название документа</Label>
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Договор о материальной ответственности"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Содержимое</Label>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={10}
-          placeholder="Текст документа…"
-          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-zinc-400"
-        />
-        <p className="text-xs text-zinc-400">Поддерживаются переносы строк. Сотрудник увидит текст таким, как он введён здесь.</p>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          id="is_required"
-          type="checkbox"
-          checked={isRequired}
-          onChange={(e) => setIsRequired(e.target.checked)}
-          className="rounded border-zinc-300 accent-violet-600"
-        />
-        <Label htmlFor="is_required" className="cursor-pointer">
-          Обязательный для всех сотрудников
-        </Label>
-      </div>
-
-      <div className="flex gap-2 pt-1">
-        <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white">
-          {saving ? "Сохраняем…" : "Сохранить"}
-        </Button>
-        <Button variant="ghost" onClick={onCancel}>Отмена</Button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Copy Link Button ─────────────────────────────────────────────────────────
 
 function CopyLinkButton({ documentId, staffUserId }: { documentId: string; staffUserId: string }) {
@@ -159,7 +72,6 @@ function CopyLinkButton({ documentId, staffUserId }: { documentId: string; staff
       });
       const d = await res.json() as { url?: string; error?: string };
       if (!res.ok || !d.url) throw new Error(d.error ?? "Ошибка");
-      // Use full production URL
       const fullUrl = window.location.origin + d.url;
       await navigator.clipboard.writeText(fullUrl);
       setState("copied");
@@ -253,13 +165,12 @@ function SignaturesTab() {
       </div>
 
       {staff.map((member) => {
-        const allSigned  = documents.every((doc) => sigFor(member.id, doc.id)?.status === "signed");
+        const allSigned    = documents.every((doc) => sigFor(member.id, doc.id)?.status === "signed");
         const pendingCount = documents.filter((doc) => sigFor(member.id, doc.id)?.status !== "signed").length;
-        const isOpen = expanded[member.id] ?? false;
+        const isOpen       = expanded[member.id] ?? false;
 
         return (
           <div key={member.id} className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-            {/* Staff header row */}
             <button
               onClick={() => toggle(member.id)}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
@@ -287,7 +198,6 @@ function SignaturesTab() {
               </div>
             </button>
 
-            {/* Document list */}
             {isOpen && (
               <div className="border-t border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800/60">
                 {documents.map((doc) => {
@@ -323,14 +233,21 @@ function SignaturesTab() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DocumentsPage() {
-  const [tab,         setTab]         = useState<Tab>("documents");
-  const [docs,        setDocs]        = useState<Doc[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [addOpen,     setAddOpen]     = useState(false);
-  const [editTarget,  setEditTarget]  = useState<Doc | null>(null);
-  const [deleteTarget,setDeleteTarget]= useState<Doc | null>(null);
-  const [deleting,    setDeleting]    = useState(false);
-  const [expanded,    setExpanded]    = useState<Record<string, boolean>>({});
+  const formRef = useRef<HTMLDivElement>(null);
+
+  const [tab,          setTab]          = useState<Tab>("documents");
+  const [docs,         setDocs]         = useState<Doc[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [expanded,     setExpanded]     = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<Doc | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
+
+  // Form state (shared for create + edit)
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [formTitle,     setFormTitle]     = useState("");
+  const [formContent,   setFormContent]   = useState("");
+  const [formRequired,  setFormRequired]  = useState(true);
+  const [savingForm,    setSavingForm]    = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -345,8 +262,69 @@ export default function DocumentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Sync form fields when selected doc changes
+  useEffect(() => {
+    if (selectedDocId === null) {
+      setFormTitle("");
+      setFormContent("");
+      setFormRequired(true);
+    } else {
+      const doc = docs.find((d) => d.id === selectedDocId);
+      if (doc) {
+        setFormTitle(doc.title);
+        setFormContent(doc.content);
+        setFormRequired(doc.is_required);
+      }
+    }
+  }, [selectedDocId, docs]);
+
+  function selectForEdit(doc: Doc) {
+    setSelectedDocId(doc.id);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function toggleExpand(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  async function handleSaveForm() {
+    if (!formTitle.trim() || !formContent.trim()) {
+      toast.error("Заголовок и содержимое обязательны");
+      return;
+    }
+    setSavingForm(true);
+    try {
+      if (selectedDocId) {
+        // Update existing
+        const res = await fetch(`/api/admin/documents/${selectedDocId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), is_required: formRequired }),
+        });
+        const d = await res.json() as { document?: Doc; error?: string };
+        if (!res.ok || !d.document) throw new Error(d.error ?? "Ошибка сохранения");
+        setDocs((prev) => prev.map((x) => x.id === selectedDocId ? d.document! : x));
+        toast.success("Изменения сохранены");
+      } else {
+        // Create new
+        const res = await fetch("/api/admin/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), is_required: formRequired }),
+        });
+        const d = await res.json() as { document?: Doc; error?: string };
+        if (!res.ok || !d.document) throw new Error(d.error ?? "Ошибка создания");
+        setDocs((prev) => [...prev, d.document!]);
+        setFormTitle("");
+        setFormContent("");
+        setFormRequired(true);
+        toast.success("Документ добавлен");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setSavingForm(false);
+    }
   }
 
   async function handleDelete(doc: Doc) {
@@ -358,6 +336,7 @@ export default function DocumentsPage() {
         throw new Error(d.error ?? "Ошибка");
       }
       setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+      if (selectedDocId === doc.id) setSelectedDocId(null);
       setDeleteTarget(null);
       toast.success("Документ удалён");
     } catch (e) {
@@ -382,11 +361,9 @@ export default function DocumentsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Документы сотрудников</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">Договоры и документы для цифрового подписания</p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Документы сотрудников</h1>
+        <p className="text-sm text-zinc-400 mt-0.5">Договоры и документы для цифрового подписания</p>
       </div>
 
       {/* Tabs */}
@@ -410,26 +387,96 @@ export default function DocumentsPage() {
       {/* Documents Tab */}
       {tab === "documents" && (
         <div className="space-y-4">
-          {/* Add button */}
-          {!addOpen && (
-            <Button
-              onClick={() => setAddOpen(true)}
-              className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
-            >
-              <Plus size={15} /> Добавить документ
-            </Button>
-          )}
 
-          {/* Add form */}
-          {addOpen && (
-            <div className="border border-violet-200 dark:border-violet-800/40 rounded-xl p-5 bg-violet-50/30 dark:bg-violet-500/5">
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-4">Новый документ</p>
-              <DocForm
-                onSave={(doc) => { setDocs((prev) => [...prev, doc]); setAddOpen(false); }}
-                onCancel={() => setAddOpen(false)}
-              />
+          {/* Form panel — create or edit */}
+          <div
+            ref={formRef}
+            className={`border rounded-xl p-5 space-y-4 ${
+              selectedDocId
+                ? "border-violet-200 dark:border-violet-800/40 bg-violet-50/30 dark:bg-violet-500/5"
+                : "border-zinc-200 dark:border-zinc-800"
+            }`}
+          >
+            {/* Document selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Выберите документ или создайте новый
+              </Label>
+              <select
+                value={selectedDocId ?? ""}
+                onChange={(e) => setSelectedDocId(e.target.value || null)}
+                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              >
+                <option value="">+ Новый документ</option>
+                {docs.map((d) => (
+                  <option key={d.id} value={d.id}>{d.title}</option>
+                ))}
+              </select>
             </div>
-          )}
+
+            <div className="border-t border-zinc-100 dark:border-zinc-800/60 pt-4 space-y-4">
+              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                {selectedDocId ? "Редактировать документ" : "Новый документ"}
+              </p>
+
+              <div className="space-y-1.5">
+                <Label>Название документа</Label>
+                <Input
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Договор о материальной ответственности"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Содержимое</Label>
+                <textarea
+                  value={formContent}
+                  onChange={(e) => setFormContent(e.target.value)}
+                  rows={10}
+                  placeholder="Текст документа…"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-zinc-400"
+                />
+                <p className="text-xs text-zinc-400">
+                  Поддерживаются переносы строк. Сотрудник увидит текст таким, как он введён здесь.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="is_required"
+                  type="checkbox"
+                  checked={formRequired}
+                  onChange={(e) => setFormRequired(e.target.checked)}
+                  className="rounded border-zinc-300 accent-violet-600"
+                />
+                <Label htmlFor="is_required" className="cursor-pointer">
+                  Обязательный для всех сотрудников
+                </Label>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  onClick={handleSaveForm}
+                  disabled={savingForm}
+                  className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                >
+                  {savingForm ? (
+                    "Сохраняем…"
+                  ) : selectedDocId ? (
+                    <><Save size={14} /> Сохранить изменения</>
+                  ) : (
+                    <><Plus size={14} /> Добавить документ</>
+                  )}
+                </Button>
+                {selectedDocId && (
+                  <Button variant="ghost" onClick={() => setSelectedDocId(null)}>
+                    Отмена
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Documents list */}
           {loading ? (
@@ -439,87 +486,86 @@ export default function DocumentsPage() {
           ) : docs.length === 0 ? (
             <div className="py-12 text-center space-y-2">
               <FileText size={32} className="mx-auto text-zinc-300 dark:text-zinc-700" />
-              <p className="text-sm text-zinc-400">Нет документов. Нажмите «Добавить документ».</p>
+              <p className="text-sm text-zinc-400">Нет документов. Заполните форму выше.</p>
             </div>
           ) : (
             <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 px-1">
+                Все документы ({docs.length})
+              </p>
               {docs.map((doc) => {
-                const isEditing  = editTarget?.id === doc.id;
+                const isSelected = selectedDocId === doc.id;
                 const isExpanded = expanded[doc.id];
 
                 return (
-                  <div key={doc.id} className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-                    {isEditing ? (
-                      <div className="p-5">
-                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-4">Редактировать документ</p>
-                        <DocForm
-                          initial={editTarget}
-                          onSave={(updated) => {
-                            setDocs((prev) => prev.map((d) => d.id === updated.id ? updated : d));
-                            setEditTarget(null);
-                          }}
-                          onCancel={() => setEditTarget(null)}
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        {/* Doc header */}
-                        <div className="flex items-center gap-3 px-4 py-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{doc.title}</p>
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                                doc.is_required
-                                  ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                  : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                              }`}>
-                                {doc.is_required ? "Обязательный" : "Необязательный"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-zinc-400 mt-0.5">
-                              {doc.content.slice(0, 80)}{doc.content.length > 80 ? "…" : ""}
-                            </p>
-                          </div>
-
-                          <div className="shrink-0 flex items-center gap-1">
-                            <button
-                              onClick={() => toggleExpand(doc.id)}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                              title={isExpanded ? "Свернуть" : "Показать текст"}
-                            >
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            </button>
-                            <button
-                              onClick={() => toggleRequired(doc)}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                              title="Переключить обязательность"
-                            >
-                              <Check size={14} className={doc.is_required ? "text-violet-500" : "text-zinc-300"} />
-                            </button>
-                            <button
-                              onClick={() => setEditTarget(doc)}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTarget(doc)}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                  <div
+                    key={doc.id}
+                    className={`border rounded-xl overflow-hidden transition-colors ${
+                      isSelected
+                        ? "border-violet-400 dark:border-violet-700"
+                        : "border-zinc-200 dark:border-zinc-800"
+                    }`}
+                  >
+                    {/* Doc header */}
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{doc.title}</p>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            doc.is_required
+                              ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                              : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                          }`}>
+                            {doc.is_required ? "Обязательный" : "Необязательный"}
+                          </span>
                         </div>
+                        <p className="text-xs text-zinc-400 mt-0.5">
+                          {doc.content.slice(0, 80)}{doc.content.length > 80 ? "…" : ""}
+                        </p>
+                      </div>
 
-                        {/* Expanded content preview */}
-                        {isExpanded && (
-                          <div className="px-4 pb-4 border-t border-zinc-100 dark:border-zinc-800/60">
-                            <pre className="mt-3 text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed font-sans max-h-60 overflow-y-auto">
-                              {doc.content}
-                            </pre>
-                          </div>
-                        )}
-                      </>
+                      <div className="shrink-0 flex items-center gap-1">
+                        <button
+                          onClick={() => toggleExpand(doc.id)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                          title={isExpanded ? "Свернуть" : "Показать текст"}
+                        >
+                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                        <button
+                          onClick={() => toggleRequired(doc)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                          title="Переключить обязательность"
+                        >
+                          <Check size={14} className={doc.is_required ? "text-violet-500" : "text-zinc-300"} />
+                        </button>
+                        <button
+                          onClick={() => selectForEdit(doc)}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            isSelected
+                              ? "text-violet-600 bg-violet-50 dark:bg-violet-500/10"
+                              : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          }`}
+                          title="Редактировать"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(doc)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded content preview */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 border-t border-zinc-100 dark:border-zinc-800/60">
+                        <pre className="mt-3 text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed font-sans max-h-60 overflow-y-auto">
+                          {doc.content}
+                        </pre>
+                      </div>
                     )}
                   </div>
                 );
@@ -538,8 +584,8 @@ export default function DocumentsPage() {
           <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 space-y-4 shadow-xl">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Удалить документ?</h3>
             <p className="text-sm text-zinc-500">
-              Будут удалены также все записи о подписях сотрудников по документу
-              <span className="font-medium text-zinc-800 dark:text-zinc-200"> «{deleteTarget.title}»</span>.
+              Будут удалены также все записи о подписях сотрудников по документу{" "}
+              <span className="font-medium text-zinc-800 dark:text-zinc-200">«{deleteTarget.title}»</span>.
               Это действие необратимо.
             </p>
             <div className="flex gap-2 pt-1">
