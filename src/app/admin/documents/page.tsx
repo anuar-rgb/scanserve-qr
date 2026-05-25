@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil } from "lucide-react";
+import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,13 @@ interface SigRecord {
   sign_token:    string;
   status:        "pending" | "signed";
   signed_at:     string | null;
+}
+
+interface SignatureViewState {
+  docId:     string;
+  staffId:   string;
+  staffName: string;
+  docTitle:  string;
 }
 
 type Tab = "documents" | "signatures";
@@ -101,12 +108,115 @@ function CopyLinkButton({ documentId, staffUserId }: { documentId: string; staff
 
 // ─── Signatures Tab ───────────────────────────────────────────────────────────
 
+// ─── Signature View Modal ─────────────────────────────────────────────────────
+
+function SignatureModal({
+  view,
+  onClose,
+}: {
+  view: SignatureViewState;
+  onClose: () => void;
+}) {
+  const [img,       setImg]       = useState<string | null>(null);
+  const [signedAt,  setSignedAt]  = useState<string | null>(null);
+  const [ipAddress, setIpAddress] = useState<string | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/admin/documents/signature-image?docId=${view.docId}&staffId=${view.staffId}`)
+      .then((r) => r.json())
+      .then((d: { signatureImage?: string | null; signedAt?: string | null; ipAddress?: string | null; error?: string }) => {
+        if (d.error) { setError(d.error); return; }
+        setImg(d.signatureImage ?? null);
+        setSignedAt(d.signedAt ?? null);
+        setIpAddress(d.ipAddress ?? null);
+      })
+      .catch(() => setError("Не удалось загрузить подпись"))
+      .finally(() => setLoading(false));
+  }, [view.docId, view.staffId]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Подпись сотрудника</p>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{view.staffName}</p>
+            <p className="text-xs text-zinc-400 mt-0.5 truncate max-w-[280px]">{view.docTitle}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0 ml-2"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5">
+          {loading && (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-6 h-6 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-center text-red-500 py-8">{error}</p>
+          )}
+
+          {!loading && !error && (
+            <>
+              {img ? (
+                <div className="rounded-xl border-2 border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img}
+                    alt="Подпись сотрудника"
+                    className="w-full h-auto block"
+                    style={{ maxHeight: 200, objectFit: "contain", background: "#fff" }}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center py-10">
+                  <p className="text-sm text-zinc-400">Изображение подписи недоступно</p>
+                </div>
+              )}
+
+              <div className="mt-3 space-y-1">
+                {signedAt && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    📅 Подписан: <span className="font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(signedAt)}</span>
+                  </p>
+                )}
+                {ipAddress && ipAddress !== "unknown" && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    🌐 IP: <span className="font-mono text-zinc-600 dark:text-zinc-400">{ipAddress}</span>
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Signatures Tab ───────────────────────────────────────────────────────────
+
 function SignaturesTab() {
   const [staff,      setStaff]      = useState<StaffMember[]>([]);
   const [documents,  setDocuments]  = useState<{ id: string; title: string; is_required: boolean }[]>([]);
   const [signatures, setSignatures] = useState<SigRecord[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [expanded,   setExpanded]   = useState<Record<string, boolean>>({});
+  const [sigView,    setSigView]    = useState<SignatureViewState | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -154,79 +264,100 @@ function SignaturesTab() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {staff.length} сотрудников · {documents.length} документов
-        </p>
-        <button onClick={load} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1">
-          <RefreshCw size={11} /> Обновить
-        </button>
+    <>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {staff.length} сотрудников · {documents.length} документов
+          </p>
+          <button onClick={load} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1">
+            <RefreshCw size={11} /> Обновить
+          </button>
+        </div>
+
+        {staff.map((member) => {
+          const allSigned    = documents.every((doc) => sigFor(member.id, doc.id)?.status === "signed");
+          const pendingCount = documents.filter((doc) => sigFor(member.id, doc.id)?.status !== "signed").length;
+          const isOpen       = expanded[member.id] ?? false;
+
+          return (
+            <div key={member.id} className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+              <button
+                onClick={() => toggle(member.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-600 dark:text-zinc-400 shrink-0">
+                  {(member.display_name ?? member.username).slice(0, 1).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                    {member.display_name ?? member.username}
+                  </p>
+                  <p className="text-xs text-zinc-400">{ROLE_LABEL[member.role] ?? member.role}</p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  {allSigned ? (
+                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      Все подписаны
+                    </span>
+                  ) : (
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
+                      {pendingCount} ожидает
+                    </span>
+                  )}
+                  {isOpen ? <ChevronUp size={14} className="text-zinc-400" /> : <ChevronDown size={14} className="text-zinc-400" />}
+                </div>
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                  {documents.map((doc) => {
+                    const sig    = sigFor(member.id, doc.id);
+                    const signed = sig?.status === "signed";
+                    return (
+                      <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 bg-zinc-50/50 dark:bg-zinc-900/30">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${signed ? "bg-emerald-500" : "bg-amber-400"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-zinc-700 dark:text-zinc-300 truncate">{doc.title}</p>
+                          {signed && sig?.signed_at && (
+                            <p className="text-[11px] text-zinc-400">Подписан {fmtDate(sig.signed_at)}</p>
+                          )}
+                          {!signed && (
+                            <p className="text-[11px] text-amber-500">Ожидает подписи</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {signed && (
+                            <button
+                              onClick={() => setSigView({
+                                docId:     doc.id,
+                                staffId:   member.id,
+                                staffName: member.display_name ?? member.username,
+                                docTitle:  doc.title,
+                              })}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-violet-600 dark:text-violet-400 hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                            >
+                              <Eye size={11} /> Подпись
+                            </button>
+                          )}
+                          {!signed && (
+                            <CopyLinkButton documentId={doc.id} staffUserId={member.id} />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {staff.map((member) => {
-        const allSigned    = documents.every((doc) => sigFor(member.id, doc.id)?.status === "signed");
-        const pendingCount = documents.filter((doc) => sigFor(member.id, doc.id)?.status !== "signed").length;
-        const isOpen       = expanded[member.id] ?? false;
-
-        return (
-          <div key={member.id} className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-            <button
-              onClick={() => toggle(member.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
-            >
-              <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-600 dark:text-zinc-400 shrink-0">
-                {(member.display_name ?? member.username).slice(0, 1).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                  {member.display_name ?? member.username}
-                </p>
-                <p className="text-xs text-zinc-400">{ROLE_LABEL[member.role] ?? member.role}</p>
-              </div>
-              <div className="shrink-0 flex items-center gap-2">
-                {allSigned ? (
-                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    Все подписаны
-                  </span>
-                ) : (
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
-                    {pendingCount} ожидает
-                  </span>
-                )}
-                {isOpen ? <ChevronUp size={14} className="text-zinc-400" /> : <ChevronDown size={14} className="text-zinc-400" />}
-              </div>
-            </button>
-
-            {isOpen && (
-              <div className="border-t border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                {documents.map((doc) => {
-                  const sig    = sigFor(member.id, doc.id);
-                  const signed = sig?.status === "signed";
-                  return (
-                    <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 bg-zinc-50/50 dark:bg-zinc-900/30">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${signed ? "bg-emerald-500" : "bg-amber-400"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-zinc-700 dark:text-zinc-300 truncate">{doc.title}</p>
-                        {signed && sig?.signed_at && (
-                          <p className="text-[11px] text-zinc-400">Подписан {fmtDate(sig.signed_at)}</p>
-                        )}
-                        {!signed && (
-                          <p className="text-[11px] text-amber-500">Ожидает подписи</p>
-                        )}
-                      </div>
-                      {!signed && (
-                        <CopyLinkButton documentId={doc.id} staffUserId={member.id} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+      {sigView && (
+        <SignatureModal view={sigView} onClose={() => setSigView(null)} />
+      )}
+    </>
   );
 }
 

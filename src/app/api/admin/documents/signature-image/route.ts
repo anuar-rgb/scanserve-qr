@@ -1,0 +1,47 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+function db() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
+}
+const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+
+// GET /api/admin/documents/signature-image?docId=...&staffId=...
+export async function GET(req: NextRequest) {
+  const role = req.cookies.get("admin_session")?.value;
+  if (!["owner", "manager"].includes(role ?? "")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const docId   = searchParams.get("docId");
+  const staffId = searchParams.get("staffId");
+
+  if (!docId || !staffId) {
+    return NextResponse.json({ error: "docId and staffId required" }, { status: 400 });
+  }
+
+  const supabase = db();
+  const { data, error } = await supabase
+    .from("employee_signatures")
+    .select("signature_image, signed_at, ip_address")
+    .eq("restaurant_id", RID())
+    .eq("document_id",   docId)
+    .eq("staff_user_id", staffId)
+    .eq("status", "signed")
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data)  return NextResponse.json({ error: "Not found" },  { status: 404 });
+
+  return NextResponse.json({
+    signatureImage: data.signature_image ?? null,
+    signedAt:       data.signed_at       ?? null,
+    ipAddress:      data.ip_address      ?? null,
+  });
+}
