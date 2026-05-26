@@ -2788,6 +2788,368 @@ function PaymentModal({
   );
 }
 
+// ── SplitBillModal ────────────────────────────────────────────────────────────
+
+type SplitLine = {
+  name: string;
+  price: number;
+  qty: number;
+  currency: string;
+  modifiers?: ModifierEntry[];
+  original_price?: number;
+  product_id?: string;
+};
+
+type GuestBucket = {
+  id: string;
+  label: string;
+  items: SplitLine[];
+  paid: boolean;
+  paidMethod?: string;
+};
+
+function splitLineKey(item: SplitLine) {
+  return `${item.name}|${item.price}|${JSON.stringify(item.modifiers ?? [])}`;
+}
+
+function addToSplitList(list: SplitLine[], item: SplitLine, qty = 1): SplitLine[] {
+  const key = splitLineKey(item);
+  if (list.some(x => splitLineKey(x) === key)) {
+    return list.map(x => splitLineKey(x) === key ? { ...x, qty: x.qty + qty } : x);
+  }
+  return [...list, { ...item, qty }];
+}
+
+function removeFromSplitList(list: SplitLine[], item: SplitLine, qty = 1): SplitLine[] {
+  return list.flatMap(x => {
+    if (splitLineKey(x) !== splitLineKey(item)) return [x];
+    if (x.qty <= qty) return [];
+    return [{ ...x, qty: x.qty - qty }];
+  });
+}
+
+function collapseItems(items: SplitLine[]): SplitLine[] {
+  const result: SplitLine[] = [];
+  for (const item of items) {
+    const key = splitLineKey(item);
+    const existing = result.find(x => splitLineKey(x) === key);
+    if (existing) { existing.qty += item.qty; }
+    else { result.push({ ...item }); }
+  }
+  return result;
+}
+
+function calcSplitTotal(items: SplitLine[]) {
+  return items.reduce((s, it) => s + it.price * it.qty, 0);
+}
+
+function SplitBillModal({
+  order,
+  tableName,
+  onClose,
+  onRefresh,
+  onOrderClosed,
+}: {
+  order: DbOrder;
+  tableName?: string;
+  onClose: () => void;
+  onRefresh: () => void;
+  onOrderClosed: (orderId: string) => void;
+}) {
+  const rawItems = Array.isArray(order.items_json) ? order.items_json as OrderItem[] : [];
+  const initialItems: SplitLine[] = rawItems.map(it => ({
+    name: it.name, price: it.price, qty: it.qty, currency: it.currency,
+    modifiers: it.modifiers, original_price: it.original_price, product_id: it.product_id,
+  }));
+
+  const [mainItems, setMainItems] = useState<SplitLine[]>(initialItems);
+  const [guests, setGuests]       = useState<GuestBucket[]>([
+    { id: "g1", label: "Гость 1", items: [], paid: false },
+  ]);
+  const [activeGuestId, setActiveGuestId] = useState("g1");
+  const [payingGuestId, setPayingGuestId] = useState<string | null>(null);
+  const [saving, setSaving]               = useState(false);
+
+  const activeGuest = guests.find(g => g.id === activeGuestId) ?? guests[0];
+
+  function addGuest() {
+    const n  = guests.length + 1;
+    const id = `g${Date.now()}`;
+    setGuests(prev => [...prev, { id, label: `Гость ${n}`, items: [], paid: false }]);
+    setActiveGuestId(id);
+  }
+
+  function moveToGuest(item: SplitLine) {
+    if (activeGuest?.paid) return;
+    setMainItems(prev => removeFromSplitList(prev, item, 1));
+    setGuests(prev => prev.map(g =>
+      g.id !== activeGuestId ? g : { ...g, items: addToSplitList(g.items, item, 1) }
+    ));
+  }
+
+  function moveToMain(item: SplitLine) {
+    if (activeGuest?.paid) return;
+    setGuests(prev => prev.map(g =>
+      g.id !== activeGuestId ? g : { ...g, items: removeFromSplitList(g.items, item, 1) }
+    ));
+    setMainItems(prev => addToSplitList(prev, item, 1));
+  }
+
+  async function payGuest(guestId: string, method: string) {
+    const guest = guests.find(g => g.id === guestId);
+    if (!guest || guest.items.length === 0 || saving) return;
+    setSaving(true);
+
+    const guestTotal = calcSplitTotal(guest.items);
+
+    const { error: insertErr } = await supabase.from(DB_TABLES.orders).insert({
+      restaurant_id: RESTAURANT_ID,
+      table_number:  order.table_number,
+      type:          order.type || "dine-in",
+      order_type:    order.order_type,
+      status:        "completed",
+      items_json:    guest.items,
+      total_price:   guestTotal,
+      payment_method: method,
+      closed_at:     new Date().toISOString(),
+      opened_by:     order.opened_by,
+    });
+
+    if (insertErr) {
+      toast.error(`Ошибка создания чека: ${insertErr.message}`);
+      setSaving(false);
+      return;
+    }
+
+    // Remaining = current mainItems + items of other unpaid guests
+    const otherUnpaid = guests
+      .filter(g => g.id !== guestId && !g.paid)
+      .flatMap(g => g.items);
+    const remaining = collapseItems([...mainItems, ...otherUnpaid]);
+    const newTotal  = calcSplitTotal(remaining);
+
+    if (remaining.length === 0) {
+      const { error: closeErr } = await supabase.from(DB_TABLES.orders)
+        .update({ status: "completed", items_json: [], total_price: 0, payment_method: "split", closed_at: new Date().toISOString() })
+        .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+      if (closeErr) { toast.error(`Ошибка закрытия стола: ${closeErr.message}`); setSaving(false); return; }
+      toast.success("Все гости рассчитались — стол закрыт!");
+      setSaving(false);
+      setGuests(prev => prev.map(g => g.id === guestId ? { ...g, paid: true, paidMethod: method } : g));
+      setPayingGuestId(null);
+      setTimeout(() => { onOrderClosed(order.id); onRefresh(); onClose(); }, 1200);
+    } else {
+      const { error: updateErr } = await supabase.from(DB_TABLES.orders)
+        .update({ items_json: remaining, total_price: newTotal })
+        .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+      if (updateErr) { toast.error(`Ошибка обновления счёта: ${updateErr.message}`); setSaving(false); return; }
+      toast.success(`${guest.label} оплатил — ${guestTotal.toLocaleString("ru-RU")} ₸`);
+      setSaving(false);
+      setGuests(prev => prev.map(g => g.id === guestId ? { ...g, paid: true, paidMethod: method } : g));
+      setPayingGuestId(null);
+      onRefresh();
+    }
+  }
+
+  // Payment method picker
+  if (payingGuestId) {
+    const payingGuest = guests.find(g => g.id === payingGuestId)!;
+    const gTotal      = calcSplitTotal(payingGuest.items);
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-background rounded-2xl shadow-2xl w-[340px] max-w-[94vw] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <p className="font-semibold text-sm">Оплата — {payingGuest.label}</p>
+            <button onClick={() => setPayingGuestId(null)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+          <div className="px-5 py-5 space-y-4">
+            <p className="text-center text-3xl font-black tabular-nums">{gTotal.toLocaleString("ru-RU")} ₸</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {PAYMENT_METHODS.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => payGuest(payingGuestId, m.id)}
+                  disabled={saving}
+                  className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-border hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors text-sm font-semibold disabled:opacity-50"
+                >
+                  <span className="text-lg leading-none">{m.icon}</span>
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft size={17} />
+        </button>
+        <p className="font-semibold text-sm flex-1">
+          Разделить чек{tableName ? ` — Стол ${tableName}` : ""}
+        </p>
+        <button
+          onClick={addGuest}
+          disabled={guests.length >= 8}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 transition-colors disabled:opacity-40"
+        >
+          <Plus size={13} />
+          Гость
+        </button>
+      </div>
+
+      {/* Guest tabs */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border overflow-x-auto shrink-0">
+        {guests.map(g => (
+          <button
+            key={g.id}
+            onClick={() => { if (!g.paid) setActiveGuestId(g.id); }}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              g.paid
+                ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
+                : g.id === activeGuestId
+                ? "bg-violet-600 text-white"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {g.paid && <Check size={11} />}
+            {g.label}
+            {!g.paid && g.items.length > 0 && (
+              <span className={`rounded-full px-1 text-[10px] ${g.id === activeGuestId ? "bg-white/20" : "bg-border"}`}>
+                {calcSplitTotal(g.items).toLocaleString("ru-RU")} ₸
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Two-column body */}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+
+        {/* Main column */}
+        <div className="flex flex-col w-1/2 border-r border-border overflow-hidden">
+          <div className="px-3 py-2 bg-muted/30 border-b border-border/50 shrink-0">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Основной чек</p>
+            <p className="text-[10px] text-muted-foreground">нажмите → в чек гостя</p>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {mainItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-4">
+                <Check size={24} className="text-emerald-500" />
+                <p className="text-xs text-center">Все блюда распределены</p>
+              </div>
+            ) : (
+              mainItems.map((item, idx) => (
+                <button
+                  key={`m-${idx}-${item.name}`}
+                  onClick={() => moveToGuest(item)}
+                  disabled={activeGuest?.paid}
+                  className="w-full flex items-start gap-2 px-3 py-2.5 border-b border-border/30 text-left hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group disabled:opacity-40"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold leading-tight">{item.name}</p>
+                    {item.modifiers && item.modifiers.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground truncate">{item.modifiers.map(m => m.name).join(", ")}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground">×{item.qty}</span>
+                    <ChevronRight size={12} className="text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="px-3 py-2 border-t border-border bg-muted/20 shrink-0">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground">Остаток:</span>
+              <span className="text-xs font-black tabular-nums">{calcSplitTotal(mainItems).toLocaleString("ru-RU")} ₸</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Guest column */}
+        <div className="flex flex-col w-1/2 overflow-hidden">
+          <div className="px-3 py-2 bg-muted/30 border-b border-border/50 shrink-0">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              {activeGuest?.label ?? "Гость"}
+              {activeGuest?.paid && <span className="ml-1 text-emerald-600">✓</span>}
+            </p>
+            {!activeGuest?.paid && <p className="text-[10px] text-muted-foreground">← нажмите для возврата</p>}
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {!activeGuest || activeGuest.items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-4">
+                <Users size={24} className="opacity-30" />
+                <p className="text-xs text-center">
+                  {activeGuest?.paid ? "Оплачено" : "Добавьте блюда из основного чека"}
+                </p>
+              </div>
+            ) : (
+              activeGuest.items.map((item, idx) => (
+                <button
+                  key={`g-${idx}-${item.name}`}
+                  onClick={() => moveToMain(item)}
+                  disabled={activeGuest.paid}
+                  className="w-full flex items-start gap-2 px-3 py-2.5 border-b border-border/30 text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors group disabled:opacity-60 disabled:cursor-default"
+                >
+                  <ChevronLeft size={12} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold leading-tight">{item.name}</p>
+                    {item.modifiers && item.modifiers.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground truncate">{item.modifiers.map(m => m.name).join(", ")}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">{(item.price * item.qty).toLocaleString("ru-RU")} ₸</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-muted-foreground shrink-0 pt-0.5">×{item.qty}</span>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="px-3 py-2.5 border-t border-border bg-muted/20 shrink-0 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground">Итого:</span>
+              <span className="text-xs font-black tabular-nums">
+                {calcSplitTotal(activeGuest?.items ?? []).toLocaleString("ru-RU")} ₸
+              </span>
+            </div>
+            {activeGuest && !activeGuest.paid && activeGuest.items.length > 0 && (
+              <button
+                onClick={() => setPayingGuestId(activeGuest.id)}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                <Check size={13} />
+                Оплатить {calcSplitTotal(activeGuest.items).toLocaleString("ru-RU")} ₸
+              </button>
+            )}
+            {activeGuest?.paid && activeGuest.paidMethod && (
+              <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <Check size={12} />
+                <span className="text-xs font-semibold">
+                  {METHOD_META[activeGuest.paidMethod]?.label ?? activeGuest.paidMethod}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── TablePanel ────────────────────────────────────────────────────────────────
 
 function TablePanel({
@@ -2829,6 +3191,7 @@ function TablePanel({
     (data.status === "free" && autoOrder) ? "order" : "info"
   );
   const [showPaymentModal, setShowPaymentModal]   = useState(false);
+  const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [copiedId, setCopiedId]                   = useState(false);
   const [changingTable, setChangingTable]         = useState(false);
   const [showMenuPicker, setShowMenuPicker]       = useState(false);
@@ -3560,13 +3923,22 @@ function TablePanel({
 
             {/* Close order */}
             {!isWaiter && status === "occupied" && (
-              <button
-                onClick={() => setShowPaymentModal(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
-              >
-                <Check size={15} />
-                {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
+                >
+                  <Check size={15} />
+                  {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
+                </button>
+                <button
+                  onClick={() => setShowSplitBillModal(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-accent transition-colors"
+                >
+                  <Users size={14} />
+                  Разделить чек
+                </button>
+              </div>
             )}
 
           </div>
@@ -3578,6 +3950,15 @@ function TablePanel({
           tableName={table.label}
           onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
           onClose={() => setShowPaymentModal(false)}
+        />
+      )}
+      {!isWaiter && showSplitBillModal && activeOrder && (
+        <SplitBillModal
+          order={activeOrder}
+          tableName={table.label}
+          onClose={() => setShowSplitBillModal(false)}
+          onRefresh={onRefresh}
+          onOrderClosed={(id) => { onOrderClosed(id); onClose(); }}
         />
       )}
       {voidingItem && (
