@@ -10,6 +10,7 @@ import { CartDrawer, type CartMap, type StoredOrder } from "./CartDrawer";
 import { WaiterModal } from "./WaiterModal";
 import { OrdersModal } from "./OrdersModal";
 import { PushNotificationBanner } from "./PushNotificationBanner";
+import { ProductDetailModal } from "./ProductDetailModal";
 
 export type { StoredOrder };
 
@@ -1523,6 +1524,7 @@ function CatalogDishCard({
   onAddToCart,
   onToggleLike,
   getLikeCount,
+  onDishClick,
   id,
 }: {
   dish: Dish;
@@ -1533,6 +1535,7 @@ function CatalogDishCard({
   onAddToCart: (dish: Dish, currency: string, delta: number) => void;
   onToggleLike: (id: string) => void;
   getLikeCount: (id: string) => number;
+  onDishClick: (dish: Dish) => void;
   id?: string;
 }) {
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
@@ -1550,6 +1553,7 @@ function CatalogDishCard({
   return (
     <div
       id={id}
+      onClick={() => onDishClick(dish)}
       style={{
         borderRadius: R.lg,
         overflow: "hidden",
@@ -1559,6 +1563,7 @@ function CatalogDishCard({
         display: "flex",
         flexDirection: "column",
         transition: "background-color 0.2s, border-color 0.2s",
+        cursor: "pointer",
       }}
     >
       {/* Image or emoji area */}
@@ -1696,7 +1701,7 @@ function CatalogDishCard({
           {dish.modifiers?.length ? (
             <div style={{ position: "relative", display: "inline-flex" }}>
               <button
-                onClick={() => onAddToCart(dish, currency, +1)}
+                onClick={(e) => { e.stopPropagation(); onAddToCart(dish, currency, +1); }}
                 style={{
                   width: 28, height: 28, borderRadius: R.full, border: "none",
                   background: "var(--text-color)", color: "var(--bg-color)",
@@ -1718,7 +1723,7 @@ function CatalogDishCard({
           ) : qty > 0 ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button
-                onClick={() => onAddToCart(dish, currency, -1)}
+                onClick={(e) => { e.stopPropagation(); onAddToCart(dish, currency, -1); }}
                 style={{
                   width: 24, height: 24, borderRadius: R.full,
                   border: "1px solid var(--border-color)",
@@ -1731,7 +1736,7 @@ function CatalogDishCard({
                 {qty}
               </span>
               <button
-                onClick={() => onAddToCart(dish, currency, +1)}
+                onClick={(e) => { e.stopPropagation(); onAddToCart(dish, currency, +1); }}
                 style={{
                   width: 24, height: 24, borderRadius: R.full,
                   border: "none",
@@ -1743,7 +1748,7 @@ function CatalogDishCard({
             </div>
           ) : (
             <button
-              onClick={() => onAddToCart(dish, currency, +1)}
+              onClick={(e) => { e.stopPropagation(); onAddToCart(dish, currency, +1); }}
               style={{
                 width: 28, height: 28, borderRadius: R.full,
                 border: "none",
@@ -1801,11 +1806,12 @@ function CatalogDishCard({
 // ── Menu List Dish Row ────────────────────────────────────────────────────────
 
 function MenuDishRow({
-  dish, lang, currency, cart, addToCart,
+  dish, lang, currency, cart, addToCart, onDishClick,
 }: {
   dish: Dish; lang: Lang; currency: string;
   cart: CartMap;
   addToCart: (dish: Dish, currency: string, delta: number) => void;
+  onDishClick: (dish: Dish) => void;
 }) {
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const qty = dish.modifiers?.length
@@ -1818,10 +1824,14 @@ function MenuDishRow({
     : null;
 
   return (
-    <div style={{
-      borderRadius: R.md, border: "1px solid var(--border-color)",
-      backgroundColor: "var(--bg-card)", boxShadow: "var(--card-shadow)",
-    }}>
+    <div
+      onClick={() => onDishClick(dish)}
+      style={{
+        borderRadius: R.md, border: "1px solid var(--border-color)",
+        backgroundColor: "var(--bg-card)", boxShadow: "var(--card-shadow)",
+        cursor: "pointer",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: 12 }}>
         {/* Thumbnail */}
         <div style={{
@@ -1877,7 +1887,7 @@ function MenuDishRow({
           {dish.ingredients && (
             <>
               <button
-                onClick={() => setIngredientsOpen(o => !o)}
+                onClick={(e) => { e.stopPropagation(); setIngredientsOpen(o => !o); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 3,
                   background: "none", border: "none", padding: "5px 0 0",
@@ -1916,19 +1926,19 @@ function MenuDishRow({
         <div style={{ flexShrink: 0, paddingTop: 2 }}>
           {dish.modifiers?.length ? (
             <div style={{ position: "relative", display: "inline-flex" }}>
-              <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, +1); }} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
               {qty > 0 && (
                 <span style={{ position: "absolute", top: -5, right: -5, width: 16, height: 16, borderRadius: "50%", background: "#FF4D6D", color: "#fff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>{qty}</span>
               )}
             </div>
           ) : qty > 0 ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button onClick={() => addToCart(dish, currency, -1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+              <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, -1); }} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
               <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-              <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, +1); }} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
           ) : (
-            <button onClick={() => addToCart(dish, currency, +1)} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, +1); }} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
           )}
         </div>
       </div>
@@ -2166,6 +2176,8 @@ export function MenuTemplate({
   const [modPickerDish, setModPickerDish]   = useState<Dish | null>(null);
   const [modPickerCur, setModPickerCur]     = useState("");
   const [selectedMods, setSelectedMods]     = useState<Set<string>>(new Set());
+  const [selectedDish, setSelectedDish]         = useState<Dish | null>(null);
+  const [selectedDishCurrency, setSelectedDishCurrency] = useState("");
 
   const stripRef           = useRef<HTMLDivElement>(null);
   const pillRefs           = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -2754,6 +2766,7 @@ export function MenuTemplate({
                   onAddToCart={addToCart}
                   onToggleLike={toggleLike}
                   getLikeCount={getLikeCount}
+                  onDishClick={(d) => { setSelectedDish(d); setSelectedDishCurrency(d.currency ?? restaurant.currency ?? ""); }}
                 />
               ))}
             </div>
@@ -2832,6 +2845,7 @@ export function MenuTemplate({
                     onAddToCart={addToCart}
                     onToggleLike={toggleLike}
                     getLikeCount={getLikeCount}
+                    onDishClick={(d) => { setSelectedDish(d); setSelectedDishCurrency(d.currency ?? restaurant.currency ?? ""); }}
                   />
                 ))}
               </div>
@@ -2884,6 +2898,7 @@ export function MenuTemplate({
                       currency={dish.currency ?? restaurant.currency ?? ""}
                       cart={cart}
                       addToCart={addToCart}
+                      onDishClick={(d) => { setSelectedDish(d); setSelectedDishCurrency(d.currency ?? restaurant.currency ?? ""); }}
                     />
                   ))}
                 </div>
@@ -3159,6 +3174,16 @@ export function MenuTemplate({
           </div>
         </div>
       )}
+
+      {/* ── Product detail modal ──────────────────────────────────────────── */}
+      <ProductDetailModal
+        dish={selectedDish}
+        lang={lang}
+        currency={selectedDishCurrency}
+        cart={cart}
+        onClose={() => setSelectedDish(null)}
+        onAddToCart={addToCart}
+      />
 
       {/* ── Web Push subscription banner ──────────────────────────────────── */}
       <PushNotificationBanner lang={lang} theme={theme} />
