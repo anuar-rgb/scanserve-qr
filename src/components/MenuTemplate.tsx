@@ -5,7 +5,7 @@ import type { SlideTag } from "@/lib/db-types";
 import { capFirst } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sun, Moon, ChevronDown, Heart, Search, X, Clock } from "lucide-react";
-import { BottomNav } from "./BottomNav";
+import { FloatingNavBar } from "./FloatingNavBar";
 import { CartDrawer, type CartMap, type StoredOrder } from "./CartDrawer";
 import { WaiterModal } from "./WaiterModal";
 import { OrdersModal } from "./OrdersModal";
@@ -2993,15 +2993,15 @@ export function MenuTemplate({
         </div>
       )}
 
-      {/* ── Bottom navigation bar ─────────────────────────────────────────── */}
-      <BottomNav
+      {/* ── Floating navigation bar ──────────────────────────────────────── */}
+      <FloatingNavBar
         lang={lang}
         theme={theme}
         cartCount={cartCount}
-        activeTab={view === "catalog" ? "categories" : view === "menu" ? "menu" : "home"}
+        activeTab={searchOpen ? "search" : view === "catalog" ? "likes" : "home"}
         onHomeTab={goHome}
-        onCatalogTab={goToCatalogGrid}
-        onMenuTab={() => { setView("menu"); setActiveCatId(null); setScrollToId(null); setSearchOpen(false); }}
+        onSearchTab={() => { setSearchOpen((v) => !v); }}
+        onLikesTab={goToCatalogGrid}
         onWaiterTab={() => setWaiterOpen(true)}
         onCartTab={() => setCartOpen(true)}
       />
