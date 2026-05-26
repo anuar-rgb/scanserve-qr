@@ -1,22 +1,22 @@
 "use client";
 
-import { Home, Search, Heart, Bell, ShoppingCart } from "lucide-react";
+import { Home, LayoutGrid, Heart, Bell, ShoppingCart } from "lucide-react";
 import type { Lang } from "./MenuTemplate";
 
-type Tab = "home" | "search" | "likes" | "waiter";
+type Tab = "home" | "catalog" | "likes" | "waiter";
 
 const LABELS: Record<Tab, Record<Lang, string>> = {
-  home:   { en: "Home",   ru: "Главная",   kz: "Басты"     },
-  search: { en: "Search", ru: "Поиск",     kz: "Іздеу"     },
-  likes:  { en: "Saved",  ru: "Каталог",   kz: "Санат"     },
-  waiter: { en: "Waiter", ru: "Официант",  kz: "Даяшы"     },
+  home:    { en: "Home",    ru: "Главная",  kz: "Басты"  },
+  catalog: { en: "Catalog", ru: "Каталог",  kz: "Санат"  },
+  likes:   { en: "Saved",   ru: "Избранное", kz: "Таңд." },
+  waiter:  { en: "Waiter",  ru: "Официант", kz: "Даяшы"  },
 };
 
 const ICONS: Record<Tab, React.ElementType> = {
-  home:   Home,
-  search: Search,
-  likes:  Heart,
-  waiter: Bell,
+  home:    Home,
+  catalog: LayoutGrid,
+  likes:   Heart,
+  waiter:  Bell,
 };
 
 export interface FloatingNavBarProps {
@@ -25,13 +25,13 @@ export interface FloatingNavBarProps {
   cartCount?: number;
   activeTab?: Tab;
   onHomeTab?: () => void;
-  onSearchTab?: () => void;
+  onCatalogTab?: () => void;
   onLikesTab?: () => void;
   onWaiterTab?: () => void;
   onCartTab?: () => void;
 }
 
-const TABS: Tab[] = ["home", "search", "likes", "waiter"];
+const TABS: Tab[] = ["home", "catalog", "likes", "waiter"];
 
 export function FloatingNavBar({
   lang = "en",
@@ -39,7 +39,7 @@ export function FloatingNavBar({
   cartCount,
   activeTab = "home",
   onHomeTab,
-  onSearchTab,
+  onCatalogTab,
   onLikesTab,
   onWaiterTab,
   onCartTab,
@@ -58,10 +58,10 @@ export function FloatingNavBar({
   const cartFg     = isDark ? "#DEDEDE" : "#111111";
 
   const handlers: Record<Tab, (() => void) | undefined> = {
-    home:   onHomeTab,
-    search: onSearchTab,
-    likes:  onLikesTab,
-    waiter: onWaiterTab,
+    home:    onHomeTab,
+    catalog: onCatalogTab,
+    likes:   onLikesTab,
+    waiter:  onWaiterTab,
   };
 
   return (
