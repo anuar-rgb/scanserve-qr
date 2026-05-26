@@ -735,6 +735,8 @@ export default function HallPage() {
     name: waiterNames[c.staff_user_id] ?? "Сотрудник",
   }));
 
+  const allStaffUsers = Object.entries(waiterNames).map(([id, name]) => ({ id, name }));
+
   async function openShift() {
     setOpeningShift(true);
     try {
@@ -1002,6 +1004,7 @@ export default function HallPage() {
                   autoOrder={waiterAutoOrder}
                   waiterNames={waiterNames}
                   activeWaiters={activeWaiters}
+                  allStaffUsers={allStaffUsers}
                   restaurantName={restaurant?.name ?? ""}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
@@ -3164,6 +3167,7 @@ function TablePanel({
   autoOrder,
   waiterNames = {},
   activeWaiters = [],
+  allStaffUsers = [],
   restaurantName = "",
   onEnterOrderMode,
   onExitOrderMode,
@@ -3179,6 +3183,7 @@ function TablePanel({
   autoOrder?: boolean;
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
+  allStaffUsers?: { id: string; name: string }[];
   restaurantName?: string;
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
@@ -3409,15 +3414,13 @@ function TablePanel({
                     : "Не назначен"}
                 </span>
               </p>
-              {activeWaiters.length > 0 && (
-                <button
-                  onClick={() => setShowAssignModal(true)}
-                  className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
-                  title="Привязать официанта к столу"
-                >
-                  <UserCog size={10} />
-                </button>
-              )}
+              <button
+                onClick={() => setShowAssignModal(true)}
+                className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
+                title="Привязать официанта к столу"
+              >
+                <UserCog size={10} />
+              </button>
             </div>
           )}
         </div>
@@ -3475,7 +3478,7 @@ function TablePanel({
       {showAssignModal && (
         <AssignTableWaiterModal
           table={table}
-          activeWaiters={activeWaiters}
+          activeWaiters={allStaffUsers.length > 0 ? allStaffUsers : activeWaiters}
           waiterNames={waiterNames}
           onDone={() => { setShowAssignModal(false); onRefresh(); }}
           onClose={() => setShowAssignModal(false)}
