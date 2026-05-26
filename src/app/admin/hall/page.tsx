@@ -4255,15 +4255,6 @@ function PosMenuBrowser({
     });
   }
 
-  function decrementExisting(idx: number) {
-    setLocalExisting((prev) => {
-      const item = prev[idx];
-      if (!item) return prev;
-      if (item.qty <= 1) return prev.filter((_, i) => i !== idx);
-      return prev.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it);
-    });
-  }
-
   useEffect(() => {
     async function fetchCatalog() {
       const [catsRes, prodsRes, modsRes] = await Promise.all([
@@ -4634,15 +4625,11 @@ function PosMenuBrowser({
                     )}
                     <div className="space-y-1 mb-2">
                       {group.items.map((item, idx) => {
-                        const existingIdx = localExisting.indexOf(item);
                         return (
                           <div key={idx} className="flex items-center gap-1 opacity-75">
-                            <button
-                              onClick={() => decrementExisting(existingIdx)}
-                              className="w-5 h-5 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
-                            >
-                              <Minus size={8} />
-                            </button>
+                            <div className="w-5 h-5 rounded border border-border/40 flex items-center justify-center text-muted-foreground/30 shrink-0" title="Уже сохранено — удаление через «Удалить / Списать»">
+                              <Lock size={7} />
+                            </div>
                             <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <span className="text-[10px] leading-tight break-words text-foreground">{capFirst(item.name)}</span>
