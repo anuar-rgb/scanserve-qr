@@ -421,19 +421,27 @@ export function WaiterModal({
                       aspectRatio: "1", borderRadius: R.md,
                       border: `2px solid ${selected ? textClr : border}`,
                       background: selected
-                        ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)")
+                        ? (isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.06)")
                         : surface,
                       display: "flex", flexDirection: "column",
                       alignItems: "center", justifyContent: "center",
-                      gap: 4, cursor: "pointer", transition: "all 0.15s",
+                      gap: 2, cursor: "pointer", transition: "all 0.15s",
                       fontFamily: "inherit", padding: 8,
                     } as React.CSSProperties}
                   >
-                    <span style={{ fontSize: 22 }}>🪑</span>
                     <span style={{
-                      fontSize: 12, fontWeight: selected ? 700 : 500,
-                      lineHeight: 1.2, textAlign: "center",
+                      fontSize: 9, fontWeight: 600, letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: selected ? textClr : muted,
+                      lineHeight: 1,
+                    }}>
+                      №
+                    </span>
+                    <span style={{
+                      fontSize: 20, fontWeight: 800,
+                      lineHeight: 1.1, textAlign: "center",
                       color: textClr, wordBreak: "break-word",
+                      letterSpacing: "-0.02em",
                     }}>
                       {t.label}
                     </span>
