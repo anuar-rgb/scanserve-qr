@@ -225,12 +225,21 @@ export default function CrmPage() {
                           <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
                             <Users size={11} className="text-violet-600 dark:text-violet-400" />
                           </div>
-                          <div>
+                          <div className="flex flex-col gap-0.5">
                             {c.name && (
                               <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
                             )}
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono leading-tight">
-                              {c.phone ?? c.id.slice(0, 8) + "…"}
+                            {c.phone ? (
+                              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums">
+                                {c.phone}
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight italic">
+                                📱 Номер не указан
+                              </p>
+                            )}
+                            <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-mono leading-tight">
+                              {c.id.slice(0, 8)}…
                             </p>
                           </div>
                         </div>
