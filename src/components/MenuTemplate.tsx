@@ -2998,10 +2998,10 @@ export function MenuTemplate({
         lang={lang}
         theme={theme}
         cartCount={cartCount}
-        activeTab={view === "catalog" ? "catalog" : "home"}
+        activeTab={view === "catalog" ? "catalog" : view === "menu" ? "menu" : "home"}
         onHomeTab={goHome}
         onCatalogTab={goToCatalogGrid}
-        onLikesTab={() => {}}
+        onMenuTab={() => { setView("menu"); setActiveCatId(null); setScrollToId(null); setSearchOpen(false); }}
         onWaiterTab={() => setWaiterOpen(true)}
         onCartTab={() => setCartOpen(true)}
       />

@@ -1,21 +1,21 @@
 "use client";
 
-import { Home, LayoutGrid, Heart, Bell, ShoppingCart } from "lucide-react";
+import { Home, LayoutGrid, Utensils, Bell, ShoppingCart } from "lucide-react";
 import type { Lang } from "./MenuTemplate";
 
-type Tab = "home" | "catalog" | "likes" | "waiter";
+type Tab = "home" | "catalog" | "menu" | "waiter";
 
 const LABELS: Record<Tab, Record<Lang, string>> = {
   home:    { en: "Home",    ru: "Главная",  kz: "Басты"  },
   catalog: { en: "Catalog", ru: "Каталог",  kz: "Санат"  },
-  likes:   { en: "Saved",   ru: "Избранное", kz: "Таңд." },
+  menu:    { en: "Menu",    ru: "Меню",     kz: "Мәзір"  },
   waiter:  { en: "Waiter",  ru: "Официант", kz: "Даяшы"  },
 };
 
 const ICONS: Record<Tab, React.ElementType> = {
   home:    Home,
   catalog: LayoutGrid,
-  likes:   Heart,
+  menu:    Utensils,
   waiter:  Bell,
 };
 
@@ -26,12 +26,12 @@ export interface FloatingNavBarProps {
   activeTab?: Tab;
   onHomeTab?: () => void;
   onCatalogTab?: () => void;
-  onLikesTab?: () => void;
+  onMenuTab?: () => void;
   onWaiterTab?: () => void;
   onCartTab?: () => void;
 }
 
-const TABS: Tab[] = ["home", "catalog", "likes", "waiter"];
+const TABS: Tab[] = ["home", "catalog", "menu", "waiter"];
 
 export function FloatingNavBar({
   lang = "en",
@@ -40,7 +40,7 @@ export function FloatingNavBar({
   activeTab = "home",
   onHomeTab,
   onCatalogTab,
-  onLikesTab,
+  onMenuTab,
   onWaiterTab,
   onCartTab,
 }: FloatingNavBarProps) {
@@ -60,7 +60,7 @@ export function FloatingNavBar({
   const handlers: Record<Tab, (() => void) | undefined> = {
     home:    onHomeTab,
     catalog: onCatalogTab,
-    likes:   onLikesTab,
+    menu:    onMenuTab,
     waiter:  onWaiterTab,
   };
 
