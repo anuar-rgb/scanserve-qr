@@ -1623,25 +1623,25 @@ function TableCard({
 
       {/* Edit mode controls */}
       {editMode && (
-        <div className="border-t border-black/5 dark:border-white/5 px-3 py-2 flex items-center justify-end gap-1">
+        <div className="border-t border-black/5 dark:border-white/5 px-2 py-1.5 grid grid-cols-2 gap-1">
           {isLocked ? (
-            <span className="text-[10px] text-muted-foreground italic">Закройте заказ</span>
+            <span className="col-span-2 text-[10px] text-muted-foreground italic text-center py-0.5">Закройте заказ</span>
           ) : (
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                 title="Редактировать"
               >
-                <Edit2 size={11} />
+                <Edit2 size={10} className="shrink-0" />
                 Изменить
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 title="Удалить"
               >
-                <Trash2 size={11} />
+                <Trash2 size={10} className="shrink-0" />
                 Удалить
               </button>
             </>
