@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -335,7 +335,7 @@ function parseOpeningTime(wh: string | null): number | null {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder";
+type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation";
 
 export default function HallPage() {
   const [tables, setTables]         = useState<DbRestaurantTable[]>([]);
@@ -832,6 +832,7 @@ export default function HallPage() {
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
           { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
           { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true },
+          { id: "rotation", icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true },
         ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean }>)
         .filter((t) => !(isWaiter && t.waiterHide))
         .map(({ id, icon: Icon, label, count }) => (
@@ -1074,6 +1075,15 @@ export default function HallPage() {
         />
       )}
 
+      {activeTab === "rotation" && (
+        <RotationTab
+          activeWaiters={activeWaiters}
+          allStaffUsers={allStaffUsers}
+          tablesWithStatus={tablesWithStatus}
+          onRefresh={load}
+        />
+      )}
+
       {/* Modals */}
       {(addOpen || editTable) && (
         <TableFormModal
@@ -1253,6 +1263,166 @@ function WaiterTablePickerModal({
         </div>
       </div>
     </>
+  );
+}
+
+// ── RotationTab ───────────────────────────────────────────────────────────────
+
+function RotationTab({
+  activeWaiters,
+  allStaffUsers,
+  tablesWithStatus,
+  onRefresh,
+}: {
+  activeWaiters: { id: string; name: string }[];
+  allStaffUsers: { id: string; name: string }[];
+  tablesWithStatus: TableWithStatus[];
+  onRefresh: () => void;
+}) {
+  const waiters = activeWaiters.length > 0 ? activeWaiters : allStaffUsers;
+  const [selectedId, setSelectedId] = useState<string | null>(() => waiters[0]?.id ?? null);
+  const [saving, setSaving] = useState(false);
+
+  const activeTables = tablesWithStatus.filter((t) => t.table.is_active);
+
+  async function toggleTable(tws: TableWithStatus) {
+    if (!selectedId || saving) return;
+    const table = tws.table;
+    const isOwned = table.assigned_waiter_id === selectedId;
+    setSaving(true);
+    const { error } = await supabase
+      .from(DB_TABLES.restaurantTables)
+      .update({ assigned_waiter_id: isOwned ? null : selectedId })
+      .eq("id", table.id)
+      .eq("restaurant_id", RESTAURANT_ID);
+    setSaving(false);
+    if (error) { toast.error("Ошибка: " + error.message); return; }
+    onRefresh();
+  }
+
+  async function clearWaiter(waiterId: string) {
+    if (saving) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from(DB_TABLES.restaurantTables)
+      .update({ assigned_waiter_id: null })
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("assigned_waiter_id", waiterId);
+    setSaving(false);
+    if (error) { toast.error("Ошибка: " + error.message); return; }
+    onRefresh();
+  }
+
+  if (waiters.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+        <Users size={36} className="text-muted-foreground/40" />
+        <p className="font-semibold text-sm">Нет сотрудников</p>
+        <p className="text-xs text-muted-foreground max-w-xs">
+          Добавьте сотрудников в систему, чтобы назначить ротацию столов
+        </p>
+      </div>
+    );
+  }
+
+  const selectedName = waiters.find((w) => w.id === selectedId)?.name ?? "";
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+
+      {/* Waiter selector row */}
+      <div className="flex gap-2 px-4 py-3 border-b border-border overflow-x-auto shrink-0">
+        {waiters.map((w) => {
+          const count = activeTables.filter((t) => t.table.assigned_waiter_id === w.id).length;
+          const isSel = selectedId === w.id;
+          return (
+            <button
+              key={w.id}
+              onClick={() => setSelectedId(w.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium whitespace-nowrap transition-colors shrink-0 ${
+                isSel
+                  ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                  : "border-border bg-background text-foreground hover:bg-accent"
+              }`}
+            >
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                isSel ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground"
+              }`}>
+                {w.name.charAt(0).toUpperCase()}
+              </div>
+              <span>{w.name}</span>
+              {count > 0 && (
+                <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                  isSel ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground"
+                }`}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Table assignment grid */}
+      {selectedId && (
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Столы → {selectedName}
+            </p>
+            {activeTables.some((t) => t.table.assigned_waiter_id === selectedId) && (
+              <button
+                onClick={() => clearWaiter(selectedId)}
+                disabled={saving}
+                className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 px-2 py-1 rounded-lg transition-colors"
+              >
+                Очистить всё
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" }}>
+            {activeTables.map((tws) => {
+              const isOwned = tws.table.assigned_waiter_id === selectedId;
+              const isOther = !isOwned && !!tws.table.assigned_waiter_id;
+              const otherName = isOther
+                ? (waiters.find((w) => w.id === tws.table.assigned_waiter_id)?.name ?? "Другой")
+                : null;
+              return (
+                <button
+                  key={tws.table.id}
+                  onClick={() => toggleTable(tws)}
+                  disabled={saving}
+                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 py-3 px-2 text-center transition-all ${
+                    isOwned
+                      ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                      : isOther
+                      ? "border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400"
+                      : "border-dashed border-border bg-background text-muted-foreground hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10"
+                  }`}
+                >
+                  {isOwned && (
+                    <Check size={10} className="absolute top-1.5 right-1.5 text-violet-500" />
+                  )}
+                  {tws.status === "occupied" && (
+                    <div className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                  <p className="text-sm font-bold leading-none">{tws.table.label}</p>
+                  <p className="text-[9px] mt-0.5 opacity-60">{tws.table.seats} мест</p>
+                  {isOther && otherName && (
+                    <p className="text-[8px] font-medium mt-0.5 leading-none truncate w-full text-center">
+                      {otherName.split(" ")[0]}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-4 text-center">
+            Нажмите на стол, чтобы назначить или снять привязку · Красная точка = занят
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 

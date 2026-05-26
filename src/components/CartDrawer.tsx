@@ -651,6 +651,18 @@ export function CartDrawer({
     if (orderType === "dine-in") {
       // Direct Supabase insert — no WhatsApp redirect for table orders
       if (isConfigured) {
+        // Auto-assign the waiter responsible for this table (from rotation)
+        let assignedWaiterId: string | null = null;
+        if (tableNumber.trim()) {
+          const { data: tableRow } = await supabase
+            .from(DB_TABLES.restaurantTables)
+            .select("assigned_waiter_id")
+            .eq("restaurant_id", RESTAURANT_ID)
+            .eq("label", tableNumber.trim())
+            .maybeSingle();
+          assignedWaiterId = tableRow?.assigned_waiter_id ?? null;
+        }
+
         const { error } = await supabase.from(DB_TABLES.orders).insert({
           id: orderId,
           restaurant_id: RESTAURANT_ID,
@@ -668,6 +680,7 @@ export function CartDrawer({
           customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
           customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
           customer_city: timingMode === "preorder" ? (customerCity.trim() || null) : null,
+          opened_by: assignedWaiterId,
         });
         if (error) {
           setLoading(false);
