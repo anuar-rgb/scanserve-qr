@@ -957,10 +957,8 @@ export default function HallPage() {
                   )
                 ) : (
                   <div
-                    className="grid gap-3"
-                    style={{ gridTemplateColumns: isWaiter
-                      ? "repeat(auto-fill, minmax(80px, 1fr))"
-                      : "repeat(auto-fill, minmax(150px, 1fr))" }}
+                    className={isWaiter ? "grid gap-3" : "flex flex-wrap gap-3"}
+                    style={isWaiter ? { gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" } : undefined}
                   >
                     {displayedTables.map((tws) => (
                       <TableCard
@@ -1517,136 +1515,161 @@ function TableCard({
     );
   }
 
+  const isFree = status === "free";
+
   return (
     <div
       onClick={onClick}
       className={`
-        relative flex flex-col rounded-xl border-2 select-none h-[190px]
-        transition-all duration-150
+        relative flex flex-col rounded-xl border-2 select-none
+        transition-all duration-200
+        ${isFree ? "w-28" : "min-w-[160px] max-w-[220px]"}
         ${palette.card}
-        ${!editMode ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5" : "cursor-default"}
+        ${!editMode ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-95" : "cursor-default"}
         ${isActivatedPreorder ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse" : isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
         ${editMode && isLocked ? "opacity-60" : ""}
       `}
     >
       {/* Status dot */}
-      <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
+      <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
 
-      {/* "Новый предзаказ" badge for just-activated preorders */}
+      {/* "Новый предзаказ" badge */}
       {isActivatedPreorder && !editMode && (
         <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-600 text-white text-[9px] font-bold shadow-sm z-10">
           🔔 Новый предзаказ
         </div>
       )}
 
-      {/* Lock badge in edit mode for occupied tables */}
+      {/* Lock badge in edit mode */}
       {editMode && isLocked && (
-        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-800/80 text-white text-[10px] font-medium">
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-800/80 text-white text-[10px] font-medium">
           <Lock size={9} />
           Занят
         </div>
       )}
 
-      {/* Card body */}
-      <div className="p-3 pb-2 flex-1 flex flex-col min-h-0">
-        {/* Table number */}
-        <p className="text-2xl font-black leading-tight text-foreground mb-1 mt-1 break-words">
-          {table.label}
-        </p>
-
-        {/* Seats */}
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-1">
-          <Users size={11} />
-          {table.seats} мест
+      {isFree ? (
+        /* ── Compact free layout ── */
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-2 pt-3 pb-2">
+          <p className="text-xl font-black leading-tight text-foreground break-words w-full">
+            {table.label}
+          </p>
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground mt-0.5">
+            <Users size={9} />
+            {table.seats} мест
+          </div>
+          {preorderCount > 0 && (
+            <div className="flex items-center gap-0.5 mt-0.5">
+              <CalendarDays size={8} className="text-violet-500 shrink-0" />
+              <span className="text-[9px] text-violet-600 dark:text-violet-400 font-semibold">{preorderCount} пред.</span>
+            </div>
+          )}
         </div>
+      ) : (
+        /* ── Expanded occupied / preorder layout ── */
+        <div className="p-3 pb-2 flex-1 flex flex-col">
+          <p className="text-2xl font-black leading-tight text-foreground mb-1 mt-1 break-words pr-5">
+            {table.label}
+          </p>
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-2">
+            <Users size={11} />
+            {table.seats} мест
+          </div>
 
-        {/* Status content — pinned to bottom */}
-        <div className="mt-auto">
-          {status === "occupied" && order && (
-            <div className="space-y-0.5">
-              <p className="text-xl font-black text-foreground">
-                {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
-              </p>
-              <div className="flex items-center gap-1.5">
-                <Clock size={11} className="text-red-500 shrink-0" />
-                <span className="text-xs font-semibold text-red-600 dark:text-red-400">
-                  {formatElapsed(elapsed)}
-                </span>
-              </div>
-              {Array.isArray(order.items_json) && (order.items_json as OrderItem[]).length > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  {tws.orders.reduce((s, o) => s + (Array.isArray(o.items_json) ? (o.items_json as OrderItem[]).length : 0), 0)} позиц.
+          <div className="space-y-0.5">
+            {status === "occupied" && order && (
+              <>
+                <p className="text-xl font-black text-foreground">
+                  {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
                 </p>
-              )}
-              {tws.orders.length > 1 && (
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
-                  {tws.orders.length} счёта
-                </span>
-              )}
-              <div className="flex items-center gap-1">
-                <User size={9} className="text-muted-foreground shrink-0" />
-                <span className="text-[10px] text-muted-foreground truncate">
-                  {order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : "Администратор"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {status === "preorder" && preorderOrder && (
-            <div className="flex items-center gap-1.5">
-              <Calendar size={11} className="text-amber-500 shrink-0" />
-              <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                {[preorderOrder.preorder_date, preorderOrder.preorder_time?.slice(0, 5)]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </div>
-          )}
-
-          {status === "free" && (
-            <div className="flex flex-col gap-1">
-              <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                Свободен
-              </span>
-              {preorderCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <CalendarDays size={10} className="text-violet-500 shrink-0" />
-                  <span className="text-[10px] text-violet-600 dark:text-violet-400 font-semibold">
-                    {preorderCount} предзак.
+                <div className="flex items-center gap-1.5">
+                  <Clock size={11} className="text-red-500 shrink-0" />
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+                    {formatElapsed(elapsed)}
                   </span>
                 </div>
-              )}
-            </div>
-          )}
+                {Array.isArray(order.items_json) && (order.items_json as OrderItem[]).length > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {tws.orders.reduce((s, o) => s + (Array.isArray(o.items_json) ? (o.items_json as OrderItem[]).length : 0), 0)} позиц.
+                  </p>
+                )}
+                {tws.orders.length > 1 && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
+                    {tws.orders.length} счёта
+                  </span>
+                )}
+                <div className="flex items-center gap-1">
+                  <User size={9} className="text-muted-foreground shrink-0" />
+                  <span className="text-[10px] text-muted-foreground truncate">
+                    {order.opened_by ? (waiterNames[order.opened_by] ?? "Сотрудник") : "Администратор"}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {status === "preorder" && preorderOrder && (
+              <div className="flex items-center gap-1.5">
+                <Calendar size={11} className="text-amber-500 shrink-0" />
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                  {[preorderOrder.preorder_date, preorderOrder.preorder_time?.slice(0, 5)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Edit mode controls */}
       {editMode && (
-        <div className="border-t border-black/5 dark:border-white/5 px-2 py-1.5 grid grid-cols-2 gap-1">
-          {isLocked ? (
-            <span className="col-span-2 text-[10px] text-muted-foreground italic text-center py-0.5">Закройте заказ</span>
-          ) : (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                title="Редактировать"
-              >
-                <Edit2 size={10} className="shrink-0" />
-                Изменить
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                title="Удалить"
-              >
-                <Trash2 size={10} className="shrink-0" />
-                Удалить
-              </button>
-            </>
-          )}
-        </div>
+        isFree ? (
+          /* Compact edit buttons for free tables */
+          <div className="border-t border-black/5 dark:border-white/5 px-1.5 py-1.5 grid grid-cols-2 gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="flex items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-md text-[9px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              title="Редактировать"
+            >
+              <Edit2 size={9} className="shrink-0" />
+              Ред.
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="flex items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-md text-[9px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              title="Удалить"
+            >
+              <Trash2 size={9} className="shrink-0" />
+              Удал.
+            </button>
+          </div>
+        ) : (
+          /* Full edit buttons for occupied / preorder tables */
+          <div className="border-t border-black/5 dark:border-white/5 px-2 py-1.5 grid grid-cols-2 gap-1">
+            {isLocked ? (
+              <span className="col-span-2 text-[10px] text-muted-foreground italic text-center py-0.5">Закройте заказ</span>
+            ) : (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                  className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  title="Редактировать"
+                >
+                  <Edit2 size={10} className="shrink-0" />
+                  Изменить
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                  className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  title="Удалить"
+                >
+                  <Trash2 size={10} className="shrink-0" />
+                  Удалить
+                </button>
+              </>
+            )}
+          </div>
+        )
       )}
     </div>
   );
