@@ -724,7 +724,7 @@ function PopularDishesSection({
           display: "flex", gap: 12,
           overflowX: "auto",
           marginLeft: -SP.md, marginRight: -SP.md,
-          paddingLeft: SP.md, paddingRight: SP.md,
+          paddingLeft: SP.md + SP.sm, paddingRight: SP.md,
           paddingBottom: SP.sm,
           scrollbarWidth: "none",
           scrollSnapType: "x mandatory",
@@ -2937,7 +2937,7 @@ export function MenuTemplate({
         <div
           style={{
             position: "fixed",
-            bottom: 60,
+            bottom: "calc(82px + env(safe-area-inset-bottom, 0px))" as unknown as number,
             left: "max(calc(50vw - 240px), 0px)",
             right: "max(calc(50vw - 240px), 0px)",
             zIndex: 65,

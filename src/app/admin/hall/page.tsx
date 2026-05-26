@@ -1550,7 +1550,7 @@ function TableCard({
       {/* Card body */}
       <div className="p-4 pb-3 flex-1">
         {/* Table number */}
-        <p className="text-4xl font-black leading-none text-foreground mb-1.5 mt-1">
+        <p className="text-3xl font-black leading-tight text-foreground mb-1.5 mt-1 truncate">
           {table.label}
         </p>
 
