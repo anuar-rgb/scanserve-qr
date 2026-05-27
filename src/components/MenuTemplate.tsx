@@ -724,10 +724,9 @@ function PopularDishesSection({
           display: "flex", gap: 12,
           overflowX: "auto",
           marginLeft: -SP.md, marginRight: -SP.md,
-          paddingLeft: SP.md + SP.sm, paddingRight: SP.md,
+          paddingLeft: SP.md, paddingRight: SP.md,
           paddingBottom: SP.sm,
           scrollbarWidth: "none",
-          scrollSnapType: "x mandatory",
         } as React.CSSProperties}
       >
         {sorted.map((dish) => {
@@ -751,7 +750,6 @@ function PopularDishesSection({
                 boxShadow: "var(--card-shadow)",
                 cursor: "pointer",
                 display: "flex", flexDirection: "column",
-                scrollSnapAlign: "start",
               } as React.CSSProperties}
             >
               <div style={{
