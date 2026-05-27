@@ -139,6 +139,7 @@ export interface DbInfoShowcase {
   restaurant_id: string;
   title: LS;
   emoji: string;
+  description: string | null;
   order_index: number;
   is_active: boolean;
   created_at: string;

@@ -23,11 +23,12 @@ import {
 type ShowcaseForm = {
   title: string;
   emoji: string;
+  description: string;
   is_active: boolean;
 };
 
 const EMPTY_FORM: ShowcaseForm = {
-  title: "", emoji: "✨", is_active: true,
+  title: "", emoji: "✨", description: "", is_active: true,
 };
 
 export default function InfoShowcasePage() {
@@ -66,6 +67,7 @@ export default function InfoShowcasePage() {
     setForm({
       title: c.title?.ru ?? c.title?.en ?? "",
       emoji: c.emoji,
+      description: c.description ?? "",
       is_active: c.is_active,
     });
     setModalOpen(true);
@@ -85,6 +87,7 @@ export default function InfoShowcasePage() {
         restaurant_id: RESTAURANT_ID,
         title: { en: form.title, ru: form.title, kz: form.title },
         emoji: form.emoji || "✨",
+        description: form.description.trim() || null,
         is_active: form.is_active,
       };
 
@@ -257,6 +260,19 @@ export default function InfoShowcasePage() {
                 onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Доставка"
               />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label>Описание (текст попапа)</Label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Например: пароль Wi-Fi: mypassword123"
+                className="flex w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 resize-none"
+              />
+              <p className="text-[11px] text-zinc-400">Для Wi-Fi: этот текст станет паролем при нажатии кнопки "Скопировать пароль"</p>
             </div>
 
             {/* Active toggle */}

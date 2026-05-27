@@ -58,6 +58,7 @@ export default async function AsToriPage({
     id: c.id,
     emoji: c.emoji,
     title: c.title,
+    description: c.description ?? null,
   }));
 
   const cardTransferOptions = dbPaymentBanks.length > 0

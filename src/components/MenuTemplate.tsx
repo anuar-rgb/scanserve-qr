@@ -118,6 +118,7 @@ export interface ShowcaseItem {
   id: string;
   emoji: string;
   title: string | LS;
+  description?: string | null;
 }
 
 export interface MenuTemplateProps {
@@ -1185,61 +1186,165 @@ function InfoShowcaseSection({
   lang: Lang;
   theme: "dark" | "light";
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [copied, setCopied]     = useState(false);
+
   if (!items.length) return null;
-  const isDark = theme === "dark";
+  const isDark     = theme === "dark";
+  const activeItem = items.find((i) => i.id === activeId) ?? null;
+
+  function isWifi(item: ShowcaseItem) {
+    const title = resolve(item.title, lang).toLowerCase();
+    return (
+      ["📶", "🛜", "📡", "🔑", "🔐"].includes(item.emoji) ||
+      title.includes("wi-fi") ||
+      title.includes("wifi") ||
+      title.includes("wi fi") ||
+      title.includes("интернет")
+    );
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* silently fail */ }
+  }
+
+  function openItem(id: string) {
+    setCopied(false);
+    setActiveId((prev) => (prev === id ? null : id));
+  }
 
   return (
-    <div
-      className="menu-scroll-x"
-      style={{
-        display: "flex",
-        flexWrap: "nowrap",
-        gap: 8,
-        overflowX: "auto",
-        marginLeft: -SP.md,
-        marginRight: -SP.md,
-        paddingLeft: SP.md,
-        paddingRight: SP.md,
-        paddingBottom: 4,
-        marginBottom: SP.lg,
-        scrollbarWidth: "none",
-        scrollSnapType: "x mandatory",
-        WebkitOverflowScrolling: "touch",
-      } as React.CSSProperties}
-    >
-      {items.map((item) => (
+    <>
+      {/* ── Stacking circles row ───────────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: SP.lg, paddingLeft: 4 }}>
+        {items.map((item, i) => {
+          const isActive = item.id === activeId;
+          return (
+            <button
+              key={item.id}
+              onClick={() => openItem(item.id)}
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                border: isActive
+                  ? `2px solid ${isDark ? "#ffffff" : "#111111"}`
+                  : `2px solid ${isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.11)"}`,
+                background: isDark ? "rgba(38,38,50,0.96)" : "#FFFFFF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 22,
+                cursor: "pointer",
+                flexShrink: 0,
+                marginRight: i === items.length - 1 ? 0 : -16,
+                zIndex: isActive ? 50 : i + 1,
+                position: "relative",
+                transition: "transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease",
+                transform: isActive ? "scale(1.18) translateY(-5px)" : "scale(1)",
+                boxShadow: isActive
+                  ? "0 6px 22px rgba(0,0,0,0.35)"
+                  : "0 2px 8px rgba(0,0,0,0.15)",
+                outline: "none",
+                WebkitTapHighlightColor: "transparent",
+                padding: 0,
+              } as React.CSSProperties}
+            >
+              <span style={{ lineHeight: 1, userSelect: "none" }}>{item.emoji}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Backdrop ──────────────────────────────────────────────────────── */}
+      {activeItem && (
         <div
-          key={item.id}
+          onClick={() => setActiveId(null)}
           style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 14px",
-            borderRadius: R.full,
-            border: isDark ? "1px solid var(--border-color)" : "1px solid rgba(0,0,0,0.10)",
-            background: isDark ? "var(--bg-card)" : "#FFFFFF",
-            boxShadow: "none",
-            flexShrink: 0,
-            scrollSnapAlign: "start",
-          }}
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 190,
+            WebkitTapHighlightColor: "transparent",
+          } as React.CSSProperties}
+        />
+      )}
+
+      {/* ── Bottom sheet ──────────────────────────────────────────────────── */}
+      {activeItem && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: 480,
+            background: isDark ? "#1c1c28" : "#FFFFFF",
+            borderRadius: "24px 24px 0 0",
+            zIndex: 200,
+            padding: "0 24px 44px",
+            boxShadow: "0 -4px 48px rgba(0,0,0,0.32)",
+          } as React.CSSProperties}
         >
-          <span style={{ fontSize: 18, lineHeight: 1 }}>{item.emoji}</span>
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "var(--text-color)",
+          {/* Handle */}
+          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+            <div style={{
+              width: 36, height: 4, borderRadius: 99,
+              background: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.10)",
+            }} />
+          </div>
+
+          {/* Body */}
+          <div style={{ textAlign: "center", paddingTop: 14 }}>
+            <div style={{ fontSize: 58, lineHeight: 1, marginBottom: 12 }}>
+              {activeItem.emoji}
+            </div>
+            <h3 style={{
+              fontSize: 20, fontWeight: 800, margin: "0 0 10px",
+              color: isDark ? "#FFFFFF" : "#111111",
               fontFamily: "'Montserrat', system-ui, sans-serif",
-              whiteSpace: "nowrap",
-              lineHeight: 1,
-            }}
-          >
-            {resolve(item.title, lang)}
-          </span>
+            }}>
+              {resolve(activeItem.title, lang)}
+            </h3>
+            {activeItem.description && (
+              <p style={{
+                fontSize: 14, lineHeight: 1.6,
+                color: isDark ? "rgba(255,255,255,0.58)" : "rgba(0,0,0,0.52)",
+                margin: "0 0 20px",
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+              }}>
+                {activeItem.description}
+              </p>
+            )}
+            {isWifi(activeItem) && activeItem.description && (
+              <button
+                onClick={() => handleCopy(activeItem.description!)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "12px 26px",
+                  borderRadius: R.full,
+                  background: copied ? "#10B981" : "#6D28D9",
+                  color: "#FFFFFF",
+                  fontSize: 14, fontWeight: 700,
+                  border: "none", cursor: "pointer",
+                  fontFamily: "'Montserrat', system-ui, sans-serif",
+                  transition: "background 0.2s",
+                  outline: "none",
+                } as React.CSSProperties}
+              >
+                {copied
+                  ? (lang === "ru" ? "✓ Скопировано!" : lang === "kz" ? "✓ Көшірілді!" : "✓ Copied!")
+                  : (lang === "ru" ? "📋 Скопировать пароль" : lang === "kz" ? "📋 Пароль көшіру" : "📋 Copy password")}
+              </button>
+            )}
+          </div>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 
