@@ -1187,7 +1187,18 @@ function InfoShowcaseSection({
   theme: "dark" | "light";
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [copied, setCopied]     = useState(false);
+  const [visible,  setVisible]  = useState(false);
+  const [copied,   setCopied]   = useState(false);
+
+  // Trigger CSS enter-transition after the element mounts in the DOM
+  useEffect(() => {
+    if (!activeId) { setVisible(false); return; }
+    const id1 = requestAnimationFrame(() => {
+      const id2 = requestAnimationFrame(() => setVisible(true));
+      return id2;
+    });
+    return () => cancelAnimationFrame(id1);
+  }, [activeId]);
 
   if (!items.length) return null;
   const isDark     = theme === "dark";
@@ -1197,10 +1208,8 @@ function InfoShowcaseSection({
     const title = resolve(item.title, lang).toLowerCase();
     return (
       ["📶", "🛜", "📡", "🔑", "🔐"].includes(item.emoji) ||
-      title.includes("wi-fi") ||
-      title.includes("wifi") ||
-      title.includes("wi fi") ||
-      title.includes("интернет")
+      title.includes("wi-fi") || title.includes("wifi") ||
+      title.includes("wi fi") || title.includes("интернет")
     );
   }
 
@@ -1217,6 +1226,11 @@ function InfoShowcaseSection({
     setActiveId((prev) => (prev === id ? null : id));
   }
 
+  function close() {
+    setCopied(false);
+    setActiveId(null);
+  }
+
   return (
     <>
       {/* ── Stacking circles row ───────────────────────────────────────────── */}
@@ -1228,19 +1242,14 @@ function InfoShowcaseSection({
               key={item.id}
               onClick={() => openItem(item.id)}
               style={{
-                width: 32,
-                height: 32,
+                width: 32, height: 32,
                 borderRadius: "50%",
                 border: isActive
                   ? `2px solid ${isDark ? "#ffffff" : "#111111"}`
                   : `2px solid ${isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.11)"}`,
                 background: isDark ? "rgba(38,38,50,0.96)" : "#FFFFFF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 15,
-                cursor: "pointer",
-                flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 15, cursor: "pointer", flexShrink: 0,
                 marginRight: i === items.length - 1 ? 0 : -10,
                 zIndex: isActive ? 50 : items.length - i,
                 position: "relative",
@@ -1249,9 +1258,7 @@ function InfoShowcaseSection({
                 boxShadow: isActive
                   ? "0 4px 16px rgba(0,0,0,0.35)"
                   : "0 1px 5px rgba(0,0,0,0.15)",
-                outline: "none",
-                WebkitTapHighlightColor: "transparent",
-                padding: 0,
+                outline: "none", WebkitTapHighlightColor: "transparent", padding: 0,
               } as React.CSSProperties}
             >
               <span style={{ lineHeight: 1, userSelect: "none" }}>{item.emoji}</span>
@@ -1261,50 +1268,66 @@ function InfoShowcaseSection({
       </div>
 
       {/* ── Backdrop ──────────────────────────────────────────────────────── */}
-      {activeItem && (
+      {activeId && (
         <div
-          onClick={() => setActiveId(null)}
+          onClick={close}
           style={{
             position: "fixed", inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            zIndex: 190,
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            zIndex: 999,
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.22s ease-out",
             WebkitTapHighlightColor: "transparent",
           } as React.CSSProperties}
         />
       )}
 
-      {/* ── Bottom sheet ──────────────────────────────────────────────────── */}
-      {activeItem && (
+      {/* ── Centered modal card ───────────────────────────────────────────── */}
+      {activeId && activeItem && (
         <div
           style={{
             position: "fixed",
-            bottom: 0,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "100%",
-            maxWidth: 480,
+            top: "50%", left: "50%",
+            transform: visible
+              ? "translate(-50%, -50%) scale(1)"
+              : "translate(-50%, -50%) scale(0.88)",
+            width: "calc(100% - 40px)",
+            maxWidth: 340,
             background: isDark ? "#1c1c28" : "#FFFFFF",
-            borderRadius: "24px 24px 0 0",
-            zIndex: 200,
-            padding: "0 24px 44px",
-            boxShadow: "0 -4px 48px rgba(0,0,0,0.32)",
+            borderRadius: R.lg,
+            zIndex: 1000,
+            padding: "28px 24px 24px",
+            boxShadow: "0 8px 48px rgba(0,0,0,0.30)",
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
           } as React.CSSProperties}
         >
-          {/* Handle */}
-          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-            <div style={{
-              width: 36, height: 4, borderRadius: 99,
-              background: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.10)",
-            }} />
-          </div>
+          {/* Close button */}
+          <button
+            onClick={close}
+            style={{
+              position: "absolute", top: 12, right: 12,
+              width: 28, height: 28, borderRadius: "50%",
+              background: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+              border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 700,
+              color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)",
+              outline: "none", WebkitTapHighlightColor: "transparent",
+            } as React.CSSProperties}
+          >
+            ✕
+          </button>
 
           {/* Body */}
-          <div style={{ textAlign: "center", paddingTop: 14 }}>
-            <div style={{ fontSize: 58, lineHeight: 1, marginBottom: 12 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 52, lineHeight: 1, marginBottom: 12 }}>
               {activeItem.emoji}
             </div>
             <h3 style={{
-              fontSize: 20, fontWeight: 800, margin: "0 0 10px",
+              fontSize: 18, fontWeight: 800, margin: "0 0 10px",
               color: isDark ? "#FFFFFF" : "#111111",
               fontFamily: "'Montserrat', system-ui, sans-serif",
             }}>
@@ -1325,15 +1348,12 @@ function InfoShowcaseSection({
                 onClick={() => handleCopy(activeItem.description!)}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "12px 26px",
-                  borderRadius: R.full,
+                  padding: "12px 26px", borderRadius: R.full,
                   background: copied ? "#10B981" : "#6D28D9",
-                  color: "#FFFFFF",
-                  fontSize: 14, fontWeight: 700,
+                  color: "#FFFFFF", fontSize: 14, fontWeight: 700,
                   border: "none", cursor: "pointer",
                   fontFamily: "'Montserrat', system-ui, sans-serif",
-                  transition: "background 0.2s",
-                  outline: "none",
+                  transition: "background 0.2s", outline: "none",
                 } as React.CSSProperties}
               >
                 {copied
