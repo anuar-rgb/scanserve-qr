@@ -1220,7 +1220,7 @@ function InfoShowcaseSection({
   return (
     <>
       {/* ── Stacking circles row ───────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: SP.lg, paddingLeft: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: SP.lg }}>
         {items.map((item, i) => {
           const isActive = item.id === activeId;
           return (
@@ -1228,8 +1228,8 @@ function InfoShowcaseSection({
               key={item.id}
               onClick={() => openItem(item.id)}
               style={{
-                width: 52,
-                height: 52,
+                width: 32,
+                height: 32,
                 borderRadius: "50%",
                 border: isActive
                   ? `2px solid ${isDark ? "#ffffff" : "#111111"}`
@@ -1238,17 +1238,17 @@ function InfoShowcaseSection({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 22,
+                fontSize: 15,
                 cursor: "pointer",
                 flexShrink: 0,
-                marginRight: i === items.length - 1 ? 0 : -16,
-                zIndex: isActive ? 50 : i + 1,
+                marginRight: i === items.length - 1 ? 0 : -10,
+                zIndex: isActive ? 50 : items.length - i,
                 position: "relative",
                 transition: "transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease",
-                transform: isActive ? "scale(1.18) translateY(-5px)" : "scale(1)",
+                transform: isActive ? "scale(1.25) translateY(-4px)" : "scale(1)",
                 boxShadow: isActive
-                  ? "0 6px 22px rgba(0,0,0,0.35)"
-                  : "0 2px 8px rgba(0,0,0,0.15)",
+                  ? "0 4px 16px rgba(0,0,0,0.35)"
+                  : "0 1px 5px rgba(0,0,0,0.15)",
                 outline: "none",
                 WebkitTapHighlightColor: "transparent",
                 padding: 0,
