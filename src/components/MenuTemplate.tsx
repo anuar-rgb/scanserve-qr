@@ -1202,9 +1202,12 @@ function InfoShowcaseSection({
   const isDark     = theme === "dark";
   const activeItem = items.find((i) => i.id === activeId) ?? null;
 
-  // Card colours matching the design-system dark/light card
-  const cardBg     = isDark ? "#1E1E1E" : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
+  // Premium capsule card colours
+  const cardBg     = isDark ? "#18181B" : "#FFFFFF";
+  const cardBorder = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+  const cardShadow = isDark
+    ? "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)"
+    : "0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)";
 
   function isWifi(item: ShowcaseItem) {
     const title = resolve(item.title, lang).toLowerCase();
@@ -1271,110 +1274,99 @@ function InfoShowcaseSection({
         })}
       </div>
 
-      {/* ── Inline dropdown — opens in page flow, pushes content down ─────── */}
+      {/* ── Inline capsule dropdown ─────────────────────────────────────────── */}
       {activeId && activeItem && (
         <div
           style={{
-            marginTop: 12,
+            marginTop: 10,
             opacity: visible ? 1 : 0,
             transform: visible ? "translateY(0)" : "translateY(-8px)",
             transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
-            position: "relative",
           } as React.CSSProperties}
         >
-          {/* ── Tooltip arrow (rotated square, top-center) ──────────────────── */}
-          <div style={{
-            position: "absolute",
-            top: -7,
-            left: "50%",
-            transform: "translateX(-50%) rotate(45deg)",
-            width: 14, height: 14,
-            background: cardBg,
-            borderTop: `1px solid ${cardBorder}`,
-            borderLeft: `1px solid ${cardBorder}`,
-            zIndex: 2,
-          }} />
-
-          {/* ── Card ────────────────────────────────────────────────────────── */}
           <div style={{
             background: cardBg,
             border: `1px solid ${cardBorder}`,
-            borderRadius: R.lg,
-            padding: "14px 12px 14px 14px",
+            borderRadius: 32,
+            boxShadow: cardShadow,
+            padding: "12px 12px 12px 12px",
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             gap: 12,
-            position: "relative",
-            zIndex: 1,
           }}>
 
-            {/* Emoji circle */}
+            {/* Emoji bubble — rounded square */}
             <div style={{
-              width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
-              background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+              width: 44, height: 44, borderRadius: 18, flexShrink: 0,
+              background: isDark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.05)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 22,
             }}>
               {activeItem.emoji}
             </div>
 
-            {/* Text content */}
-            <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+            {/* Text — title + description */}
+            <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{
-                margin: "0 0 4px",
-                fontSize: 14, fontWeight: 800, lineHeight: 1.2,
-                color: isDark ? "#FFFFFF" : "#111111",
+                margin: "0 0 2px",
+                fontSize: 13, fontWeight: 700, lineHeight: 1.25,
+                color: isDark ? "rgba(255,255,255,0.95)" : "#111111",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
               }}>
                 {resolve(activeItem.title, lang)}
               </p>
               {activeItem.description && (
                 <p style={{
-                  margin: isWifi(activeItem) ? "0 0 10px" : "0",
-                  fontSize: 13, lineHeight: 1.55,
-                  color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.52)",
+                  margin: 0,
+                  fontSize: 12, lineHeight: 1.5, fontWeight: 500,
+                  color: isDark ? "rgba(255,255,255,0.46)" : "rgba(0,0,0,0.46)",
                   fontFamily: "'Montserrat', system-ui, sans-serif",
                 }}>
                   {activeItem.description}
                 </p>
               )}
+            </div>
+
+            {/* Right side: copy pill (WiFi) or just close */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
               {isWifi(activeItem) && activeItem.description && (
                 <button
                   onClick={() => handleCopy(activeItem.description!)}
                   style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "8px 16px", borderRadius: R.full,
-                    background: copied ? "#10B981" : "#6D28D9",
-                    color: "#FFFFFF", fontSize: 12, fontWeight: 700,
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "7px 14px", borderRadius: 99,
+                    background: copied
+                      ? "#10B981"
+                      : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+                    color: copied
+                      ? "#FFFFFF"
+                      : isDark ? "rgba(255,255,255,0.80)" : "rgba(0,0,0,0.65)",
+                    fontSize: 11, fontWeight: 700,
                     border: "none", cursor: "pointer",
                     fontFamily: "'Montserrat', system-ui, sans-serif",
-                    transition: "background 0.2s", outline: "none",
-                    WebkitTapHighlightColor: "transparent",
+                    transition: "background 0.2s, color 0.2s",
+                    outline: "none", WebkitTapHighlightColor: "transparent",
+                    whiteSpace: "nowrap",
                   } as React.CSSProperties}
                 >
                   {copied
-                    ? (lang === "ru" ? "✓ Скопировано!" : lang === "kz" ? "✓ Көшірілді!" : "✓ Copied!")
-                    : (lang === "ru" ? "📋 Скопировать пароль" : lang === "kz" ? "📋 Пароль көшіру" : "📋 Copy password")}
+                    ? (lang === "ru" ? "✓ Готово" : lang === "kz" ? "✓ Дайын" : "✓ Done")
+                    : "📋"}
                 </button>
               )}
+              <button
+                onClick={close}
+                style={{
+                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                  background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                  border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 700,
+                  color: isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.30)",
+                  outline: "none", WebkitTapHighlightColor: "transparent",
+                } as React.CSSProperties}
+              >✕</button>
             </div>
-
-            {/* Close button */}
-            <button
-              onClick={close}
-              style={{
-                flexShrink: 0, marginTop: 1,
-                width: 24, height: 24, borderRadius: "50%",
-                background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
-                border: "none", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 11, fontWeight: 700,
-                color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.38)",
-                outline: "none", WebkitTapHighlightColor: "transparent",
-              } as React.CSSProperties}
-            >
-              ✕
-            </button>
           </div>
         </div>
       )}
