@@ -1226,16 +1226,6 @@ function InfoShowcaseSection({
     "border-color 0.18s ease",
   ].join(", ");
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  function isWifi(item: ShowcaseItem) {
-    const t = resolve(item.title, lang).toLowerCase();
-    return (
-      ["📶", "🛜", "📡", "🔑", "🔐"].includes(item.emoji) ||
-      t.includes("wi-fi") || t.includes("wifi") ||
-      t.includes("wi fi") || t.includes("интернет")
-    );
-  }
-
   async function handleCopy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -1368,9 +1358,9 @@ function InfoShowcaseSection({
               )}
             </div>
 
-            {/* Right: copy pill (WiFi) + close */}
+            {/* Right: copy pill + close */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              {isWifi(activeItem) && activeItem.description && (
+              {activeItem.description && (
                 <button
                   onClick={() => handleCopy(activeItem.description!)}
                   style={{
