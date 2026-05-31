@@ -240,7 +240,7 @@ export default function InfoShowcasePage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1">
+          <div className="space-y-4">
             {/* Emoji */}
             <div className="space-y-1.5">
               <Label>{t.admin.showcaseCardEmojiLabel}</Label>
