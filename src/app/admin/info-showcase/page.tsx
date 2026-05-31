@@ -185,9 +185,9 @@ export default function InfoShowcasePage() {
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
                     {c.title?.ru || c.title?.en || "—"}
                   </p>
-                  <p className="text-xs text-zinc-400">
-                    {c.title?.en && c.title?.ru !== c.title?.en ? c.title.en : ""}
-                  </p>
+                  {c.description && (
+                    <p className="text-xs text-zinc-400 truncate">{c.description}</p>
+                  )}
                 </div>
 
                 <button
