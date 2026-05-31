@@ -1176,11 +1176,14 @@ function InfoCards({
 }
 
 // ── Info Showcase Section ─────────────────────────────────────────────────────
+//
+// Each ShowcaseItem renders as a labelled chip (pill).
+// Chips support a single icon or a fanned group of overlapping icons
+// (pass emojis[] to InfoChip for the multi-icon variant).
+// Clicking any chip expands a shared inline dropdown below the row.
 
 function InfoShowcaseSection({
-  items,
-  lang,
-  theme,
+  items, lang, theme,
 }: {
   items: ShowcaseItem[];
   lang: Lang;
@@ -1190,7 +1193,7 @@ function InfoShowcaseSection({
   const [visible,  setVisible]  = useState(false);
   const [copied,   setCopied]   = useState(false);
 
-  // Two-frame delay so the CSS transition fires after mount
+  // Double-RAF so the CSS transition fires after the element mounts
   useEffect(() => {
     if (!activeId) { setVisible(false); return; }
     let id2: number;
@@ -1199,22 +1202,31 @@ function InfoShowcaseSection({
   }, [activeId]);
 
   if (!items.length) return null;
+
   const isDark     = theme === "dark";
   const activeItem = items.find((i) => i.id === activeId) ?? null;
 
-  // Premium capsule card colours
-  const cardBg     = isDark ? "#18181B" : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
-  const cardShadow = isDark
+  // ── Colour tokens ──────────────────────────────────────────────────────────
+  const chipBg          = isDark ? "#18181B"                        : "#FFFFFF";
+  const chipBgActive    = isDark ? "#2A2A2E"                        : "#EFEFF4";
+  const chipBorder      = isDark ? "rgba(255,255,255,0.07)"         : "rgba(0,0,0,0.08)";
+  const chipBorderActive= isDark ? "rgba(255,255,255,0.16)"         : "rgba(0,0,0,0.15)";
+  const chipShadow      = isDark
+    ? "0 4px 16px rgba(0,0,0,0.50), 0 1px 4px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.06)"
+    : "0 4px 14px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)";
+  const dropShadow      = isDark
     ? "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)"
     : "0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)";
+  // Icon bubble bg inside chips — contrasting so emojis pop
+  const iconBubbleBg    = isDark ? "rgba(255,255,255,0.11)"         : "rgba(0,0,0,0.06)";
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function isWifi(item: ShowcaseItem) {
-    const title = resolve(item.title, lang).toLowerCase();
+    const t = resolve(item.title, lang).toLowerCase();
     return (
       ["📶", "🛜", "📡", "🔑", "🔐"].includes(item.emoji) ||
-      title.includes("wi-fi") || title.includes("wifi") ||
-      title.includes("wi fi") || title.includes("интернет")
+      t.includes("wi-fi") || t.includes("wifi") ||
+      t.includes("wi fi") || t.includes("интернет")
     );
   }
 
@@ -1237,78 +1249,96 @@ function InfoShowcaseSection({
   }
 
   return (
-    // Outer wrapper: relative so the dropdown sits in page flow below circles
     <div style={{ marginBottom: SP.lg }}>
 
-      {/* ── Stacking circles row ─────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {items.map((item, i) => {
+      {/* ── Chips row ──────────────────────────────────────────────────────── */}
+      <div style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        {items.map((item) => {
           const isActive = item.id === activeId;
           return (
             <button
               key={item.id}
               onClick={() => openItem(item.id)}
               style={{
-                width: 32, height: 32,
-                borderRadius: "50%",
-                border: isActive
-                  ? `2px solid ${isDark ? "#ffffff" : "#111111"}`
-                  : `2px solid ${isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.11)"}`,
-                background: isDark ? "rgba(38,38,50,0.96)" : "#FFFFFF",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 15, cursor: "pointer", flexShrink: 0,
-                marginRight: i === items.length - 1 ? 0 : -10,
-                zIndex: isActive ? 50 : items.length - i,
-                position: "relative",
-                transition: "transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease",
-                transform: isActive ? "scale(1.25) translateY(-4px)" : "scale(1)",
-                boxShadow: isActive
-                  ? "0 4px 16px rgba(0,0,0,0.35)"
-                  : "0 1px 5px rgba(0,0,0,0.15)",
-                outline: "none", WebkitTapHighlightColor: "transparent", padding: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                // left padding tighter so the icon bubble sits at the edge of the pill
+                padding: "5px 14px 5px 5px",
+                borderRadius: 999,
+                background: isActive ? chipBgActive : chipBg,
+                border: `1px solid ${isActive ? chipBorderActive : chipBorder}`,
+                boxShadow: chipShadow,
+                cursor: "pointer",
+                outline: "none",
+                WebkitTapHighlightColor: "transparent",
+                transition: "background 0.18s ease, border-color 0.18s ease",
+                flexShrink: 0,
               } as React.CSSProperties}
             >
-              <span style={{ lineHeight: 1, userSelect: "none" }}>{item.emoji}</span>
+              {/* Single icon bubble — extend to emojis[] fan for grouped chips */}
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                background: iconBubbleBg,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 14,
+              }}>
+                {item.emoji}
+              </div>
+              {/* Label */}
+              <span style={{
+                fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+                color: isActive
+                  ? (isDark ? "rgba(255,255,255,0.95)" : "#111111")
+                  : (isDark ? "rgba(255,255,255,0.60)" : "rgba(0,0,0,0.58)"),
+                fontFamily: "'Montserrat', system-ui, sans-serif",
+                transition: "color 0.18s ease",
+              }}>
+                {resolve(item.title, lang)}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* ── Inline capsule dropdown ─────────────────────────────────────────── */}
+      {/* ── Inline dropdown — shared panel, same capsule style ─────────────── */}
       {activeId && activeItem && (
-        <div
-          style={{
-            marginTop: 10,
-            opacity: visible ? 1 : 0,
-            transform: visible ? "translateY(0)" : "translateY(-8px)",
-            transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
-          } as React.CSSProperties}
-        >
+        <div style={{
+          marginTop: 10,
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0)" : "translateY(-8px)",
+          transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
+        } as React.CSSProperties}>
           <div style={{
-            background: cardBg,
-            border: `1px solid ${cardBorder}`,
-            borderRadius: 32,
-            boxShadow: cardShadow,
+            background: chipBg,
+            border: `1px solid ${chipBorder}`,
+            borderRadius: 28,
+            boxShadow: dropShadow,
             padding: "12px 12px 12px 12px",
             display: "flex",
             alignItems: "center",
             gap: 12,
           }}>
-
-            {/* Emoji bubble — rounded square */}
+            {/* Large emoji bubble — rounded square matches chip family */}
             <div style={{
-              width: 44, height: 44, borderRadius: 18, flexShrink: 0,
-              background: isDark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.05)",
+              width: 46, height: 46, borderRadius: 18, flexShrink: 0,
+              background: iconBubbleBg,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22,
+              fontSize: 24,
             }}>
               {activeItem.emoji}
             </div>
 
-            {/* Text — title + description */}
+            {/* Title + description */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{
-                margin: "0 0 2px",
+                margin: "0 0 3px",
                 fontSize: 13, fontWeight: 700, lineHeight: 1.25,
                 color: isDark ? "rgba(255,255,255,0.95)" : "#111111",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
@@ -1327,13 +1357,13 @@ function InfoShowcaseSection({
               )}
             </div>
 
-            {/* Right side: copy pill (WiFi) or just close */}
+            {/* Right controls: compact copy pill (WiFi) + close */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
               {isWifi(activeItem) && activeItem.description && (
                 <button
                   onClick={() => handleCopy(activeItem.description!)}
                   style={{
-                    display: "inline-flex", alignItems: "center", gap: 4,
+                    display: "inline-flex", alignItems: "center",
                     padding: "7px 14px", borderRadius: 99,
                     background: copied
                       ? "#10B981"
@@ -1341,16 +1371,14 @@ function InfoShowcaseSection({
                     color: copied
                       ? "#FFFFFF"
                       : isDark ? "rgba(255,255,255,0.80)" : "rgba(0,0,0,0.65)",
-                    fontSize: 11, fontWeight: 700,
+                    fontSize: 13, fontWeight: 700,
                     border: "none", cursor: "pointer",
-                    fontFamily: "'Montserrat', system-ui, sans-serif",
                     transition: "background 0.2s, color 0.2s",
                     outline: "none", WebkitTapHighlightColor: "transparent",
-                    whiteSpace: "nowrap",
                   } as React.CSSProperties}
                 >
                   {copied
-                    ? (lang === "ru" ? "✓ Готово" : lang === "kz" ? "✓ Дайын" : "✓ Done")
+                    ? (lang === "ru" ? "✓" : "✓")
                     : "📋"}
                 </button>
               )}
