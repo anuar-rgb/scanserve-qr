@@ -1190,19 +1190,21 @@ function InfoShowcaseSection({
   const [visible,  setVisible]  = useState(false);
   const [copied,   setCopied]   = useState(false);
 
-  // Trigger CSS enter-transition after the element mounts in the DOM
+  // Two-frame delay so the CSS transition fires after mount
   useEffect(() => {
     if (!activeId) { setVisible(false); return; }
-    const id1 = requestAnimationFrame(() => {
-      const id2 = requestAnimationFrame(() => setVisible(true));
-      return id2;
-    });
-    return () => cancelAnimationFrame(id1);
+    let id2: number;
+    const id1 = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setVisible(true)); });
+    return () => { cancelAnimationFrame(id1); cancelAnimationFrame(id2); };
   }, [activeId]);
 
   if (!items.length) return null;
   const isDark     = theme === "dark";
   const activeItem = items.find((i) => i.id === activeId) ?? null;
+
+  // Card colours matching the design-system dark/light card
+  const cardBg     = isDark ? "#1E1E1E" : "#FFFFFF";
+  const cardBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
 
   function isWifi(item: ShowcaseItem) {
     const title = resolve(item.title, lang).toLowerCase();
@@ -1232,9 +1234,11 @@ function InfoShowcaseSection({
   }
 
   return (
-    <>
-      {/* ── Stacking circles row ───────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: SP.lg }}>
+    // Outer wrapper: relative so the dropdown sits in page flow below circles
+    <div style={{ marginBottom: SP.lg }}>
+
+      {/* ── Stacking circles row ─────────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         {items.map((item, i) => {
           const isActive = item.id === activeId;
           return (
@@ -1267,104 +1271,114 @@ function InfoShowcaseSection({
         })}
       </div>
 
-      {/* ── Backdrop ──────────────────────────────────────────────────────── */}
-      {activeId && (
-        <div
-          onClick={close}
-          style={{
-            position: "fixed", inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            backdropFilter: "blur(4px)",
-            WebkitBackdropFilter: "blur(4px)",
-            zIndex: 999,
-            opacity: visible ? 1 : 0,
-            transition: "opacity 0.22s ease-out",
-            WebkitTapHighlightColor: "transparent",
-          } as React.CSSProperties}
-        />
-      )}
-
-      {/* ── Centered modal card ───────────────────────────────────────────── */}
+      {/* ── Inline dropdown — opens in page flow, pushes content down ─────── */}
       {activeId && activeItem && (
         <div
           style={{
-            position: "fixed",
-            top: "50%", left: "50%",
-            transform: visible
-              ? "translate(-50%, -50%) scale(1)"
-              : "translate(-50%, -50%) scale(0.88)",
-            width: "calc(100% - 40px)",
-            maxWidth: 340,
-            background: isDark ? "#1c1c28" : "#FFFFFF",
-            borderRadius: R.lg,
-            zIndex: 1000,
-            padding: "28px 24px 24px",
-            boxShadow: "0 8px 48px rgba(0,0,0,0.30)",
+            marginTop: 12,
             opacity: visible ? 1 : 0,
+            transform: visible ? "translateY(0)" : "translateY(-8px)",
             transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
+            position: "relative",
           } as React.CSSProperties}
         >
-          {/* Close button */}
-          <button
-            onClick={close}
-            style={{
-              position: "absolute", top: 12, right: 12,
-              width: 28, height: 28, borderRadius: "50%",
-              background: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
-              border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, fontWeight: 700,
-              color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)",
-              outline: "none", WebkitTapHighlightColor: "transparent",
-            } as React.CSSProperties}
-          >
-            ✕
-          </button>
+          {/* ── Tooltip arrow (rotated square, top-center) ──────────────────── */}
+          <div style={{
+            position: "absolute",
+            top: -7,
+            left: "50%",
+            transform: "translateX(-50%) rotate(45deg)",
+            width: 14, height: 14,
+            background: cardBg,
+            borderTop: `1px solid ${cardBorder}`,
+            borderLeft: `1px solid ${cardBorder}`,
+            zIndex: 2,
+          }} />
 
-          {/* Body */}
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 52, lineHeight: 1, marginBottom: 12 }}>
+          {/* ── Card ────────────────────────────────────────────────────────── */}
+          <div style={{
+            background: cardBg,
+            border: `1px solid ${cardBorder}`,
+            borderRadius: R.lg,
+            padding: "14px 12px 14px 14px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            position: "relative",
+            zIndex: 1,
+          }}>
+
+            {/* Emoji circle */}
+            <div style={{
+              width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
+              background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 22,
+            }}>
               {activeItem.emoji}
             </div>
-            <h3 style={{
-              fontSize: 18, fontWeight: 800, margin: "0 0 10px",
-              color: isDark ? "#FFFFFF" : "#111111",
-              fontFamily: "'Montserrat', system-ui, sans-serif",
-            }}>
-              {resolve(activeItem.title, lang)}
-            </h3>
-            {activeItem.description && (
+
+            {/* Text content */}
+            <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
               <p style={{
-                fontSize: 14, lineHeight: 1.6,
-                color: isDark ? "rgba(255,255,255,0.58)" : "rgba(0,0,0,0.52)",
-                margin: "0 0 20px",
+                margin: "0 0 4px",
+                fontSize: 14, fontWeight: 800, lineHeight: 1.2,
+                color: isDark ? "#FFFFFF" : "#111111",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
               }}>
-                {activeItem.description}
+                {resolve(activeItem.title, lang)}
               </p>
-            )}
-            {isWifi(activeItem) && activeItem.description && (
-              <button
-                onClick={() => handleCopy(activeItem.description!)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "12px 26px", borderRadius: R.full,
-                  background: copied ? "#10B981" : "#6D28D9",
-                  color: "#FFFFFF", fontSize: 14, fontWeight: 700,
-                  border: "none", cursor: "pointer",
+              {activeItem.description && (
+                <p style={{
+                  margin: isWifi(activeItem) ? "0 0 10px" : "0",
+                  fontSize: 13, lineHeight: 1.55,
+                  color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.52)",
                   fontFamily: "'Montserrat', system-ui, sans-serif",
-                  transition: "background 0.2s", outline: "none",
-                } as React.CSSProperties}
-              >
-                {copied
-                  ? (lang === "ru" ? "✓ Скопировано!" : lang === "kz" ? "✓ Көшірілді!" : "✓ Copied!")
-                  : (lang === "ru" ? "📋 Скопировать пароль" : lang === "kz" ? "📋 Пароль көшіру" : "📋 Copy password")}
-              </button>
-            )}
+                }}>
+                  {activeItem.description}
+                </p>
+              )}
+              {isWifi(activeItem) && activeItem.description && (
+                <button
+                  onClick={() => handleCopy(activeItem.description!)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "8px 16px", borderRadius: R.full,
+                    background: copied ? "#10B981" : "#6D28D9",
+                    color: "#FFFFFF", fontSize: 12, fontWeight: 700,
+                    border: "none", cursor: "pointer",
+                    fontFamily: "'Montserrat', system-ui, sans-serif",
+                    transition: "background 0.2s", outline: "none",
+                    WebkitTapHighlightColor: "transparent",
+                  } as React.CSSProperties}
+                >
+                  {copied
+                    ? (lang === "ru" ? "✓ Скопировано!" : lang === "kz" ? "✓ Көшірілді!" : "✓ Copied!")
+                    : (lang === "ru" ? "📋 Скопировать пароль" : lang === "kz" ? "📋 Пароль көшіру" : "📋 Copy password")}
+                </button>
+              )}
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={close}
+              style={{
+                flexShrink: 0, marginTop: 1,
+                width: 24, height: 24, borderRadius: "50%",
+                background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                border: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontWeight: 700,
+                color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.38)",
+                outline: "none", WebkitTapHighlightColor: "transparent",
+              } as React.CSSProperties}
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
