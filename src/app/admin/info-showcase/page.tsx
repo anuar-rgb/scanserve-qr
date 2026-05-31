@@ -264,13 +264,14 @@ export default function InfoShowcasePage() {
 
             {/* Description */}
             <div className="space-y-1.5">
-              <Label>{t.admin.showcaseCardDescLabel}</Label>
+              <Label>Описание (текст попапа)</Label>
               <textarea
                 rows={4}
                 value={form.description}
                 onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder={t.admin.showcaseCardDescPlaceholder}
-                className="flex w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 resize-none"
+                placeholder="Например: пароль Wi-Fi: mypassword123"
+                style={{ color: "inherit" }}
+                className="flex w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 resize-none"
               />
             </div>
 
