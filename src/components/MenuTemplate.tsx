@@ -1177,10 +1177,10 @@ function InfoCards({
 
 // ── Info Showcase Section ─────────────────────────────────────────────────────
 //
-// Two-state design:
-//   collapsed  — fanned stacking circles (32 px, -10 px overlap)
-//   expanded   — labelled chip pills (max-width 280 px, 8 px gap)
-// The morph is a pure CSS transition on max-width + border-radius + margin.
+// Per-item morph: each circle expands individually on tap.
+//   closed — 32 px circle, emoji only
+//   open   — pill chip with emoji + label; dropdown below
+// One item open at a time; tapping the same item collapses it.
 
 function InfoShowcaseSection({
   items, lang, theme,
@@ -1189,23 +1189,22 @@ function InfoShowcaseSection({
   lang: Lang;
   theme: "dark" | "light";
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [activeId,   setActiveId]   = useState<string | null>(null);
-  const [visible,    setVisible]    = useState(false);
-  const [copied,     setCopied]     = useState(false);
+  const [activeChipId, setActiveChipId] = useState<string | null>(null);
+  const [visible,      setVisible]      = useState(false);
+  const [copied,       setCopied]       = useState(false);
 
   // Double-RAF so the dropdown's CSS transition fires after it mounts
   useEffect(() => {
-    if (!activeId) { setVisible(false); return; }
+    if (!activeChipId) { setVisible(false); return; }
     let id2: number;
     const id1 = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setVisible(true)); });
     return () => { cancelAnimationFrame(id1); cancelAnimationFrame(id2); };
-  }, [activeId]);
+  }, [activeChipId]);
 
   if (!items.length) return null;
 
   const isDark     = theme === "dark";
-  const activeItem = items.find((i) => i.id === activeId) ?? null;
+  const activeItem = items.find((i) => i.id === activeChipId) ?? null;
 
   // ── Colour tokens ──────────────────────────────────────────────────────────
   const chipBg           = isDark ? "#18181B"                        : "#FFFFFF";
@@ -1220,11 +1219,8 @@ function InfoShowcaseSection({
     : "0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)";
   const iconBubbleBg     = isDark ? "rgba(255,255,255,0.11)"         : "rgba(0,0,0,0.06)";
 
-  // Single transition string reused on every chip button
   const CHIP_TRANSITION = [
     "max-width 0.32s cubic-bezier(0.4,0,0.2,1)",
-    "border-radius 0.32s ease",
-    "margin 0.30s ease",
     "padding 0.30s ease",
     "background 0.18s ease",
     "border-color 0.18s ease",
@@ -1249,39 +1245,28 @@ function InfoShowcaseSection({
   }
 
   function handleChipClick(id: string) {
-    if (!isExpanded) {
-      setIsExpanded(true);   // first tap → expand all to chips
-      return;
-    }
     setCopied(false);
-    setActiveId((prev) => (prev === id ? null : id));  // subsequent tap → toggle dropdown
-  }
-
-  function collapse() {
-    setIsExpanded(false);
-    setActiveId(null);
-    setCopied(false);
+    setActiveChipId((prev) => (prev === id ? null : id));
   }
 
   function closeDropdown() {
     setCopied(false);
-    setActiveId(null);
+    setActiveChipId(null);
   }
 
   return (
     <div style={{ marginBottom: SP.lg }}>
 
-      {/* ── Circles → Chips row ─────────────────────────────────────────────── */}
+      {/* ── Per-item circles / chips row ──────────────────────────────────────── */}
       <div style={{
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        // wrap only after expanding (circles must stay on one line)
-        flexWrap: isExpanded ? "wrap" : "nowrap",
+        flexWrap: "wrap",
+        gap: 8,
       }}>
-        {items.map((item, i) => {
-          const isActive = item.id === activeId;
-          const isLast   = i === items.length - 1;
+        {items.map((item) => {
+          const isOpen = item.id === activeChipId;
           return (
             <button
               key={item.id}
@@ -1289,33 +1274,23 @@ function InfoShowcaseSection({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                // ── morph: clip width ──────────────────────────────────────
-                maxWidth:  isExpanded ? "280px" : "32px",
+                maxWidth:  isOpen ? "280px" : "32px",
                 overflow:  "hidden",
-                // ── morph: circle ↔ pill ──────────────────────────────────
-                borderRadius: isExpanded ? 999 : "50%",
-                // ── morph: fan overlap ↔ chip gap ─────────────────────────
-                marginRight:  isExpanded ? (isLast ? 0 : 8)  : (isLast ? 0 : -10),
-                marginBottom: isExpanded ? 8 : 0,
-                // ── morph: padding (3 px all = 32 px circle; expanded = chip)
+                borderRadius: 999,
                 paddingTop:    3,
                 paddingBottom: 3,
-                paddingLeft:   isExpanded ? 5  : 3,
-                paddingRight:  isExpanded ? 14 : 3,
-                // ── stacking z-index for fan mode ─────────────────────────
-                position: "relative",
-                zIndex: isActive ? 20 : (isExpanded ? 1 : items.length - i),
-                // ── appearance ────────────────────────────────────────────
-                background: isActive ? chipBgActive : chipBg,
-                border: `1px solid ${isActive ? chipBorderActive : chipBorder}`,
-                boxShadow:  chipShadow,
+                paddingLeft:   isOpen ? 5  : 3,
+                paddingRight:  isOpen ? 14 : 3,
+                background: isOpen ? chipBgActive : chipBg,
+                border: `1px solid ${isOpen ? chipBorderActive : chipBorder}`,
+                boxShadow: chipShadow,
                 cursor: "pointer",
                 outline: "none",
                 WebkitTapHighlightColor: "transparent",
                 transition: CHIP_TRANSITION,
               } as React.CSSProperties}
             >
-              {/* Emoji bubble — always visible, anchors the circle shape */}
+              {/* Emoji bubble — always visible, defines the circle shape */}
               <div style={{
                 width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                 background: iconBubbleBg,
@@ -1325,48 +1300,26 @@ function InfoShowcaseSection({
                 {item.emoji}
               </div>
 
-              {/* Label — lives inside the clip region; fades in after chip opens */}
+              {/* Label — clipped until chip opens; fades in with 150 ms delay */}
               <span style={{
                 marginLeft: 7,
                 fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
-                opacity: isExpanded ? 1 : 0,
-                color: isActive
-                  ? (isDark ? "rgba(255,255,255,0.95)" : "#111111")
-                  : (isDark ? "rgba(255,255,255,0.60)" : "rgba(0,0,0,0.58)"),
+                opacity: isOpen ? 1 : 0,
+                color: isDark ? "rgba(255,255,255,0.85)" : "#111111",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
-                // fade in after the chip has partially opened (150 ms delay)
-                transition: isExpanded
-                  ? "opacity 0.18s ease 0.15s, color 0.18s ease"
-                  : "opacity 0.08s ease, color 0.18s ease",
+                transition: isOpen
+                  ? "opacity 0.18s ease 0.15s"
+                  : "opacity 0.08s ease",
               } as React.CSSProperties}>
                 {resolve(item.title, lang)}
               </span>
             </button>
           );
         })}
-
-        {/* Collapse toggle (×) — appears only in expanded state */}
-        {isExpanded && (
-          <button
-            onClick={collapse}
-            style={{
-              flexShrink: 0,
-              width: 30, height: 30, borderRadius: "50%",
-              background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
-              border: `1px solid ${chipBorder}`,
-              cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 10, fontWeight: 700,
-              color: isDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.28)",
-              outline: "none", WebkitTapHighlightColor: "transparent",
-              marginLeft: 4, marginBottom: 8,
-            } as React.CSSProperties}
-          >✕</button>
-        )}
       </div>
 
-      {/* ── Inline dropdown — shown only when expanded + item active ──────────── */}
-      {isExpanded && activeId && activeItem && (
+      {/* ── Inline dropdown — shown when any chip is open ─────────────────────── */}
+      {activeChipId && activeItem && (
         <div style={{
           marginTop: 10,
           opacity: visible ? 1 : 0,
@@ -1423,21 +1376,15 @@ function InfoShowcaseSection({
                   style={{
                     display: "inline-flex", alignItems: "center",
                     padding: "7px 14px", borderRadius: 99,
-                    background: copied
-                      ? "#10B981"
-                      : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
-                    color: copied
-                      ? "#FFFFFF"
-                      : isDark ? "rgba(255,255,255,0.80)" : "rgba(0,0,0,0.65)",
+                    background: copied ? "#10B981" : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+                    color: copied ? "#FFFFFF" : isDark ? "rgba(255,255,255,0.80)" : "rgba(0,0,0,0.65)",
                     fontSize: 13, fontWeight: 700,
                     border: "none", cursor: "pointer",
                     transition: "background 0.2s, color 0.2s",
                     outline: "none", WebkitTapHighlightColor: "transparent",
                   } as React.CSSProperties}
                 >
-                  {copied
-                    ? (lang === "ru" ? "✓" : lang === "kz" ? "✓" : "✓")
-                    : "📋"}
+                  {copied ? "✓" : "📋"}
                 </button>
               )}
               <button
