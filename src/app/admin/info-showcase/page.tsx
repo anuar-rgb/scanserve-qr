@@ -264,15 +264,14 @@ export default function InfoShowcasePage() {
 
             {/* Description */}
             <div className="space-y-1.5">
-              <Label>Описание (текст попапа)</Label>
+              <Label>{t.admin.showcaseCardDescLabel}</Label>
               <textarea
-                rows={3}
+                rows={4}
                 value={form.description}
                 onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Например: пароль Wi-Fi: mypassword123"
+                placeholder={t.admin.showcaseCardDescPlaceholder}
                 className="flex w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 resize-none"
               />
-              <p className="text-[11px] text-zinc-400">Для Wi-Fi: этот текст станет паролем при нажатии кнопки "Скопировать пароль"</p>
             </div>
 
             {/* Active toggle */}

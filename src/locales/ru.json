@@ -255,6 +255,8 @@
     "showcaseCardSaved": "Карточка сохранена!",
     "showcaseCardTitleLabel": "Текст (заголовок)",
     "showcaseCardEmojiLabel": "Иконка / Эмодзи",
+    "showcaseCardDescLabel": "Описание (текст попапа)",
+    "showcaseCardDescPlaceholder": "Например: пароль Wi-Fi: mypassword123",
     "showcaseCardActive": "Активна",
     "sectionPOS": "POS Терминал",
     "navHall": "План зала",

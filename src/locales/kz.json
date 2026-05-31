@@ -255,6 +255,8 @@
     "showcaseCardSaved": "Карточка сақталды!",
     "showcaseCardTitleLabel": "Мәтін (тақырып)",
     "showcaseCardEmojiLabel": "Иконка / Эмодзи",
+    "showcaseCardDescLabel": "Сипаттама (попап мәтіні)",
+    "showcaseCardDescPlaceholder": "Мысалы: Wi-Fi құпиясөзі: mypassword123",
     "showcaseCardActive": "Белсенді",
     "sectionPOS": "POS Терминал",
     "navHall": "Зал жоспары",

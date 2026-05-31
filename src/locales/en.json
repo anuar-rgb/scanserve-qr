@@ -255,6 +255,8 @@
     "showcaseCardSaved": "Card saved!",
     "showcaseCardTitleLabel": "Title",
     "showcaseCardEmojiLabel": "Icon / Emoji",
+    "showcaseCardDescLabel": "Description (popup text)",
+    "showcaseCardDescPlaceholder": "E.g. Wi-Fi password: mypassword123",
     "showcaseCardActive": "Active",
     "sectionPOS": "POS Terminal",
     "navHall": "Hall Plan",
