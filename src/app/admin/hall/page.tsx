@@ -1521,12 +1521,6 @@ function TableCard({
       >
         <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
         <p className="text-xs font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
-        {status === "occupied" && (
-          <div className="flex items-center gap-0.5 mt-1">
-            <Clock size={9} className="text-red-500 shrink-0" />
-            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">{formatElapsed(elapsed)}</span>
-          </div>
-        )}
         {isMyTable && (
           <span className="mt-0.5 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
         )}
@@ -1586,19 +1580,10 @@ function TableCard({
       ) : (
         /* ── Expanded occupied / preorder layout ── */
         <div className="p-3 pb-2 flex-1 flex flex-col">
-          {/* Top row: table number (left) + time chip (right) */}
-          <div className="flex items-start justify-between gap-1 pr-5 mb-2 mt-1">
+          <div className="pr-5 mb-2 mt-1">
             <p className="text-2xl font-black leading-tight text-foreground break-words">
               {table.label}
             </p>
-            {status === "occupied" && (
-              <div className="flex items-center gap-0.5 mt-1 shrink-0">
-                <Clock size={10} className="text-red-500 shrink-0" />
-                <span className="text-[11px] font-semibold text-red-600 dark:text-red-400 tabular-nums">
-                  {formatElapsed(elapsed)}
-                </span>
-              </div>
-            )}
           </div>
 
           {status === "occupied" && order && (
