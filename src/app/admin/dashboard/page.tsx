@@ -279,14 +279,14 @@ export default function CatalogPage() {
                   {visibleProducts.map((p) => (
                     <div
                       key={p.id}
-                      className={`flex items-center gap-3 px-5 py-3 transition-opacity ${
+                      className={`flex items-start gap-3 px-4 md:px-5 py-3 transition-opacity ${
                         !p.is_available || p.is_archived
                           ? "bg-zinc-50 dark:bg-zinc-900/10 opacity-60"
                           : "bg-white dark:bg-zinc-900/30"
                       }`}
                     >
                       {/* Thumbnail */}
-                      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mt-0.5">
                         {p.image_url ? (
                           <img src={p.image_url} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -294,7 +294,7 @@ export default function CatalogPage() {
                         )}
                       </div>
 
-                      {/* Name + badges */}
+                      {/* Name + badges + mobile action row */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
@@ -326,84 +326,131 @@ export default function CatalogPage() {
                             {getName(p.description, lang)}
                           </p>
                         )}
-                      </div>
 
-                      {/* Price (inline edit — owner only) */}
-                      <div className="shrink-0">
-                        {!isStrictOwner ? (
-                          <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400 px-3 py-1.5 select-none">
+                        {/* Mobile-only: price + toggle + action buttons below the name */}
+                        <div className="flex items-center gap-2 mt-2 md:hidden">
+                          <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400 select-none">
                             {p.price.toLocaleString()}₸
                           </span>
-                        ) : editPrice?.id === p.id ? (
-                          <input
-                            autoFocus
-                            type="number"
-                            min={0}
-                            value={editPrice.val}
-                            onChange={(e) => setEditPrice({ id: p.id, val: e.target.value })}
-                            onBlur={() => commitPrice(p.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") commitPrice(p.id);
-                              if (e.key === "Escape") setEditPrice(null);
-                            }}
-                            className="w-24 bg-white dark:bg-zinc-800 border border-violet-500/60 rounded-lg text-zinc-900 dark:text-zinc-100 text-sm text-right px-2.5 py-1.5 focus:outline-none tabular-nums"
-                          />
-                        ) : (
                           <button
-                            onClick={() => !saving && setEditPrice({ id: p.id, val: String(p.price) })}
-                            title="Click to edit price"
-                            className="text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/40 rounded-lg px-3 py-1.5 transition-all tabular-nums"
+                            onClick={() => toggleAvailable(p)}
+                            disabled={saving === p.id || p.is_archived}
+                            className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg border transition-all ${
+                              saving === p.id
+                                ? "opacity-40 cursor-wait border-zinc-300 dark:border-zinc-700 text-zinc-400"
+                                : p.is_available
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                : "bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20"
+                            }`}
                           >
-                            {p.price.toLocaleString()}₸
+                            {p.is_available
+                              ? <><CheckCircle2 size={11} /> {t.admin.on}</>
+                              : <><XCircle size={11} /> {t.admin.off}</>
+                            }
                           </button>
-                        )}
+                          <div className="flex items-center gap-0.5 ml-auto">
+                            <button
+                              onClick={() => setProductModal({ mode: "edit", product: p })}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              onClick={() => toggleArchive(p)}
+                              disabled={saving === p.id}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-40"
+                            >
+                              {p.is_archived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
+                            </button>
+                            <button
+                              onClick={() => setDeleteState({ type: "product", id: p.id, label: getName(p.name, lang) })}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Available toggle */}
-                      <button
-                        onClick={() => toggleAvailable(p)}
-                        disabled={saving === p.id || p.is_archived}
-                        className={`shrink-0 flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${
-                          saving === p.id
-                            ? "opacity-40 cursor-wait border-zinc-300 dark:border-zinc-700 text-zinc-400"
-                            : p.is_available
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                            : "bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20 hover:bg-red-500/20"
-                        }`}
-                      >
-                        {p.is_available
-                          ? <><CheckCircle2 size={12} /> {t.admin.on}</>
-                          : <><XCircle size={12} /> {t.admin.off}</>
-                        }
-                      </button>
+                      {/* Desktop-only: price + toggle + action buttons */}
+                      <div className="hidden md:flex items-center gap-3 shrink-0">
+                        {/* Price (inline edit — owner only) */}
+                        <div className="shrink-0">
+                          {!isStrictOwner ? (
+                            <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400 px-3 py-1.5 select-none">
+                              {p.price.toLocaleString()}₸
+                            </span>
+                          ) : editPrice?.id === p.id ? (
+                            <input
+                              autoFocus
+                              type="number"
+                              min={0}
+                              value={editPrice.val}
+                              onChange={(e) => setEditPrice({ id: p.id, val: e.target.value })}
+                              onBlur={() => commitPrice(p.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitPrice(p.id);
+                                if (e.key === "Escape") setEditPrice(null);
+                              }}
+                              className="w-24 bg-white dark:bg-zinc-800 border border-violet-500/60 rounded-lg text-zinc-900 dark:text-zinc-100 text-sm text-right px-2.5 py-1.5 focus:outline-none tabular-nums"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => !saving && setEditPrice({ id: p.id, val: String(p.price) })}
+                              title="Click to edit price"
+                              className="text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/40 rounded-lg px-3 py-1.5 transition-all tabular-nums"
+                            >
+                              {p.price.toLocaleString()}₸
+                            </button>
+                          )}
+                        </div>
 
-                      {/* Edit */}
-                      <button
-                        onClick={() => setProductModal({ mode: "edit", product: p })}
-                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                        title={t.admin.editProduct}
-                      >
-                        <Pencil size={13} />
-                      </button>
+                        {/* Available toggle */}
+                        <button
+                          onClick={() => toggleAvailable(p)}
+                          disabled={saving === p.id || p.is_archived}
+                          className={`shrink-0 flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${
+                            saving === p.id
+                              ? "opacity-40 cursor-wait border-zinc-300 dark:border-zinc-700 text-zinc-400"
+                              : p.is_available
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                              : "bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20 hover:bg-red-500/20"
+                          }`}
+                        >
+                          {p.is_available
+                            ? <><CheckCircle2 size={12} /> {t.admin.on}</>
+                            : <><XCircle size={12} /> {t.admin.off}</>
+                          }
+                        </button>
 
-                      {/* Archive */}
-                      <button
-                        onClick={() => toggleArchive(p)}
-                        disabled={saving === p.id}
-                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-40"
-                        title={p.is_archived ? t.admin.unarchive : t.admin.archive}
-                      >
-                        {p.is_archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                      </button>
+                        {/* Edit */}
+                        <button
+                          onClick={() => setProductModal({ mode: "edit", product: p })}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                          title={t.admin.editProduct}
+                        >
+                          <Pencil size={13} />
+                        </button>
 
-                      {/* Delete */}
-                      <button
-                        onClick={() => setDeleteState({ type: "product", id: p.id, label: getName(p.name, lang) })}
-                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                        title={t.admin.delete}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                        {/* Archive */}
+                        <button
+                          onClick={() => toggleArchive(p)}
+                          disabled={saving === p.id}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-40"
+                          title={p.is_archived ? t.admin.unarchive : t.admin.archive}
+                        >
+                          {p.is_archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          onClick={() => setDeleteState({ type: "product", id: p.id, label: getName(p.name, lang) })}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                          title={t.admin.delete}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
