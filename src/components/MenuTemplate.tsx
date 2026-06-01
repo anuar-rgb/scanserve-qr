@@ -1350,38 +1350,24 @@ function InfoShowcaseSection({
               )}
             </div>
 
-            {/* Right: copy pill (Wi-Fi only) + close */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              {isWifi(activeItem) && activeItem.description && (
-                <button
-                  onClick={() => handleCopy(activeItem.description!)}
-                  style={{
-                    display: "inline-flex", alignItems: "center",
-                    padding: "7px 14px", borderRadius: 99,
-                    background: copied ? "#10B981" : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
-                    color: copied ? "#FFFFFF" : isDark ? "rgba(255,255,255,0.80)" : "rgba(0,0,0,0.65)",
-                    fontSize: 13, fontWeight: 700,
-                    border: "none", cursor: "pointer",
-                    transition: "background 0.2s, color 0.2s",
-                    outline: "none", WebkitTapHighlightColor: "transparent",
-                  } as React.CSSProperties}
-                >
-                  {copied ? "✓" : "📋"}
-                </button>
-              )}
+            {/* Right: copy pill (Wi-Fi only) */}
+            {isWifi(activeItem) && activeItem.description && (
               <button
-                onClick={closeDropdown}
+                onClick={() => handleCopy(activeItem.description!)}
                 style={{
-                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                  background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                  display: "inline-flex", alignItems: "center",
+                  padding: "7px 14px", borderRadius: 99, flexShrink: 0,
+                  background: copied ? "#10B981" : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+                  color: copied ? "#FFFFFF" : isDark ? "rgba(255,255,255,0.80)" : "rgba(0,0,0,0.65)",
+                  fontSize: 13, fontWeight: 700,
                   border: "none", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: 700,
-                  color: isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.30)",
+                  transition: "background 0.2s, color 0.2s",
                   outline: "none", WebkitTapHighlightColor: "transparent",
                 } as React.CSSProperties}
-              >✕</button>
-            </div>
+              >
+                {copied ? "✓" : "📋"}
+              </button>
+            )}
           </div>
         </div>
       )}
