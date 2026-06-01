@@ -792,16 +792,16 @@ export default function AnalyticsPage() {
       )}
 
       {/* ── header ── */}
-      <header className="px-8 py-5 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 flex items-center justify-between gap-4">
+      <header className="px-4 md:px-8 py-4 md:py-5 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{t.admin.navOverview}</h1>
-          <p className="text-xs text-zinc-500 mt-0.5">{t.admin.descOverview}</p>
+          <h1 className="text-base md:text-lg font-semibold text-zinc-900 dark:text-zinc-100">{t.admin.navOverview}</h1>
+          <p className="text-xs text-zinc-500 mt-0.5 hidden md:block">{t.admin.descOverview}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 p-1 rounded-xl text-xs">
             {(["today", "week", "month"] as Period[]).map(p => (
               <button key={p} onClick={() => setPeriod(p)} disabled={loading}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                className={`px-2.5 md:px-3 py-1.5 rounded-lg font-medium transition-colors ${
                   period === p
                     ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
                     : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -813,32 +813,33 @@ export default function AnalyticsPage() {
           <button onClick={() => load(period)} disabled={loading}
             className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 px-2.5 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            Обновить
+            <span className="hidden md:inline">Обновить</span>
           </button>
         </div>
       </header>
 
       {/* ── Section tabs ── */}
-      <div className="px-8 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 flex items-center gap-0.5">
+      <div className="px-4 md:px-8 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 flex items-center gap-0.5">
         {([
-          ["analytics", "Продажи"],
-          ["foodcost",  "Food Cost / Маржинальность"],
-        ] as [string, string][]).map(([key, label]) => (
+          ["analytics", "Продажи",      "Продажи"],
+          ["foodcost",  "Food Cost",     "Food Cost / Маржинальность"],
+        ] as [string, string, string][]).map(([key, mobileLabel, label]) => (
           <button key={key}
             onClick={() => setActiveSection(key as "analytics" | "foodcost")}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-3 md:px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeSection === key
                 ? "border-violet-500 text-violet-600 dark:text-violet-400"
                 : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}>
-            {label}
+            <span className="md:hidden">{mobileLabel}</span>
+            <span className="hidden md:inline">{label}</span>
           </button>
         ))}
       </div>
 
       <div className="flex-1 overflow-y-auto">
 
-      {activeSection === "analytics" && <div className="p-8 space-y-6">
+      {activeSection === "analytics" && <div className="p-4 md:p-8 space-y-4 md:space-y-6">
 
         {/* ── Active shift control — only show Z-report when shift is open ── */}
         {activeShift && (
@@ -865,7 +866,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* ── metric cards ── */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <MetricCard loading={loading} icon={<CreditCard size={16} />} color="violet"
             label={t.admin.revenue}
             value={`${(totalRevenue / 1000).toFixed(1)}K ₸`}
@@ -917,7 +918,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* ── expenses + profit row ── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
           <MetricCard loading={loading} icon={<FileText size={16} />} color="red"
             label={t.admin.expenses}
             value={totalExpenses > 0 ? `${(totalExpenses / 1000).toFixed(1)}K ₸` : "0 ₸"}
@@ -1024,8 +1025,8 @@ export default function AnalyticsPage() {
         )}
 
         {/* ── bar chart + top dishes ── */}
-        <div className="grid grid-cols-5 gap-4">
-          <div className="col-span-3 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="md:col-span-3 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-4 md:p-6">
             <div className="mb-5">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 {period === "today" ? "Выручка по часам" : period === "week" ? "Выручка по дням" : "Выручка за 30 дней"}
@@ -1071,7 +1072,7 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          <div className="col-span-2 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+          <div className="md:col-span-2 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-4 md:p-6">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">{t.admin.topDishes}</h2>
             {loading ? (
               <div className="space-y-4">
@@ -1107,7 +1108,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* ── status + type breakdown ── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
           <BreakdownCard title="Статусы заказов" items={statuses} loading={loading} />
           <BreakdownCard title="Тип заказов"     items={types}    loading={loading} />
         </div>
@@ -1318,7 +1319,7 @@ export default function AnalyticsPage() {
                           style={{ width: `${Math.round(w.revenueTotal / maxRev * 100)}%` }} />
                       </div>
                     </div>
-                    <div className="shrink-0 text-right min-w-[100px]">
+                    <div className="hidden md:block shrink-0 text-right min-w-[100px]">
                       <div className="text-[9px] text-zinc-400 tabular-nums">💵 {w.cashTotal.toLocaleString("ru-RU")} ₸</div>
                       <div className="text-[9px] text-zinc-400 tabular-nums">💳 {w.cardTotal.toLocaleString("ru-RU")} ₸</div>
                       <div className="text-[9px] text-zinc-400">{w.ordersTotal} заказов · {w.shiftsCount} смен</div>
@@ -1436,16 +1437,16 @@ export default function AnalyticsPage() {
       </div>}
 
       {/* ── Food Cost / Маржинальность tab ── */}
-      {activeSection === "foodcost" && <div className="p-8 space-y-6">
+      {activeSection === "foodcost" && <div className="p-4 md:p-8 space-y-4 md:space-y-6">
 
         {fcLoading ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {[1, 2, 3, 4].map(i => <div key={i} className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-800 animate-pulse" />)}
           </div>
         ) : foodCost ? (
           <>
             {/* ── 4 metric cards ── */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               <MetricCard loading={false} icon={<CreditCard size={16} />} color="violet"
                 label="Выручка (оплачено)"
                 value={`${(foodCost.dishes.reduce((s, d) => s + d.totalRevenue, 0) / 1000).toFixed(1)}K ₸`}
@@ -1493,15 +1494,15 @@ export default function AnalyticsPage() {
 
             {/* ── Dish profitability table ── */}
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
-              <div className="flex items-center justify-between mb-5 gap-4">
+              <div className="flex flex-wrap items-start justify-between mb-5 gap-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
                     <BarChart2 size={15} />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Рейтинг маржинальности блюд</h2>
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Рейтинг маржинальности</h2>
                     <p className="text-xs text-zinc-400 mt-0.5">
-                      {foodCost.dishes.length} позиций с рецептурой · {PERIOD_LABEL[period]}
+                      {foodCost.dishes.length} позиций · {PERIOD_LABEL[period]}
                     </p>
                   </div>
                 </div>

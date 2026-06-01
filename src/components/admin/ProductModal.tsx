@@ -397,14 +397,14 @@ export default function ProductModal({ mode, product, categories, defaultCategor
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-        {/* Panel */}
-        <div className="relative w-full max-w-[900px] max-h-[90vh] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col overflow-hidden">
+        {/* Panel — bottom sheet on mobile, centered dialog on desktop */}
+        <div className="relative w-full md:max-w-[900px] h-[92dvh] md:h-auto md:max-h-[90vh] bg-white dark:bg-zinc-900 rounded-t-2xl md:rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+          <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               {isEdit ? t.admin.editProduct : t.admin.addProduct}
             </h2>
@@ -416,10 +416,10 @@ export default function ProductModal({ mode, product, categories, defaultCategor
             </button>
           </div>
 
-          {/* Body — two columns */}
-          <div className="flex-1 overflow-hidden flex min-h-0">
+          {/* Body — single column on mobile, two columns on desktop */}
+          <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
             {/* Left: scrollable form */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 min-w-0">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-5 space-y-5 min-w-0">
 
               {/* Photo */}
               <div>
@@ -806,8 +806,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
               )}
             </div>
 
-            {/* Right: live preview */}
-            <div className="w-56 shrink-0 border-l border-zinc-200 dark:border-zinc-800 px-5 py-5 flex flex-col items-center gap-4 overflow-y-auto">
+            {/* Right: live preview — hidden on mobile */}
+            <div className="hidden md:flex w-56 shrink-0 border-l border-zinc-200 dark:border-zinc-800 px-5 py-5 flex-col items-center gap-4 overflow-y-auto">
               <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
                 Preview
               </p>
@@ -833,7 +833,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
+          <div className="shrink-0 px-4 md:px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
             <button
               onClick={onClose}
               disabled={saving}
