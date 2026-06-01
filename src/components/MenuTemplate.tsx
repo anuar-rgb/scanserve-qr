@@ -1243,14 +1243,20 @@ function InfoShowcaseSection({
   return (
     <div style={{ marginBottom: SP.lg }}>
 
-      {/* ── Pill buttons row — always fully expanded ──────────────────────────── */}
+      {/* ── Pill buttons row — horizontal carousel, no wrap ──────────────────── */}
       <div style={{
         display: "flex",
-        justifyContent: "center",
         alignItems: "center",
-        flexWrap: "wrap",
+        flexWrap: "nowrap",
         gap: 8,
-      }}>
+        overflowX: "auto",
+        scrollbarWidth: "none",
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-x",
+        marginLeft: -SP.md, marginRight: -SP.md,
+        paddingLeft: SP.md, paddingRight: SP.md,
+        paddingBottom: 4, marginBottom: -4,
+      } as React.CSSProperties}>
         {items.map((item) => {
           const isOpen = item.id === activeChipId;
           return (
