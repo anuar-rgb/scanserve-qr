@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   CheckCircle2, XCircle, Tag, Pencil, Trash2, Archive,
-  ArchiveRestore, Plus, Flame, Star, Sparkles,
+  ArchiveRestore, Plus, Flame, Star, Sparkles, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbProduct } from "@/lib/db-types";
@@ -34,6 +34,9 @@ export default function CatalogPage() {
   const [categoryModal, setCategoryModal] = useState<CategoryModalState>(null);
   const [deleteState, setDeleteState]     = useState<DeleteState>(null);
   const [deleting, setDeleting]           = useState(false);
+
+  // Mobile two-step navigation: null = show categories, string = show that category's dishes
+  const [mobileCatId, setMobileCatId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -158,8 +161,8 @@ export default function CatalogPage() {
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
 
-          {/* Categories panel */}
-          <aside className="w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800/60 overflow-y-auto flex flex-col">
+          {/* Categories panel — on mobile: full width when no category selected, hidden otherwise */}
+          <aside className={`${mobileCatId !== null ? "hidden md:flex" : "flex"} w-full md:w-64 md:shrink-0 border-r border-zinc-200 dark:border-zinc-800/60 overflow-y-auto flex-col`}>
             <div className="p-2.5">
               <button
                 onClick={() => setCategoryModal({ mode: "create" })}
@@ -182,8 +185,8 @@ export default function CatalogPage() {
                 return (
                   <div key={cat.id} className="group relative mb-0.5">
                     <button
-                      onClick={() => setSelectedCatId(cat.id)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all ${
+                      onClick={() => { setSelectedCatId(cat.id); setMobileCatId(cat.id); }}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2.5 min-h-[48px] md:min-h-0 rounded-xl text-left transition-all ${
                         sel
                           ? "bg-violet-50 dark:bg-violet-600/15 border border-violet-200 dark:border-violet-500/20"
                           : "border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
@@ -199,6 +202,8 @@ export default function CatalogPage() {
                           {av}/{cp.length} {t.admin.available}
                         </p>
                       </div>
+                      {/* Chevron: mobile only, shows navigation hint */}
+                      <ChevronRight size={14} className="md:hidden shrink-0 text-zinc-300 dark:text-zinc-600" />
                     </button>
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5">
                       <button
@@ -220,9 +225,19 @@ export default function CatalogPage() {
             </div>
           </aside>
 
-          {/* Products panel */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
+          {/* Products panel — on mobile: hidden when no category selected, full width otherwise */}
+          <div className={`${mobileCatId === null ? "hidden md:block" : "block"} flex-1 overflow-y-auto`}>
+            {/* Mobile back button */}
+            <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
+              <button
+                onClick={() => setMobileCatId(null)}
+                className="flex items-center gap-1.5 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors min-h-[44px]"
+              >
+                <ChevronLeft size={16} />
+                {t.admin.backToCategories}
+              </button>
+            </div>
+            <div className="p-4 md:p-6">
               {/* Sub-header */}
               {selectedCat && (
                 <div className="flex items-center gap-3 mb-4">
