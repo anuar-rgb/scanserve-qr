@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Upload, Loader2, ImageIcon, Plus, Pencil, Trash2, Film,
-  ChevronUp, ChevronDown, X, Search, Star,
+  ChevronUp, ChevronDown, X, Search, Star, LayoutGrid,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
-import type { DbRestaurant, DbHeroSlide, SlideTag, DbBanner, DbProduct } from "@/lib/db-types";
+import type { DbRestaurant, DbHeroSlide, SlideTag, DbBanner, DbProduct, DbInfoShowcase } from "@/lib/db-types";
 import { uploadImage, uploadMedia } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
@@ -85,9 +85,22 @@ const EMPTY_BANNER: BannerForm = {
   imageFile: null, imagePreview: null,
 };
 
+// ── Showcase form ─────────────────────────────────────────────────────────────
+
+type ShowcaseForm = {
+  title: string;
+  emoji: string;
+  description: string;
+  is_active: boolean;
+};
+
+const EMPTY_SHOWCASE: ShowcaseForm = {
+  title: "", emoji: "✨", description: "", is_active: true,
+};
+
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type TabKey = "slider" | "banners" | "recommendations";
+type TabKey = "slider" | "showcase" | "banners" | "recommendations";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main page export
@@ -108,6 +121,7 @@ export default function StorefrontPage() {
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
           <TabsList variant="line">
             <TabsTrigger value="slider">{t.admin.navHeroSlider}</TabsTrigger>
+            <TabsTrigger value="showcase">{t.admin.navInfoShowcase}</TabsTrigger>
             <TabsTrigger value="banners">{t.admin.navBanners}</TabsTrigger>
             <TabsTrigger value="recommendations">{t.admin.navRecommendations}</TabsTrigger>
           </TabsList>
@@ -116,6 +130,7 @@ export default function StorefrontPage() {
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {tab === "slider"           && <HeroSliderSection />}
+        {tab === "showcase"         && <InfoShowcaseSection />}
         {tab === "banners"          && <BannersSection />}
         {tab === "recommendations"  && <RecommendationsSection />}
       </div>
@@ -1029,6 +1044,259 @@ function BannerPhoneMockup({ title, imagePreview }: { title: string; imagePrevie
         </div>
       </div>
       <div style={{ width: 62, height: 4, background: "#3a3a3c", borderRadius: 99, margin: "9px auto 0" }} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tab 2 — Info Showcase
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function InfoShowcaseSection() {
+  const { t } = useTranslations();
+
+  const [cards, setCards]         = useState<DbInfoShowcase[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm]           = useState<ShowcaseForm>(EMPTY_SHOWCASE);
+  const [saving, setSaving]       = useState(false);
+  const [deleting, setDeleting]   = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!isConfigured) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from("info_showcases")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("order_index");
+    if (data) setCards(data as DbInfoShowcase[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function openCreate() {
+    setEditingId(null);
+    setForm(EMPTY_SHOWCASE);
+    setModalOpen(true);
+  }
+
+  function openEdit(c: DbInfoShowcase) {
+    setEditingId(c.id);
+    setForm({
+      title: c.title?.ru ?? c.title?.en ?? "",
+      emoji: c.emoji,
+      description: c.description ?? "",
+      is_active: c.is_active,
+    });
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_SHOWCASE);
+  }
+
+  async function handleSave() {
+    if (!isConfigured) { toast.error("Database not configured"); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        restaurant_id: RESTAURANT_ID,
+        title: { en: form.title, ru: form.title, kz: form.title },
+        emoji: form.emoji || "✨",
+        description: form.description.trim() || null,
+        is_active: form.is_active,
+      };
+      if (editingId) {
+        await supabase.from("info_showcases").update(payload).eq("id", editingId);
+      } else {
+        const maxOrder = cards.length > 0 ? Math.max(...cards.map(c => c.order_index)) + 1 : 0;
+        await supabase.from("info_showcases").insert({ ...payload, order_index: maxOrder });
+      }
+      await load();
+      closeModal();
+      toast.success(t.admin.showcaseCardSaved);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save card");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!isConfigured) return;
+    setDeleting(id);
+    const { error } = await supabase.from("info_showcases").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete card");
+    } else {
+      setCards(prev => prev.filter(c => c.id !== id));
+      toast.success("Card deleted");
+    }
+    setDeleting(null);
+  }
+
+  async function move(id: string, direction: "up" | "down") {
+    if (!isConfigured) return;
+    const idx = cards.findIndex(c => c.id === id);
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === cards.length - 1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    const updated = [...cards];
+    [updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]];
+    const reindexed = updated.map((c, i) => ({ ...c, order_index: i }));
+    setCards(reindexed);
+    await Promise.all(
+      reindexed.map(c => supabase.from("info_showcases").update({ order_index: c.order_index }).eq("id", c.id))
+    );
+  }
+
+  async function toggleActive(c: DbInfoShowcase) {
+    const next = !c.is_active;
+    setCards(prev => prev.map(x => x.id === c.id ? { ...x, is_active: next } : x));
+    await supabase.from("info_showcases").update({ is_active: next }).eq("id", c.id);
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-8 py-4 border-b border-border shrink-0 flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">{t.admin.descInfoShowcase}</p>
+        <Button onClick={openCreate} size="sm">
+          <Plus />
+          {t.admin.addShowcaseCard}
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-8">
+        {loading ? (
+          <div className="flex items-center justify-center h-32 gap-2 text-muted-foreground text-sm">
+            <Loader2 size={16} className="animate-spin" />
+            {t.admin.loadingCatalog}
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-zinc-400">
+            <LayoutGrid size={32} strokeWidth={1.5} />
+            <p className="text-sm">{t.admin.noShowcaseCards}</p>
+            <Button variant="link" onClick={openCreate} className="text-violet-500 hover:text-violet-600 p-0 h-auto">
+              + {t.admin.addShowcaseCard}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3 max-w-2xl">
+            {cards.map((c, idx) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card"
+              >
+                <div className="w-10 h-10 rounded-lg bg-muted shrink-0 flex items-center justify-center text-xl">
+                  {c.emoji || "✨"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {c.title?.ru || c.title?.en || "—"}
+                  </p>
+                  {c.description && (
+                    <p className="text-xs text-muted-foreground truncate">{c.description}</p>
+                  )}
+                </div>
+                <button onClick={() => toggleActive(c)} className="shrink-0">
+                  <Badge className={`border-0 ${c.is_active
+                    ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground"
+                  }`}>
+                    {c.is_active ? t.admin.on : t.admin.off}
+                  </Badge>
+                </button>
+                <div className="flex flex-col gap-0.5 shrink-0">
+                  <Button variant="ghost" size="icon-xs" onClick={() => move(c.id, "up")} disabled={idx === 0}>
+                    <ChevronUp size={14} className="text-muted-foreground" />
+                  </Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => move(c.id, "down")} disabled={idx === cards.length - 1}>
+                    <ChevronDown size={14} className="text-muted-foreground" />
+                  </Button>
+                </div>
+                <Button variant="ghost" size="icon-sm" onClick={() => openEdit(c)}>
+                  <Pencil size={14} className="text-muted-foreground" />
+                </Button>
+                <Button
+                  variant="ghost" size="icon-sm"
+                  onClick={() => handleDelete(c.id)}
+                  disabled={deleting === c.id}
+                  className="hover:bg-red-50 dark:hover:bg-red-500/10"
+                >
+                  {deleting === c.id
+                    ? <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                    : <Trash2 size={14} className="text-red-500 dark:text-red-400" />}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingId ? t.admin.editShowcaseCard : t.admin.addShowcaseCard}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>{t.admin.showcaseCardEmojiLabel}</Label>
+              <Input
+                value={form.emoji}
+                onChange={e => setForm(prev => ({ ...prev, emoji: e.target.value }))}
+                placeholder="✨"
+                className="text-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>{t.admin.showcaseCardTitleLabel}</Label>
+              <Input
+                value={form.title}
+                onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Доставка"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Описание (текст попапа)</Label>
+              <textarea
+                rows={4}
+                value={form.description}
+                onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Например: пароль Wi-Fi: mypassword123"
+                className="flex w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between py-1">
+              <Label>{t.admin.showcaseCardActive}</Label>
+              <Switch
+                checked={form.is_active}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal}>
+              {t.admin.cancel}
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              {saving ? t.admin.saving : t.admin.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
