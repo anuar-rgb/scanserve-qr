@@ -273,3 +273,27 @@ body {
 
 /* Guest menu — hidden horizontal scrollbar */
 .menu-scroll-x::-webkit-scrollbar { display: none; }
+
+/* ── Mobile admin: touch-friendly minimum tap targets ─────────────────────── */
+@media (max-width: 767px) {
+  /* All admin buttons and inputs get at least 44px height */
+  .admin-touch button:not([data-no-min-height]),
+  .admin-touch input,
+  .admin-touch select,
+  .admin-touch textarea {
+    min-height: 44px;
+  }
+
+  /* Tables scroll horizontally instead of breaking layout */
+  .admin-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Dialogs/modals fill most of screen from bottom on mobile */
+  [role="dialog"] [data-radix-dialog-content],
+  .admin-dialog-content {
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+}
