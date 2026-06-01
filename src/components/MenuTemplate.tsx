@@ -1176,11 +1176,16 @@ function InfoCards({
 }
 
 // ── Info Showcase Section ─────────────────────────────────────────────────────
-//
-// Per-item morph: each circle expands individually on tap.
-//   closed — 32 px circle, emoji only
-//   open   — pill chip with emoji + label; dropdown below
-// One item open at a time; tapping the same item collapses it.
+//   Each card is always a full pill button (emoji + label).
+//   Tapping opens an inline dropdown with description.
+//   Copy button only shown for Wi-Fi cards.
+
+function isWifi(item: ShowcaseItem): boolean {
+  const title = typeof item.title === "string"
+    ? item.title
+    : Object.values(item.title as Record<string, string>).join(" ");
+  return /wi[- ]?fi/i.test(title);
+}
 
 function InfoShowcaseSection({
   items, lang, theme,
@@ -1207,24 +1212,15 @@ function InfoShowcaseSection({
   const activeItem = items.find((i) => i.id === activeChipId) ?? null;
 
   // ── Colour tokens ──────────────────────────────────────────────────────────
-  const chipBg           = isDark ? "#18181B"                        : "#FFFFFF";
-  const chipBgActive     = isDark ? "#2A2A2E"                        : "#EFEFF4";
-  const chipBorder       = isDark ? "rgba(255,255,255,0.07)"         : "rgba(0,0,0,0.08)";
-  const chipBorderActive = isDark ? "rgba(255,255,255,0.16)"         : "rgba(0,0,0,0.15)";
-  const chipShadow       = isDark
-    ? "0 4px 16px rgba(0,0,0,0.50), 0 1px 4px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.06)"
-    : "0 4px 14px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)";
-  const dropShadow       = isDark
+  const chipBg       = isDark ? "#18181B"                : "#FFFFFF";
+  const chipBorder   = isDark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.09)";
+  const chipShadow   = isDark
+    ? "0 2px 10px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)"
+    : "0 2px 8px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1)";
+  const dropShadow   = isDark
     ? "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)"
     : "0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)";
-  const iconBubbleBg     = isDark ? "rgba(255,255,255,0.11)"         : "rgba(0,0,0,0.06)";
-
-  const CHIP_TRANSITION = [
-    "max-width 0.32s cubic-bezier(0.4,0,0.2,1)",
-    "padding 0.30s ease",
-    "background 0.18s ease",
-    "border-color 0.18s ease",
-  ].join(", ");
+  const iconBubbleBg = isDark ? "rgba(255,255,255,0.11)" : "rgba(0,0,0,0.06)";
 
   async function handleCopy(text: string) {
     try {
@@ -1247,7 +1243,7 @@ function InfoShowcaseSection({
   return (
     <div style={{ marginBottom: SP.lg }}>
 
-      {/* ── Per-item circles / chips row ──────────────────────────────────────── */}
+      {/* ── Pill buttons row — always fully expanded ──────────────────────────── */}
       <div style={{
         display: "flex",
         justifyContent: "center",
@@ -1264,23 +1260,24 @@ function InfoShowcaseSection({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                maxWidth:  isOpen ? "280px" : "32px",
-                overflow:  "hidden",
+                gap: 6,
                 borderRadius: 999,
-                paddingTop:    3,
-                paddingBottom: 3,
-                paddingLeft:   isOpen ? 5  : 3,
-                paddingRight:  isOpen ? 14 : 3,
-                background: isOpen ? chipBgActive : chipBg,
-                border: `1px solid ${isOpen ? chipBorderActive : chipBorder}`,
+                paddingTop: 5, paddingBottom: 5,
+                paddingLeft: 6, paddingRight: 14,
+                background: isOpen
+                  ? isDark ? "#2A2A2E" : "#EFEFF4"
+                  : chipBg,
+                border: `1px solid ${isOpen
+                  ? isDark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.13)"
+                  : chipBorder}`,
                 boxShadow: chipShadow,
                 cursor: "pointer",
                 outline: "none",
                 WebkitTapHighlightColor: "transparent",
-                transition: CHIP_TRANSITION,
+                transition: "background 0.18s ease, border-color 0.18s ease",
               } as React.CSSProperties}
             >
-              {/* Emoji bubble — always visible, defines the circle shape */}
+              {/* Emoji bubble */}
               <div style={{
                 width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                 background: iconBubbleBg,
@@ -1290,17 +1287,12 @@ function InfoShowcaseSection({
                 {item.emoji}
               </div>
 
-              {/* Label — clipped until chip opens; fades in with 150 ms delay */}
+              {/* Label — always visible */}
               <span style={{
-                marginLeft: 7,
-                fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
-                opacity: isOpen ? 1 : 0,
+                fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
                 color: isDark ? "rgba(255,255,255,0.85)" : "#111111",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
-                transition: isOpen
-                  ? "opacity 0.18s ease 0.15s"
-                  : "opacity 0.08s ease",
-              } as React.CSSProperties}>
+              }}>
                 {resolve(item.title, lang)}
               </span>
             </button>
@@ -1358,9 +1350,9 @@ function InfoShowcaseSection({
               )}
             </div>
 
-            {/* Right: copy pill + close */}
+            {/* Right: copy pill (Wi-Fi only) + close */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              {activeItem.description && (
+              {isWifi(activeItem) && activeItem.description && (
                 <button
                   onClick={() => handleCopy(activeItem.description!)}
                   style={{
