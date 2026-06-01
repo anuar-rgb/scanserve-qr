@@ -677,20 +677,43 @@ export default function HallPage() {
   }
 
   const today = todayISO();
-  const tablesWithStatus: TableWithStatus[] = tables.map((table) => {
+  const tablesWithStatus: TableWithStatus[] = [];
+  for (const table of tables) {
     const baseLabel = table.label;
-    const tableOrders = orders.filter(
-      (o) => o.type === "dine-in" && (o.table_number === baseLabel || o.table_number?.startsWith(baseLabel + "."))
+    // Only exact-match orders belong to the physical table card
+    const baseOrders = orders.filter(
+      (o) => o.type === "dine-in" && o.table_number === baseLabel
     );
-    const order = tableOrders.find((o) => o.table_number === baseLabel) ?? tableOrders[0] ?? null;
-    const preorderOrder = tableOrders.length === 0
+    const baseOrder = baseOrders[0] ?? null;
+    const preorderOrder = baseOrders.length === 0
       ? (orders.find(
           (o) => o.order_type === "preorder" && o.table_number === baseLabel && o.preorder_date === today
         ) ?? null)
       : null;
-    const status: TableStatus = tableOrders.length > 0 ? "occupied" : preorderOrder ? "preorder" : "free";
-    return { table, status, order, orders: tableOrders, preorderOrder, elapsed: order ? getElapsed(order.created_at) : 0 };
-  });
+    const baseStatus: TableStatus = baseOrders.length > 0 ? "occupied" : preorderOrder ? "preorder" : "free";
+    tablesWithStatus.push({
+      table,
+      status: baseStatus,
+      order: baseOrder,
+      orders: baseOrders,
+      preorderOrder,
+      elapsed: baseOrder ? getElapsed(baseOrder.created_at) : 0,
+    });
+    // Sub-orders (e.g. "104.1", "104.2") → independent virtual cards on the floor plan
+    const subOrders = orders.filter(
+      (o) => o.type === "dine-in" && o.table_number?.startsWith(baseLabel + ".")
+    );
+    for (const subOrder of subOrders) {
+      tablesWithStatus.push({
+        table: { ...table, id: `sub:${subOrder.id}`, label: subOrder.table_number! },
+        status: "occupied",
+        order: subOrder,
+        orders: [subOrder],
+        preorderOrder: null,
+        elapsed: getElapsed(subOrder.created_at),
+      });
+    }
+  }
 
   // Waiters see only their tables: assigned to them OR with an active order opened by them
   const displayedTables = isWaiter
@@ -701,9 +724,10 @@ export default function HallPage() {
       )
     : tablesWithStatus;
 
-  const occupiedCount  = tablesWithStatus.filter((t) => t.status === "occupied").length;
-  const freeCount      = tablesWithStatus.filter((t) => t.status === "free").length;
-  const preorderCount  = tablesWithStatus.filter((t) => t.status === "preorder").length;
+  const physicalTWS    = tablesWithStatus.filter((t) => !t.table.id.startsWith("sub:"));
+  const occupiedCount  = physicalTWS.filter((t) => t.status === "occupied").length;
+  const freeCount      = physicalTWS.filter((t) => t.status === "free").length;
+  const preorderCount  = physicalTWS.filter((t) => t.status === "preorder").length;
   const selectedData   = selected ? tablesWithStatus.find((t) => t.table.id === selected) ?? null : null;
   const { width: tablePanelW, startResize: startTableResize } = usePanelResize("hall:tablePanel", 500, 280, 720);
 
@@ -3360,6 +3384,7 @@ function TablePanel({
   const userId      = useUserId();
   const displayName = useDisplayName();
   const { table, status, order, preorderOrder, elapsed } = data;
+  const isVirtualSubTable = data.table.id.startsWith("sub:");
   const [panelMode, setPanelMode]                 = useState<"info" | "order">(() =>
     (data.status === "free" && autoOrder) ? "order" : "info"
   );
@@ -3549,7 +3574,7 @@ function TablePanel({
               {status === "free" ? "Свободен" : status === "occupied" ? "Занят" : "Предзаказ"}
             </span>
           </p>
-          {!isWaiter && status === "occupied" && (
+          {!isWaiter && status === "occupied" && !isVirtualSubTable && (
             <div className="flex items-center gap-1 mt-0.5">
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <User size={9} className="shrink-0" />
@@ -3571,7 +3596,7 @@ function TablePanel({
               )}
             </div>
           )}
-          {!isWaiter && (
+          {!isWaiter && !isVirtualSubTable && (
             <div className="flex items-center gap-1 mt-0.5">
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <MapPin size={9} className="shrink-0" />
@@ -3654,7 +3679,7 @@ function TablePanel({
       )}
 
       {/* Waiter claim banner — shown when this table is assigned to a different waiter */}
-      {isWaiter && table.assigned_waiter_id && table.assigned_waiter_id !== userId && (
+      {isWaiter && table.assigned_waiter_id && table.assigned_waiter_id !== userId && !isVirtualSubTable && (
         <div className="mx-4 mt-3 shrink-0 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-center gap-3">
           <User size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
           <div className="flex-1 min-w-0">
@@ -3673,30 +3698,6 @@ function TablePanel({
         </div>
       )}
 
-      {/* Sub-table tab switcher (shown only when multiple active orders) */}
-      {allTableOrders.length > 1 && (
-        <div className="px-5 py-2.5 border-b border-border shrink-0">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Счета за столом</p>
-          <div className="flex gap-1.5 flex-wrap">
-            {allTableOrders.map((o) => {
-              const isActive = viewingOrderId ? viewingOrderId === o.id : o.id === (order?.id ?? allTableOrders[0]?.id);
-              return (
-                <button
-                  key={o.id}
-                  onClick={() => setViewingOrderId(o.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
-                    isActive
-                      ? "bg-violet-600 text-white border-violet-600"
-                      : "border-border text-muted-foreground hover:border-violet-400 hover:text-violet-600"
-                  }`}
-                >
-                  {o.table_number} · {(o.total_price ?? 0).toLocaleString("ru-RU")} ₸
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
@@ -4035,7 +4036,7 @@ function TablePanel({
                   </>
                 )}
 
-                {data.orders.length < 5 && (
+                {data.orders.length < 5 && !isVirtualSubTable && (
                   <button
                     onClick={openNewSubOrder}
                     className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
