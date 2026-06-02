@@ -349,11 +349,11 @@ export default function WarehousePage() {
       </div>
 
       {activeTab === "history" ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
           {movements.length === 0 ? (
             <div className="text-center py-12 text-zinc-400 text-sm">Движений ещё нет</div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="min-w-[480px] w-full text-sm">
               <thead>
                 <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Дата</th>
@@ -420,8 +420,8 @@ export default function WarehousePage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+          <table className="min-w-[560px] w-full text-sm">
             <thead>
               <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Название</th>
