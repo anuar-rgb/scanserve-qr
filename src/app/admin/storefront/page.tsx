@@ -117,9 +117,9 @@ export default function StorefrontPage() {
         <p className="text-xs text-muted-foreground mt-0.5">{t.admin.descMainScreen}</p>
       </header>
 
-      <div className="px-8 pt-4 pb-0 border-b border-border shrink-0">
+      <div className="px-4 md:px-8 pt-4 pb-0 border-b border-border shrink-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <TabsList variant="line">
+          <TabsList variant="line" className="min-w-max">
             <TabsTrigger value="slider">{t.admin.navHeroSlider}</TabsTrigger>
             <TabsTrigger value="showcase">{t.admin.navInfoShowcase}</TabsTrigger>
             <TabsTrigger value="banners">{t.admin.navBanners}</TabsTrigger>
@@ -568,8 +568,8 @@ function HeroSliderSection() {
               </div>
             </div>
 
-            {/* Right: phone preview */}
-            <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-1">
+            {/* Right: phone preview — hidden on mobile */}
+            <div className="w-52 shrink-0 flex-col items-center gap-3 pt-1 hidden sm:flex">
               <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
                 Preview
               </p>
@@ -982,7 +982,7 @@ function BannersSection() {
                 />
               </div>
             </div>
-            <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-1">
+            <div className="w-52 shrink-0 flex-col items-center gap-3 pt-1 hidden sm:flex">
               <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">Preview</p>
               <BannerPhoneMockup title={form.title} imagePreview={form.imagePreview} />
               <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">Так выглядит баннер в меню гостя</p>
@@ -1412,7 +1412,7 @@ function RecommendationsSection() {
                     <p className="text-xs text-muted-foreground">{p.price.toLocaleString("ru-RU")} ₸</p>
                   </div>
                   {isRec && (
-                    <Badge className="shrink-0 border-0 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300">
+                    <Badge className="shrink-0 border-0 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 hidden sm:inline-flex">
                       В рекомендациях
                     </Badge>
                   )}
