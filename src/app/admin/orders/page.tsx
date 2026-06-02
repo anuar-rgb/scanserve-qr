@@ -289,7 +289,7 @@ export default function OrderHistoryPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="flex shrink-0 border-b border-border bg-background px-3 gap-0 pt-0.5">
+        <div className="flex shrink-0 border-b border-border bg-background px-3 gap-0 pt-0.5 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
           {([
             { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении" },
             { id: "takeaway", icon: Package,          label: "С собой"     },
@@ -301,7 +301,7 @@ export default function OrderHistoryPage() {
               <button
                 key={id}
                 onClick={() => { setActiveTab(id); setPage(0); setSelectedOrder(null); }}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px shrink-0 whitespace-nowrap ${
                   activeTab === id
                     ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-violet-50/60 dark:bg-violet-900/10"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50"
