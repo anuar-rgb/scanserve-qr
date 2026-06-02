@@ -129,7 +129,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="px-8 py-5 border-b border-border shrink-0 flex items-center gap-4">
+      <header className="px-4 md:px-8 py-4 md:py-5 border-b border-border shrink-0 flex items-center gap-4">
         <div className="flex-1">
           <h1 className="text-lg font-semibold">{t.admin.navProfile}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{t.admin.descProfile}</p>
@@ -140,8 +140,8 @@ export default function SettingsPage() {
         </Button>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="flex gap-8 items-start" style={{ maxWidth: 920 }}>
+      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start" style={{ maxWidth: 920 }}>
           {/* Left: form cards */}
           <div className="flex-1 space-y-6 min-w-0">
 
@@ -243,7 +243,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Right: phone preview */}
-          <div className="w-52 shrink-0 flex flex-col items-center gap-3 pt-0">
+          <div className="w-52 shrink-0 flex-col items-center gap-3 pt-0 hidden md:flex">
             <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest self-start">
               Preview
             </p>
