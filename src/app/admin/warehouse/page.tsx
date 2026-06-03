@@ -349,16 +349,15 @@ export default function WarehousePage() {
       </div>
 
       {activeTab === "history" ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 admin-table-wrap">
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
           {movements.length === 0 ? (
             <div className="text-center py-12 text-zinc-400 text-sm">Движений ещё нет</div>
           ) : (
-            <table className="min-w-[480px] w-full text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Дата</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:table-cell">Дата</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Ингредиент</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Тип</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Кол-во</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden md:table-cell">Примечание</th>
                 </tr>
@@ -374,10 +373,13 @@ export default function WarehousePage() {
                     : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10";
                   return (
                     <tr key={mv.id} className={`border-b border-zinc-100 dark:border-zinc-800/50 last:border-0 ${idx % 2 === 0 ? "bg-white dark:bg-zinc-900" : "bg-zinc-50/50 dark:bg-zinc-900/50"}`}>
-                      <td className="px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{fmtMovementDate(mv.created_at)}</td>
-                      <td className="px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">{mv.ingredients?.name ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap hidden sm:table-cell">{fmtMovementDate(mv.created_at)}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${typeColor}`}>{typeLabel}</span>
+                        <div className="font-medium text-zinc-900 dark:text-zinc-100">{mv.ingredients?.name ?? "—"}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${typeColor}`}>{typeLabel}</span>
+                          <span className="sm:hidden text-[11px] text-zinc-400">{fmtMovementDate(mv.created_at)}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-semibold">
                         <span className={mv.amount < 0 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}>
@@ -420,15 +422,15 @@ export default function WarehousePage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 admin-table-wrap">
-          <table className="min-w-[560px] w-full text-sm">
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+          <table className="w-full text-sm">
             <thead>
               <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Название</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Ед.</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:table-cell">Ед.</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Остаток</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Цена ₸/ед.</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Сумма ₸</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:table-cell">Цена ₸/ед.</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:table-cell">Сумма ₸</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -442,8 +444,13 @@ export default function WarehousePage() {
                       idx % 2 === 0 ? "bg-white dark:bg-zinc-900" : "bg-zinc-50/50 dark:bg-zinc-900/50"
                     }`}
                   >
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{ing.name}</td>
-                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-zinc-900 dark:text-zinc-100">{ing.name}</div>
+                      <div className="sm:hidden text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 tabular-nums">
+                        {fmt(ing.purchase_price)} ₸/ед. · {fmt(rowValue)} ₸
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">
                       <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                         {UNIT_LABELS[ing.unit]}
                       </span>
@@ -452,11 +459,12 @@ export default function WarehousePage() {
                       <span className={`font-semibold ${ing.current_stock <= 0 ? "text-red-500" : "text-zinc-900 dark:text-zinc-100"}`}>
                         {fmt(ing.current_stock)}
                       </span>
+                      <span className="sm:hidden ml-1 text-xs text-zinc-400">{UNIT_LABELS[ing.unit]}</span>
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300 hidden sm:table-cell">
                       {fmt(ing.purchase_price)} ₸
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400 hidden sm:table-cell">
                       {fmt(rowValue)} ₸
                     </td>
                     <td className="px-4 py-3">
