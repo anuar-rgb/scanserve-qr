@@ -7,8 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRole } from "@/lib/role-context";
+import { supabase } from "@/lib/supabase";
+import { RESTAURANT_ID } from "@/constants";
 
 // ─── types ────────────────────────────────────────────────────────────────────
+
+interface ActiveStaffMember {
+  id: string;
+  display_name: string | null;
+  username: string;
+  role: StaffRole;
+  checked_in_at: string;
+}
 
 type StaffRole =
   | "owner" | "manager" | "cashier" | "waiter" | "chef"
@@ -69,8 +79,14 @@ export default function StaffPage() {
   const viewerRole = useRole();
   const isManager  = viewerRole === "manager";
 
+  const [activeTab, setActiveTab] = useState<"all" | "active_today">("all");
+
   const [staff, setStaff]     = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [activeStaff, setActiveStaff]       = useState<ActiveStaffMember[]>([]);
+  const [loadingActive, setLoadingActive]   = useState(false);
+  const [noShift, setNoShift]               = useState(false);
 
   const [addOpen, setAddOpen]               = useState(false);
   const [editTarget, setEditTarget]         = useState<StaffUser | null>(null);
@@ -87,7 +103,61 @@ export default function StaffPage() {
     setLoading(false);
   }, []);
 
+  const loadActiveStaff = useCallback(async () => {
+    setLoadingActive(true);
+    setNoShift(false);
+
+    const { data: shift } = await supabase
+      .from("shifts")
+      .select("id")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("status", "open")
+      .order("opened_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!shift) {
+      setNoShift(true);
+      setActiveStaff([]);
+      setLoadingActive(false);
+      return;
+    }
+
+    const { data: checkins } = await supabase
+      .from("shift_checkins")
+      .select("staff_user_id, checked_in_at")
+      .eq("shift_id", shift.id)
+      .is("checked_out_at", null);
+
+    if (!checkins || checkins.length === 0) {
+      setActiveStaff([]);
+      setLoadingActive(false);
+      return;
+    }
+
+    const userIds = checkins.map((c) => c.staff_user_id as string);
+    const { data: users } = await supabase
+      .from("staff_users")
+      .select("id, display_name, username, role")
+      .in("id", userIds);
+
+    const merged: ActiveStaffMember[] = (users ?? []).map((u) => ({
+      id: u.id as string,
+      display_name: u.display_name as string | null,
+      username: u.username as string,
+      role: u.role as StaffRole,
+      checked_in_at: (checkins.find((c) => c.staff_user_id === u.id)?.checked_in_at as string) ?? "",
+    }));
+
+    setActiveStaff(merged);
+    setLoadingActive(false);
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (activeTab === "active_today") loadActiveStaff();
+  }, [activeTab, loadActiveStaff]);
 
   function onAdded(user: StaffUser) {
     setStaff((prev) => [...prev, user]);
@@ -111,6 +181,13 @@ export default function StaffPage() {
     setDeleteTarget(null);
   }
 
+  const isRefreshing = activeTab === "all" ? loading : loadingActive;
+
+  function handleRefresh() {
+    if (activeTab === "all") load();
+    else loadActiveStaff();
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -119,37 +196,87 @@ export default function StaffPage() {
           <h1 className="text-lg font-semibold">Сотрудники</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Управление персоналом и ролями</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+          {isRefreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
         </Button>
-        <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus size={14} />
-          Добавить
-        </Button>
+        {activeTab === "all" && (
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus size={14} />
+            Добавить
+          </Button>
+        )}
       </header>
+
+      {/* Tab switcher */}
+      <div className="px-8 pt-4 pb-1 shrink-0">
+        <div className="flex w-full bg-zinc-100 dark:bg-zinc-800/50 rounded-full p-1 gap-1">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`flex-1 text-sm font-medium py-2 rounded-full transition-colors ${
+              activeTab === "all"
+                ? "bg-violet-600 text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Все сотрудники
+          </button>
+          <button
+            onClick={() => setActiveTab("active_today")}
+            className={`flex-1 text-sm font-medium py-2 rounded-full transition-colors ${
+              activeTab === "active_today"
+                ? "bg-violet-600 text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Сегодня в работе
+          </button>
+        </div>
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8">
-        {loading ? (
-          <div className="flex items-center justify-center py-20 text-muted-foreground text-sm gap-2">
-            <Loader2 size={16} className="animate-spin" /> Загрузка…
-          </div>
-        ) : staff.length === 0 ? (
-          <div className="text-center py-20 text-sm text-muted-foreground">
-            Нет сотрудников. Нажмите «Добавить».
-          </div>
+        {activeTab === "all" ? (
+          loading ? (
+            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm gap-2">
+              <Loader2 size={16} className="animate-spin" /> Загрузка…
+            </div>
+          ) : staff.length === 0 ? (
+            <div className="text-center py-20 text-sm text-muted-foreground">
+              Нет сотрудников. Нажмите «Добавить».
+            </div>
+          ) : (
+            <div className="space-y-2 max-w-2xl">
+              {staff.filter((u) => !isManager || u.role !== "owner").map((user) => (
+                <StaffRow
+                  key={user.id}
+                  user={user}
+                  onEdit={() => setEditTarget(user)}
+                  onReset={() => setResetTarget(user)}
+                  onDelete={() => setDeleteTarget(user)}
+                />
+              ))}
+            </div>
+          )
         ) : (
-          <div className="space-y-2 max-w-2xl">
-            {staff.filter((u) => !isManager || u.role !== "owner").map((user) => (
-              <StaffRow
-                key={user.id}
-                user={user}
-                onEdit={() => setEditTarget(user)}
-                onReset={() => setResetTarget(user)}
-                onDelete={() => setDeleteTarget(user)}
-              />
-            ))}
-          </div>
+          loadingActive ? (
+            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm gap-2">
+              <Loader2 size={16} className="animate-spin" /> Загрузка…
+            </div>
+          ) : noShift ? (
+            <div className="text-center py-20 text-sm text-muted-foreground">
+              Смена не открыта. Нет данных о присутствии.
+            </div>
+          ) : activeStaff.length === 0 ? (
+            <div className="text-center py-20 text-sm text-muted-foreground">
+              Никто ещё не отметился на смене сегодня.
+            </div>
+          ) : (
+            <div className="space-y-2 max-w-2xl">
+              {activeStaff.map((member) => (
+                <ActiveStaffCard key={member.id} member={member} />
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -166,6 +293,35 @@ export default function StaffPage() {
       {deleteTarget && (
         <DeleteConfirmModal user={deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={onDelete} />
       )}
+    </div>
+  );
+}
+
+// ─── Active staff card ────────────────────────────────────────────────────────
+
+function ActiveStaffCard({ member }: { member: ActiveStaffMember }) {
+  const initials = (member.display_name ?? member.username).slice(0, 2).toUpperCase();
+  const time = member.checked_in_at
+    ? new Date(member.checked_in_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+    : "—";
+
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-border bg-card">
+      <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
+        <span className="text-xs font-bold text-violet-700 dark:text-violet-300">{initials}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-tight truncate">
+          {member.display_name ?? member.username}
+        </p>
+        <p className="text-xs text-muted-foreground leading-tight flex items-center gap-1.5 mt-0.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+          На смене с {time}
+        </p>
+      </div>
+      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${ROLE_COLOR[member.role]}`}>
+        {ROLES.find((r) => r.value === member.role)?.label ?? member.role}
+      </span>
     </div>
   );
 }
