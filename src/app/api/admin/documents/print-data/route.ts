@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const [sigRes, docRes, staffRes, restRes] = await Promise.all([
     supabase
       .from("employee_signatures")
-      .select("signature_image, signed_at, ip_address, phone_number, device_model")
+      .select("signature_image, signed_at, ip_address, phone_number, device_model, device_id")
       .eq("restaurant_id", RID())
       .eq("document_id",   docId)
       .eq("staff_user_id", staffId)
@@ -68,5 +68,6 @@ export async function GET(req: NextRequest) {
     ipAddress:       sigRes.data.ip_address        ?? null,
     phoneNumber:     sigRes.data.phone_number      ?? null,
     deviceModel:     sigRes.data.device_model      ?? null,
+    deviceId:        sigRes.data.device_id         ?? null,
   });
 }

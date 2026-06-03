@@ -13,6 +13,7 @@ interface PrintData {
   ipAddress:      string | null;
   phoneNumber:    string | null;
   deviceModel:    string | null;
+  deviceId:       string | null;
 }
 
 function fmt(iso: string) {
@@ -218,6 +219,12 @@ function PrintSignatureContent() {
                       <p style={{ margin: 0 }}>
                         <span style={{ color: "#888" }}>Устройство:</span>{" "}
                         <strong style={{ color: "#111" }}>{data.deviceModel}</strong>
+                      </p>
+                    )}
+                    {data.deviceId && (
+                      <p style={{ margin: 0 }}>
+                        <span style={{ color: "#888" }}>ID устройства:</span>{" "}
+                        <strong style={{ fontFamily: "monospace", fontSize: 10, color: "#111", wordBreak: "break-all" }}>{data.deviceId}</strong>
                       </p>
                     )}
                     {data.ipAddress && data.ipAddress !== "unknown" && (

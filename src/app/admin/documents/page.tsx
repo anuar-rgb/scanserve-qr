@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil, Eye, X, Download } from "lucide-react";
+import { Save, Plus, Trash2, RefreshCw, Copy, Check, FileText, Users, ChevronDown, ChevronUp, Link2, Pencil, Eye, X, Download, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +122,8 @@ function SignatureModal({
   const [ipAddress,   setIpAddress]   = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [deviceModel, setDeviceModel] = useState<string | null>(null);
+  const [deviceId,    setDeviceId]    = useState<string | null>(null);
+  const [copiedId,    setCopiedId]    = useState(false);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
 
@@ -129,17 +131,27 @@ function SignatureModal({
     setLoading(true);
     fetch(`/api/admin/documents/signature-image?docId=${view.docId}&staffId=${view.staffId}`)
       .then((r) => r.json())
-      .then((d: { signatureImage?: string | null; signedAt?: string | null; ipAddress?: string | null; phoneNumber?: string | null; deviceModel?: string | null; error?: string }) => {
+      .then((d: { signatureImage?: string | null; signedAt?: string | null; ipAddress?: string | null; phoneNumber?: string | null; deviceModel?: string | null; deviceId?: string | null; error?: string }) => {
         if (d.error) { setError(d.error); return; }
         setImg(d.signatureImage ?? null);
         setSignedAt(d.signedAt ?? null);
         setIpAddress(d.ipAddress ?? null);
         setPhoneNumber(d.phoneNumber ?? null);
         setDeviceModel(d.deviceModel ?? null);
+        setDeviceId(d.deviceId ?? null);
       })
       .catch(() => setError("Не удалось загрузить подпись"))
       .finally(() => setLoading(false));
   }, [view.docId, view.staffId]);
+
+  async function copyDeviceId() {
+    if (!deviceId) return;
+    try {
+      await navigator.clipboard.writeText(deviceId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 1800);
+    } catch { /* ignore */ }
+  }
 
   return (
     <div
@@ -212,6 +224,25 @@ function SignatureModal({
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     🌐 IP: <span className="font-mono text-zinc-600 dark:text-zinc-400">{ipAddress}</span>
                   </p>
+                )}
+                {deviceId && (
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone size={12} className="text-zinc-400 shrink-0" />
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">ID устройства:</span>
+                    <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400" title={deviceId}>
+                      {deviceId.slice(0, 8)}…
+                    </span>
+                    <button
+                      onClick={copyDeviceId}
+                      title="Копировать полный Device ID"
+                      className="p-0.5 rounded text-zinc-400 hover:text-violet-600 transition-colors"
+                    >
+                      {copiedId
+                        ? <Check size={11} className="text-emerald-500" />
+                        : <Copy size={11} />
+                      }
+                    </button>
+                  </div>
                 )}
               </div>
 

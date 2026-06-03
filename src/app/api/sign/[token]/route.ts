@@ -104,7 +104,7 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const body = await req.json().catch(() => ({})) as { signatureImage?: string; userAgent?: string };
+  const body = await req.json().catch(() => ({})) as { signatureImage?: string; userAgent?: string; deviceId?: string };
 
   if (!body.signatureImage) {
     return NextResponse.json({ error: "signatureImage required" }, { status: 400 });
@@ -146,6 +146,7 @@ export async function POST(
       signed_at:       new Date().toISOString(),
       ip_address:      ip,
       device_model:    deviceModel,
+      device_id:       body.deviceId ?? null,
       phone_number:    staff?.phone ?? null,
       status:          "signed",
     })

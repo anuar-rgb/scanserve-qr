@@ -41,6 +41,21 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const isDrawing    = useRef(false);
   const lastPos      = useRef<{ x: number; y: number } | null>(null);
+  const deviceIdRef  = useRef<string>("");
+
+  // Generate or retrieve persistent device ID from localStorage
+  useEffect(() => {
+    try {
+      let id = localStorage.getItem("scanserve_device_id");
+      if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem("scanserve_device_id", id);
+      }
+      deviceIdRef.current = id;
+    } catch {
+      deviceIdRef.current = crypto.randomUUID();
+    }
+  }, []);
 
   // ── Load sign request ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -146,7 +161,11 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
       const res = await fetch(`/api/sign/${token}`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ signatureImage, userAgent: navigator.userAgent }),
+        body:    JSON.stringify({
+          signatureImage,
+          userAgent: navigator.userAgent,
+          deviceId:  deviceIdRef.current,
+        }),
       });
       const d = await res.json() as { ok?: boolean; error?: string };
       if (!res.ok) throw new Error(d.error ?? "Ошибка подписания");
