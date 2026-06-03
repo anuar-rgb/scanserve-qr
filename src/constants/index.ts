@@ -7,6 +7,7 @@ export const STORAGE_BUCKETS = {
   banners: "banners",
   menuImages: "menu-images",
   heroSlides: "hero-slides",
+  trainingImages: "training-images",
 } as const;
 
 export const DB_TABLES = {
@@ -24,6 +25,7 @@ export const DB_TABLES = {
   ingredients: "ingredients",
   recipeItems: "recipe_items",
   stockMovements: "stock_movements",
+  trainingArticles: "training_articles",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";
