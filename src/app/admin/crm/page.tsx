@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff } from "lucide-react";
+import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,22 @@ export default function CrmPage() {
   const [body, setBody]           = useState("");
   const [sending, setSending]     = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [copiedId, setCopiedId]   = useState<string | null>(null);
+
+  function toggleClient(id: string) {
+    setExpandedClientId((prev) => (prev === id ? null : id));
+  }
+
+  async function copyToClipboard(text: string, clientId: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(clientId);
+      setTimeout(() => setCopiedId(null), 1800);
+    } catch {
+      /* ignore */
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -208,65 +224,124 @@ export default function CrmPage() {
           )}
 
           {clients.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-5 py-2.5">Телефон / ID</th>
-                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Push</th>
-                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Последний визит</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clients.map((c) => (
-                    <tr key={c.id} className="border-b border-zinc-50 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
-                            <Users size={11} className="text-violet-600 dark:text-violet-400" />
-                          </div>
-                          <div className="flex flex-col gap-0.5">
-                            {c.name && (
-                              <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
-                            )}
-                            {c.phone ? (
-                              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums">
-                                {c.phone}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-5 py-2.5">Телефон / ID</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Push</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Последний визит</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((c) => {
+                  const isExpanded = expandedClientId === c.id;
+                  const isCopied = copiedId === c.id;
+                  return (
+                    <>
+                      <tr
+                        key={c.id}
+                        onClick={() => toggleClient(c.id)}
+                        className={`border-b border-zinc-50 dark:border-zinc-800/50 cursor-pointer transition-colors ${isExpanded ? "bg-zinc-50 dark:bg-zinc-800/40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"}`}
+                      >
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
+                              <Users size={11} className="text-violet-600 dark:text-violet-400" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              {c.name && (
+                                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
+                              )}
+                              {c.phone ? (
+                                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums">
+                                  {c.phone}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight italic">
+                                  Номер не указан
+                                </p>
+                              )}
+                              <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-mono leading-tight">
+                                {c.id.slice(0, 8)}…
                               </p>
-                            ) : (
-                              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight italic">
-                                📱 Номер не указан
-                              </p>
-                            )}
-                            <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-mono leading-tight">
-                              {c.id.slice(0, 8)}…
-                            </p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        {c.push_subscription ? (
-                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                            <Bell size={11} />
-                            <span className="text-[11px] font-semibold">Да</span>
+                        </td>
+                        <td className="px-3 py-3">
+                          {c.push_subscription ? (
+                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                              <Bell size={11} />
+                              <span className="text-[11px] font-semibold">Да</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-zinc-400">
+                              <BellOff size={11} />
+                              <span className="text-[11px]">Нет</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {fmtDate(c.last_visit)}
                           </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <BellOff size={11} />
-                            <span className="text-[11px]">Нет</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                          {fmtDate(c.last_visit)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </td>
+                        <td className="pr-3 py-3">
+                          <ChevronDown
+                            size={14}
+                            className={`text-zinc-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${c.id}-expanded`} className="bg-zinc-50 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800">
+                          <td colSpan={4} className="px-5 pb-4 pt-2">
+                            <div className="rounded-xl bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-700/50 p-3 space-y-3">
+                              {/* Phone */}
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Телефон</p>
+                                {c.phone ? (
+                                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{c.phone}</p>
+                                ) : (
+                                  <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">Не указан</p>
+                                )}
+                              </div>
+                              {/* Full ID */}
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">ID клиента</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 break-all select-all flex-1">{c.id}</p>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(c.id, c.id); }}
+                                    className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
+                                  >
+                                    {isCopied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                                    {isCopied ? "Скопировано" : "Копировать"}
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Push status */}
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Push-подписка</p>
+                                {c.push_subscription ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold">
+                                    <Bell size={10} /> Активна
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[11px]">
+                                    <BellOff size={10} /> Нет подписки
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
