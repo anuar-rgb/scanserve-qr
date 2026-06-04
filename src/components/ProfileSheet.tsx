@@ -132,6 +132,21 @@ export function ProfileSheet({
 
   // ── Auth actions ────────────────────────────────────────────────────────────
 
+  // After login/register: if device already has a push subscription, re-link it to the guest
+  async function linkPushToGuest(guestId: string) {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      fetch("/api/crm/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: sub.toJSON(), guestId }),
+      }).catch(() => {/* fire-and-forget */});
+    } catch { /* SW not available */ }
+  }
+
   async function handleLogin() {
     if (!phone.trim() || !password) { setError("Заполните все поля"); return; }
     setLoading(true); setError(null);
@@ -147,6 +162,7 @@ export function ProfileSheet({
       saveSession(s);
       setSession(s);
       setPhone(""); setPassword("");
+      linkPushToGuest(data.id);
     } catch { setError("Нет соединения. Попробуйте ещё раз."); }
     finally   { setLoading(false); }
   }
@@ -167,6 +183,7 @@ export function ProfileSheet({
       saveSession(s);
       setSession(s);
       setName(""); setPhone(""); setPassword("");
+      linkPushToGuest(data.id);
     } catch { setError("Нет соединения. Попробуйте ещё раз."); }
     finally   { setLoading(false); }
   }

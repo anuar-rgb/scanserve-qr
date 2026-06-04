@@ -35,21 +35,49 @@ export async function POST(request: NextRequest) {
       .eq("id", guestId)
       .maybeSingle();
 
-    if (guest?.phone) {
-      await supabase
-        .from("crm_clients")
-        .upsert(
-          {
-            restaurant_id:     restaurantId,
-            phone:             guest.phone,
-            name:              guest.name ?? name ?? null,
-            push_subscription: body.subscription,
-            guest_id:          guest.id,
-            last_visit:        now,
-          },
-          { onConflict: "restaurant_id,phone" },
-        );
-      return NextResponse.json({ ok: true });
+    if (guest) {
+      // Try to find an existing anonymous record by matching the push endpoint (device-specific)
+      const endpoint = (body.subscription as { endpoint?: string })?.endpoint ?? null;
+      if (endpoint) {
+        const { data: existing } = await supabase
+          .from("crm_clients")
+          .select("id, phone")
+          .eq("restaurant_id", restaurantId)
+          .filter("push_subscription->>endpoint", "eq", endpoint)
+          .maybeSingle();
+
+        if (existing && !existing.phone) {
+          // Anonymous record found — update it with guest data
+          await supabase
+            .from("crm_clients")
+            .update({
+              phone:      guest.phone ?? null,
+              name:       guest.name  ?? name ?? null,
+              guest_id:   guest.id,
+              last_visit: now,
+            })
+            .eq("id", existing.id);
+          return NextResponse.json({ ok: true });
+        }
+      }
+
+      // No anonymous record or it already has a phone — upsert by phone
+      if (guest.phone) {
+        await supabase
+          .from("crm_clients")
+          .upsert(
+            {
+              restaurant_id:     restaurantId,
+              phone:             guest.phone,
+              name:              guest.name ?? name ?? null,
+              push_subscription: body.subscription,
+              guest_id:          guest.id,
+              last_visit:        now,
+            },
+            { onConflict: "restaurant_id,phone" },
+          );
+        return NextResponse.json({ ok: true });
+      }
     }
   }
 
