@@ -1580,16 +1580,59 @@ function TableCard({
       ) : (
         /* ── Expanded occupied / preorder layout ── */
         <div className="p-3 pb-2 flex-1 flex flex-col">
-          <div className="pr-5 mb-2 mt-1">
+
+          {/* MOBILE occupied: table number + elapsed on same row */}
+          {status === "occupied" && order && (
+            <div className="flex items-center justify-between pr-5 mb-2 mt-1 md:hidden">
+              <p className="text-2xl font-black leading-tight text-foreground">
+                {table.label}
+              </p>
+              {elapsed > 0 && (
+                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20 px-2 py-0.5 rounded-full shrink-0 ml-1">
+                  {formatElapsed(elapsed)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* DESKTOP: table number (all non-free); mobile: only for preorder */}
+          <div className={`pr-5 mb-2 mt-1 ${status === "occupied" && order ? "hidden md:block" : ""}`}>
             <p className="text-2xl font-black leading-tight text-foreground break-words">
               {table.label}
             </p>
           </div>
 
           {status === "occupied" && order && (
-            <p className="text-xl font-black text-foreground tabular-nums">
-              {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
-            </p>
+            <>
+              {/* Desktop-only: elapsed time */}
+              {elapsed > 0 && (
+                <p className="hidden md:flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                  <Clock size={10} className="shrink-0" />
+                  {formatElapsed(elapsed)}
+                </p>
+              )}
+
+              {/* Desktop-only: waiter name */}
+              {table.assigned_waiter_id && waiterNames[table.assigned_waiter_id] && (
+                <p className="hidden md:block text-xs text-muted-foreground truncate mb-0.5">
+                  <User size={10} className="inline shrink-0 mr-0.5" />
+                  {waiterNames[table.assigned_waiter_id]}
+                </p>
+              )}
+
+              {/* Desktop-only: seats + item count */}
+              <p className="hidden md:block text-xs text-muted-foreground mb-1.5">
+                {table.seats} мест · {tws.orders.reduce((s, o) => {
+                  const items = (Array.isArray(o.items_json) ? o.items_json : []) as Array<{qty?: number}>;
+                  return s + items.reduce((acc, it) => acc + (it.qty ?? 1), 0);
+                }, 0)} поз.
+              </p>
+
+              {/* Total: visible on both mobile and desktop */}
+              <p className="text-xl font-black text-foreground tabular-nums mt-auto md:mt-0">
+                {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
+              </p>
+            </>
           )}
 
           {status === "preorder" && preorderOrder && (
