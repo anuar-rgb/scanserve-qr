@@ -9,7 +9,7 @@ import {
   BarChart2, TrendingUp, Package, Monitor, Star, Tag,
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
-  Clock, LogIn,
+  Clock, LogIn, AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -121,6 +121,7 @@ export default function MobileBottomNav() {
   const [drawerOpen, setDrawerOpen]     = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [blockedTables, setBlockedTables] = useState<string[] | null>(null);
   const [checkoutScanning, setCheckoutScanning] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const role         = useRole();
@@ -159,8 +160,12 @@ export default function MobileBottomNav() {
   }
 
   async function handleCloseShift() {
-    await closeShift();
-    setConfirmClose(false);
+    const result = await closeShift();
+    if (result.blocked) {
+      setBlockedTables(result.tables);
+    } else {
+      setConfirmClose(false);
+    }
   }
 
   async function handleCheckoutScan(token: string) {
@@ -368,6 +373,45 @@ export default function MobileBottomNav() {
           onScan={handleCheckoutScan}
           onClose={() => setCheckoutScanning(false)}
         />
+      )}
+
+      {/* Blocked shift-close modal */}
+      {blockedTables !== null && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <div className="w-11 h-11 rounded-xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center mb-3">
+                <AlertTriangle size={20} className="text-red-500" />
+              </div>
+              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                Невозможно закрыть смену!
+              </h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                В плане зала обнаружены незакрытые столы ({blockedTables.length}). Пожалуйста, рассчитайте всех гостей и закройте все активные чеки, чтобы сформировать окончательный отчёт.
+              </p>
+            </div>
+            {blockedTables.length > 0 && (
+              <div className="px-5 py-3 bg-red-50 dark:bg-red-500/10 border-t border-red-100 dark:border-red-500/20">
+                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Остались открытыми столы:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {blockedTables.map((t) => (
+                    <span key={t} className="px-2.5 py-1 bg-red-500 text-white text-xs font-bold rounded-lg">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="px-5 py-4 border-t border-zinc-200 dark:border-zinc-800">
+              <button
+                onClick={() => { setBlockedTables(null); setConfirmClose(false); }}
+                className="w-full py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold rounded-xl transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-200"
+              >
+                Понятно, закрою столы
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

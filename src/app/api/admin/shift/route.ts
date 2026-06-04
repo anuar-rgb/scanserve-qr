@@ -101,7 +101,22 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { error } = await db()
+  const supabase = db();
+
+  // Block shift close if there are active dine-in orders
+  const { data: activeOrders } = await supabase
+    .from("orders")
+    .select("table_number")
+    .eq("restaurant_id", RID())
+    .in("status", ["pending", "confirmed", "preparing", "ready"])
+    .not("table_number", "is", null);
+
+  if (activeOrders && activeOrders.length > 0) {
+    const tables = [...new Set(activeOrders.map((o: { table_number: string }) => o.table_number).filter(Boolean))];
+    return NextResponse.json({ blocked: true, tables }, { status: 409 });
+  }
+
+  const { error } = await supabase
     .from("shifts")
     .update({ status: "closed", closed_at: new Date().toISOString() })
     .eq("restaurant_id", RID())

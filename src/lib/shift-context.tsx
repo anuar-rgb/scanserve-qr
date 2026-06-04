@@ -18,18 +18,20 @@ const QrScannerModal = dynamic(() => import("@/components/admin/QrScannerModal")
 
 type ShiftData = { id: string; opened_at: string } | null;
 
+export type CloseShiftResult = { blocked: true; tables: string[] } | { blocked: false };
+
 type ShiftCtx = {
   shift: ShiftData;
   isLoading: boolean;
   openShift: () => Promise<boolean>;
-  closeShift: () => Promise<void>;
+  closeShift: () => Promise<CloseShiftResult>;
 };
 
 const ShiftContext = createContext<ShiftCtx>({
   shift: null,
   isLoading: true,
   openShift: async () => false,
-  closeShift: async () => {},
+  closeShift: async () => ({ blocked: false }),
 });
 
 export function useShift() {
@@ -60,9 +62,14 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function closeShift() {
-    await fetch("/api/admin/shift", { method: "DELETE" });
-    setShift(null);
+  async function closeShift(): Promise<CloseShiftResult> {
+    const r = await fetch("/api/admin/shift", { method: "DELETE" });
+    if (r.status === 409) {
+      const d = await r.json();
+      return { blocked: true, tables: (d.tables as string[]) ?? [] };
+    }
+    if (r.ok) setShift(null);
+    return { blocked: false };
   }
 
   return (
