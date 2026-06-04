@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 // Public endpoint — called from guest menu, no auth required.
-// Body: { subscription: PushSubscriptionJSON, phone?: string, name?: string }
+// Body: { subscription: PushSubscriptionJSON, phone?: string, name?: string, guestId?: string }
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body?.subscription) {
@@ -22,10 +22,38 @@ export async function POST(request: NextRequest) {
     auth: { persistSession: false },
   });
 
-  const phone = body.phone ? String(body.phone).trim() : null;
-  const name  = body.name  ? String(body.name).trim()  : null;
+  const phone    = body.phone   ? String(body.phone).trim()   : null;
+  const name     = body.name    ? String(body.name).trim()    : null;
+  const guestId  = body.guestId ? String(body.guestId).trim() : null;
+  const now      = new Date().toISOString();
 
-  // Upsert by (restaurant_id, phone) if phone provided, otherwise insert new row.
+  // If guestId provided (guest is logged in), look up their phone and upsert with full profile link
+  if (guestId) {
+    const { data: guest } = await supabase
+      .from("guests")
+      .select("id, phone, name")
+      .eq("id", guestId)
+      .maybeSingle();
+
+    if (guest?.phone) {
+      await supabase
+        .from("crm_clients")
+        .upsert(
+          {
+            restaurant_id:     restaurantId,
+            phone:             guest.phone,
+            name:              guest.name ?? name ?? null,
+            push_subscription: body.subscription,
+            guest_id:          guest.id,
+            last_visit:        now,
+          },
+          { onConflict: "restaurant_id,phone" },
+        );
+      return NextResponse.json({ ok: true });
+    }
+  }
+
+  // Upsert by (restaurant_id, phone) if phone provided
   if (phone) {
     const { error } = await supabase
       .from("crm_clients")
@@ -35,17 +63,17 @@ export async function POST(request: NextRequest) {
           phone,
           name,
           push_subscription: body.subscription,
-          last_visit:        new Date().toISOString(),
+          last_visit:        now,
         },
         { onConflict: "restaurant_id,phone" },
       );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
-    // Anonymous subscription — always insert a new row
+    // Anonymous subscription — insert a new row
     const { error } = await supabase.from("crm_clients").insert({
       restaurant_id:     restaurantId,
       push_subscription: body.subscription,
-      last_visit:        new Date().toISOString(),
+      last_visit:        now,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }

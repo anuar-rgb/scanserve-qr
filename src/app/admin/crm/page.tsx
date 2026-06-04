@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X } from "lucide-react";
+import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ interface CrmClient {
   push_subscription: Record<string, unknown> | null;
   created_at: string;
   last_visit: string;
+  guest_id: string | null;
 }
 
 interface BonusEntry {
@@ -318,7 +319,19 @@ export default function CrmPage() {
                             </div>
                             <div className="flex flex-col gap-0.5">
                               {c.name && (
-                                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
+                                  {c.guest_id && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 text-[9px] font-bold uppercase tracking-wide leading-none">
+                                      <ShieldCheck size={8} /> Профиль
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {!c.name && c.guest_id && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 text-[9px] font-bold uppercase tracking-wide leading-none w-fit">
+                                  <ShieldCheck size={8} /> Профиль
+                                </span>
                               )}
                               {c.phone ? (
                                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums">
@@ -387,6 +400,17 @@ export default function CrmPage() {
                                   </button>
                                 </div>
                               </div>
+
+                              {/* Guest profile link */}
+                              {c.guest_id && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200/60 dark:border-violet-500/20">
+                                  <ShieldCheck size={13} className="text-violet-500 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400 leading-none mb-0.5">Зарегистрированный гость</p>
+                                    <p className="text-[11px] font-mono text-violet-500 dark:text-violet-400 truncate">{c.guest_id}</p>
+                                  </div>
+                                </div>
+                              )}
                               {/* Push status */}
                               <div>
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Push-подписка</p>

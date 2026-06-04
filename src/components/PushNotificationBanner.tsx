@@ -51,6 +51,18 @@ interface PushNotificationBannerProps {
 export function PushNotificationBanner({ lang, theme }: PushNotificationBannerProps) {
   const [visible, setVisible]       = useState(false);
   const [state, setState]           = useState<"idle" | "loading" | "success" | "denied">("idle");
+  const [guestId, setGuestId]       = useState<string | null>(null);
+
+  // Read logged-in guest id from localStorage (set by ProfileSheet after login/register)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("menu-guest-session");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id?: string };
+        if (parsed?.id) setGuestId(parsed.id);
+      }
+    } catch {}
+  }, []);
   const isDark  = theme === "dark";
   const bg      = isDark ? "#1C1C1C" : "#FFFFFF";
   const textClr = isDark ? "#E0E0E0" : "#121212";
@@ -99,7 +111,10 @@ export function PushNotificationBanner({ lang, theme }: PushNotificationBannerPr
       await fetch("/api/crm/subscribe", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ subscription: sub.toJSON() }),
+        body:    JSON.stringify({
+          subscription: sub.toJSON(),
+          ...(guestId ? { guestId } : {}),
+        }),
       });
       setState("success");
       sessionStorage.setItem(STORAGE_KEY, "1");

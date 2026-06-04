@@ -48,6 +48,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Неверный номер телефона или пароль" }, { status: 401 });
   }
 
+  // Link crm_clients rows that share this phone to the guest profile
+  await supabase
+    .from("crm_clients")
+    .update({ guest_id: guest.id })
+    .eq("phone", guest.phone)
+    .eq("restaurant_id", restaurantId)
+    .is("guest_id", null);
+
   // Ensure balance row exists for this restaurant (insert if missing, ignore if exists)
   await supabase
     .from("guest_balances")

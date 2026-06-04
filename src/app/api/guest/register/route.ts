@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка регистрации. Попробуйте ещё раз." }, { status: 500 });
   }
 
+  // Link crm_clients rows that share this phone to the guest profile
+  await supabase
+    .from("crm_clients")
+    .update({ guest_id: guest.id })
+    .eq("phone", guest.phone)
+    .eq("restaurant_id", restaurantId)
+    .is("guest_id", null);
+
   // Create zero-balance wallet for this restaurant
   await supabase
     .from("guest_balances")
