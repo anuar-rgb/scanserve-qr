@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check } from "lucide-react";
+import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useIsOwner } from "@/lib/role-context";
+import { RESTAURANT_ID } from "@/constants";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,15 @@ interface CrmClient {
   push_subscription: Record<string, unknown> | null;
   created_at: string;
   last_visit: string;
+}
+
+interface BonusEntry {
+  guestId: string | null;
+  bonusAmount: number | null;
+  loading: boolean;
+  editing: boolean;
+  editValue: string;
+  saving: boolean;
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -41,9 +51,56 @@ export default function CrmPage() {
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
   const [copiedId, setCopiedId]   = useState<string | null>(null);
+  const [bonusMap, setBonusMap]   = useState<Map<string, BonusEntry>>(new Map());
 
   function toggleClient(id: string) {
     setExpandedClientId((prev) => (prev === id ? null : id));
+  }
+
+  async function fetchBonus(phone: string) {
+    setBonusMap((m) => {
+      const next = new Map(m);
+      next.set(phone, { guestId: null, bonusAmount: null, loading: true, editing: false, editValue: "", saving: false });
+      return next;
+    });
+    const res = await fetch(`/api/crm/guest-bonus?phone=${encodeURIComponent(phone)}&restaurantId=${RESTAURANT_ID}`);
+    if (res.ok) {
+      const json = await res.json() as { guestId: string | null; bonusAmount: number | null };
+      setBonusMap((m) => {
+        const next = new Map(m);
+        next.set(phone, { guestId: json.guestId, bonusAmount: json.bonusAmount, loading: false, editing: false, editValue: String(json.bonusAmount ?? 0), saving: false });
+        return next;
+      });
+    } else {
+      setBonusMap((m) => {
+        const next = new Map(m);
+        next.set(phone, { guestId: null, bonusAmount: null, loading: false, editing: false, editValue: "", saving: false });
+        return next;
+      });
+    }
+  }
+
+  async function saveBonus(phone: string) {
+    const entry = bonusMap.get(phone);
+    if (!entry?.guestId) return;
+    const newAmount = parseInt(entry.editValue, 10);
+    if (isNaN(newAmount) || newAmount < 0) {
+      toast.error("Введите корректную сумму");
+      return;
+    }
+    setBonusMap((m) => { const next = new Map(m); next.set(phone, { ...entry, saving: true }); return next; });
+    const res = await fetch("/api/crm/guest-bonus", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guestId: entry.guestId, restaurantId: RESTAURANT_ID, newAmount }),
+    });
+    if (res.ok) {
+      setBonusMap((m) => { const next = new Map(m); next.set(phone, { ...entry, bonusAmount: newAmount, editValue: String(newAmount), editing: false, saving: false }); return next; });
+      toast.success("Баланс обновлён");
+    } else {
+      toast.error("Ошибка при обновлении баланса");
+      setBonusMap((m) => { const next = new Map(m); next.set(phone, { ...entry, saving: false }); return next; });
+    }
   }
 
   async function copyToClipboard(text: string, clientId: string) {
@@ -68,6 +125,16 @@ export default function CrmPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Fetch bonus balance when a client with a phone is expanded
+  useEffect(() => {
+    if (!expandedClientId) return;
+    const client = clients.find((c) => c.id === expandedClientId);
+    if (!client?.phone) return;
+    if (bonusMap.has(client.phone)) return; // already loaded
+    fetchBonus(client.phone);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedClientId, clients]);
 
   const subscribedCount = clients.filter((c) => c.push_subscription !== null).length;
 
@@ -333,6 +400,66 @@ export default function CrmPage() {
                                   </span>
                                 )}
                               </div>
+
+                              {/* Bonus balance */}
+                              {c.phone && (() => {
+                                const bonus = bonusMap.get(c.phone!);
+                                return (
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Бонусный баланс</p>
+                                    {bonus?.loading && (
+                                      <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                                        <Loader2 size={11} className="animate-spin" /> Загрузка…
+                                      </span>
+                                    )}
+                                    {!bonus?.loading && bonus?.guestId === null && bonus?.bonusAmount === null && (
+                                      <span className="text-[11px] text-zinc-400 italic">Гость не зарегистрирован в системе лояльности</span>
+                                    )}
+                                    {!bonus?.loading && bonus?.guestId && !bonus.editing && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-violet-600 dark:text-violet-400 tabular-nums">
+                                          {(bonus.bonusAmount ?? 0).toLocaleString("ru-RU")} ₸
+                                        </span>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setBonusMap((m) => { const next = new Map(m); next.set(c.phone!, { ...bonus, editing: true, editValue: String(bonus.bonusAmount ?? 0) }); return next; });
+                                          }}
+                                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
+                                        >
+                                          <Pencil size={10} /> Изменить
+                                        </button>
+                                      </div>
+                                    )}
+                                    {!bonus?.loading && bonus?.guestId && bonus.editing && (
+                                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={bonus.editValue}
+                                          onChange={(e) => setBonusMap((m) => { const next = new Map(m); next.set(c.phone!, { ...bonus, editValue: e.target.value }); return next; })}
+                                          className="w-28 px-2 py-1 text-sm font-semibold tabular-nums rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                        />
+                                        <span className="text-xs text-zinc-400">₸</span>
+                                        <button
+                                          onClick={() => saveBonus(c.phone!)}
+                                          disabled={bonus.saving}
+                                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-[11px] font-semibold transition-colors"
+                                        >
+                                          {bonus.saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                                          Сохранить
+                                        </button>
+                                        <button
+                                          onClick={() => setBonusMap((m) => { const next = new Map(m); next.set(c.phone!, { ...bonus, editing: false, editValue: String(bonus.bonusAmount ?? 0) }); return next; })}
+                                          className="p-1 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-zinc-400"
+                                        >
+                                          <X size={11} />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </td>
                         </tr>

@@ -444,8 +444,19 @@ export function CartDrawer({
   const [tipsEnabled, setTipsEnabled]                 = useState(false);
   const [tipsInput, setTipsInput]                     = useState("");
   const [tipsAmount, setTipsAmount]                   = useState(0);
+  const [guestSession, setGuestSession]               = useState<{id: string; name: string|null; phone: string; bonusAmount: number} | null>(null);
+  const [useBonuses, setUseBonuses]                   = useState(false);
 
   useEffect(() => {
+    // Refresh guest session every time the drawer opens
+    try {
+      const raw = localStorage.getItem("menu-guest-session");
+      setGuestSession(raw ? (JSON.parse(raw) as {id:string;name:string|null;phone:string;bonusAmount:number}) : null);
+    } catch {
+      setGuestSession(null);
+    }
+    setUseBonuses(false);
+
     if (!open || !isConfigured) return;
     let cancelled = false;
     async function fetchData() {
@@ -490,7 +501,10 @@ export function CartDrawer({
   const items        = Object.values(cart);
   const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
-  const grandTotal   = total + deliveryFee + tipsAmount;
+  // Bonuses can cover food + delivery but not tips (tips go to staff in cash)
+  const maxBonuses   = guestSession ? Math.min(guestSession.bonusAmount, total + deliveryFee) : 0;
+  const bonusesApplied = useBonuses ? maxBonuses : 0;
+  const grandTotal   = total + deliveryFee + tipsAmount - bonusesApplied;
   const totalSavings = items.reduce((s, { dish, qty }) => {
     const promoBase = dish.isPromo && dish.discountLabel
       ? (() => { const pct = parseInt(dish.discountLabel, 10); return isNaN(pct) || pct <= 0 || pct >= 100 ? dish.price : Math.round(dish.price * (1 - pct / 100)); })()
@@ -579,6 +593,7 @@ export function CartDrawer({
     setTipsEnabled(false);
     setTipsInput("");
     setTipsAmount(0);
+    setUseBonuses(false);
   };
 
   const handleClose = () => {
@@ -681,6 +696,9 @@ export function CartDrawer({
           customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
           customer_city: timingMode === "preorder" ? (customerCity.trim() || null) : null,
           opened_by: assignedWaiterId,
+          guest_id: guestSession?.id ?? null,
+          used_bonuses: bonusesApplied > 0,
+          bonuses_deducted: bonusesApplied,
         });
         if (error) {
           setLoading(false);
@@ -712,6 +730,9 @@ export function CartDrawer({
           customer_phone: order.phoneNumber ?? null,
           customer_city: order.cityName ?? null,
           delivery_address: order.deliveryAddress ?? null,
+          guest_id: guestSession?.id ?? null,
+          used_bonuses: bonusesApplied > 0,
+          bonuses_deducted: bonusesApplied,
         });
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
       }
@@ -1808,6 +1829,47 @@ export function CartDrawer({
                 )}
               </div>
 
+              {/* ── Bonus points ── */}
+              {guestSession && maxBonuses > 0 && (
+                <div style={{ marginBottom: SP.lg }}>
+                  <button
+                    onClick={() => setUseBonuses(!useBonuses)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "12px 14px",
+                      background: useBonuses
+                        ? (isDark ? "rgba(16,185,129,0.14)" : "rgba(16,185,129,0.07)")
+                        : surface,
+                      border: `1.5px solid ${useBonuses ? "rgba(16,185,129,0.5)" : border}`,
+                      borderRadius: R.md,
+                      color: textClr, cursor: "pointer",
+                      transition: "all 0.2s",
+                    } as React.CSSProperties}
+                  >
+                    <div style={{ textAlign: "left" }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>
+                        🎁 {lang === "kz" ? "Бонустарды пайдалану" : "Оплатить бонусами"}
+                      </div>
+                      <div style={{ fontSize: 12, marginTop: 2, color: useBonuses ? "#10B981" : muted }}>
+                        {lang === "kz" ? "Қолжетімді" : "Доступно"}: {guestSession.bonusAmount.toLocaleString()} ₸
+                        {useBonuses && ` · -${bonusesApplied.toLocaleString()} ₸`}
+                      </div>
+                    </div>
+                    <div style={{
+                      width: 42, height: 24, borderRadius: 12,
+                      background: useBonuses ? "#10B981" : (isDark ? "#3A3A3A" : "#D1D5DB"),
+                      position: "relative", transition: "background 0.2s", flexShrink: 0,
+                    }}>
+                      <div style={{
+                        position: "absolute", top: 3, left: useBonuses ? 21 : 3,
+                        width: 18, height: 18, borderRadius: "50%", background: "#FFFFFF",
+                        transition: "left 0.2s",
+                      }} />
+                    </div>
+                  </button>
+                </div>
+              )}
+
               {/* ── Order summary ── */}
               <div style={{ background: surface, borderRadius: R.md, padding: SP.md, border: `1px solid ${border}` }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: muted, margin: `0 0 ${SP.sm}px`, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1856,6 +1918,12 @@ export function CartDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#7C3AED" }}>
                     <span>💝 {tn("tipsLabel", lang)}</span>
                     <span style={{ fontWeight: 700 }}>+{tipsAmount.toLocaleString()} {currency}</span>
+                  </div>
+                )}
+                {bonusesApplied > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#10B981" }}>
+                    <span>🎁 {lang === "kz" ? "Бонустар" : "Бонусы"}</span>
+                    <span style={{ fontWeight: 700 }}>-{bonusesApplied.toLocaleString()} {currency}</span>
                   </div>
                 )}
                 <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.sm, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700 }}>
