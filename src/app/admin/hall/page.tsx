@@ -982,7 +982,7 @@ export default function HallPage() {
                 ) : (
                   <div
                     className="grid gap-3"
-                    style={{ gridTemplateColumns: isWaiter ? "repeat(auto-fill, minmax(80px, 1fr))" : "repeat(auto-fill, minmax(110px, 1fr))" }}
+                    style={{ gridTemplateColumns: isWaiter ? "repeat(auto-fill, minmax(80px, 1fr))" : "repeat(auto-fill, minmax(100px, 1fr))" }}
                   >
                     {displayedTables.map((tws) => (
                       <TableCard
@@ -1522,10 +1522,10 @@ function TableCard({
         <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
         <p className="text-xs font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
         {isMyTable && (
-          <span className="mt-0.5 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
+          <span className="hidden md:inline mt-0.5 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
         )}
         {isOtherTable && (
-          <span className="mt-0.5 text-[8px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-none px-0.5 truncate w-full">{assignedName}</span>
+          <span className="hidden md:inline mt-0.5 text-[8px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-none px-0.5 truncate w-full">{assignedName}</span>
         )}
       </div>
     );
@@ -1563,9 +1563,16 @@ function TableCard({
         </div>
       )}
 
-      {isFree ? (
-        /* ── Compact free layout ── */
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-2 pt-3 pb-2">
+      {/* ── MOBILE: compact label-only oval for all statuses ── */}
+      <div className="flex-1 flex items-center justify-center text-center px-2 py-3 md:hidden">
+        <p className="text-xl font-black leading-tight text-foreground break-words w-full">
+          {table.label}
+        </p>
+      </div>
+
+      {/* ── DESKTOP: free layout ── */}
+      {isFree && (
+        <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center px-2 pt-3 pb-2">
           <p className="text-xl font-black leading-tight text-foreground break-words w-full">
             {table.label}
           </p>
@@ -1576,26 +1583,12 @@ function TableCard({
             </div>
           )}
         </div>
-      ) : (
-        /* ── Expanded occupied / preorder layout ── */
-        <div className="p-3 pb-2 flex-1 flex flex-col">
+      )}
 
-          {/* MOBILE occupied: table number + elapsed on same row */}
-          {status === "occupied" && order && (
-            <div className="flex items-center justify-between pr-5 mb-2 mt-1 md:hidden">
-              <p className="text-2xl font-black leading-tight text-foreground">
-                {table.label}
-              </p>
-              {elapsed > 0 && (
-                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20 px-2 py-0.5 rounded-full shrink-0 ml-1">
-                  {formatElapsed(elapsed)}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* DESKTOP: table number (all non-free); mobile: only for preorder */}
-          <div className={`pr-5 mb-2 mt-1 ${status === "occupied" && order ? "hidden md:block" : ""}`}>
+      {/* ── DESKTOP: occupied / preorder layout ── */}
+      {!isFree && (
+        <div className="hidden md:flex flex-col p-3 pb-2 flex-1">
+          <div className="pr-5 mb-2 mt-1">
             <p className="text-2xl font-black leading-tight text-foreground break-words">
               {table.label}
             </p>
@@ -1603,32 +1596,25 @@ function TableCard({
 
           {status === "occupied" && order && (
             <>
-              {/* Desktop-only: elapsed time */}
               {elapsed > 0 && (
-                <p className="hidden md:flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                <p className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                   <Clock size={10} className="shrink-0" />
                   {formatElapsed(elapsed)}
                 </p>
               )}
-
-              {/* Desktop-only: waiter name */}
               {table.assigned_waiter_id && waiterNames[table.assigned_waiter_id] && (
-                <p className="hidden md:block text-xs text-muted-foreground truncate mb-0.5">
+                <p className="text-xs text-muted-foreground truncate mb-0.5">
                   <User size={10} className="inline shrink-0 mr-0.5" />
                   {waiterNames[table.assigned_waiter_id]}
                 </p>
               )}
-
-              {/* Desktop-only: seats + item count */}
-              <p className="hidden md:block text-xs text-muted-foreground mb-1.5">
+              <p className="text-xs text-muted-foreground mb-1.5">
                 {table.seats} мест · {tws.orders.reduce((s, o) => {
                   const items = (Array.isArray(o.items_json) ? o.items_json : []) as Array<{qty?: number}>;
                   return s + items.reduce((acc, it) => acc + (it.qty ?? 1), 0);
                 }, 0)} поз.
               </p>
-
-              {/* Total: visible on both mobile and desktop */}
-              <p className="text-xl font-black text-foreground tabular-nums mt-auto md:mt-0">
+              <p className="text-xl font-black text-foreground tabular-nums">
                 {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
               </p>
             </>
@@ -1647,55 +1633,55 @@ function TableCard({
         </div>
       )}
 
-      {/* Edit mode controls */}
+      {/* ── Edit mode controls — desktop only ── */}
       {editMode && (
-        isFree ? (
-          /* Compact edit buttons for free tables */
-          <div className="border-t border-black/5 dark:border-white/5 px-1.5 py-1.5 grid grid-cols-2 gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="flex items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-md text-[9px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-              title="Редактировать"
-            >
-              <Edit2 size={9} className="shrink-0" />
-              Ред.
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="flex items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-md text-[9px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              title="Удалить"
-            >
-              <Trash2 size={9} className="shrink-0" />
-              Удал.
-            </button>
-          </div>
-        ) : (
-          /* Full edit buttons for occupied / preorder tables */
-          <div className="border-t border-black/5 dark:border-white/5 px-2 py-1.5 grid grid-cols-2 gap-1">
-            {isLocked ? (
-              <span className="col-span-2 text-[10px] text-muted-foreground italic text-center py-0.5">Закройте заказ</span>
-            ) : (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                  className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                  title="Редактировать"
-                >
-                  <Edit2 size={10} className="shrink-0" />
-                  Изменить
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                  className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  title="Удалить"
-                >
-                  <Trash2 size={10} className="shrink-0" />
-                  Удалить
-                </button>
-              </>
-            )}
-          </div>
-        )
+        <div className="hidden md:block">
+          {isFree ? (
+            <div className="border-t border-black/5 dark:border-white/5 px-1.5 py-1.5 grid grid-cols-2 gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="flex items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-md text-[9px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                title="Редактировать"
+              >
+                <Edit2 size={9} className="shrink-0" />
+                Ред.
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="flex items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-md text-[9px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                title="Удалить"
+              >
+                <Trash2 size={9} className="shrink-0" />
+                Удал.
+              </button>
+            </div>
+          ) : (
+            <div className="border-t border-black/5 dark:border-white/5 px-2 py-1.5 grid grid-cols-2 gap-1">
+              {isLocked ? (
+                <span className="col-span-2 text-[10px] text-muted-foreground italic text-center py-0.5">Закройте заказ</span>
+              ) : (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                    className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                    title="Редактировать"
+                  >
+                    <Edit2 size={10} className="shrink-0" />
+                    Изменить
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    title="Удалить"
+                  >
+                    <Trash2 size={10} className="shrink-0" />
+                    Удалить
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
