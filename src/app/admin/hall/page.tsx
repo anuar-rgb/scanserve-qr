@@ -981,8 +981,8 @@ export default function HallPage() {
                   )
                 ) : (
                   <div
-                    className={isWaiter ? "grid gap-3" : "flex flex-wrap gap-3"}
-                    style={isWaiter ? { gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" } : undefined}
+                    className="grid gap-3"
+                    style={{ gridTemplateColumns: isWaiter ? "repeat(auto-fill, minmax(80px, 1fr))" : "repeat(auto-fill, minmax(110px, 1fr))" }}
                   >
                     {displayedTables.map((tws) => (
                       <TableCard
@@ -1537,9 +1537,8 @@ function TableCard({
     <div
       onClick={onClick}
       className={`
-        relative flex flex-col rounded-xl border-2 select-none
+        relative flex flex-col rounded-xl border-2 select-none w-full
         transition-all duration-200
-        ${isFree ? "w-28" : "min-w-[160px] max-w-[220px]"}
         ${palette.card}
         ${!editMode ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-95" : "cursor-default"}
         ${isActivatedPreorder ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse" : isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
