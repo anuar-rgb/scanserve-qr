@@ -4,11 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { SlideTag } from "@/lib/db-types";
 import { capFirst } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sun, Moon, ChevronDown, Heart, Search, X, Clock } from "lucide-react";
+import { Sun, Moon, ChevronDown, Heart, Search, X, User } from "lucide-react";
 import { FloatingNavBar } from "./FloatingNavBar";
 import { CartDrawer, type CartMap, type StoredOrder } from "./CartDrawer";
 import { WaiterModal } from "./WaiterModal";
 import { OrdersModal } from "./OrdersModal";
+import { ProfileSheet } from "./ProfileSheet";
 import { PushNotificationBanner } from "./PushNotificationBanner";
 import { ProductDetailModal } from "./ProductDetailModal";
 
@@ -134,6 +135,7 @@ export interface MenuTemplateProps {
   ctaLabel?: string;
   initialTableNumber?: string;
   restaurantTables?: { id: string; label: string }[];
+  restaurantId?: string;
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -145,7 +147,7 @@ const SLIDER_H  = "min(485px, 133vw)";   // hero slider height — ~485px on any
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
-type Theme = "dark" | "light";
+export type Theme = "dark" | "light";
 
 const DARK_VARS = {
   "--bg-color":       "#111111",
@@ -2289,6 +2291,7 @@ export function MenuTemplate({
   featuredTitle,
   initialTableNumber,
   restaurantTables,
+  restaurantId = "",
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -2304,6 +2307,7 @@ export function MenuTemplate({
   const [searchOpen, setSearchOpen]   = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [ordersOpen, setOrdersOpen]     = useState(false);
+  const [profileOpen, setProfileOpen]   = useState(false);
   const [orders, setOrders]             = useState<StoredOrder[]>([]);
   const [clientId, setClientId]         = useState("anon");
   const [hasUnseenOrder, setHasUnseenOrder] = useState(false);
@@ -2780,10 +2784,10 @@ export function MenuTemplate({
                   <Search size={17} />
                 </button>
 
-                {/* Orders icon */}
+                {/* Profile icon */}
                 <button
-                  onClick={() => { setOrdersOpen(true); setHasUnseenOrder(false); }}
-                  aria-label={lang === "kz" ? "Тапсырыстар" : lang === "ru" ? "Мои заказы" : "My Orders"}
+                  onClick={() => setProfileOpen(true)}
+                  aria-label={lang === "kz" ? "Профиль" : lang === "ru" ? "Профиль" : "Profile"}
                   style={{
                     width: 36, height: 36, borderRadius: R.full,
                     border: "none", background: "none",
@@ -2792,7 +2796,7 @@ export function MenuTemplate({
                     position: "relative",
                   }}
                 >
-                  <Clock size={17} />
+                  <User size={17} />
                   {hasUnseenOrder && (
                     <span style={{
                       position: "absolute", top: 4, right: 4,
@@ -3171,6 +3175,21 @@ export function MenuTemplate({
         whatsappPhone={restaurant.whatsappPhone}
         onRefundRequest={handleRefundRequest}
         onPartialRefund={handlePartialRefund}
+      />
+
+      {/* ── Guest profile sheet ────────────────────────────────────────────── */}
+      <ProfileSheet
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        restaurantId={restaurantId}
+        lang={lang}
+        theme={theme}
+        orders={orders}
+        whatsappPhone={restaurant.whatsappPhone}
+        onRefundRequest={handleRefundRequest}
+        onPartialRefund={handlePartialRefund}
+        onOpenOrders={() => { setProfileOpen(false); setOrdersOpen(true); }}
+        onSeen={() => setHasUnseenOrder(false)}
       />
 
       {/* ── Call Waiter modal ─────────────────────────────────────────────── */}

@@ -89,6 +89,7 @@ export default async function AsToriPage({
         showcaseItems={showcaseItems}
         initialTableNumber={initialTableNumber}
         restaurantTables={dbTables.map(t => ({ id: t.id, label: t.label }))}
+        restaurantId={restaurantId}
       />
     </>
   );
