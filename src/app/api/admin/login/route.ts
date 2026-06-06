@@ -33,6 +33,17 @@ export async function POST(request: NextRequest) {
 
   const user = data[0] as { id: string; role: string; display_name: string | null };
 
+  // Check if staff must set their own password before accessing the system
+  const { data: staffRow } = await supabase
+    .from("staff_users")
+    .select("must_change_password")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (staffRow?.must_change_password) {
+    return NextResponse.json({ mustChangePassword: true, userId: user.id });
+  }
+
   const response = NextResponse.json({ ok: true, role: user.role, displayName: user.display_name });
   const cookieOpts = {
     httpOnly: true,

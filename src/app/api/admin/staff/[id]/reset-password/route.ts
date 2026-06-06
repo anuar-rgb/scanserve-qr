@@ -36,5 +36,13 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
+
+  // Force employee to set their own password on next login
+  await supabase
+    .from("staff_users")
+    .update({ must_change_password: true })
+    .eq("id", id)
+    .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!);
+
   return NextResponse.json({ ok: true });
 }

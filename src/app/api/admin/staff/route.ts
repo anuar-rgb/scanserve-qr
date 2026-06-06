@@ -90,14 +90,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  // Save phone if provided (RPC doesn't accept it, so we update separately)
-  if (phone?.trim()) {
-    await supabase
-      .from("staff_users")
-      .update({ phone: phone.trim() })
-      .eq("id", data as string)
-      .eq("restaurant_id", getRestaurantId());
-  }
+  // Save phone + must_change_password flag (RPC doesn't accept extra fields)
+  await supabase
+    .from("staff_users")
+    .update({
+      must_change_password: true,
+      ...(phone?.trim() ? { phone: phone.trim() } : {}),
+    })
+    .eq("id", data as string)
+    .eq("restaurant_id", getRestaurantId());
 
   return NextResponse.json({ id: data }, { status: 201 });
 }
