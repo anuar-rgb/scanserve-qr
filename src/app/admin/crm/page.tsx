@@ -297,7 +297,7 @@ export default function CrmPage() {
                 <tr className="border-b border-zinc-100 dark:border-zinc-800">
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-5 py-2.5">Телефон / ID</th>
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Push</th>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Последний визит</th>
+                  <th className="hidden sm:table-cell text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Последний визит</th>
                   <th className="w-8" />
                 </tr>
               </thead>
@@ -361,7 +361,7 @@ export default function CrmPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="hidden sm:table-cell px-3 py-3">
                           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                             {fmtDate(c.last_visit)}
                           </span>
@@ -411,6 +411,12 @@ export default function CrmPage() {
                                   </div>
                                 </div>
                               )}
+                              {/* Last visit — shown on mobile since the column is hidden */}
+                              <div className="sm:hidden">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Последний визит</p>
+                                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{fmtDate(c.last_visit)}</p>
+                              </div>
+
                               {/* Push status */}
                               <div>
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Push-подписка</p>
