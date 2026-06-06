@@ -12,6 +12,7 @@ export interface DbRestaurant {
   phone: string | null;
   address: string | null;
   working_hours: string | null;
+  report_whatsapp: string | null;
 }
 
 export interface DbCategory {

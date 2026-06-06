@@ -138,6 +138,11 @@ export default function AdminSidebar() {
       setBlockedTables(result.tables);
     } else {
       setConfirmClose(false);
+      if (result.whatsappUrl) {
+        window.open(result.whatsappUrl, "_blank");
+      } else if (result.noWhatsappSet) {
+        toast.info("Смена закрыта. Укажите номер WhatsApp в настройках для автоотчёта.");
+      }
     }
   }
 

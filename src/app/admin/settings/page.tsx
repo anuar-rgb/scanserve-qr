@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const [loading, setLoading]       = useState(true);
   const [name, setName]             = useState("");
   const [waNumber, setWaNumber]     = useState("");
+  const [reportWhatsapp, setReportWhatsapp] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [phone, setPhone]           = useState("");
   const [address, setAddress]       = useState("");
@@ -45,6 +46,7 @@ export default function SettingsPage() {
       setRestaurant(r);
       setName(r.name ?? "");
       setWaNumber(r.wa_number ?? "");
+      setReportWhatsapp(r.report_whatsapp ?? "");
       setInstagramUrl(r.instagram_url ?? "");
       setPhone(r.phone ?? "");
       setAddress(r.address ?? "");
@@ -76,6 +78,7 @@ export default function SettingsPage() {
       const updateData: {
         name: string;
         wa_number: string | null;
+        report_whatsapp: string | null;
         instagram_url: string | null;
         phone: string | null;
         address: string | null;
@@ -84,6 +87,7 @@ export default function SettingsPage() {
       } = {
         name: name.trim(),
         wa_number: waNumber.trim() || null,
+        report_whatsapp: reportWhatsapp.replace(/\D/g, "") || null,
         instagram_url: instagramUrl.trim() || null,
         phone: phone.trim() || null,
         address: address.trim() || null,
@@ -189,6 +193,19 @@ export default function SettingsPage() {
                     placeholder="+7 700 000 0000"
                   />
                   <p className="text-xs text-muted-foreground">{t.admin.waNumberDesc}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="report-whatsapp">Номер WhatsApp для итоговых отчётов смены</Label>
+                  <Input
+                    id="report-whatsapp"
+                    value={reportWhatsapp}
+                    onChange={(e) => setReportWhatsapp(e.target.value)}
+                    placeholder="77001234567"
+                    inputMode="tel"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    При закрытии смены отчёт автоматически откроется в WhatsApp на этот номер. Введите без пробелов и плюса, например: 77001234567
+                  </p>
                 </div>
               </CardContent>
             </Card>
