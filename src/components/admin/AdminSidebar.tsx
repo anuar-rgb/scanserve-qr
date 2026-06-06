@@ -186,7 +186,7 @@ export default function AdminSidebar() {
               {platformLabel}
             </p>
           </div>
-          <WaiterCallBell />
+          {!isOwner && <WaiterCallBell />}
         </div>
       </div>
 
