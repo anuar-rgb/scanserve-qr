@@ -2,19 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  User, X, Star, LogOut, Eye, EyeOff, ChevronRight,
-  Phone, Receipt, ShieldCheck,
+  User, X, Star, LogOut, ChevronRight,
+  Mail, Phone, Receipt, ShieldCheck, ArrowLeft, RefreshCw,
 } from "lucide-react";
 import { OrdersModal } from "./OrdersModal";
 import type { Lang, Theme } from "./MenuTemplate";
 import type { StoredOrder } from "./CartDrawer";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface GuestSession {
+export interface GuestSession {
   id: string;
   name: string | null;
-  phone: string;
+  phone: string | null;
+  email: string;
   bonusAmount: number;
 }
 
@@ -28,9 +30,7 @@ export interface ProfileSheetProps {
   whatsappPhone?: string;
   onRefundRequest: (orderId: string) => void;
   onPartialRefund: (orderId: string, itemIndex: number, qty: number) => void;
-  /** Called when "История заказов" is tapped — parent should open OrdersModal */
   onOpenOrders: () => void;
-  /** Marks new-order dot as seen when profile is opened */
   onSeen: () => void;
 }
 
@@ -50,7 +50,10 @@ function loadSession(): GuestSession | null {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as GuestSession;
+    const s = JSON.parse(raw) as GuestSession;
+    // Legacy sessions (password-based) had phone but no email — treat as logged out
+    if (!s.email) return null;
+    return s;
   } catch { return null; }
 }
 
@@ -65,20 +68,11 @@ function clearSession() {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ProfileSheet({
-  open,
-  onClose,
-  restaurantId,
-  lang,
-  theme,
-  orders,
-  whatsappPhone,
-  onRefundRequest,
-  onPartialRefund,
-  onOpenOrders,
-  onSeen,
+  open, onClose, restaurantId, lang, theme,
+  orders, whatsappPhone,
+  onRefundRequest, onPartialRefund, onOpenOrders, onSeen,
 }: ProfileSheetProps) {
 
-  // ── Theme tokens ────────────────────────────────────────────────────────────
   const isDark  = theme === "dark";
   const bg      = isDark ? "#121212" : "#F5F5F7";
   const surface = isDark ? "#1E1E1E" : "#FFFFFF";
@@ -87,32 +81,31 @@ export function ProfileSheet({
   const textMut = isDark ? "#9A9A9A" : "#6B7280";
   const inputBg = isDark ? "#1A1A1A" : "#FFFFFF";
 
-  // ── State ───────────────────────────────────────────────────────────────────
-  const [session,     setSession]     = useState<GuestSession | null>(null);
-  const [tab,         setTab]         = useState<"login" | "register">("login");
-  const [name,        setName]        = useState("");
-  const [phone,       setPhone]       = useState("");
-  const [password,    setPassword]    = useState("");
-  const [showPwd,     setShowPwd]     = useState(false);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
-  const [ordersOpen,  setOrdersOpen]  = useState(false);
+  // ── Session ──────────────────────────────────────────────────────────────
+  const [session, setSession] = useState<GuestSession | null>(null);
 
-  const firstOpenRef = useRef(false);
+  // ── Auth form state ──────────────────────────────────────────────────────
+  const [tab,          setTab]          = useState<"login" | "register">("login");
+  const [step,         setStep]         = useState<"form" | "otp">("form");
+  const [email,        setEmail]        = useState("");
+  const [name,         setName]         = useState("");
+  const [phone,        setPhone]        = useState("");
+  const [otp,          setOtp]          = useState("");
+  const [isRegister,   setIsRegister]   = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [resendTimer,  setResendTimer]  = useState(0);
 
-  // Load session from localStorage on mount
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    const s = loadSession();
-    if (s) setSession(s);
+    setSession(loadSession());
   }, []);
 
-  // When sheet opens — clear error, mark seen
   useEffect(() => {
     if (!open) return;
     setError(null);
     onSeen();
-
-    // Refresh balance in background
     if (session) {
       fetch(`/api/guest/profile?guestId=${session.id}&restaurantId=${restaurantId}`)
         .then(r => r.ok ? r.json() : null)
@@ -125,77 +118,24 @@ export function ProfileSheet({
         })
         .catch(() => {});
     }
-
-    if (!firstOpenRef.current) firstOpenRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // ── Auth actions ────────────────────────────────────────────────────────────
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
-  // After login/register: if device already has a push subscription, re-link it to the guest
-  async function linkPushToGuest(guestId: string) {
-    try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (!sub) return;
-      fetch("/api/crm/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription: sub.toJSON(), guestId }),
-      }).catch(() => {/* fire-and-forget */});
-    } catch { /* SW not available */ }
-  }
-
-  async function handleLogin() {
-    if (!phone.trim() || !password) { setError("Заполните все поля"); return; }
-    setLoading(true); setError(null);
-    try {
-      const res = await fetch("/api/guest/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim(), password, restaurantId }),
+  function startResendTimer() {
+    setResendTimer(60);
+    timerRef.current = setInterval(() => {
+      setResendTimer(prev => {
+        if (prev <= 1) { clearInterval(timerRef.current!); return 0; }
+        return prev - 1;
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Ошибка входа"); return; }
-      const s: GuestSession = { id: data.id, name: data.name, phone: data.phone, bonusAmount: data.bonusAmount };
-      saveSession(s);
-      setSession(s);
-      setPhone(""); setPassword("");
-      linkPushToGuest(data.id);
-    } catch { setError("Нет соединения. Попробуйте ещё раз."); }
-    finally   { setLoading(false); }
+    }, 1000);
   }
 
-  async function handleRegister() {
-    if (!phone.trim() || !password) { setError("Заполните все поля"); return; }
-    if (password.length < 6)        { setError("Пароль — минимум 6 символов"); return; }
-    setLoading(true); setError(null);
-    try {
-      const res = await fetch("/api/guest/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || undefined, phone: phone.trim(), password, restaurantId }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Ошибка регистрации"); return; }
-      const s: GuestSession = { id: data.id, name: data.name, phone: data.phone, bonusAmount: data.bonusAmount };
-      saveSession(s);
-      setSession(s);
-      setName(""); setPhone(""); setPassword("");
-      linkPushToGuest(data.id);
-    } catch { setError("Нет соединения. Попробуйте ещё раз."); }
-    finally   { setLoading(false); }
-  }
-
-  function handleLogout() {
-    clearSession();
-    setSession(null);
-    setTab("login");
-    setError(null);
-  }
-
-  // ── Common input style ────────────────────────────────────────────────────
   function inputStyle(extra?: React.CSSProperties): React.CSSProperties {
     return {
       width: "100%", padding: "14px 16px",
@@ -209,7 +149,113 @@ export function ProfileSheet({
     };
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Link push subscription to guest after auth ───────────────────────────
+  async function linkPushToGuest(guestId: string) {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      fetch("/api/crm/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: sub.toJSON(), guestId }),
+      }).catch(() => {});
+    } catch {}
+  }
+
+  // ── Step 1: Send OTP ─────────────────────────────────────────────────────
+  async function handleSendOtp() {
+    const trimEmail = email.trim().toLowerCase();
+    if (!trimEmail || !trimEmail.includes("@")) {
+      setError("Введите корректный Email"); return;
+    }
+    if (tab === "register") {
+      if (!name.trim())  { setError("Введите имя"); return; }
+      if (!phone.trim()) { setError("Введите номер телефона"); return; }
+    }
+
+    setLoading(true); setError(null);
+    try {
+      const sb = getSupabaseBrowser();
+      const { error: otpErr } = await sb.auth.signInWithOtp({
+        email: trimEmail,
+        options: { shouldCreateUser: true },
+      });
+      if (otpErr) { setError(otpErr.message); return; }
+      setIsRegister(tab === "register");
+      setStep("otp");
+      startResendTimer();
+    } catch { setError("Нет соединения. Попробуйте ещё раз."); }
+    finally   { setLoading(false); }
+  }
+
+  // ── Step 2: Verify OTP code ──────────────────────────────────────────────
+  async function handleVerifyOtp() {
+    const code = otp.trim();
+    if (code.length < 6) { setError("Введите 6-значный код из письма"); return; }
+
+    setLoading(true); setError(null);
+    try {
+      const sb = getSupabaseBrowser();
+      const { data, error: verifyErr } = await sb.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: code,
+        type: "email",
+      });
+      if (verifyErr || !data.session) {
+        setError("Неверный код или срок действия истёк"); return;
+      }
+
+      const accessToken = data.session.access_token;
+      const res = await fetch("/api/guest/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken,
+          name:       isRegister ? name.trim()  : undefined,
+          phone:      isRegister ? phone.trim() : undefined,
+          restaurantId,
+          isRegister,
+        }),
+      });
+      const d = await res.json() as { error?: string; id: string; name: string | null; phone: string | null; email: string; bonusAmount: number };
+      if (!res.ok) { setError(d.error ?? "Ошибка"); return; }
+
+      // Sign out from Supabase Auth (we manage our own session)
+      await sb.auth.signOut();
+
+      const s: GuestSession = {
+        id: d.id, name: d.name, phone: d.phone,
+        email: d.email, bonusAmount: d.bonusAmount,
+      };
+      saveSession(s);
+      setSession(s);
+
+      // Reset form
+      setStep("form"); setOtp(""); setEmail(""); setName(""); setPhone("");
+
+      linkPushToGuest(d.id);
+    } catch { setError("Нет соединения. Попробуйте ещё раз."); }
+    finally   { setLoading(false); }
+  }
+
+  function handleLogout() {
+    clearSession();
+    setSession(null);
+    setTab("login"); setStep("form");
+    setEmail(""); setName(""); setPhone(""); setOtp("");
+    setError(null);
+  }
+
+  function handleBack() {
+    setStep("form"); setOtp(""); setError(null);
+    if (timerRef.current) clearInterval(timerRef.current);
+    setResendTimer(0);
+  }
+
+  const isRu = lang === "ru" || lang === "kz";
+
   return (
     <>
       {/* Backdrop */}
@@ -254,8 +300,10 @@ export function ProfileSheet({
         }}>
           <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: textPri }}>
             {session
-              ? (lang === "ru" ? "Мой профиль" : lang === "kz" ? "Менің профилім" : "My Profile")
-              : (lang === "ru" ? "Войти / Зарегистрироваться" : lang === "kz" ? "Кіру / Тіркелу" : "Sign In / Sign Up")}
+              ? (isRu ? "Мой профиль" : "My Profile")
+              : step === "otp"
+                ? (isRu ? "Введите код" : "Enter Code")
+                : (isRu ? "Войти / Зарегистрироваться" : "Sign In / Sign Up")}
           </p>
           <button
             onClick={onClose}
@@ -281,18 +329,41 @@ export function ProfileSheet({
               border={border}
               textPri={textPri}
               textMut={textMut}
-              lang={lang}
+              isRu={isRu}
               onLogout={handleLogout}
               onOpenOrders={() => { onClose(); onOpenOrders(); }}
+            />
+          ) : step === "otp" ? (
+            <OtpView
+              email={email}
+              otp={otp}
+              setOtp={setOtp}
+              loading={loading}
+              error={error}
+              resendTimer={resendTimer}
+              inputStyle={inputStyle}
+              isDark={isDark}
+              surface={surface}
+              border={border}
+              textPri={textPri}
+              textMut={textMut}
+              isRu={isRu}
+              onVerify={handleVerifyOtp}
+              onBack={handleBack}
+              onResend={async () => {
+                setError(null);
+                const sb = getSupabaseBrowser();
+                await sb.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
+                startResendTimer();
+              }}
             />
           ) : (
             <AuthView
               tab={tab}
-              setTab={setTab}
-              name={name}           setName={setName}
-              phone={phone}         setPhone={setPhone}
-              password={password}   setPassword={setPassword}
-              showPwd={showPwd}     setShowPwd={setShowPwd}
+              setTab={(t) => { setTab(t); setError(null); }}
+              email={email}     setEmail={setEmail}
+              name={name}       setName={setName}
+              phone={phone}     setPhone={setPhone}
               loading={loading}
               error={error}
               inputStyle={inputStyle}
@@ -301,18 +372,16 @@ export function ProfileSheet({
               border={border}
               textPri={textPri}
               textMut={textMut}
-              lang={lang}
-              onLogin={handleLogin}
-              onRegister={handleRegister}
+              isRu={isRu}
+              onSend={handleSendOtp}
             />
           )}
         </div>
       </div>
 
-      {/* Full OrdersModal — opened from within profile */}
       <OrdersModal
-        open={ordersOpen}
-        onClose={() => setOrdersOpen(false)}
+        open={false}
+        onClose={() => {}}
         orders={orders}
         lang={lang}
         theme={theme}
@@ -324,34 +393,27 @@ export function ProfileSheet({
   );
 }
 
-// ── Auth view (tabs: login / register) ────────────────────────────────────────
+// ── Auth form (step = "form") ─────────────────────────────────────────────────
 
 function AuthView({
   tab, setTab,
+  email, setEmail,
   name, setName,
   phone, setPhone,
-  password, setPassword,
-  showPwd, setShowPwd,
   loading, error,
   inputStyle,
-  isDark, surface, border, textPri, textMut,
-  lang,
-  onLogin, onRegister,
+  isDark, surface, border, textPri, textMut, isRu,
+  onSend,
 }: {
-  tab: "login" | "register";
-  setTab: (t: "login" | "register") => void;
-  name: string; setName: (v: string) => void;
+  tab: "login" | "register"; setTab: (t: "login" | "register") => void;
+  email: string; setEmail: (v: string) => void;
+  name: string;  setName:  (v: string) => void;
   phone: string; setPhone: (v: string) => void;
-  password: string; setPassword: (v: string) => void;
-  showPwd: boolean; setShowPwd: (v: boolean) => void;
   loading: boolean; error: string | null;
   inputStyle: (extra?: React.CSSProperties) => React.CSSProperties;
-  isDark: boolean; surface: string; border: string; textPri: string; textMut: string;
-  lang: Lang;
-  onLogin: () => void; onRegister: () => void;
+  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
+  onSend: () => void;
 }) {
-  const isRu = lang === "ru" || lang === "kz";
-
   return (
     <div>
       {/* Tab switcher */}
@@ -383,78 +445,62 @@ function AuthView({
         ))}
       </div>
 
-      {/* Form */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Name — register only */}
         {tab === "register" && (
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-              {isRu ? "Имя (необязательно)" : "Name (optional)"}
+              {isRu ? "Ваше имя" : "Your name"}
             </label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder={isRu ? "Ваше имя" : "Your name"}
+              placeholder={isRu ? "Имя" : "Name"}
               style={inputStyle()}
               autoComplete="name"
             />
           </div>
         )}
 
+        {/* Phone — register only */}
+        {tab === "register" && (
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
+              {isRu ? "Номер телефона" : "Phone number"}
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+7 700 000 00 00"
+              style={inputStyle()}
+              autoComplete="tel"
+              inputMode="tel"
+            />
+          </div>
+        )}
+
+        {/* Email — always */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-            {isRu ? "Номер телефона" : "Phone number"}
+            {isRu ? "Ваш Email" : "Your Email"}
           </label>
           <input
-            type="tel"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="+7 700 000 00 00"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") onSend(); }}
+            placeholder="example@mail.com"
             style={inputStyle()}
-            autoComplete="tel"
-            inputMode="tel"
+            autoComplete="email"
+            inputMode="email"
           />
-        </div>
-
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-            {isRu ? "Пароль" : "Password"}
-            {tab === "register" && (
-              <span style={{ fontWeight: 400, marginLeft: 6 }}>
-                {isRu ? "(минимум 6 символов)" : "(min 6 chars)"}
-              </span>
-            )}
-          </label>
-          <div style={{ position: "relative" }}>
-            <input
-              type={showPwd ? "text" : "password"}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") tab === "login" ? onLogin() : onRegister(); }}
-              placeholder={isRu ? "Введите пароль" : "Enter password"}
-              style={inputStyle({ paddingRight: 48 })}
-              autoComplete={tab === "login" ? "current-password" : "new-password"}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPwd(!showPwd)}
-              style={{
-                position: "absolute", right: 14, top: "50%",
-                transform: "translateY(-50%)",
-                border: "none", background: "none",
-                color: textMut, cursor: "pointer", padding: 4,
-                display: "flex", alignItems: "center",
-              }}
-            >
-              {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
         </div>
 
         {error && (
           <p style={{
-            margin: 0, padding: "10px 14px",
-            borderRadius: 10,
+            margin: 0, padding: "10px 14px", borderRadius: 10,
             background: "rgba(239,68,68,0.1)",
             border: "1px solid rgba(239,68,68,0.25)",
             color: "#EF4444", fontSize: 13,
@@ -464,29 +510,27 @@ function AuthView({
         )}
 
         <button
-          onClick={tab === "login" ? onLogin : onRegister}
+          onClick={onSend}
           disabled={loading}
           style={{
             width: "100%", padding: "15px",
             borderRadius: 14, border: "none",
-            background: loading ? "#6D28D9" : "#7C3AED",
+            background: "#7C3AED",
             color: "#fff", fontSize: 15, fontWeight: 700,
             cursor: loading ? "default" : "pointer",
             opacity: loading ? 0.7 : 1,
-            marginTop: 4,
-            fontFamily: "inherit",
+            marginTop: 4, fontFamily: "inherit",
             transition: "opacity 0.15s",
           }}
         >
           {loading
-            ? (isRu ? "Подождите…" : "Please wait…")
+            ? (isRu ? "Отправляем…" : "Sending…")
             : tab === "login"
-              ? (isRu ? "Войти" : "Sign In")
-              : (isRu ? "Создать профиль" : "Create Profile")}
+              ? (isRu ? "Получить код" : "Get Code")
+              : (isRu ? "Зарегистрироваться и получить код" : "Sign Up & Get Code")}
         </button>
       </div>
 
-      {/* Switch tab hint */}
       <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: textMut }}>
         {tab === "login"
           ? (isRu ? "Ещё нет аккаунта?" : "No account yet?")
@@ -508,24 +552,144 @@ function AuthView({
   );
 }
 
+// ── OTP verification step ─────────────────────────────────────────────────────
+
+function OtpView({
+  email, otp, setOtp,
+  loading, error,
+  resendTimer,
+  inputStyle,
+  isDark, surface: _surface, border, textPri, textMut, isRu,
+  onVerify, onBack, onResend,
+}: {
+  email: string;
+  otp: string; setOtp: (v: string) => void;
+  loading: boolean; error: string | null;
+  resendTimer: number;
+  inputStyle: (extra?: React.CSSProperties) => React.CSSProperties;
+  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
+  onVerify: () => void;
+  onBack: () => void;
+  onResend: () => void;
+}) {
+  return (
+    <div>
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: "none", border: "none",
+          color: textMut, fontSize: 13, cursor: "pointer",
+          padding: 0, fontFamily: "inherit", marginBottom: 24,
+        }}
+      >
+        <ArrowLeft size={14} />
+        {isRu ? "Назад" : "Back"}
+      </button>
+
+      {/* Info */}
+      <div style={{
+        background: isDark ? "#1E2D1E" : "#F0FDF4",
+        border: `1px solid ${isDark ? "#2A3D2A" : "#BBF7D0"}`,
+        borderRadius: 14, padding: "14px 16px", marginBottom: 20,
+      }}>
+        <p style={{ margin: 0, fontSize: 13, color: isDark ? "#86EFAC" : "#15803D", lineHeight: 1.5 }}>
+          <Mail size={13} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+          {isRu
+            ? `Код отправлен на ${email}. Проверьте почту (и папку «Спам»).`
+            : `Code sent to ${email}. Check your inbox (and spam folder).`}
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
+            {isRu ? "Код из письма" : "Code from email"}
+          </label>
+          <input
+            type="text"
+            value={otp}
+            onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onKeyDown={e => { if (e.key === "Enter") onVerify(); }}
+            placeholder="000000"
+            style={inputStyle({ letterSpacing: "0.3em", textAlign: "center", fontSize: 22, fontWeight: 700 })}
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+          />
+        </div>
+
+        {error && (
+          <p style={{
+            margin: 0, padding: "10px 14px", borderRadius: 10,
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            color: "#EF4444", fontSize: 13,
+          }}>
+            {error}
+          </p>
+        )}
+
+        <button
+          onClick={onVerify}
+          disabled={loading || otp.length < 6}
+          style={{
+            width: "100%", padding: "15px",
+            borderRadius: 14, border: "none",
+            background: "#7C3AED",
+            color: "#fff", fontSize: 15, fontWeight: 700,
+            cursor: (loading || otp.length < 6) ? "default" : "pointer",
+            opacity: (loading || otp.length < 6) ? 0.6 : 1,
+            fontFamily: "inherit", transition: "opacity 0.15s",
+          }}
+        >
+          {loading
+            ? (isRu ? "Проверяем…" : "Verifying…")
+            : (isRu ? "Подтвердить" : "Confirm")}
+        </button>
+
+        {/* Resend */}
+        <div style={{ textAlign: "center", marginTop: 4 }}>
+          {resendTimer > 0 ? (
+            <p style={{ fontSize: 13, color: textMut, margin: 0 }}>
+              <RefreshCw size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+              {isRu ? `Отправить снова через ${resendTimer}с` : `Resend in ${resendTimer}s`}
+            </p>
+          ) : (
+            <button
+              onClick={onResend}
+              style={{
+                background: "none", border: "none",
+                color: "#7C3AED", fontWeight: 600, fontSize: 13,
+                cursor: "pointer", padding: 0, fontFamily: "inherit",
+              }}
+            >
+              {isRu ? "Отправить снова" : "Resend code"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Logged-in profile view ────────────────────────────────────────────────────
 
 function LoggedInView({
   session, orders,
-  isDark, surface, border, textPri, textMut,
-  lang,
+  isDark, surface, border, textPri, textMut, isRu,
   onLogout, onOpenOrders,
 }: {
   session: GuestSession;
   orders: StoredOrder[];
-  isDark: boolean; surface: string; border: string; textPri: string; textMut: string;
-  lang: Lang;
+  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
   onLogout: () => void;
   onOpenOrders: () => void;
 }) {
-  const isRu       = lang === "ru" || lang === "kz";
-  const displayName = session.name?.trim() || session.phone;
-  const initials    = displayName.slice(0, 2).toUpperCase();
+  const displayName  = session.name?.trim() || session.email;
+  const initials     = displayName.slice(0, 2).toUpperCase();
   const recentOrders = orders.slice(0, 3);
 
   return (
@@ -545,9 +709,15 @@ function LoggedInView({
             {isRu ? `Привет, ${session.name || ""}!` : `Hi, ${session.name || ""}!`}
           </p>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: textMut, display: "flex", alignItems: "center", gap: 5 }}>
-            <Phone size={12} />
-            {session.phone}
+            <Mail size={12} />
+            {session.email}
           </p>
+          {session.phone && (
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: textMut, display: "flex", alignItems: "center", gap: 5 }}>
+              <Phone size={12} />
+              {session.phone}
+            </p>
+          )}
         </div>
       </div>
 
@@ -578,7 +748,7 @@ function LoggedInView({
         <ShieldCheck size={18} color={isDark ? "#A78BFA" : "#7C3AED"} style={{ marginLeft: "auto" }} />
       </div>
 
-      {/* Order history section */}
+      {/* Order history */}
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: textPri }}>

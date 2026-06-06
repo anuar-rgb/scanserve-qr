@@ -444,14 +444,16 @@ export function CartDrawer({
   const [tipsEnabled, setTipsEnabled]                 = useState(false);
   const [tipsInput, setTipsInput]                     = useState("");
   const [tipsAmount, setTipsAmount]                   = useState(0);
-  const [guestSession, setGuestSession]               = useState<{id: string; name: string|null; phone: string; bonusAmount: number} | null>(null);
+  const [guestSession, setGuestSession]               = useState<{id: string; name: string|null; phone: string|null; email?: string; bonusAmount: number} | null>(null);
   const [useBonuses, setUseBonuses]                   = useState(false);
 
   useEffect(() => {
     // Refresh guest session every time the drawer opens
     try {
       const raw = localStorage.getItem("menu-guest-session");
-      setGuestSession(raw ? (JSON.parse(raw) as {id:string;name:string|null;phone:string;bonusAmount:number}) : null);
+      const parsed = raw ? (JSON.parse(raw) as {id:string;name:string|null;phone:string|null;email?:string;bonusAmount:number}) : null;
+      // Discard legacy password-based sessions (no email field)
+      setGuestSession(parsed?.email ? parsed : null);
     } catch {
       setGuestSession(null);
     }
