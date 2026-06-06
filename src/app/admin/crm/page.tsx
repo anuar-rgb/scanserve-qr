@@ -431,8 +431,8 @@ export default function CrmPage() {
                                 )}
                               </div>
 
-                              {/* Bonus balance */}
-                              {c.phone && (() => {
+                              {/* Bonus balance — owner only */}
+                              {isOwner && c.phone && (() => {
                                 const bonus = bonusMap.get(c.phone!);
                                 return (
                                   <div>
