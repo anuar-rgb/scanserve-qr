@@ -91,6 +91,8 @@ export interface DbOrder {
   delivery_address: string | null;
   created_at: string;
   payment_method: string | null;
+  payment_bank: string | null;
+  payment_phone: string | null;
   payment_details: Record<string, number> | null;
   paid_amount: number | null;
   prepayment_method: string | null;

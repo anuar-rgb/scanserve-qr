@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -2305,6 +2305,22 @@ function OrderSlotPanel({
             </div>
           </div>
 
+          {/* Preorder date/time block */}
+          {order.order_type === "preorder" && order.preorder_date && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-violet-50 dark:bg-violet-900/15 border border-violet-200 dark:border-violet-700/40">
+              <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                <CalendarDays size={15} className="text-violet-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500">Предзаказ</p>
+                <p className="text-base font-black text-violet-800 dark:text-violet-200 tabular-nums">
+                  {order.preorder_date}
+                  {order.preorder_time && <span className="ml-2 text-sm font-semibold text-violet-500">{order.preorder_time}</span>}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Delivery / Pickup info block */}
           <div className={`px-4 py-3 rounded-xl border ${
             order.type === "delivery"
@@ -2347,6 +2363,26 @@ function OrderSlotPanel({
                 <div className="flex items-center gap-2 pt-1 border-t border-border/60 mt-1">
                   <span className="text-[12px] leading-none">{METHOD_META[order.payment_method]?.icon ?? "💳"}</span>
                   <span className="text-sm text-muted-foreground">{METHOD_META[order.payment_method]?.label ?? order.payment_method}</span>
+                </div>
+              )}
+              {order.payment_method === "remote-payment" && order.payment_bank && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Landmark size={12} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground">Банк:</span>
+                  <span className="text-sm font-semibold">{order.payment_bank === "kaspi" ? "Kaspi.kz" : order.payment_bank === "halyk" ? "Halyk Bank" : order.payment_bank}</span>
+                </div>
+              )}
+              {order.payment_method === "remote-payment" && order.payment_phone && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Phone size={12} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground">Счёт на:</span>
+                  <button
+                    onClick={() => { void navigator.clipboard.writeText(order.payment_phone!); toast.success("Номер скопирован"); }}
+                    className="flex items-center gap-1 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+                  >
+                    {order.payment_phone}
+                    <Copy size={10} className="shrink-0 text-muted-foreground" />
+                  </button>
                 </div>
               )}
             </div>

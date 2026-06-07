@@ -732,6 +732,8 @@ export function CartDrawer({
           customer_phone: order.phoneNumber ?? null,
           customer_city: order.cityName ?? null,
           delivery_address: order.deliveryAddress ?? null,
+          payment_bank: order.remoteBank ?? null,
+          payment_phone: order.invoicePhone ?? null,
           guest_id: guestSession?.id ?? null,
           used_bonuses: bonusesApplied > 0,
           bonuses_deducted: bonusesApplied,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
   ShoppingBag, Clock, Calendar, CalendarDays, MessageSquare,
-  ChevronLeft, ChevronRight, X,
+  ChevronLeft, ChevronRight, X, Landmark, Phone, Copy,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
@@ -667,6 +667,26 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
                       <span className="font-semibold tabular-nums">{(amount as number).toLocaleString("ru-RU")} ₸</span>
                     </div>
                   ))}
+                </div>
+              )}
+              {order.payment_method === "remote-payment" && order.payment_bank && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Landmark size={13} className="text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">Банк:</span>
+                  <span className="font-semibold">{order.payment_bank === "kaspi" ? "Kaspi.kz" : order.payment_bank === "halyk" ? "Halyk Bank" : order.payment_bank}</span>
+                </div>
+              )}
+              {order.payment_method === "remote-payment" && order.payment_phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone size={13} className="text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">Счёт на:</span>
+                  <button
+                    onClick={() => void navigator.clipboard.writeText(order.payment_phone!)}
+                    className="flex items-center gap-1 font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+                  >
+                    {order.payment_phone}
+                    <Copy size={10} className="text-muted-foreground shrink-0" />
+                  </button>
                 </div>
               )}
             </div>
