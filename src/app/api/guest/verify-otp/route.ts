@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr || !created) {
+      console.error("guests insert error:", insertErr);
       return NextResponse.json({ error: "Ошибка при создании профиля" }, { status: 500 });
     }
     guest = created as typeof guest;
