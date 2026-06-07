@@ -48,8 +48,13 @@ export async function GET(req: NextRequest) {
 
 // PUT /api/crm/guest-bonus
 // Body: { guestId, restaurantId, newAmount }
-// Admin-only: sets the balance to a specific value
+// Owner-only: sets the balance to a specific value
 export async function PUT(req: NextRequest) {
+  const role = req.cookies.get("admin_session")?.value;
+  if (role !== "owner") {
+    return NextResponse.json({ error: "Недостаточно прав. Только владелец может изменять бонусный баланс." }, { status: 403 });
+  }
+
   const body = await req.json().catch(() => ({})) as {
     guestId?: string;
     restaurantId?: string;
