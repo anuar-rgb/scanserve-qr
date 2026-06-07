@@ -691,12 +691,14 @@ function PromoSlider({
 function PopularDishesSection({
   dishes,
   lang,
+  defaultCurrency,
   liked,
   getLikeCount,
   onGoToDish,
 }: {
   dishes: Dish[];
   lang: Lang;
+  defaultCurrency?: string;
   liked: Record<string, boolean>;
   getLikeCount: (id: string) => number;
   onGoToDish: (dishId: string) => void;
@@ -796,11 +798,11 @@ function PopularDishesSection({
                 </p>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
                   <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-                    {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? ""}
+                    {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
                   </p>
                   {discountedPrice !== null && (
                     <p style={{ fontSize: 10, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
-                      {dish.price.toLocaleString()}
+                      {dish.price.toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
                     </p>
                   )}
                 </div>
@@ -2934,6 +2936,7 @@ export function MenuTemplate({
             <PopularDishesSection
               dishes={popularDishes}
               lang={lang}
+              defaultCurrency={restaurant.currency}
               liked={liked}
               getLikeCount={getLikeCount}
               onGoToDish={goToDish}
