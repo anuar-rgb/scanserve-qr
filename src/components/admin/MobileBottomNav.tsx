@@ -49,7 +49,6 @@ const BOTTOM_TABS: TabItem[] = [
   { labelKey: "navHall",    icon: LayoutGrid,  href: "/admin/hall" },
   { labelKey: "navOrders",  icon: ShoppingBag, href: "/admin/orders",    ownerOnly: true },
   { labelKey: "navCatalog", icon: Package,     href: "/admin/dashboard", ownerOnly: true },
-  { labelKey: "navInvoices",icon: FileText,    href: "/admin/invoices",  noWaiter: true },
 ];
 
 const DRAWER_NAV: DrawerSection[] = [
@@ -80,8 +79,9 @@ const DRAWER_NAV: DrawerSection[] = [
     titleKey: "sectionManagement",
     ownerOnly: true,
     items: [
-      { labelKey: "navModifiers", icon: Settings, href: "/admin/modifiers", ownerOnly: true },
-      { labelKey: "navWarehouse", icon: Boxes,    href: "/admin/warehouse", ownerOnly: true },
+      { labelKey: "navModifiers", icon: Settings,  href: "/admin/modifiers", ownerOnly: true },
+      { labelKey: "navWarehouse", icon: Boxes,     href: "/admin/warehouse", ownerOnly: true },
+      { labelKey: "navInvoices",  icon: FileText,  href: "/admin/invoices",  ownerOnly: true },
     ],
   },
   {
@@ -193,7 +193,7 @@ export default function MobileBottomNav() {
     <>
       {/* ── Bottom tab bar ────────────────────────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800/60 flex items-stretch h-16" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {visibleTabs.slice(0, 4).map((tab) => {
+        {visibleTabs.slice(0, 3).map((tab) => {
           const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
           const Icon = tab.icon;
           return (
