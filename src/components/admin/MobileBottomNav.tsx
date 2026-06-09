@@ -9,7 +9,7 @@ import {
   BarChart2, TrendingUp, Package, Monitor, Star, Tag,
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
-  Clock, LogIn, AlertTriangle,
+  Clock, LogIn, AlertTriangle, CalendarDays,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -30,6 +30,7 @@ type TabItem = {
   ownerOnly?: boolean;
   strictOwner?: boolean;
   noWaiter?: boolean;
+  staffOnly?: boolean;
 };
 type DrawerSection = {
   titleKey: AdminKey;
@@ -46,9 +47,10 @@ type DrawerSection = {
 };
 
 const BOTTOM_TABS: TabItem[] = [
-  { labelKey: "navHall",    icon: LayoutGrid,  href: "/admin/hall" },
-  { labelKey: "navOrders",  icon: ShoppingBag, href: "/admin/orders",    ownerOnly: true },
-  { labelKey: "navCatalog", icon: Package,     href: "/admin/dashboard", ownerOnly: true },
+  { labelKey: "navHall",         icon: LayoutGrid,  href: "/admin/hall" },
+  { labelKey: "navOrders",       icon: ShoppingBag, href: "/admin/orders",         ownerOnly: true },
+  { labelKey: "navCatalog",      icon: Package,     href: "/admin/dashboard",      ownerOnly: true },
+  { labelKey: "navMyAttendance", icon: Clock,       href: "/admin/my-attendance",  staffOnly: true },
 ];
 
 const DRAWER_NAV: DrawerSection[] = [
@@ -79,9 +81,10 @@ const DRAWER_NAV: DrawerSection[] = [
     titleKey: "sectionManagement",
     ownerOnly: true,
     items: [
-      { labelKey: "navModifiers", icon: Settings,  href: "/admin/modifiers", ownerOnly: true },
-      { labelKey: "navWarehouse", icon: Boxes,     href: "/admin/warehouse", ownerOnly: true },
-      { labelKey: "navInvoices",  icon: FileText,  href: "/admin/invoices",  ownerOnly: true },
+      { labelKey: "navModifiers",  icon: Settings,     href: "/admin/modifiers",  ownerOnly: true },
+      { labelKey: "navWarehouse",  icon: Boxes,        href: "/admin/warehouse",  ownerOnly: true },
+      { labelKey: "navInvoices",   icon: FileText,     href: "/admin/invoices",   ownerOnly: true },
+      { labelKey: "navAttendance", icon: CalendarDays, href: "/admin/attendance", ownerOnly: true },
     ],
   },
   {
@@ -186,6 +189,7 @@ export default function MobileBottomNav() {
     if (tab.strictOwner && !isStrictOwner) return false;
     if (tab.ownerOnly  && !isOwner)        return false;
     if (tab.noWaiter   && role === "waiter") return false;
+    if (tab.staffOnly  && isOwner)         return false;
     return true;
   });
 
