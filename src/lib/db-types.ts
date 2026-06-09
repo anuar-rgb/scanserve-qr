@@ -99,6 +99,7 @@ export interface DbOrder {
   closed_at: string | null;
   opened_by: string | null;
   tips_amount: number | null;
+  guest_id: string | null;
 }
 
 export interface DbWaiterShiftRevenue {

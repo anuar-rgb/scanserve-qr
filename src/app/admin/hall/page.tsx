@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark, Bell,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -2110,6 +2110,8 @@ function OrderSlotPanel({
   const [transferringItem, setTransferringItem] = useState<{ idx: number; item: OrderItem } | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassigning, setReassigning]             = useState(false);
+  const [notifying, setNotifying]                 = useState(false);
+  const [notifyDone, setNotifyDone]               = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -2119,6 +2121,39 @@ function OrderSlotPanel({
   const elapsed  = getElapsed(order.created_at);
   const typeLabel = order.type === "delivery" ? "Доставка" : "С собой";
   const typeIcon  = order.type === "delivery" ? "🛵" : "🛍️";
+
+  const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
+    order.status === "preparing" &&
+    !!(order.guest_id || order.customer_phone);
+
+  async function handleNotify() {
+    if (notifying) return;
+    setNotifying(true);
+    try {
+      const res  = await fetch("/api/admin/notify-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const data = await res.json() as { pushSent?: boolean; phone?: string | null; name?: string | null };
+      if (data.pushSent) toast.success("Push-уведомление отправлено гостю");
+      const phone = data.phone ?? order.customer_phone;
+      if (phone) {
+        const displayName = data.name ?? order.customer_name ?? "";
+        const displayId   = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8).toUpperCase()}`;
+        const text = `Здравствуйте${displayName ? `, ${displayName}` : ""}! Ваш заказ ${displayId} готов к выдаче. Ждём вас! С уважением, ${restaurantName || "АС ТӨРІ"}.`;
+        window.open(`https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(text)}`, "_blank");
+        if (!data.pushSent) toast.success("Открыт WhatsApp для уведомления гостя");
+      } else if (!data.pushSent) {
+        toast.error("Нет данных для связи с гостем");
+      }
+      setNotifyDone(true);
+    } catch {
+      toast.error("Ошибка при отправке уведомления");
+    } finally {
+      setNotifying(false);
+    }
+  }
 
   async function copyId(id: string) {
     try { await navigator.clipboard.writeText(id); setCopiedId(true); setTimeout(() => setCopiedId(false), 2000); }
@@ -2387,6 +2422,21 @@ function OrderSlotPanel({
               )}
             </div>
           </div>
+
+          {canNotify && (
+            <button
+              onClick={handleNotify}
+              disabled={notifying || notifyDone}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                notifyDone
+                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 cursor-default"
+                  : "bg-violet-600 hover:bg-violet-700 active:scale-95 text-white disabled:opacity-60"
+              }`}
+            >
+              <Bell size={15} />
+              {notifyDone ? "Уведомление отправлено" : notifying ? "Отправка…" : "Уведомить о готовности"}
+            </button>
+          )}
 
           {order.customer_comments && (
             <div className="px-3 py-2.5 rounded-xl bg-muted/50 border border-border">

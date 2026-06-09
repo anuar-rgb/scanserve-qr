@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
   ShoppingBag, Clock, Calendar, CalendarDays, MessageSquare,
-  ChevronLeft, ChevronRight, X, Landmark, Phone, Copy,
+  ChevronLeft, ChevronRight, X, Landmark, Phone, Copy, Bell,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
+import { toast } from "sonner";
 import { capFirst } from "@/lib/utils";
 import { RESTAURANT_ID } from "@/constants";
 
@@ -489,6 +490,9 @@ function CompactCard({
 // ── OrderDrawer ───────────────────────────────────────────────────────────────
 
 function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () => void }) {
+  const [notifying, setNotifying] = useState(false);
+  const [notifyDone, setNotifyDone] = useState(false);
+
   if (!order) return null;
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
@@ -500,6 +504,38 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
   const typeLabel  =
     order.type === "dine-in"  ? "В заведении" :
     order.type === "delivery" ? "Доставка"    : "С собой";
+
+  const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
+    order.status === "preparing" &&
+    !!(order.guest_id || order.customer_phone);
+
+  async function handleNotify() {
+    if (notifying) return;
+    setNotifying(true);
+    try {
+      const res  = await fetch("/api/admin/notify-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order!.id }),
+      });
+      const data = await res.json() as { pushSent?: boolean; phone?: string | null; name?: string | null };
+      if (data.pushSent) toast.success("Push-уведомление отправлено гостю");
+      const phone = data.phone ?? order!.customer_phone;
+      if (phone) {
+        const displayName = data.name ?? order!.customer_name ?? "";
+        const text = `Здравствуйте${displayName ? `, ${displayName}` : ""}! Ваш заказ ${shortId(order!.id)} готов к выдаче. Ждём вас! С уважением, АС ТӨРІ.`;
+        window.open(`https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(text)}`, "_blank");
+        if (!data.pushSent) toast.success("Открыт WhatsApp для уведомления гостя");
+      } else if (!data.pushSent) {
+        toast.error("Нет данных для связи с гостем");
+      }
+      setNotifyDone(true);
+    } catch {
+      toast.error("Ошибка при отправке уведомления");
+    } finally {
+      setNotifying(false);
+    }
+  }
 
   return (
     <>
@@ -566,6 +602,22 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
               </span>
             )}
           </div>
+
+          {/* Notify guest */}
+          {canNotify && (
+            <button
+              onClick={() => void handleNotify()}
+              disabled={notifying || notifyDone}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                notifyDone
+                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 cursor-default"
+                  : "bg-violet-600 hover:bg-violet-700 active:scale-95 text-white disabled:opacity-60"
+              }`}
+            >
+              <Bell size={15} />
+              {notifyDone ? "Уведомление отправлено" : notifying ? "Отправка…" : "Уведомить о готовности"}
+            </button>
+          )}
 
           {/* Comment */}
           {order.customer_comments && (
