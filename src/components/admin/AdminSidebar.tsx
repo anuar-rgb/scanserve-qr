@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -64,9 +64,10 @@ const NAV: NavSection[] = [
     titleKey: "sectionManagement",
     ownerOnly: true,
     items: [
-      { labelKey: "navCatalog",    icon: Package,  href: "/admin/dashboard",  ownerOnly: true },
-      { labelKey: "navModifiers", icon: Settings, href: "/admin/modifiers",  ownerOnly: true },
-      { labelKey: "navWarehouse",  icon: Boxes,    href: "/admin/warehouse",  ownerOnly: true },
+      { labelKey: "navCatalog",    icon: Package,      href: "/admin/dashboard",  ownerOnly: true },
+      { labelKey: "navModifiers", icon: Settings,     href: "/admin/modifiers",  ownerOnly: true },
+      { labelKey: "navWarehouse",  icon: Boxes,        href: "/admin/warehouse",  ownerOnly: true },
+      { labelKey: "navAttendance", icon: CalendarDays, href: "/admin/attendance", ownerOnly: true },
     ],
   },
   {
