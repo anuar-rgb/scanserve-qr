@@ -193,7 +193,7 @@ export default function MobileBottomNav() {
     <>
       {/* ── Bottom tab bar ────────────────────────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800/60 flex items-stretch h-16" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {visibleTabs.slice(0, 3).map((tab) => {
+        {visibleTabs.slice(0, 4).map((tab) => {
           const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
           const Icon = tab.icon;
           return (

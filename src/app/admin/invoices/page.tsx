@@ -238,6 +238,38 @@ export default function InvoicesPage() {
   return (
     <div className="flex flex-col h-full">
 
+      {/* ── Mobile FAB ── */}
+      <button
+        onClick={openAdd}
+        className="md:hidden fixed bottom-20 right-4 z-20 w-14 h-14 rounded-full bg-violet-600 text-white shadow-lg flex items-center justify-center hover:bg-violet-700 active:scale-95 transition-all"
+        style={{ boxShadow: "0 4px 20px rgba(139,92,246,0.45)" }}
+      >
+        <Plus size={22} />
+      </button>
+
+      {/* ── Mobile header ── */}
+      <div className="md:hidden px-4 pt-4 pb-3 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t.admin.invoicesTitle}</h1>
+          <button onClick={() => load(period)} disabled={loading}
+            className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
+        <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1 rounded-xl text-xs">
+          {(["today", "week", "month"] as Period[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)} disabled={loading}
+              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
+                period === p
+                  ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                  : "text-zinc-500"
+              }`}>
+              {PERIOD_LABEL[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ── Modal ── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -339,8 +371,8 @@ export default function InvoicesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── header ── */}
-      <header className="px-8 py-5 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 flex items-center justify-between gap-4">
+      {/* ── Desktop header ── */}
+      <header className="hidden md:flex px-8 py-5 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0 items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{t.admin.invoicesTitle}</h1>
           <p className="text-xs text-zinc-500 mt-0.5">{t.admin.descInvoices}</p>
@@ -370,8 +402,8 @@ export default function InvoicesPage() {
         </div>
       </header>
 
-      {/* ── body ── */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-4">
+      {/* ── Desktop body ── */}
+      <div className="hidden md:flex flex-col flex-1 overflow-y-auto p-8 space-y-4">
 
         {/* Summary card */}
         {!loading && invoices.length > 0 && (
@@ -388,9 +420,8 @@ export default function InvoicesPage() {
           </div>
         )}
 
-        {/* Table */}
+        {/* Desktop Table */}
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 overflow-hidden">
-          {/* col headers */}
           <div className="grid px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800/60"
             style={{ gridTemplateColumns: "1fr 130px 150px 130px 96px 80px" }}>
             {["Дата / Время", "Номер", "Поставщик", "Сумма (₸)", "Сотрудник", ""].map((h, i) => (
@@ -435,23 +466,16 @@ export default function InvoicesPage() {
                       </span>
                       <span className="text-xs text-zinc-500 truncate">{inv.created_by ?? "—"}</span>
                       <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => openEdit(inv)}
+                        <button onClick={() => openEdit(inv)}
                           className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
                           <Pencil size={13} />
                         </button>
-                        <button
-                          onClick={() => handleDelete(inv.id)}
-                          disabled={deleting === inv.id}
+                        <button onClick={() => handleDelete(inv.id)} disabled={deleting === inv.id}
                           className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
-                          {deleting === inv.id
-                            ? <RefreshCw size={13} className="animate-spin" />
-                            : <Trash2 size={13} />}
+                          {deleting === inv.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
                         </button>
                       </div>
                     </div>
-
-                    {/* expanded items */}
                     {isExp && items.length > 0 && (
                       <div className="px-10 pb-3">
                         <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
@@ -468,9 +492,7 @@ export default function InvoicesPage() {
                                 <span className="text-xs text-zinc-700 dark:text-zinc-300">{it.item_name}</span>
                                 <span className="text-xs tabular-nums text-zinc-500">{it.quantity}</span>
                                 <span className="text-xs text-zinc-500">{it.unit}</span>
-                                <span className="text-xs tabular-nums text-zinc-500">
-                                  {it.price_per_unit.toLocaleString("ru-RU")} ₸
-                                </span>
+                                <span className="text-xs tabular-nums text-zinc-500">{it.price_per_unit.toLocaleString("ru-RU")} ₸</span>
                                 <span className="text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                                   {it.total_item_price.toLocaleString("ru-RU")} ₸
                                 </span>
@@ -486,6 +508,109 @@ export default function InvoicesPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Mobile body ── */}
+      <div className="md:hidden flex-1 overflow-y-auto px-4 py-3 space-y-3 pb-24">
+
+        {/* Mobile summary */}
+        {!loading && invoices.length > 0 && (
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 px-4 py-3.5 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{t.admin.expenses} · {PERIOD_LABEL[period]}</p>
+              <p className="text-xl font-black tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5">
+                {grandTotal.toLocaleString("ru-RU")} ₸
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
+              <FileText size={18} />
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-16 text-center text-sm text-zinc-400">
+            <RefreshCw size={18} className="animate-spin mx-auto mb-2" />
+            Загрузка…
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="py-16 text-center">
+            <FileText size={36} className="mx-auto mb-3 text-zinc-300 dark:text-zinc-600" />
+            <p className="text-sm text-zinc-400">{t.admin.noInvoices}</p>
+          </div>
+        ) : (
+          invoices.map(inv => {
+            const isExp = expanded === inv.id;
+            const items = inv.invoice_items ?? [];
+            return (
+              <div key={inv.id}
+                className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 overflow-hidden">
+                {/* Card header — tap to expand */}
+                <div
+                  className="px-4 py-3.5 flex items-start gap-3 cursor-pointer active:bg-zinc-50 dark:active:bg-zinc-800/30 transition-colors"
+                  onClick={() => setExpanded(isExp ? null : inv.id)}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">{inv.supplier_name}</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5 tabular-nums">{fmtDateTime(inv.created_at)}</p>
+                    {inv.invoice_number && (
+                      <p className="text-[11px] font-mono text-zinc-400 mt-0.5">#{inv.invoice_number}</p>
+                    )}
+                    {inv.created_by && (
+                      <p className="text-[11px] text-zinc-400 mt-0.5">{inv.created_by}</p>
+                    )}
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    <p className="text-base font-black tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {inv.total_amount.toLocaleString("ru-RU")} ₸
+                    </p>
+                    <ChevronDown
+                      size={14}
+                      className={`text-zinc-400 transition-transform ${isExp ? "rotate-180" : ""}`}
+                    />
+                  </div>
+                </div>
+
+                {/* Expanded items */}
+                {isExp && (
+                  <div className="border-t border-zinc-100 dark:border-zinc-800/60">
+                    {items.length > 0 && (
+                      <div className="px-4 py-3 space-y-2">
+                        {items.map(it => (
+                          <div key={it.id} className="flex items-baseline justify-between gap-2">
+                            <span className="text-xs text-zinc-700 dark:text-zinc-300 flex-1 min-w-0 truncate">{it.item_name}</span>
+                            <span className="text-xs text-zinc-400 shrink-0">
+                              {it.quantity} {it.unit} × {it.price_per_unit.toLocaleString("ru-RU")} ₸
+                            </span>
+                            <span className="text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-200 shrink-0">
+                              {it.total_item_price.toLocaleString("ru-RU")} ₸
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Edit / delete actions */}
+                    <div className="flex items-center gap-2 px-4 pb-3 pt-1 border-t border-zinc-100 dark:border-zinc-800/60">
+                      <button
+                        onClick={() => openEdit(inv)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                        <Pencil size={13} />
+                        Редактировать
+                      </button>
+                      <button
+                        onClick={() => handleDelete(inv.id)}
+                        disabled={deleting === inv.id}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-red-500 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors disabled:opacity-50">
+                        {deleting === inv.id
+                          ? <RefreshCw size={13} className="animate-spin" />
+                          : <Trash2 size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
