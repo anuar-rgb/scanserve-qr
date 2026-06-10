@@ -27,13 +27,20 @@ export async function POST(request: NextRequest) {
 
   const supabase = db();
 
-  const { data: active } = await supabase
+  const { data: activeRows, error: findErr } = await supabase
     .from("employee_attendance")
     .select("id, check_in")
     .eq("employee_id", staffUserId)
     .eq("status", "active")
-    .maybeSingle();
+    .is("check_out", null)
+    .order("check_in", { ascending: false })
+    .limit(1);
 
+  if (findErr) {
+    return NextResponse.json({ error: findErr.message }, { status: 500 });
+  }
+
+  const active = activeRows?.[0] ?? null;
   if (!active) {
     return NextResponse.json({ error: "Нет активной смены" }, { status: 404 });
   }

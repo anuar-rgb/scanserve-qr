@@ -105,20 +105,29 @@ export default function MyAttendancePage() {
       const data = await res.json() as { attendance?: AttendanceRecord; error?: string };
       if (!res.ok) {
         toast.error(data.error ?? "Ошибка");
+        return;
+      }
+      if (mode === "checkin") {
+        setActive(data.attendance ?? null);
+        setHistory((prev) => [data.attendance!, ...prev].filter(Boolean));
+        toast.success("Смена начата!");
       } else {
-        if (mode === "checkin") {
-          setActive(data.attendance ?? null);
-          toast.success("Смена начата!");
-        } else {
-          const fin = data.attendance;
-          setActive(null);
-          if (fin?.total_hours != null) {
-            toast.success(`Смена завершена. Отработано: ${fmtHours(fin.total_hours)}`);
-          } else {
-            toast.success("Смена завершена!");
-          }
-          void loadStatus();
+        // Clear active state directly from confirmed API response — do NOT re-fetch
+        // (re-fetching risks race-condition restoring old "active" record)
+        setActive(null);
+        if (data.attendance) {
+          setHistory((prev) =>
+            prev.map((r) => r.id === data.attendance!.id ? data.attendance! : r)
+          );
         }
+        const fin = data.attendance;
+        if (fin?.total_hours != null) {
+          toast.success(`Смена завершена. Отработано: ${fmtHours(fin.total_hours)}`);
+        } else {
+          toast.success("Смена завершена!");
+        }
+        // Reload history after a short delay so the DB record is visible
+        setTimeout(() => { void loadStatus(); }, 600);
       }
     } finally {
       setBusy(false);

@@ -30,13 +30,15 @@ export async function POST(request: NextRequest) {
   const supabase = db();
 
   // Guard: prevent duplicate active sessions
-  const { data: existing } = await supabase
+  const { data: existingRows } = await supabase
     .from("employee_attendance")
     .select("id, check_in")
     .eq("employee_id", staffUserId)
     .eq("status", "active")
-    .maybeSingle();
+    .is("check_out", null)
+    .limit(1);
 
+  const existing = existingRows?.[0] ?? null;
   if (existing) {
     return NextResponse.json(
       { error: "Смена уже открыта", attendance: existing },
