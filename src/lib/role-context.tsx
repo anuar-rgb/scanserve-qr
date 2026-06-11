@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type AdminRole =
-  | "owner" | "manager" | "cashier" | "waiter" | "chef"
+  | "owner" | "manager" | "supervisor" | "cashier" | "waiter" | "chef"
   | "bartender" | "hostess" | "courier" | "cleaner" | "doorman"
   | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant"
   | null;
@@ -43,7 +43,7 @@ export function useDisplayName(): string | null {
   return useContext(RoleContext).displayName;
 }
 
-const OWNER_ROLES = new Set(["owner", "manager"]);
+const OWNER_ROLES = new Set(["owner", "manager", "supervisor"]);
 
 // true = owner or manager (analytics, catalog, storefront, QR, profile)
 // false = all other roles (POS only)

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useIsStrictOwner } from "@/lib/role-context";
+import { useIsOwner } from "@/lib/role-context";
 import { RESTAURANT_ID } from "@/constants";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ function fmtDate(iso: string) {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function CrmPage() {
-  const isOwner = useIsStrictOwner();
+  const isOwner = useIsOwner();
 
   const [clients, setClients]     = useState<CrmClient[]>([]);
   const [total, setTotal]         = useState(0);

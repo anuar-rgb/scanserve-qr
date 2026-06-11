@@ -21,7 +21,7 @@ interface ActiveStaffMember {
 }
 
 type StaffRole =
-  | "owner" | "manager" | "cashier" | "waiter" | "chef"
+  | "owner" | "manager" | "supervisor" | "cashier" | "waiter" | "chef"
   | "bartender" | "hostess" | "courier" | "cleaner" | "doorman"
   | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant";
 
@@ -40,6 +40,7 @@ interface StaffUser {
 const ROLES: { value: StaffRole; label: string }[] = [
   { value: "owner",        label: "Владелец"         },
   { value: "manager",      label: "Менеджер"         },
+  { value: "supervisor",   label: "Управляющий"      },
   { value: "cashier",      label: "Кассир"           },
   { value: "waiter",       label: "Официант"         },
   { value: "senior_waiter",label: "Старший официант" },
@@ -58,6 +59,7 @@ const ROLES: { value: StaffRole; label: string }[] = [
 const ROLE_COLOR: Record<StaffRole, string> = {
   owner:        "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
   manager:      "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  supervisor:   "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
   cashier:      "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
   waiter:       "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   senior_waiter:"bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
@@ -77,7 +79,7 @@ const ROLE_COLOR: Record<StaffRole, string> = {
 
 export default function StaffPage() {
   const viewerRole = useRole();
-  const isManager  = viewerRole === "manager";
+  const isManager  = viewerRole === "manager" || viewerRole === "supervisor";
 
   const [activeTab, setActiveTab] = useState<"all" | "active_today">("all");
 
