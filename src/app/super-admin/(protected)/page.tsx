@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { QRCodeCanvas } from "qrcode.react";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 type Restaurant = {
   id: string;
@@ -15,7 +18,16 @@ type Restaurant = {
   created_at: string;
 };
 
-type EditState = {
+type StaffUser = {
+  id: string;
+  username: string;
+  role: string;
+  display_name: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
+type InfoEdit = {
   id: string;
   owner_name: string;
   owner_phone: string;
@@ -23,17 +35,59 @@ type EditState = {
   payment_due_date: string;
 } | null;
 
-const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  paid:    { label: "Оплачено",     cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  unpaid:  { label: "Не оплачено",  cls: "bg-amber-500/15 text-amber-400 border-amber-500/20"       },
-  overdue: { label: "Просрочено",   cls: "bg-red-500/15 text-red-400 border-red-500/20"             },
+type NewStaffForm = {
+  username: string;
+  password: string;
+  role: string;
+  displayName: string;
 };
+
+type ResetForm = { userId: string; newPassword: string } | null;
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+  paid:    { label: "Оплачено",    cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+  unpaid:  { label: "Не оплачено", cls: "bg-amber-500/15 text-amber-400 border-amber-500/20"       },
+  overdue: { label: "Просрочено",  cls: "bg-red-500/15 text-red-400 border-red-500/20"             },
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  owner:      "Владелец",
+  manager:    "Менеджер",
+  supervisor: "Управляющий",
+};
+
+const EMPTY_NEW_STAFF: NewStaffForm = { username: "", password: "", role: "manager", displayName: "" };
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SuperAdminRestaurantsPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading]         = useState(true);
-  const [edit, setEdit]               = useState<EditState>(null);
-  const [saving, setSaving]           = useState(false);
+
+  // which card is expanded ("manage" panel open)
+  const [expandedId, setExpandedId]   = useState<string | null>(null);
+  // which tab inside expanded panel: "links" | "staff"
+  const [activeTab, setActiveTab]     = useState<"links" | "staff">("links");
+
+  // info edit state
+  const [infoEdit, setInfoEdit]       = useState<InfoEdit>(null);
+  const [infoSaving, setInfoSaving]   = useState(false);
+
+  // staff state per restaurant
+  const [staff, setStaff]             = useState<StaffUser[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [newStaff, setNewStaff]       = useState<NewStaffForm>(EMPTY_NEW_STAFF);
+  const [newStaffErr, setNewStaffErr] = useState<string | null>(null);
+  const [newStaffSaving, setNewStaffSaving] = useState(false);
+  const [resetForm, setResetForm]     = useState<ResetForm>(null);
+  const [resetSaving, setResetSaving] = useState(false);
+  const [resetErr, setResetErr]       = useState<string | null>(null);
+  const [deletingId, setDeletingId]   = useState<string | null>(null);
+
+  // copy feedback
+  const [copied, setCopied]           = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,31 +98,135 @@ export default function SuperAdminRestaurantsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  function startEdit(r: Restaurant) {
-    setEdit({
+  // ── Info edit ──────────────────────────────────────────────────────────────
+
+  function startInfoEdit(r: Restaurant) {
+    setInfoEdit({
       id: r.id,
-      owner_name:             r.owner_name              ?? "",
-      owner_phone:            r.owner_phone             ?? "",
-      monthly_payment_status: r.monthly_payment_status  ?? "unpaid",
-      payment_due_date:       r.payment_due_date        ?? "",
+      owner_name:             r.owner_name             ?? "",
+      owner_phone:            r.owner_phone            ?? "",
+      monthly_payment_status: r.monthly_payment_status ?? "unpaid",
+      payment_due_date:       r.payment_due_date       ?? "",
     });
   }
 
-  async function saveEdit() {
-    if (!edit) return;
-    setSaving(true);
+  async function saveInfoEdit() {
+    if (!infoEdit) return;
+    setInfoSaving(true);
     const res = await fetch("/api/super-admin/restaurants", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(edit),
+      body: JSON.stringify(infoEdit),
     });
     if (res.ok) {
       const updated: Restaurant = await res.json();
       setRestaurants((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      setEdit(null);
+      setInfoEdit(null);
     }
-    setSaving(false);
+    setInfoSaving(false);
   }
+
+  // ── Expand / tabs ──────────────────────────────────────────────────────────
+
+  async function toggleExpand(r: Restaurant) {
+    if (expandedId === r.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(r.id);
+    setActiveTab("links");
+    setNewStaff(EMPTY_NEW_STAFF);
+    setNewStaffErr(null);
+    setResetForm(null);
+    // load staff
+    setStaff([]);
+    setStaffLoading(true);
+    const res = await fetch(`/api/super-admin/staff?restaurantId=${r.id}`);
+    if (res.ok) setStaff(await res.json());
+    setStaffLoading(false);
+  }
+
+  async function switchToStaff(restaurantId: string) {
+    setActiveTab("staff");
+    if (staff.length === 0 && !staffLoading) {
+      setStaffLoading(true);
+      const res = await fetch(`/api/super-admin/staff?restaurantId=${restaurantId}`);
+      if (res.ok) setStaff(await res.json());
+      setStaffLoading(false);
+    }
+  }
+
+  // ── Staff CRUD ─────────────────────────────────────────────────────────────
+
+  async function createStaff(restaurantId: string) {
+    if (!newStaff.username || !newStaff.password) {
+      setNewStaffErr("Логин и пароль обязательны");
+      return;
+    }
+    setNewStaffSaving(true);
+    setNewStaffErr(null);
+    const res = await fetch("/api/super-admin/staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ restaurantId, ...newStaff }),
+    });
+    const d = await res.json().catch(() => ({})) as { error?: string; id?: string };
+    if (!res.ok) {
+      setNewStaffErr(d.error ?? "Ошибка создания");
+    } else {
+      setNewStaff(EMPTY_NEW_STAFF);
+      // reload staff list
+      const r2 = await fetch(`/api/super-admin/staff?restaurantId=${restaurantId}`);
+      if (r2.ok) setStaff(await r2.json());
+    }
+    setNewStaffSaving(false);
+  }
+
+  async function resetPassword(restaurantId: string) {
+    if (!resetForm || !resetForm.newPassword) return;
+    if (resetForm.newPassword.length < 6) {
+      setResetErr("Минимум 6 символов");
+      return;
+    }
+    setResetSaving(true);
+    setResetErr(null);
+    const res = await fetch("/api/super-admin/staff", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: resetForm.userId, restaurantId, newPassword: resetForm.newPassword }),
+    });
+    const d = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) {
+      setResetErr(d.error ?? "Ошибка");
+    } else {
+      setResetForm(null);
+    }
+    setResetSaving(false);
+  }
+
+  async function deleteStaff(userId: string, restaurantId: string) {
+    if (!confirm("Удалить этого пользователя?")) return;
+    setDeletingId(userId);
+    await fetch("/api/super-admin/staff", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const r2 = await fetch(`/api/super-admin/staff?restaurantId=${restaurantId}`);
+    if (r2.ok) setStaff(await r2.json());
+    setDeletingId(null);
+  }
+
+  // ── Copy ──────────────────────────────────────────────────────────────────
+
+  function copyText(text: string, key: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div>
@@ -79,129 +237,142 @@ export default function SuperAdminRestaurantsPage() {
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-24 rounded-2xl bg-zinc-900 animate-pulse" />
-          ))}
+          {[1, 2].map((i) => <div key={i} className="h-24 rounded-2xl bg-zinc-900 animate-pulse" />)}
         </div>
       ) : (
         <div className="space-y-3">
           {restaurants.map((r) => {
-            const status  = STATUS_LABELS[r.monthly_payment_status ?? "unpaid"] ?? STATUS_LABELS.unpaid;
-            const isEditing = edit?.id === r.id;
+            const status    = STATUS_LABELS[r.monthly_payment_status ?? "unpaid"] ?? STATUS_LABELS.unpaid;
+            const isExpanded = expandedId === r.id;
+            const isInfoEditing = infoEdit?.id === r.id;
 
             return (
-              <div key={r.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-                {isEditing ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs text-zinc-500 font-mono">#{r.numeric_id}</span>
-                      <span className="font-semibold text-zinc-100">{r.name}</span>
-                      <span className="text-xs text-zinc-600">/{r.slug}</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-500 mb-1">Имя владельца</label>
-                        <input
-                          value={edit.owner_name}
-                          onChange={(e) => setEdit({ ...edit, owner_name: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm focus:outline-none focus:border-violet-500 transition-colors"
-                          placeholder="ФИО"
-                        />
+              <div key={r.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+                {/* ── Card header ── */}
+                <div className="p-5">
+                  {isInfoEditing ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs text-zinc-500 font-mono">#{r.numeric_id}</span>
+                        <span className="font-semibold text-zinc-100">{r.name}</span>
+                        <span className="text-xs text-zinc-600">/{r.slug}</span>
                       </div>
-                      <div>
-                        <label className="block text-xs text-zinc-500 mb-1">Телефон владельца</label>
-                        <input
-                          value={edit.owner_phone}
-                          onChange={(e) => setEdit({ ...edit, owner_phone: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm focus:outline-none focus:border-violet-500 transition-colors"
-                          placeholder="+7 700 000 00 00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-500 mb-1">Статус оплаты</label>
-                        <select
-                          value={edit.monthly_payment_status}
-                          onChange={(e) => setEdit({ ...edit, monthly_payment_status: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm focus:outline-none focus:border-violet-500 transition-colors"
-                        >
-                          <option value="paid">Оплачено</option>
-                          <option value="unpaid">Не оплачено</option>
-                          <option value="overdue">Просрочено</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
-                        <input
-                          type="date"
-                          value={edit.payment_due_date}
-                          onChange={(e) => setEdit({ ...edit, payment_due_date: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm focus:outline-none focus:border-violet-500 transition-colors"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        onClick={saveEdit}
-                        disabled={saving}
-                        className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-                      >
-                        {saving ? "Сохранение..." : "Сохранить"}
-                      </button>
-                      <button
-                        onClick={() => setEdit(null)}
-                        className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium transition-colors"
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4 min-w-0">
-                      {r.logo ? (
-                        <img src={r.logo} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 bg-zinc-800" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                          <span className="text-lg font-bold text-zinc-500">{r.name[0]}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-zinc-500 mb-1">Имя владельца</label>
+                          <input value={infoEdit.owner_name} onChange={(e) => setInfoEdit({ ...infoEdit, owner_name: e.target.value })}
+                            className={INPUT_CLS} placeholder="ФИО" />
                         </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-zinc-100">{r.name}</span>
-                          <span className="text-xs text-zinc-600 font-mono">/{r.slug}</span>
-                          <span className="text-xs text-zinc-600">#{r.numeric_id}</span>
+                        <div>
+                          <label className="block text-xs text-zinc-500 mb-1">Телефон владельца</label>
+                          <input value={infoEdit.owner_phone} onChange={(e) => setInfoEdit({ ...infoEdit, owner_phone: e.target.value })}
+                            className={INPUT_CLS} placeholder="+7 700 000 00 00" />
                         </div>
-                        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.cls}`}>
-                            {status.label}
-                          </span>
-                          {r.payment_due_date && (
-                            <span className="text-xs text-zinc-500">
-                              до {new Date(r.payment_due_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+                        <div>
+                          <label className="block text-xs text-zinc-500 mb-1">Статус оплаты</label>
+                          <select value={infoEdit.monthly_payment_status} onChange={(e) => setInfoEdit({ ...infoEdit, monthly_payment_status: e.target.value })}
+                            className={INPUT_CLS}>
+                            <option value="paid">Оплачено</option>
+                            <option value="unpaid">Не оплачено</option>
+                            <option value="overdue">Просрочено</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
+                          <input type="date" value={infoEdit.payment_due_date} onChange={(e) => setInfoEdit({ ...infoEdit, payment_due_date: e.target.value })}
+                            className={INPUT_CLS} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={saveInfoEdit} disabled={infoSaving} className={BTN_PRIMARY}>
+                          {infoSaving ? "Сохранение..." : "Сохранить"}
+                        </button>
+                        <button onClick={() => setInfoEdit(null)} className={BTN_SECONDARY}>Отмена</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 min-w-0">
+                        {r.logo ? (
+                          <img src={r.logo} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 bg-zinc-800" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg font-bold text-zinc-500">{r.name[0]}</span>
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-zinc-100">{r.name}</span>
+                            <span className="text-xs text-zinc-600 font-mono">/{r.slug}</span>
+                            <span className="text-xs text-zinc-600">#{r.numeric_id}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.cls}`}>
+                              {status.label}
                             </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-                          {r.owner_name && (
-                            <span className="text-xs text-zinc-400">{r.owner_name}</span>
-                          )}
-                          {r.owner_phone && (
-                            <a href={`tel:${r.owner_phone}`} className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
-                              {r.owner_phone}
-                            </a>
-                          )}
-                          {!r.owner_name && !r.owner_phone && (
-                            <span className="text-xs text-zinc-600">Контакты не заполнены</span>
-                          )}
+                            {r.payment_due_date && (
+                              <span className="text-xs text-zinc-500">
+                                до {new Date(r.payment_due_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 mt-1.5 flex-wrap">
+                            {r.owner_name  && <span className="text-xs text-zinc-400">{r.owner_name}</span>}
+                            {r.owner_phone && <a href={`tel:${r.owner_phone}`} className="text-xs text-violet-400 hover:text-violet-300">{r.owner_phone}</a>}
+                            {!r.owner_name && !r.owner_phone && <span className="text-xs text-zinc-600">Контакты не заполнены</span>}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button onClick={() => startInfoEdit(r)} className={BTN_GHOST}>Изменить</button>
+                        <button onClick={() => toggleExpand(r)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${isExpanded ? "bg-violet-600 text-white" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}>
+                          {isExpanded ? "Закрыть" : "Управление"}
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => startEdit(r)}
-                      className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors"
-                    >
-                      Изменить
-                    </button>
+                  )}
+                </div>
+
+                {/* ── Expanded panel ── */}
+                {isExpanded && (
+                  <div className="border-t border-zinc-800">
+                    {/* Tabs */}
+                    <div className="flex border-b border-zinc-800 px-5 pt-3 gap-1">
+                      {(["links", "staff"] as const).map((tab) => (
+                        <button key={tab} onClick={() => { setActiveTab(tab); if (tab === "staff") switchToStaff(r.id); }}
+                          className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors ${
+                            activeTab === tab
+                              ? "bg-zinc-800 text-zinc-100"
+                              : "text-zinc-500 hover:text-zinc-300"
+                          }`}>
+                          {tab === "links" ? "Ссылки & QR" : "Доступ"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="p-5">
+                      {activeTab === "links" && <LinksTab restaurant={r} copied={copied} onCopy={copyText} />}
+                      {activeTab === "staff" && (
+                        <StaffTab
+                          restaurant={r}
+                          staff={staff}
+                          loading={staffLoading}
+                          newStaff={newStaff}
+                          setNewStaff={setNewStaff}
+                          newStaffErr={newStaffErr}
+                          newStaffSaving={newStaffSaving}
+                          onCreateStaff={() => createStaff(r.id)}
+                          resetForm={resetForm}
+                          setResetForm={setResetForm}
+                          resetSaving={resetSaving}
+                          resetErr={resetErr}
+                          onResetPassword={() => resetPassword(r.id)}
+                          deletingId={deletingId}
+                          onDeleteStaff={(uid) => deleteStaff(uid, r.id)}
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -210,9 +381,230 @@ export default function SuperAdminRestaurantsPage() {
         </div>
       )}
 
-      <p className="text-xs text-zinc-600 mt-6 text-center">
-        {restaurants.length} заведений на платформе
-      </p>
+      <p className="text-xs text-zinc-600 mt-6 text-center">{restaurants.length} заведений на платформе</p>
+    </div>
+  );
+}
+
+// ── Style constants ────────────────────────────────────────────────────────────
+
+const INPUT_CLS  = "w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm focus:outline-none focus:border-violet-500 transition-colors";
+const BTN_PRIMARY   = "px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors";
+const BTN_SECONDARY = "px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium transition-colors";
+const BTN_GHOST     = "px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors";
+
+// ── LinksTab ───────────────────────────────────────────────────────────────────
+
+function LinksTab({
+  restaurant,
+  copied,
+  onCopy,
+}: {
+  restaurant: Restaurant;
+  copied: string | null;
+  onCopy: (text: string, key: string) => void;
+}) {
+  const origin   = typeof window !== "undefined" ? window.location.origin : "";
+  const menuUrl  = `${origin}/${restaurant.slug}`;
+  const qrCanvasId = `qr-canvas-${restaurant.id}`;
+
+  function downloadQR() {
+    const canvas = document.getElementById(qrCanvasId) as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `qr-${restaurant.slug}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Menu link */}
+      <div>
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Ссылка на гостевое меню</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-violet-300 text-xs truncate">
+            {menuUrl}
+          </code>
+          <button onClick={() => onCopy(menuUrl, `url-${restaurant.id}`)}
+            className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-medium transition-colors ${
+              copied === `url-${restaurant.id}`
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+            }`}>
+            {copied === `url-${restaurant.id}` ? "Скопировано!" : "Копировать"}
+          </button>
+        </div>
+      </div>
+
+      {/* QR code */}
+      <div>
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">QR-код для печати</p>
+        <div className="flex items-start gap-5 flex-wrap">
+          <div className="bg-white p-3 rounded-2xl flex-shrink-0">
+            <QRCodeCanvas
+              id={qrCanvasId}
+              value={menuUrl}
+              size={160}
+              level="H"
+              marginSize={1}
+            />
+          </div>
+          <div className="flex flex-col gap-2 justify-center">
+            <p className="text-xs text-zinc-500 max-w-xs">
+              QR ведёт на гостевое меню без привязки к столу.<br />
+              Гость сможет выбрать стол при оформлении заказа.
+            </p>
+            <button onClick={downloadQR}
+              className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors w-fit">
+              Скачать PNG
+            </button>
+            <button onClick={() => onCopy(menuUrl, `qr-url-${restaurant.id}`)}
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors w-fit ${
+                copied === `qr-url-${restaurant.id}`
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+              }`}>
+              {copied === `qr-url-${restaurant.id}` ? "Скопировано!" : "Копировать ссылку для QR"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── StaffTab ───────────────────────────────────────────────────────────────────
+
+function StaffTab({
+  restaurant,
+  staff,
+  loading,
+  newStaff,
+  setNewStaff,
+  newStaffErr,
+  newStaffSaving,
+  onCreateStaff,
+  resetForm,
+  setResetForm,
+  resetSaving,
+  resetErr,
+  onResetPassword,
+  deletingId,
+  onDeleteStaff,
+}: {
+  restaurant: Restaurant;
+  staff: StaffUser[];
+  loading: boolean;
+  newStaff: NewStaffForm;
+  setNewStaff: (f: NewStaffForm) => void;
+  newStaffErr: string | null;
+  newStaffSaving: boolean;
+  onCreateStaff: () => void;
+  resetForm: ResetForm;
+  setResetForm: (f: ResetForm) => void;
+  resetSaving: boolean;
+  resetErr: string | null;
+  onResetPassword: () => void;
+  deletingId: string | null;
+  onDeleteStaff: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      {/* Existing staff */}
+      <div>
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Администраторы</p>
+        {loading ? (
+          <div className="h-16 rounded-xl bg-zinc-800 animate-pulse" />
+        ) : staff.length === 0 ? (
+          <p className="text-xs text-zinc-600 py-3">Нет администраторов — добавьте ниже</p>
+        ) : (
+          <div className="space-y-2">
+            {staff.map((u) => (
+              <div key={u.id} className="rounded-xl bg-zinc-800/60 border border-zinc-700/50 p-3">
+                {resetForm?.userId === u.id ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-zinc-200">{u.username}</span>
+                      <span className="text-xs text-zinc-500">{ROLE_LABELS[u.role] ?? u.role}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        placeholder="Новый пароль (мин. 6 символов)"
+                        value={resetForm.newPassword}
+                        onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })}
+                        className="flex-1 px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-100 text-sm focus:outline-none focus:border-violet-500 transition-colors"
+                      />
+                      <button onClick={onResetPassword} disabled={resetSaving} className={BTN_PRIMARY}>
+                        {resetSaving ? "..." : "Сохранить"}
+                      </button>
+                      <button onClick={() => setResetForm(null)} className={BTN_SECONDARY}>✕</button>
+                    </div>
+                    {resetErr && <p className="text-xs text-red-400">{resetErr}</p>}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-sm font-medium text-zinc-200">{u.username}</span>
+                      {u.display_name && <span className="text-xs text-zinc-500 ml-2">{u.display_name}</span>}
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20">
+                        {ROLE_LABELS[u.role] ?? u.role}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={() => setResetForm({ userId: u.id, newPassword: "" })}
+                        className="px-3 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs transition-colors">
+                        Сбросить пароль
+                      </button>
+                      <button onClick={() => onDeleteStaff(u.id)} disabled={deletingId === u.id}
+                        className="px-3 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs border border-red-500/20 transition-colors disabled:opacity-50">
+                        {deletingId === u.id ? "..." : "Удалить"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Create new staff */}
+      <div className="border-t border-zinc-800 pt-4">
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Добавить администратора</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Логин</label>
+            <input value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })}
+              className={INPUT_CLS} placeholder="manager_astori" autoComplete="off" />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Временный пароль</label>
+            <input type="text" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+              className={INPUT_CLS} placeholder="минимум 6 символов" autoComplete="off" />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Роль</label>
+            <select value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
+              className={INPUT_CLS}>
+              <option value="owner">Владелец</option>
+              <option value="manager">Менеджер</option>
+              <option value="supervisor">Управляющий</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Имя (необязательно)</label>
+            <input value={newStaff.displayName} onChange={(e) => setNewStaff({ ...newStaff, displayName: e.target.value })}
+              className={INPUT_CLS} placeholder="Имя Фамилия" />
+          </div>
+        </div>
+        {newStaffErr && <p className="text-xs text-red-400 mt-2">{newStaffErr}</p>}
+        <button onClick={onCreateStaff} disabled={newStaffSaving || !newStaff.username || !newStaff.password}
+          className={`mt-3 ${BTN_PRIMARY}`}>
+          {newStaffSaving ? "Создание..." : "Создать пользователя"}
+        </button>
+      </div>
     </div>
   );
 }
