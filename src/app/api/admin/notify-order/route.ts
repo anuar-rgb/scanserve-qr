@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!orderId) return NextResponse.json({ error: "orderId required" }, { status: 400 });
 
   const supabase = db();
-  const rid = process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+  const rid = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")

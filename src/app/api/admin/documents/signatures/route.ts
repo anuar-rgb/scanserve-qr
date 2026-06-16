@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // GET — return all staff + their signature status per document
 export async function GET(req: NextRequest) {
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       supabase
         .from("staff_users")
         .select("id, display_name, username, role")
-        .eq("restaurant_id", RID())
+        .eq("restaurant_id", RID(req))
         .eq("is_active", true)
         .not("role", "in", "(owner)")
         .order("display_name", { ascending: true }),
@@ -33,13 +33,13 @@ export async function GET(req: NextRequest) {
       supabase
         .from("company_documents")
         .select("id, title, is_required")
-        .eq("restaurant_id", RID())
+        .eq("restaurant_id", RID(req))
         .order("created_at", { ascending: true }),
 
       supabase
         .from("employee_signatures")
         .select("document_id, staff_user_id, sign_token, status, signed_at")
-        .eq("restaurant_id", RID()),
+        .eq("restaurant_id", RID(req)),
     ]);
 
   return NextResponse.json({

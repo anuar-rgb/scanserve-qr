@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // GET /api/admin/documents/signature-image?docId=...&staffId=...
 export async function GET(req: NextRequest) {
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabase
     .from("employee_signatures")
     .select("signature_image, signed_at, ip_address, phone_number, device_model, device_id")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(req))
     .eq("document_id",   docId)
     .eq("staff_user_id", staffId)
     .eq("status", "signed")

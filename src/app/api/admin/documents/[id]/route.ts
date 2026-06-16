@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // PATCH — update a document
 export async function PATCH(
@@ -42,7 +42,7 @@ export async function PATCH(
     .from("company_documents")
     .update(patch)
     .eq("id", id)
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(req))
     .select("id, title, content, is_required, created_at")
     .single();
 
@@ -55,7 +55,7 @@ export async function PATCH(
       .from("employee_signatures")
       .update({ status: "pending", signature_image: null, signed_at: null, ip_address: null })
       .eq("document_id", id)
-      .eq("restaurant_id", RID());
+      .eq("restaurant_id", RID(req));
   }
 
   return NextResponse.json({ document: data, signaturesReset });
@@ -77,7 +77,7 @@ export async function DELETE(
     .from("company_documents")
     .delete()
     .eq("id", id)
-    .eq("restaurant_id", RID());
+    .eq("restaurant_id", RID(req));
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

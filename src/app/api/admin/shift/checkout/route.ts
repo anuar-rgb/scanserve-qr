@@ -10,7 +10,7 @@ function db() {
   );
 }
 
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // POST — staff checks out (requires QR token scan)
 export async function POST(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const { data: shift } = await supabase
     .from("shifts")
     .select("id")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .eq("status", "open")
     .order("opened_at", { ascending: false })
     .limit(1)

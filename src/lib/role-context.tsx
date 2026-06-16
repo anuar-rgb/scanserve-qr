@@ -8,27 +8,29 @@ export type AdminRole =
   | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant"
   | null;
 
-type RoleCtx = { role: AdminRole; id: string | null; displayName: string | null };
+type RoleCtx = { role: AdminRole; id: string | null; displayName: string | null; restaurantId: string | null };
 
-const RoleContext = createContext<RoleCtx>({ role: null, id: null, displayName: null });
+const RoleContext = createContext<RoleCtx>({ role: null, id: null, displayName: null, restaurantId: null });
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [role, setRole]               = useState<AdminRole>(null);
   const [id, setId]                   = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d?.role)         setRole(d.role as AdminRole);
-        if (d?.id)           setId(d.id as string);
-        if (d?.display_name) setDisplayName(d.display_name as string);
+        if (d?.role)          setRole(d.role as AdminRole);
+        if (d?.id)            setId(d.id as string);
+        if (d?.display_name)  setDisplayName(d.display_name as string);
+        if (d?.restaurant_id) setRestaurantId(d.restaurant_id as string);
       })
       .catch(() => {});
   }, []);
 
-  return <RoleContext.Provider value={{ role, id, displayName }}>{children}</RoleContext.Provider>;
+  return <RoleContext.Provider value={{ role, id, displayName, restaurantId }}>{children}</RoleContext.Provider>;
 }
 
 export function useRole(): AdminRole {
@@ -41,6 +43,10 @@ export function useUserId(): string | null {
 
 export function useDisplayName(): string | null {
   return useContext(RoleContext).displayName;
+}
+
+export function useRestaurantId(): string | null {
+  return useContext(RoleContext).restaurantId;
 }
 
 const OWNER_ROLES = new Set(["owner", "manager", "supervisor"]);

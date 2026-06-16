@@ -30,7 +30,7 @@ export async function POST(
   const supabase = serverSupabase();
   const { data, error } = await supabase.rpc("update_staff_password", {
     p_id:            id,
-    p_restaurant_id: process.env.NEXT_PUBLIC_RESTAURANT_ID!,
+    p_restaurant_id: request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!,
     p_new_password:  password,
   });
 
@@ -42,7 +42,7 @@ export async function POST(
     .from("staff_users")
     .update({ must_change_password: true })
     .eq("id", id)
-    .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!);
+    .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!);
 
   return NextResponse.json({ ok: true });
 }

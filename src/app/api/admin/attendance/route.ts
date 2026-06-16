@@ -10,7 +10,7 @@ function db() {
   );
 }
 
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 const OWNER_ROLES = new Set(["owner", "manager"]);
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         role
       )
     `)
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .order("check_in", { ascending: false })
     .limit(200);
 

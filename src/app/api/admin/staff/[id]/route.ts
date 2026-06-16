@@ -60,7 +60,7 @@ export async function PATCH(
       .from("staff_users")
       .select("role")
       .eq("id", id)
-      .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!)
+      .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!)
       .single();
     if (target?.role === "owner") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -71,7 +71,7 @@ export async function PATCH(
     .from("staff_users")
     .update({ ...update, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!);
+    .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
@@ -96,7 +96,7 @@ export async function DELETE(
       .from("staff_users")
       .select("role")
       .eq("id", id)
-      .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!)
+      .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!)
       .single();
     if (target?.role === "owner") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -107,7 +107,7 @@ export async function DELETE(
     .from("staff_users")
     .delete()
     .eq("id", id)
-    .eq("restaurant_id", process.env.NEXT_PUBLIC_RESTAURANT_ID!);
+    .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

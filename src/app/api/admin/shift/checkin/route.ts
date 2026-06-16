@@ -10,7 +10,7 @@ function db() {
   );
 }
 
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // POST — staff checks into the current active shift (requires QR token)
 export async function POST(request: NextRequest) {
@@ -34,14 +34,14 @@ export async function POST(request: NextRequest) {
   const { data: requiredDocs } = await supabase
     .from("company_documents")
     .select("id")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .eq("is_required", true);
 
   if (requiredDocs && requiredDocs.length > 0) {
     const { data: signedDocs } = await supabase
       .from("employee_signatures")
       .select("document_id")
-      .eq("restaurant_id", RID())
+      .eq("restaurant_id", RID(request))
       .eq("staff_user_id", staffUserId)
       .eq("status", "signed");
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   const { data: shift } = await supabase
     .from("shifts")
     .select("id")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .eq("status", "open")
     .order("opened_at", { ascending: false })
     .limit(1)
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("shift_checkins")
     .upsert(
-      { shift_id: shift.id, staff_user_id: staffUserId, restaurant_id: RID(), checked_out_at: null },
+      { shift_id: shift.id, staff_user_id: staffUserId, restaurant_id: RID(request), checked_out_at: null },
       { onConflict: "shift_id,staff_user_id", ignoreDuplicates: false },
     )
     .select("staff_user_id, checked_in_at")

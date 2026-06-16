@@ -25,7 +25,7 @@
 
 - Git remote: `origin master`
 - Hosted on Railway — auto-deploys on every `git push origin master`
-- Production URL: `https://scanserve-qr-production.up.railway.app`
+- Production URL: `https://scanserve-qr-production-2cff.up.railway.app`
 
 ## Architecture
 

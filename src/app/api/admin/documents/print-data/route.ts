@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // GET /api/admin/documents/print-data?docId=...&staffId=...
 export async function GET(req: NextRequest) {
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     supabase
       .from("employee_signatures")
       .select("signature_image, signed_at, ip_address, phone_number, device_model, device_id")
-      .eq("restaurant_id", RID())
+      .eq("restaurant_id", RID(req))
       .eq("document_id",   docId)
       .eq("staff_user_id", staffId)
       .eq("status",        "signed")
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       .from("company_documents")
       .select("title, content")
       .eq("id",            docId)
-      .eq("restaurant_id", RID())
+      .eq("restaurant_id", RID(req))
       .maybeSingle(),
     supabase
       .from("staff_users")
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     supabase
       .from("restaurants")
       .select("name")
-      .eq("id", RID())
+      .eq("id", RID(req))
       .maybeSingle(),
   ]);
 

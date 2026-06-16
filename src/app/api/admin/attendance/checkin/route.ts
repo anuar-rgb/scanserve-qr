@@ -10,7 +10,7 @@ function db() {
   );
 }
 
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // POST — employee starts their work shift (requires QR token scan)
 export async function POST(request: NextRequest) {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     .from("employee_attendance")
     .insert({
       employee_id: staffUserId,
-      restaurant_id: RID(),
+      restaurant_id: RID(request),
       check_in: new Date().toISOString(),
       status: "active",
     })

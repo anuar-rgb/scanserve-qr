@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   ingredient_id   uuid          NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
   amount          NUMERIC       NOT NULL,           -- negative = deduction, positive = supply
   type            TEXT          NOT NULL,           -- 'sale' | 'waste' | 'supply'
-  order_id        uuid          REFERENCES orders(id) ON DELETE SET NULL,
+  order_id        text          REFERENCES orders(id) ON DELETE SET NULL,
   notes           TEXT,
   created_at      timestamptz   DEFAULT now()
 );
@@ -36,7 +36,7 @@ CREATE POLICY "allow_all" ON stock_movements FOR ALL USING (true) WITH CHECK (tr
 --
 -- Idempotent: safe to call twice for the same order.
 --
-CREATE OR REPLACE FUNCTION deduct_order_stock(p_order_id uuid)
+CREATE OR REPLACE FUNCTION deduct_order_stock(p_order_id text)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -144,4 +144,4 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION deduct_order_stock(uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION deduct_order_stock(text) TO anon, authenticated;

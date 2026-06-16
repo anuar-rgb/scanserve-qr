@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = db();
-  const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+  const restaurantId = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
   // Verify current password
   const { data: verified } = await supabase.rpc("verify_staff_password", {

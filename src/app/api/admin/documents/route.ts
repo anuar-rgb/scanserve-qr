@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // GET — list all documents for restaurant
 export async function GET(req: NextRequest) {
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabase
     .from("company_documents")
     .select("id, title, content, is_required, created_at")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(req))
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from("company_documents")
     .insert({
-      restaurant_id: RID(),
+      restaurant_id: RID(req),
       title: body.title.trim(),
       content: body.content.trim(),
       is_required: body.is_required ?? true,

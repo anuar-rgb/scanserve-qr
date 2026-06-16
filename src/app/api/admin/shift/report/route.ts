@@ -10,7 +10,7 @@ function db() {
   );
 }
 
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 function getRole(req: NextRequest) {
   return req.cookies.get("admin_session")?.value ?? null;
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = db();
-  const restaurantId = RID();
+  const restaurantId = RID(request);
 
   // Get restaurant report_whatsapp
   const { data: restaurant } = await supabase

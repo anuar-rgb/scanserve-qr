@@ -10,7 +10,7 @@ function db() {
   );
 }
 
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 function getRole(req: NextRequest) {
   return req.cookies.get("admin_session")?.value ?? null;
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const { data: shift } = await supabase
     .from("shifts")
     .select("id, opened_at")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .eq("status", "open")
     .order("opened_at", { ascending: false })
     .limit(1)
@@ -61,14 +61,14 @@ export async function POST(request: NextRequest) {
   const { data: existing } = await supabase
     .from("shifts")
     .select("id, opened_at")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .eq("status", "open")
     .maybeSingle();
 
   if (existing) return NextResponse.json({ shift: existing });
 
   // Try to record who opened the shift; fall back silently if column missing
-  const insertPayload: Record<string, unknown> = { restaurant_id: RID(), status: "open" };
+  const insertPayload: Record<string, unknown> = { restaurant_id: RID(request), status: "open" };
   if (openedBy) insertPayload.opened_by = openedBy;
 
   const { data, error } = await supabase
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (error.message.includes("opened_by") || error.code === "42703") {
       const { data: data2, error: error2 } = await supabase
         .from("shifts")
-        .insert({ restaurant_id: RID(), status: "open" })
+        .insert({ restaurant_id: RID(request), status: "open" })
         .select("id, opened_at")
         .single();
       if (error2) return NextResponse.json({ error: error2.message }, { status: 500 });
@@ -107,7 +107,7 @@ export async function DELETE(request: NextRequest) {
   const { data: activeOrders } = await supabase
     .from("orders")
     .select("table_number")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .in("status", ["pending", "confirmed", "preparing", "ready"])
     .not("table_number", "is", null);
 
@@ -119,7 +119,7 @@ export async function DELETE(request: NextRequest) {
   const { error } = await supabase
     .from("shifts")
     .update({ status: "closed", closed_at: new Date().toISOString() })
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(request))
     .eq("status", "open");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -4,8 +4,8 @@
 CREATE TABLE IF NOT EXISTS order_transfers (
   id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   restaurant_id       UUID          NOT NULL,
-  source_order_id     UUID          NOT NULL,
-  target_order_id     UUID          NOT NULL,
+  source_order_id     TEXT          NOT NULL,
+  target_order_id     TEXT          NOT NULL,
   item_name           TEXT          NOT NULL,
   item_price          NUMERIC       NOT NULL,
   item_qty            INTEGER       NOT NULL DEFAULT 1,

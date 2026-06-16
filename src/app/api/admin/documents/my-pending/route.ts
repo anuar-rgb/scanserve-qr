@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // GET — returns required documents not yet signed by the current staff member.
 // Auto-creates employee_signatures records (with sign_token) for any missing ones,
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const { data: allDocs } = await supabase
     .from("company_documents")
     .select("id, title")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(req))
     .eq("is_required", true);
 
   if (!allDocs || allDocs.length === 0) return NextResponse.json({ docs: [] });
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const { data: existingSigs } = await supabase
     .from("employee_signatures")
     .select("document_id, status, sign_token")
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(req))
     .eq("staff_user_id", staffUserId);
 
   const sigMap = new Map(existingSigs?.map((s) => [s.document_id, s]) ?? []);
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   const toCreate = allDocs
     .filter((d) => !sigMap.has(d.id))
     .map((d) => ({
-      restaurant_id: RID(),
+      restaurant_id: RID(req),
       document_id: d.id,
       staff_user_id: staffUserId,
     }));

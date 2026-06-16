@@ -1,6 +1,15 @@
 // Central constants — import from here, never hardcode inline.
 
-export const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
+function resolveRestaurantId(): string {
+  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)admin_restaurant_id=([^;]*)/);
+    if (m?.[1]) return decodeURIComponent(m[1]);
+  } catch {}
+  return process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
+}
+
+export const RESTAURANT_ID = resolveRestaurantId();
 
 export const STORAGE_BUCKETS = {
   branding: "branding",

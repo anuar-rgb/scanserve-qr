@@ -9,7 +9,7 @@ function db() {
     { auth: { persistSession: false } },
   );
 }
-const RID = () => process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 // POST — generate (or retrieve existing) sign link for a staff member
 // Body: { staffUserId: string }
@@ -35,7 +35,7 @@ export async function POST(
     .from("company_documents")
     .select("id")
     .eq("id", documentId)
-    .eq("restaurant_id", RID())
+    .eq("restaurant_id", RID(req))
     .maybeSingle();
 
   if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
@@ -45,7 +45,7 @@ export async function POST(
     .from("employee_signatures")
     .upsert(
       {
-        restaurant_id: RID(),
+        restaurant_id: RID(req),
         document_id: documentId,
         staff_user_id: body.staffUserId,
       },

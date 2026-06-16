@@ -10,8 +10,8 @@ function serverSupabase() {
   );
 }
 
-function getRestaurantId() {
-  return process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+function getRestaurantId(request: NextRequest) {
+  return request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 }
 
 function getSessionRole(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("staff_users")
     .select("id, username, role, display_name, is_active, phone, created_at")
-    .eq("restaurant_id", getRestaurantId())
+    .eq("restaurant_id", getRestaurantId(request))
     .order("created_at", { ascending: true });
 
   // Managers cannot see owner accounts
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = serverSupabase();
   const { data, error } = await supabase.rpc("create_staff_user", {
-    p_restaurant_id: getRestaurantId(),
+    p_restaurant_id: getRestaurantId(request),
     p_username:      username.trim(),
     p_password:      password,
     p_role:          role,
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       ...(phone?.trim() ? { phone: phone.trim() } : {}),
     })
     .eq("id", data as string)
-    .eq("restaurant_id", getRestaurantId());
+    .eq("restaurant_id", getRestaurantId(request));
 
   return NextResponse.json({ id: data }, { status: 201 });
 }
