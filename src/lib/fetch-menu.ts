@@ -149,3 +149,23 @@ export async function fetchRestaurantTables(restaurantId: string): Promise<DbRes
   if (error || !data) return null;
   return data as DbRestaurantTable[];
 }
+
+export type DbAd = {
+  id: string;
+  image_url: string;
+  target_url: string | null;
+  title: string | null;
+  placement: string;
+  display_order: number;
+};
+
+export async function fetchActiveAds(placement = "menu_middle"): Promise<DbAd[]> {
+  if (!isConfigured) return [];
+  const { data } = await supabase
+    .from("advertisements")
+    .select("id, image_url, target_url, title, placement, display_order")
+    .eq("is_active", true)
+    .eq("placement", placement)
+    .order("display_order");
+  return (data ?? []) as DbAd[];
+}

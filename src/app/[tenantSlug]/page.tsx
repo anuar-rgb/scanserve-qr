@@ -15,6 +15,7 @@ import {
   fetchInfoShowcase,
   fetchPaymentBanks,
   fetchRestaurantTables,
+  fetchActiveAds,
 } from "@/lib/fetch-menu";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function TenantMenuPage({
 
   const restaurantId = dbRestaurant.id;
 
-  const [categories, dbBanners, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables] =
+  const [categories, dbBanners, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables, dbAds] =
     await Promise.all([
       fetchMenuCategories(restaurantId).then((r) => r ?? []),
       fetchBanners(restaurantId).then((r) => r ?? []),
@@ -50,6 +51,7 @@ export default async function TenantMenuPage({
       fetchInfoShowcase(restaurantId).then((r) => r ?? []),
       fetchPaymentBanks(restaurantId).then((r) => r ?? []),
       fetchRestaurantTables(restaurantId).then((r) => r ?? []),
+      fetchActiveAds(),
     ]);
 
   const banners: Banner[] = dbBanners.map((b) => ({
@@ -104,6 +106,7 @@ export default async function TenantMenuPage({
         initialTableNumber={initialTableNumber}
         restaurantTables={dbTables.map((t) => ({ id: t.id, label: t.label }))}
         restaurantId={restaurantId}
+        ads={dbAds}
       />
     </>
   );

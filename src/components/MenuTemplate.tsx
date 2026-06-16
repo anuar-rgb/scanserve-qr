@@ -122,6 +122,13 @@ export interface ShowcaseItem {
   description?: string | null;
 }
 
+export interface AdItem {
+  id: string;
+  image_url: string;
+  target_url: string | null;
+  title: string | null;
+}
+
 export interface MenuTemplateProps {
   restaurant: RestaurantInfo;
   categories: MenuCategory[];
@@ -136,6 +143,7 @@ export interface MenuTemplateProps {
   initialTableNumber?: string;
   restaurantTables?: { id: string; label: string }[];
   restaurantId?: string;
+  ads?: AdItem[];
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -1385,6 +1393,38 @@ function InfoShowcaseSection({
   );
 }
 
+// ── Platform Ad Banner ────────────────────────────────────────────────────────
+
+function AdBannerBlock({ ads }: { ads: AdItem[] }) {
+  const ad = ads[0];
+  if (!ad) return null;
+
+  const inner = (
+    <div style={{ borderRadius: 20, overflow: "hidden", border: "1px solid var(--border-color)", background: "var(--bg-card)" }}>
+      <img
+        src={ad.image_url}
+        alt={ad.title ?? ""}
+        style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 180 }}
+      />
+      {ad.title && (
+        <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+          {ad.title}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ marginTop: 16, marginBottom: 4 }}>
+      {ad.target_url ? (
+        <a href={ad.target_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textDecoration: "none" }}>
+          {inner}
+        </a>
+      ) : inner}
+    </div>
+  );
+}
+
 // ── Category Grid ─────────────────────────────────────────────────────────────
 
 // Used for horizontal promo/hit dish carousel cards
@@ -2294,6 +2334,7 @@ export function MenuTemplate({
   initialTableNumber,
   restaurantTables,
   restaurantId = "",
+  ads = [],
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -2942,7 +2983,12 @@ export function MenuTemplate({
               onGoToDish={goToDish}
             />
 
-            {/* 5. Info cards — reserve / contact */}
+            {/* 5. Platform ad banner */}
+            {ads.length > 0 && (
+              <AdBannerBlock ads={ads} />
+            )}
+
+            {/* 6. Info cards — reserve / contact */}
             <InfoCards
               lang={lang}
               theme={theme}
