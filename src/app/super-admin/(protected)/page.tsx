@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Pencil, Check, X } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -206,6 +206,18 @@ export default function SuperAdminRestaurantsPage() {
     setResetSaving(false);
   }
 
+  async function savePlainPwd(userId: string, plainPwd: string): Promise<boolean> {
+    const res = await fetch("/api/super-admin/staff", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, plainPassword: plainPwd }),
+    });
+    if (res.ok) {
+      setStaff((prev) => prev.map((u) => u.id === userId ? { ...u, plain_password: plainPwd || null } : u));
+    }
+    return res.ok;
+  }
+
   async function deleteStaff(userId: string, restaurantId: string) {
     if (!confirm("Удалить этого пользователя?")) return;
     setDeletingId(userId);
@@ -372,6 +384,7 @@ export default function SuperAdminRestaurantsPage() {
                           onResetPassword={() => resetPassword(r.id)}
                           deletingId={deletingId}
                           onDeleteStaff={(uid) => deleteStaff(uid, r.id)}
+                          onSavePlainPwd={savePlainPwd}
                         />
                       )}
                     </div>
@@ -494,6 +507,7 @@ function StaffTab({
   onResetPassword,
   deletingId,
   onDeleteStaff,
+  onSavePlainPwd,
 }: {
   restaurant: Restaurant;
   staff: StaffUser[];
@@ -510,9 +524,12 @@ function StaffTab({
   onResetPassword: () => void;
   deletingId: string | null;
   onDeleteStaff: (id: string) => void;
+  onSavePlainPwd: (userId: string, pwd: string) => Promise<boolean>;
 }) {
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [copiedPwd, setCopiedPwd] = useState<string | null>(null);
+  const [editingPwd, setEditingPwd] = useState<{ userId: string; value: string } | null>(null);
+  const [savingPwd, setSavingPwd] = useState(false);
 
   function togglePwd(userId: string) {
     setVisiblePasswords((prev) => {
@@ -527,6 +544,14 @@ function StaffTab({
       setCopiedPwd(userId);
       setTimeout(() => setCopiedPwd(null), 1500);
     });
+  }
+
+  async function handleSavePlainPwd() {
+    if (!editingPwd) return;
+    setSavingPwd(true);
+    const ok = await onSavePlainPwd(editingPwd.userId, editingPwd.value);
+    if (ok) setEditingPwd(null);
+    setSavingPwd(false);
   }
 
   return (
@@ -575,33 +600,58 @@ function StaffTab({
                         </span>
                       </div>
                       {/* Password row */}
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs text-zinc-500">Пароль:</span>
-                        <code className="text-xs font-mono text-zinc-200 tracking-widest">
-                          {visiblePasswords.has(u.id)
-                            ? (u.plain_password ?? <span className="text-zinc-600 tracking-normal">не сохранён</span>)
-                            : "••••••"}
-                        </code>
-                        <button
-                          onClick={() => togglePwd(u.id)}
-                          title={visiblePasswords.has(u.id) ? "Скрыть" : "Показать"}
-                          className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
-                        >
-                          {visiblePasswords.has(u.id) ? <EyeOff size={13} /> : <Eye size={13} />}
-                        </button>
-                        {visiblePasswords.has(u.id) && u.plain_password && (
-                          <button
-                            onClick={() => copyPwd(u.id, u.plain_password!)}
-                            className={`text-xs transition-colors flex-shrink-0 ${
-                              copiedPwd === u.id
-                                ? "text-emerald-400"
-                                : "text-zinc-500 hover:text-zinc-300"
-                            }`}
-                          >
-                            {copiedPwd === u.id ? "Скопировано!" : "Копировать"}
+                      {editingPwd?.userId === u.id ? (
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <input
+                            autoFocus
+                            value={editingPwd.value}
+                            onChange={(e) => setEditingPwd({ ...editingPwd, value: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleSavePlainPwd(); if (e.key === "Escape") setEditingPwd(null); }}
+                            placeholder="Введите пароль"
+                            className="w-40 px-2 py-1 rounded-lg bg-zinc-900 border border-violet-500 text-zinc-100 text-xs font-mono focus:outline-none"
+                          />
+                          <button onClick={handleSavePlainPwd} disabled={savingPwd}
+                            className="text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50"
+                            title="Сохранить">
+                            <Check size={14} />
                           </button>
-                        )}
-                      </div>
+                          <button onClick={() => setEditingPwd(null)}
+                            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                            title="Отмена">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs text-zinc-500">Пароль:</span>
+                          {u.plain_password ? (
+                            <>
+                              <code className="text-xs font-mono text-zinc-200 tracking-widest">
+                                {visiblePasswords.has(u.id) ? u.plain_password : "••••••"}
+                              </code>
+                              <button onClick={() => togglePwd(u.id)}
+                                title={visiblePasswords.has(u.id) ? "Скрыть" : "Показать"}
+                                className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0">
+                                {visiblePasswords.has(u.id) ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                              {visiblePasswords.has(u.id) && (
+                                <button onClick={() => copyPwd(u.id, u.plain_password!)}
+                                  className={`text-xs transition-colors flex-shrink-0 ${copiedPwd === u.id ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300"}`}>
+                                  {copiedPwd === u.id ? "Скопировано!" : "Копировать"}
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-zinc-600 italic">не сохранён</span>
+                          )}
+                          <button
+                            onClick={() => setEditingPwd({ userId: u.id, value: u.plain_password ?? "" })}
+                            title="Задать пароль вручную"
+                            className="text-zinc-600 hover:text-zinc-300 transition-colors flex-shrink-0">
+                            <Pencil size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {/* Right: actions */}
                     <div className="flex gap-2 flex-shrink-0 pt-0.5">

@@ -75,20 +75,38 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ id: data }, { status: 201 });
 }
 
-// PATCH /api/super-admin/staff — reset password
-// Body: { userId, restaurantId, newPassword }
+// PATCH /api/super-admin/staff
+// Case A: { userId, restaurantId, newPassword } → full password reset (hash + plain_password)
+// Case B: { userId, plainPassword }             → update only the displayed plain_password (no hash change)
 export async function PATCH(request: NextRequest) {
   if (!requireAuth(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { userId, restaurantId, newPassword } = await request.json();
-  if (!userId || !restaurantId || !newPassword) {
-    return NextResponse.json({ error: "userId, restaurantId, newPassword обязательны" }, { status: 400 });
+  const body = await request.json();
+  const { userId } = body;
+  if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+
+  const supabase = getSupabase();
+
+  // Case B: only update the plain_password display field
+  if ("plainPassword" in body) {
+    const { plainPassword } = body as { userId: string; plainPassword: string };
+    const { error } = await supabase
+      .from("staff_users")
+      .update({ plain_password: plainPassword || null })
+      .eq("id", userId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Case A: full password reset
+  const { restaurantId, newPassword } = body as { restaurantId: string; newPassword: string };
+  if (!restaurantId || !newPassword) {
+    return NextResponse.json({ error: "restaurantId и newPassword обязательны" }, { status: 400 });
   }
   if (newPassword.length < 6) {
     return NextResponse.json({ error: "Пароль минимум 6 символов" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const { error } = await supabase.rpc("update_staff_password", {
     p_id:            userId,
     p_restaurant_id: restaurantId,
