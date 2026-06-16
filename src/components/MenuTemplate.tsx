@@ -2741,14 +2741,14 @@ export function MenuTemplate({
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
                 {restaurant.logoUrl ? (
                   <div style={{
-                    flexShrink: 0, height: 36,
+                    flexShrink: 0, height: 52,
                     display: "flex", alignItems: "center",
                     mixBlendMode: theme === "dark" ? "screen" : "multiply",
                   } as React.CSSProperties}>
                     <img
                       src={restaurant.logoUrl}
                       alt=""
-                      style={{ height: "100%", width: "auto", maxWidth: 88, objectFit: "contain", display: "block" }}
+                      style={{ height: "100%", width: "auto", maxWidth: 120, objectFit: "contain", display: "block" }}
                     />
                   </div>
                 ) : (
