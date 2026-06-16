@@ -296,4 +296,9 @@ body {
     max-height: 90dvh;
     overflow-y: auto;
   }
+
+  /* Ad banner slider — hide scrollbar in all browsers */
+  .ad-slider-track::-webkit-scrollbar {
+    display: none;
+  }
 }

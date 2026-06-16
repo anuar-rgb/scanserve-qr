@@ -1393,34 +1393,131 @@ function InfoShowcaseSection({
   );
 }
 
-// ── Platform Ad Banner ────────────────────────────────────────────────────────
+// ── Platform Ad Banner Slider ─────────────────────────────────────────────────
 
 function AdBannerBlock({ ads }: { ads: AdItem[] }) {
-  const ad = ads[0];
-  if (!ad) return null;
+  const [activeIdx, setActiveIdx] = useState(0);
+  const trackRef  = useRef<HTMLDivElement>(null);
+  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pausedRef = useRef(false);
 
-  const inner = (
-    <div style={{ borderRadius: 20, overflow: "hidden", border: "1px solid var(--border-color)", background: "var(--bg-card)" }}>
-      <img
-        src={ad.image_url}
-        alt={ad.title ?? ""}
-        style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 180 }}
-      />
-      {ad.title && (
-        <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
-          {ad.title}
-        </div>
-      )}
-    </div>
-  );
+  // Slide programmatically
+  function slideTo(idx: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: idx * el.clientWidth, behavior: "smooth" });
+    setActiveIdx(idx);
+  }
+
+  useEffect(() => {
+    if (ads.length <= 1) return;
+    timerRef.current = setInterval(() => {
+      if (pausedRef.current) return;
+      const el = trackRef.current;
+      if (!el) return;
+      const next = Math.round(el.scrollLeft / el.clientWidth + 1) % ads.length;
+      slideTo(next);
+    }, 4500);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ads.length]);
+
+  if (ads.length === 0) return null;
+
+  // Sync dot indicator when user scrolls manually
+  function handleScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setActiveIdx(idx);
+  }
 
   return (
     <div style={{ marginTop: 16, marginBottom: 4 }}>
-      {ad.target_url ? (
-        <a href={ad.target_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textDecoration: "none" }}>
-          {inner}
-        </a>
-      ) : inner}
+      {/* Track */}
+      <div
+        ref={trackRef}
+        className="ad-slider-track"
+        onScroll={handleScroll}
+        onTouchStart={() => { pausedRef.current = true; }}
+        onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 3000); }}
+        onMouseEnter={() => { pausedRef.current = true; }}
+        onMouseLeave={() => { pausedRef.current = false; }}
+        style={{
+          display: "flex",
+          overflowX: "auto",
+          scrollSnapType: "x mandatory",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          borderRadius: 20,
+          border: "1px solid var(--border-color)",
+          WebkitOverflowScrolling: "touch",
+        } as React.CSSProperties}
+      >
+
+        {ads.map((ad, i) => {
+          const slide = (
+            <div
+              key={ad.id}
+              style={{
+                minWidth: "100%",
+                scrollSnapAlign: "start",
+                flexShrink: 0,
+                background: "var(--bg-card)",
+                borderRadius: 20,
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={ad.image_url}
+                alt={ad.title ?? ""}
+                style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 200 }}
+              />
+              {ad.title && (
+                <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+                  {ad.title}
+                </div>
+              )}
+            </div>
+          );
+          return ad.target_url ? (
+            <a key={ad.id} href={ad.target_url} target="_blank" rel="noopener noreferrer"
+              style={{ minWidth: "100%", scrollSnapAlign: "start", flexShrink: 0, display: "block", textDecoration: "none" }}>
+              <div style={{ background: "var(--bg-card)", overflow: "hidden" }}>
+                <img src={ad.image_url} alt={ad.title ?? ""}
+                  style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 200 }} />
+                {ad.title && (
+                  <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+                    {ad.title}
+                  </div>
+                )}
+              </div>
+            </a>
+          ) : slide;
+        })}
+      </div>
+
+      {/* Dots */}
+      {ads.length > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 10 }}>
+          {ads.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => slideTo(i)}
+              style={{
+                width: i === activeIdx ? 20 : 6,
+                height: 6,
+                borderRadius: 99,
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                background: i === activeIdx ? "var(--accent, #8B5CF6)" : "var(--border-color)",
+                transition: "width 0.3s ease, background 0.3s ease",
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
