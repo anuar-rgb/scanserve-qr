@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { Eye, EyeOff } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ type StaffUser = {
   display_name: string | null;
   is_active: boolean;
   created_at: string;
+  plain_password: string | null;
 };
 
 type InfoEdit = {
@@ -509,6 +511,24 @@ function StaffTab({
   deletingId: string | null;
   onDeleteStaff: (id: string) => void;
 }) {
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [copiedPwd, setCopiedPwd] = useState<string | null>(null);
+
+  function togglePwd(userId: string) {
+    setVisiblePasswords((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  }
+
+  function copyPwd(userId: string, pwd: string) {
+    navigator.clipboard.writeText(pwd).then(() => {
+      setCopiedPwd(userId);
+      setTimeout(() => setCopiedPwd(null), 1500);
+    });
+  }
+
   return (
     <div className="space-y-5">
       {/* Existing staff */}
@@ -530,7 +550,7 @@ function StaffTab({
                     </div>
                     <div className="flex gap-2">
                       <input
-                        type="password"
+                        type="text"
                         placeholder="Новый пароль (мин. 6 символов)"
                         value={resetForm.newPassword}
                         onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })}
@@ -544,17 +564,49 @@ function StaffTab({
                     {resetErr && <p className="text-xs text-red-400">{resetErr}</p>}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <span className="text-sm font-medium text-zinc-200">{u.username}</span>
-                      {u.display_name && <span className="text-xs text-zinc-500 ml-2">{u.display_name}</span>}
-                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20">
-                        {ROLE_LABELS[u.role] ?? u.role}
-                      </span>
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Left: identity + password row */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-zinc-200">{u.username}</span>
+                        {u.display_name && <span className="text-xs text-zinc-500">{u.display_name}</span>}
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20">
+                          {ROLE_LABELS[u.role] ?? u.role}
+                        </span>
+                      </div>
+                      {/* Password row */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-zinc-500">Пароль:</span>
+                        <code className="text-xs font-mono text-zinc-200 tracking-widest">
+                          {visiblePasswords.has(u.id)
+                            ? (u.plain_password ?? <span className="text-zinc-600 tracking-normal">не сохранён</span>)
+                            : "••••••"}
+                        </code>
+                        <button
+                          onClick={() => togglePwd(u.id)}
+                          title={visiblePasswords.has(u.id) ? "Скрыть" : "Показать"}
+                          className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
+                        >
+                          {visiblePasswords.has(u.id) ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                        {visiblePasswords.has(u.id) && u.plain_password && (
+                          <button
+                            onClick={() => copyPwd(u.id, u.plain_password!)}
+                            className={`text-xs transition-colors flex-shrink-0 ${
+                              copiedPwd === u.id
+                                ? "text-emerald-400"
+                                : "text-zinc-500 hover:text-zinc-300"
+                            }`}
+                          >
+                            {copiedPwd === u.id ? "Скопировано!" : "Копировать"}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
+                    {/* Right: actions */}
+                    <div className="flex gap-2 flex-shrink-0 pt-0.5">
                       <button onClick={() => setResetForm({ userId: u.id, newPassword: "" })}
-                        className="px-3 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs transition-colors">
+                        className="px-3 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs transition-colors whitespace-nowrap">
                         Сбросить пароль
                       </button>
                       <button onClick={() => onDeleteStaff(u.id)} disabled={deletingId === u.id}
@@ -580,9 +632,18 @@ function StaffTab({
               className={INPUT_CLS} placeholder="manager_astori" autoComplete="off" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Временный пароль</label>
-            <input type="text" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
-              className={INPUT_CLS} placeholder="минимум 6 символов" autoComplete="off" />
+            <label className="block text-xs text-zinc-500 mb-1">
+              Пароль <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={newStaff.password}
+              onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+              className={INPUT_CLS}
+              placeholder="минимум 6 символов"
+              autoComplete="off"
+              required
+            />
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Роль</label>

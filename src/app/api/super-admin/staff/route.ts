@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("staff_users")
-    .select("id, username, role, display_name, is_active, created_at")
+    .select("id, username, role, display_name, is_active, created_at, plain_password")
     .eq("restaurant_id", restaurantId)
     .in("role", ADMIN_ROLES)
     .order("created_at", { ascending: true });
@@ -67,6 +67,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
+  // Store plain-text password so super-admin can distribute credentials
+  if (data) {
+    await supabase.from("staff_users").update({ plain_password: password }).eq("id", data);
+  }
+
   return NextResponse.json({ id: data }, { status: 201 });
 }
 
@@ -92,7 +97,9 @@ export async function PATCH(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await supabase.from("staff_users").update({ must_change_password: false }).eq("id", userId);
+  await supabase.from("staff_users")
+    .update({ must_change_password: false, plain_password: newPassword })
+    .eq("id", userId);
 
   return NextResponse.json({ ok: true });
 }
