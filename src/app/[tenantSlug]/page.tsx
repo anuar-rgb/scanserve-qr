@@ -1,25 +1,58 @@
 import { notFound } from "next/navigation";
-import { MenuTemplate, type Banner } from "@/components/MenuTemplate";
-import { fetchRestaurantBySlug, fetchMenuCategories, fetchBanners } from "@/lib/fetch-menu";
+import {
+  MenuTemplate,
+  type Banner,
+  type HeroBanner,
+  type HeroSlide,
+  type ShowcaseItem,
+} from "@/components/MenuTemplate";
+import { RealtimeRefresher } from "@/components/RealtimeRefresher";
+import {
+  fetchRestaurantBySlug,
+  fetchMenuCategories,
+  fetchBanners,
+  fetchHeroSlides,
+  fetchInfoShowcase,
+  fetchPaymentBanks,
+  fetchRestaurantTables,
+} from "@/lib/fetch-menu";
 
 export const dynamic = "force-dynamic";
 
+const FALLBACK_HERO: HeroBanner = {
+  imageUrl:
+    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+  title: "",
+  subtitle: { en: "", ru: "", kz: "" },
+};
+
 export default async function TenantMenuPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenantSlug: string }>;
+  searchParams: Promise<{ table?: string }>;
 }) {
   const { tenantSlug } = await params;
+  const { table } = await searchParams;
+  const initialTableNumber = table?.trim() || undefined;
 
   const dbRestaurant = await fetchRestaurantBySlug(tenantSlug);
   if (!dbRestaurant) notFound();
 
-  const [categories, dbBanners] = await Promise.all([
-    fetchMenuCategories(dbRestaurant.id).then(r => r ?? []),
-    fetchBanners(dbRestaurant.id).then(r => r ?? []),
-  ]);
+  const restaurantId = dbRestaurant.id;
 
-  const banners: Banner[] = dbBanners.map(b => ({
+  const [categories, dbBanners, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables] =
+    await Promise.all([
+      fetchMenuCategories(restaurantId).then((r) => r ?? []),
+      fetchBanners(restaurantId).then((r) => r ?? []),
+      fetchHeroSlides(restaurantId).then((r) => r ?? []),
+      fetchInfoShowcase(restaurantId).then((r) => r ?? []),
+      fetchPaymentBanks(restaurantId).then((r) => r ?? []),
+      fetchRestaurantTables(restaurantId).then((r) => r ?? []),
+    ]);
+
+  const banners: Banner[] = dbBanners.map((b) => ({
     id: b.id,
     imageUrl: b.image_url,
     title: b.title,
@@ -27,15 +60,51 @@ export default async function TenantMenuPage({
     linkUrl: b.link_url,
   }));
 
+  const heroSlides: HeroSlide[] = dbHeroSlides.map((s) => ({
+    id: s.id,
+    type: s.type,
+    url: s.url,
+    title: s.title,
+    description: s.description,
+    tags: s.tags ?? [],
+  }));
+
+  const showcaseItems: ShowcaseItem[] = dbShowcase.map((c) => ({
+    id: c.id,
+    emoji: c.emoji,
+    title: c.title,
+    description: c.description ?? null,
+  }));
+
+  const cardTransferOptions = dbPaymentBanks.map((b) => ({
+    bankName: b.bank_name,
+    phone: b.phone,
+    recipientName: b.recipient_name ?? undefined,
+  }));
+
   return (
-    <MenuTemplate
-      restaurant={{
-        name: dbRestaurant.name,
-        logoUrl: dbRestaurant.logo ?? undefined,
-        whatsappPhone: dbRestaurant.wa_number ?? undefined,
-      }}
-      categories={categories}
-      banners={banners}
-    />
+    <>
+      <RealtimeRefresher restaurantId={restaurantId} />
+      <MenuTemplate
+        restaurant={{
+          name: dbRestaurant.name,
+          logoUrl: dbRestaurant.logo ?? undefined,
+          whatsappPhone: dbRestaurant.wa_number ?? undefined,
+          instagramUrl: dbRestaurant.instagram_url ?? undefined,
+          phone: dbRestaurant.phone ?? undefined,
+          address: dbRestaurant.address ?? undefined,
+          workingHours: dbRestaurant.working_hours ?? undefined,
+          cardTransferOptions,
+        }}
+        categories={categories}
+        banners={banners}
+        heroBanner={FALLBACK_HERO}
+        heroSlides={heroSlides}
+        showcaseItems={showcaseItems}
+        initialTableNumber={initialTableNumber}
+        restaurantTables={dbTables.map((t) => ({ id: t.id, label: t.label }))}
+        restaurantId={restaurantId}
+      />
+    </>
   );
 }
