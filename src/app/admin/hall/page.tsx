@@ -2909,6 +2909,13 @@ function PaymentModal({
     if (!data || data.length === 0) { toast.error("Заказ не обновлён — проверьте RLS в Supabase"); return; }
     toast.success("Оплата принята!");
 
+    // Accrue loyalty bonuses for guest (non-blocking)
+    fetch("/api/orders/accrue-bonuses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.id, restaurantId: RESTAURANT_ID }),
+    }).catch(() => {});
+
     // Deduct ingredients from warehouse stock (non-blocking)
     supabase.rpc("deduct_order_stock", { p_order_id: order.id }).then(({ data: res }) => {
       if (!res) return;

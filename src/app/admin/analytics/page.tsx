@@ -22,6 +22,8 @@ interface OrderRow {
   created_at: string;
   items_json: unknown;
   tips_amount: number | null;
+  bonuses_earned: number | null;
+  bonuses_deducted: number | null;
 }
 
 interface ShiftOrderRow {
@@ -392,7 +394,7 @@ export default function AnalyticsPage() {
 
     const [curRes, prevRes, revRes, promoRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
-        .select("total_price, status, type, created_at, items_json, tips_amount")
+        .select("total_price, status, type, created_at, items_json, tips_amount, bonuses_earned, bonuses_deducted")
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("orders")
@@ -741,6 +743,8 @@ export default function AnalyticsPage() {
   const prevTotal    = prevOrders.length;
   const revDelta     = prevRevenue > 0 ? Math.round((totalRevenue - prevRevenue) / prevRevenue * 100) : null;
   const ordDelta     = prevTotal   > 0 ? Math.round((totalOrders  - prevTotal)   / prevTotal   * 100) : null;
+  const totalBonusesEarned   = orders.reduce((s, o) => s + (o.bonuses_earned ?? 0), 0);
+  const totalBonusesDeducted = orders.reduce((s, o) => s + (o.bonuses_deducted ?? 0), 0);
 
   const bars     = buildBars(orders, period);
   const dishes   = buildTopDishes(orders);
@@ -884,6 +888,28 @@ export default function AnalyticsPage() {
             value={reviewAvg !== null ? `${reviewAvg.toFixed(1)} / 5` : "—"}
             delta={reviewCount > 0 ? `${reviewCount} отзывов` : "нет отзывов"} />
         </div>
+
+        {/* ── bonus stats card ── */}
+        {(totalBonusesEarned > 0 || totalBonusesDeducted > 0) && (
+          <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/40 dark:bg-emerald-500/5 p-5 flex items-center gap-6">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-xl shrink-0">
+              🌟
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">Бонусная программа за период</p>
+              <div className="flex gap-6 flex-wrap">
+                <div>
+                  <p className="text-xs text-zinc-400">Начислено гостям</p>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+{totalBonusesEarned.toLocaleString("ru-RU")} б</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-400">Списано гостями</p>
+                  <p className="text-xl font-black text-zinc-700 dark:text-zinc-300 tabular-nums">−{totalBonusesDeducted.toLocaleString("ru-RU")} б</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── tips card ── */}
         {totalTips > 0 && (

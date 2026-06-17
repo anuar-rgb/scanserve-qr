@@ -68,6 +68,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           price: p.price,
           ingredients: p.ingredients ?? undefined,
           allergens: p.allergens ?? undefined,
+          bonusPercent: p.bonus_percent ?? undefined,
           modifiers: mods
             .filter(m =>
               m.product_id === p.id ||

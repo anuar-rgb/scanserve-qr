@@ -507,6 +507,10 @@ export function CartDrawer({
   const maxBonuses   = guestSession ? Math.min(guestSession.bonusAmount, total + deliveryFee) : 0;
   const bonusesApplied = useBonuses ? maxBonuses : 0;
   const grandTotal   = total + deliveryFee + tipsAmount - bonusesApplied;
+  const totalBonusesEarned = items.reduce((s, { dish, qty, selectedModifiers }) => {
+    if (!dish.bonusPercent || dish.bonusPercent <= 0) return s;
+    return s + Math.round(effPrice(dish, selectedModifiers) * dish.bonusPercent / 100) * qty;
+  }, 0);
   const totalSavings = items.reduce((s, { dish, qty }) => {
     const promoBase = dish.isPromo && dish.discountLabel
       ? (() => { const pct = parseInt(dish.discountLabel, 10); return isNaN(pct) || pct <= 0 || pct >= 100 ? dish.price : Math.round(dish.price * (1 - pct / 100)); })()
@@ -1934,6 +1938,12 @@ export function CartDrawer({
                   <span>{tn("total", lang)}</span>
                   <span>{grandTotal.toLocaleString()} {currency}</span>
                 </div>
+                {totalBonusesEarned > 0 && (
+                  <div style={{ marginTop: SP.xs, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, fontWeight: 600, color: "#10B981" }}>
+                    <span>🌟 Бонусы за заказ</span>
+                    <span>+{totalBonusesEarned.toLocaleString()} бонусов</span>
+                  </div>
+                )}
               </div>
             </div>
 

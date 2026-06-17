@@ -50,6 +50,7 @@ export interface Dish {
   ingredients?: string;
   allergens?: string[];
   modifiers?: DishModifier[];
+  bonusPercent?: number;
 }
 
 export interface Banner {
@@ -815,6 +816,11 @@ function PopularDishesSection({
                     </p>
                   )}
                 </div>
+                {!!dish.bonusPercent && dish.bonusPercent > 0 && (
+                  <p style={{ fontSize: 9, fontWeight: 700, margin: "2px 0 0", color: "#10B981" }}>
+                    +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} бонусов
+                  </p>
+                )}
               </div>
             </div>
           );
@@ -1963,6 +1969,11 @@ function CatalogDishCard({
         ) : (
           <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
             {dish.price.toLocaleString()} {currency}
+          </p>
+        )}
+        {!!dish.bonusPercent && dish.bonusPercent > 0 && (
+          <p style={{ fontSize: 9, fontWeight: 700, margin: "3px 0 0", color: "#10B981", letterSpacing: "0.01em" }}>
+            +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} бонусов
           </p>
         )}
 
