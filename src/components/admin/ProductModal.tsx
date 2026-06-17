@@ -820,12 +820,6 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                 )}
               </div>
 
-              {/* Error */}
-              {error && (
-                <p className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg border border-red-200 dark:border-red-500/20">
-                  {error}
-                </p>
-              )}
             </div>
 
             {/* Right: live preview — hidden on mobile */}
@@ -855,7 +849,13 @@ export default function ProductModal({ mode, product, categories, defaultCategor
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 px-4 md:px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
+          <div className="shrink-0 px-4 md:px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
+            {error && (
+              <p className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg border border-red-200 dark:border-red-500/20 w-full">
+                {error}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-2">
             <button
               onClick={onClose}
               disabled={saving}
@@ -871,6 +871,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
               {saving && <Loader2 size={14} className="animate-spin" />}
               {saving ? t.admin.saving : t.admin.save}
             </button>
+            </div>
           </div>
         </div>
       </div>
