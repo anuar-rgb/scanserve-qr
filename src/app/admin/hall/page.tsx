@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark, Bell,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark, Bell, Star,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -2125,6 +2125,29 @@ function OrderSlotPanel({
   const typeLabel = order.type === "delivery" ? "Доставка" : "С собой";
   const typeIcon  = order.type === "delivery" ? "🛵" : "🛍️";
 
+  const [productBonusMap, setProductBonusMap] = useState<Record<string, number>>({});
+  const productIdsKey = [...new Set(items.filter(it => it.product_id).map(it => it.product_id as string))].sort().join(",");
+  useEffect(() => {
+    if (!productIdsKey) { setProductBonusMap({}); return; }
+    let cancelled = false;
+    const ids = productIdsKey.split(",");
+    supabase.from("products").select("id, bonus_percent").in("id", ids).then(({ data }) => {
+      if (cancelled) return;
+      const map: Record<string, number> = {};
+      for (const p of data ?? []) { if (p.bonus_percent) map[p.id] = Number(p.bonus_percent); }
+      setProductBonusMap(map);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productIdsKey]);
+  const earnedBonuses = Math.round(
+    items.reduce((sum, it) => {
+      if (!it.product_id) return sum;
+      const pct = productBonusMap[it.product_id] ?? 0;
+      return sum + it.price * it.qty * pct / 100;
+    }, 0)
+  );
+
   const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
     order.status === "preparing" &&
     !!(order.guest_id || order.customer_phone);
@@ -2646,6 +2669,17 @@ function OrderSlotPanel({
                 <span className="text-xs text-emerald-600 dark:text-emerald-400">🌟 Оплата бонусами</span>
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">
                   −{(order.bonuses_deducted ?? 0).toLocaleString("ru-RU")} ₸
+                </span>
+              </div>
+            )}
+            {earnedBonuses > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                  <Star size={11} className="fill-amber-400 text-amber-400" />
+                  Будет начислено
+                </span>
+                <span className="text-xs text-amber-500 dark:text-amber-400 tabular-nums font-semibold">
+                  +{earnedBonuses.toLocaleString("ru-RU")} б
                 </span>
               </div>
             )}
