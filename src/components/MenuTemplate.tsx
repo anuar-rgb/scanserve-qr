@@ -2245,6 +2245,7 @@ const TAG_COLOR_MAP: Record<string, { bg: string; fg: string }> = {
 
 function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
   const [idx, setIdx] = useState(0);
+  const dragRef = useRef<number | null>(null);
 
   const go = useCallback((next: number) => {
     const n = ((next % slides.length) + slides.length) % slides.length;
@@ -2259,6 +2260,16 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
       style={{
         position: "relative", width: "100%", height: SLIDER_H, overflow: "hidden",
         borderRadius: "0 0 24px 24px", backgroundColor: "#000",
+      }}
+      onTouchStart={(e) => { dragRef.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (dragRef.current === null) return;
+        const dx = e.changedTouches[0].clientX - dragRef.current;
+        dragRef.current = null;
+        if (Math.abs(dx) > 50) {
+          e.preventDefault();
+          go(idx + (dx < 0 ? 1 : -1));
+        }
       }}
     >
       {/* Slide media */}
