@@ -3586,6 +3586,29 @@ function TablePanel({
   const balanceDue = Math.max(0, (activeOrder?.total_price ?? 0) - prepaid);
   const prepayMeta = activeOrder?.prepayment_method ? METHOD_META[activeOrder.prepayment_method] : null;
 
+  const [tpBonusMap, setTpBonusMap] = useState<Record<string, number>>({});
+  const tpProductIdsKey = [...new Set(items.filter(it => it.product_id).map(it => it.product_id as string))].sort().join(",");
+  useEffect(() => {
+    if (!tpProductIdsKey) { setTpBonusMap({}); return; }
+    let cancelled = false;
+    const ids = tpProductIdsKey.split(",");
+    supabase.from("products").select("id, bonus_percent").in("id", ids).then(({ data: rows }) => {
+      if (cancelled) return;
+      const map: Record<string, number> = {};
+      for (const p of rows ?? []) { if (p.bonus_percent) map[p.id] = Number(p.bonus_percent); }
+      setTpBonusMap(map);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tpProductIdsKey]);
+  const tpEarnedBonuses = activeOrder?.earned_bonuses != null
+    ? activeOrder.earned_bonuses
+    : Math.round(items.reduce((sum, it) => {
+        if (!it.product_id) return sum;
+        const pct = tpBonusMap[it.product_id] ?? 0;
+        return sum + Math.round(it.price * pct / 100) * it.qty;
+      }, 0));
+
   // ── Order creation mode ──────────────────────────────────────────────────────
   if (panelMode === "order") {
     return (
@@ -4220,6 +4243,17 @@ function TablePanel({
                   <span className="text-xs text-emerald-600 dark:text-emerald-400">🌟 Оплата бонусами</span>
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">
                     −{(activeOrder.bonuses_deducted ?? 0).toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+              )}
+              {tpEarnedBonuses > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                    <Star size={11} className="fill-amber-400 text-amber-400" />
+                    Будет начислено
+                  </span>
+                  <span className="text-xs text-amber-500 dark:text-amber-400 tabular-nums font-semibold">
+                    +{tpEarnedBonuses.toLocaleString("ru-RU")} б
                   </span>
                 </div>
               )}
