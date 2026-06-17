@@ -48,6 +48,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
       icon: cat.icon ?? "🍽️",
       name: cat.name,
       imageUrl: cat.image_url ?? undefined,
+      backgroundImageUrl: cat.background_image_url ?? undefined,
       dishes: prods
         .filter(p => p.category_id === cat.id)
         .map(p => ({

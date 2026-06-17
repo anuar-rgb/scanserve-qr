@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Upload, Loader2, ImageIcon } from "lucide-react";
+import { X, Upload, Loader2, ImageIcon, Layers } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
@@ -15,10 +15,10 @@ interface Props {
   onSaved: (category: DbCategory) => void;
 }
 
-async function uploadCategoryImage(file: File): Promise<string> {
+async function uploadCategoryImage(file: File, prefix = ""): Promise<string> {
   if (!isConfigured) throw new Error("Database not configured");
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { data, error } = await supabase.storage
     .from("category-images")
     .upload(path, file, { cacheControl: "3600", upsert: false });
@@ -30,10 +30,13 @@ async function uploadCategoryImage(file: File): Promise<string> {
 export default function CategoryModal({ mode, category, onClose, onSaved }: Props) {
   const { t } = useTranslations();
   const fileInputRef              = useRef<HTMLInputElement>(null);
+  const bgFileInputRef            = useRef<HTMLInputElement>(null);
   const [name, setName]           = useState(category?.name.ru ?? category?.name.en ?? "");
   const [imageUrl, setImageUrl]   = useState(category?.image_url ?? "");
+  const [bgImageUrl, setBgImageUrl] = useState(category?.background_image_url ?? "");
   const [saving, setSaving]       = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -59,6 +62,29 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
     }
   }
 
+  async function handleBgFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Выберите файл изображения (JPG, PNG, WebP)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Файл не должен превышать 5 МБ");
+      return;
+    }
+    setBgUploading(true);
+    setError(null);
+    try {
+      const url = await uploadCategoryImage(file, "bg-");
+      setBgImageUrl(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка загрузки файла");
+    } finally {
+      setBgUploading(false);
+    }
+  }
+
   async function handleSave() {
     if (!isConfigured) { setError("Database not configured. Set Supabase env vars in Railway."); return; }
     if (!name.trim()) { setError("Name is required."); return; }
@@ -70,6 +96,7 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
       name: { en: name.trim(), ru: name.trim(), kz: name.trim() } satisfies LS,
       icon: null,
       image_url: imageUrl.trim() || null,
+      background_image_url: bgImageUrl.trim() || null,
       order_index: category?.order_index ?? 9999,
     };
 
@@ -180,6 +207,73 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
               placeholder="https://… или загрузите файл выше"
               className={inputCls}
             />
+          </div>
+
+          {/* Background Image */}
+          <div>
+            <label className={labelCls}>
+              <span className="inline-flex items-center gap-1.5">
+                <Layers size={11} />
+                Фон карточки
+              </span>
+            </label>
+
+            <div className="mb-3 flex items-center gap-4">
+              {/* Preview */}
+              <div className="w-20 h-20 rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 relative">
+                {bgImageUrl ? (
+                  <>
+                    <img src={bgImageUrl} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/35" />
+                  </>
+                ) : (
+                  <Layers size={22} className="text-zinc-300 dark:text-zinc-600" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => bgFileInputRef.current?.click()}
+                  disabled={bgUploading}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  {bgUploading
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : <Upload size={14} />}
+                  {bgUploading ? "Загрузка…" : "Загрузить фон"}
+                </button>
+                <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-600">
+                  JPG, PNG, WebP · до 5 МБ
+                </p>
+                <input
+                  type="file"
+                  ref={bgFileInputRef}
+                  onChange={handleBgFileChange}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={bgImageUrl}
+                onChange={(e) => setBgImageUrl(e.target.value)}
+                placeholder="https://… или загрузите файл выше"
+                className={inputCls}
+              />
+              {bgImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setBgImageUrl("")}
+                  className="px-2.5 py-2 text-xs text-zinc-400 hover:text-red-400 border border-zinc-200 dark:border-zinc-700 rounded-lg transition-colors shrink-0"
+                  title="Удалить фон"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
 
           {error && (

@@ -66,6 +66,7 @@ export interface MenuCategory {
   name: string | LS;
   dishes: Dish[];
   imageUrl?: string;
+  backgroundImageUrl?: string;
 }
 
 export interface PaymentInfo {
@@ -1602,6 +1603,7 @@ function CategoryGrid({
           const pressed   = pressedId === cat.id;
           const autoPhoto = resolveCategoryPhoto(cat.name);
           const photoSrc  = cat.imageUrl ?? (failedImgs.has(cat.id) ? null : autoPhoto);
+          const hasBg     = !!cat.backgroundImageUrl;
 
           return (
             <button
@@ -1617,7 +1619,9 @@ function CategoryGrid({
                 border: "1px solid var(--border-color)",
                 cursor: "pointer",
                 padding: 0,
-                background: "var(--bg-card)",
+                background: hasBg
+                  ? `url(${cat.backgroundImageUrl}) center/cover no-repeat`
+                  : "var(--bg-card)",
                 overflow: "hidden",
                 boxShadow: shadow,
                 transform: pressed ? "scale(0.96)" : "scale(1)",
@@ -1628,20 +1632,30 @@ function CategoryGrid({
                 textAlign: "left",
               } as React.CSSProperties}
             >
-              {/* Pastel glow blob */}
-              <div style={{
-                position: "absolute",
-                bottom: 16,
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: 100,
-                height: 78,
-                borderRadius: "50%",
-                background: blobColor,
-                filter: "blur(24px)",
-                pointerEvents: "none",
-                zIndex: 0,
-              }} />
+              {/* Dark overlay when background image is set */}
+              {hasBg && (
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: "rgba(0,0,0,0.42)",
+                  zIndex: 0,
+                  pointerEvents: "none",
+                }} />
+              )}
+
+              {/* Pastel glow blob — only without bg image */}
+              {!hasBg && (
+                <div style={{
+                  position: "absolute",
+                  bottom: 16, left: "50%",
+                  transform: "translateX(-50%)",
+                  width: 100, height: 78,
+                  borderRadius: "50%",
+                  background: blobColor,
+                  filter: "blur(24px)",
+                  pointerEvents: "none",
+                  zIndex: 0,
+                }} />
+              )}
 
               {/* Header: name left, decor right */}
               <div style={{
@@ -1656,70 +1670,72 @@ function CategoryGrid({
                   margin: 0,
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "var(--text-color)",
+                  color: hasBg ? "#ffffff" : "var(--text-color)",
                   lineHeight: 1.3,
                   maxWidth: "78%",
+                  textShadow: hasBg ? "0 1px 4px rgba(0,0,0,0.6)" : "none",
                 }}>
                   {capFirst(resolve(cat.name, lang))}
                 </p>
-                <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{decor}</span>
-              </div>
-
-              {/* Food photo or emoji */}
-              <div style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-                zIndex: 1,
-                paddingBottom: 14,
-              }}>
-                {photoSrc ? (
-                  <img
-                    src={photoSrc}
-                    alt=""
-                    onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
-                    style={{
-                      width: 82,
-                      height: 82,
-                      objectFit: "cover",
-                      borderRadius: "50%",
-                      display: "block",
-                      pointerEvents: "none",
-                    }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 82, height: 82, borderRadius: "50%",
-                    background: "var(--bg-surface)",
-                    border: "1.5px solid var(--border-color)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    pointerEvents: "none",
-                  }}>
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ color: "var(--text-muted)", opacity: 0.45 }}>
-                      <circle cx="12" cy="12" r="9" />
-                      <circle cx="12" cy="12" r="4" />
-                      <line x1="12" y1="3" x2="12" y2="8" />
-                      <line x1="12" y1="16" x2="12" y2="21" />
-                      <line x1="3" y1="12" x2="8" y2="12" />
-                      <line x1="16" y1="12" x2="21" y2="12" />
-                    </svg>
-                  </div>
+                {!hasBg && (
+                  <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{decor}</span>
                 )}
               </div>
+
+              {/* Food photo — only without bg image */}
+              {!hasBg && (
+                <div style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  zIndex: 1,
+                  paddingBottom: 14,
+                }}>
+                  {photoSrc ? (
+                    <img
+                      src={photoSrc}
+                      alt=""
+                      onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
+                      style={{
+                        width: 82, height: 82,
+                        objectFit: "cover",
+                        borderRadius: "50%",
+                        display: "block",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 82, height: 82, borderRadius: "50%",
+                      background: "var(--bg-surface)",
+                      border: "1.5px solid var(--border-color)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      pointerEvents: "none",
+                    }}>
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ color: "var(--text-muted)", opacity: 0.45 }}>
+                        <circle cx="12" cy="12" r="9" />
+                        <circle cx="12" cy="12" r="4" />
+                        <line x1="12" y1="3" x2="12" y2="8" />
+                        <line x1="12" y1="16" x2="12" y2="21" />
+                        <line x1="3" y1="12" x2="8" y2="12" />
+                        <line x1="16" y1="12" x2="21" y2="12" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Count — bottom right */}
               <div style={{
                 position: "absolute",
-                bottom: 8,
-                right: 8,
-                fontSize: 10,
-                fontWeight: 700,
-                color: "var(--text-muted)",
-                background: "var(--bg-surface)",
+                bottom: 8, right: 8,
+                fontSize: 10, fontWeight: 700,
+                color: hasBg ? "rgba(255,255,255,0.90)" : "var(--text-muted)",
+                background: hasBg ? "rgba(0,0,0,0.35)" : "var(--bg-surface)",
                 borderRadius: 99,
                 padding: "2px 7px",
                 zIndex: 1,

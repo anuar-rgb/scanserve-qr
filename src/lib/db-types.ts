@@ -21,6 +21,7 @@ export interface DbCategory {
   name: LS;
   icon: string | null;
   image_url: string | null;
+  background_image_url: string | null;
   order_index: number;
   parent_id?: string | null;
 }
