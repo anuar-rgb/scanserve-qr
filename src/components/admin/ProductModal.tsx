@@ -351,7 +351,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         is_archived: product?.is_archived ?? false,
         order_index: product?.order_index ?? 9999,
         allergens,
-        bonus_percent: bonusPercent.trim() !== "" ? parseInt(bonusPercent, 10) || 0 : null,
+        bonus_percent: bonusPercent.trim() !== "" ? (parseFloat(bonusPercent) || 0) : null,
       };
 
       let savedProduct: DbProduct;
@@ -689,6 +689,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                     type="number"
                     min={0}
                     max={100}
+                    step={0.01}
                     value={bonusPercent}
                     onChange={(e) => setBonusPercent(e.target.value)}
                     placeholder="0"
