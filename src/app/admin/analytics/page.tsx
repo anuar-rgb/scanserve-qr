@@ -357,6 +357,8 @@ export default function AnalyticsPage() {
   const [reviewCount, setReviewCount] = useState(0);
   const [promoProducts, setPromoProducts] = useState<PromoProduct[]>([]);
   const [bonusProducts, setBonusProducts] = useState<BonusProduct[]>([]);
+  const [bulkBonus, setBulkBonus]         = useState("");
+  const [bulkSaving, setBulkSaving]       = useState(false);
 
   // ── invoices / expenses state ──
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
@@ -787,6 +789,35 @@ export default function AnalyticsPage() {
       .map(([name, t]) => ({ name, total: t, pct: Math.round(t / total * 100) }));
   })();
 
+  async function handleSetBulkBonus() {
+    const val = parseFloat(bulkBonus);
+    if (isNaN(val) || val < 0) return;
+    const confirmed = window.confirm(
+      `Вы уверены, что хотите установить бонус ${val}% для ВСЕХ блюд текущего ресторана?`
+    );
+    if (!confirmed) return;
+    setBulkSaving(true);
+    const { error } = await supabase
+      .from("products")
+      .update({ bonus_percent: val })
+      .eq("restaurant_id", RESTAURANT_ID);
+    setBulkSaving(false);
+    if (error) {
+      alert("Ошибка: " + error.message);
+      return;
+    }
+    // Refresh bonus products list
+    const { data } = await supabase
+      .from("products")
+      .select("id, name, price, bonus_percent")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("is_archived", false)
+      .gt("bonus_percent", 0)
+      .order("bonus_percent", { ascending: false });
+    setBonusProducts((data as BonusProduct[]) ?? []);
+    setBulkBonus("");
+  }
+
   return (
     <div className="flex flex-col h-full">
 
@@ -1194,6 +1225,43 @@ export default function AnalyticsPage() {
               })}
             </div>
           )}
+        </div>
+
+        {/* ── bulk bonus setter ── */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-5">
+          <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">
+            Массовая установка бонуса
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-[160px]">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                value={bulkBonus}
+                onChange={(e) => setBulkBonus(e.target.value)}
+                placeholder="0.2"
+                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 pr-8 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">%</span>
+            </div>
+            <button
+              onClick={handleSetBulkBonus}
+              disabled={bulkSaving || bulkBonus.trim() === "" || isNaN(parseFloat(bulkBonus))}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+            >
+              {bulkSaving ? (
+                <RefreshCw size={13} className="animate-spin" />
+              ) : (
+                <Star size={13} />
+              )}
+              Применить ко всем блюдам
+            </button>
+          </div>
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-2">
+            Установит одинаковый процент бонуса для всех блюд ресторана (не затрагивает архивные)
+          </p>
         </div>
 
         {/* ── bonus products ── */}
