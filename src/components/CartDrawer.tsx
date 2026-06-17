@@ -712,6 +712,14 @@ export function CartDrawer({
           setLoading(false);
           return;
         }
+        // Deduct used bonuses from guest balance immediately (fire-and-forget)
+        if (bonusesApplied > 0 && guestSession?.id) {
+          fetch("/api/orders/deduct-bonuses", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ guestId: guestSession.id, restaurantId: RESTAURANT_ID, amount: bonusesApplied }),
+          }).catch(() => {});
+        }
       }
     } else {
       // pickup/delivery — build WhatsApp URL then save to DB, then redirect
@@ -745,6 +753,14 @@ export function CartDrawer({
           bonuses_deducted: bonusesApplied,
         });
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
+        // Deduct used bonuses from guest balance immediately (fire-and-forget)
+        if (bonusesApplied > 0 && guestSession?.id) {
+          fetch("/api/orders/deduct-bonuses", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ guestId: guestSession.id, restaurantId: RESTAURANT_ID, amount: bonusesApplied }),
+          }).catch(() => {});
+        }
       }
 
       // Save phone to CRM (fire-and-forget — don't block WhatsApp redirect)
