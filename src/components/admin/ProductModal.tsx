@@ -223,6 +223,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const [isPromo, setIsPromo]     = useState(product?.is_promo ?? false);
   const [discountPct, setDiscountPct] = useState(product?.is_promo ? (product?.discount_label ?? "") : "");
   const [allergens, setAllergens] = useState<string[]>(product?.allergens ?? []);
+  const [bonusPercent, setBonusPercent] = useState(product?.bonus_percent != null ? String(product.bonus_percent) : "");
 
   function toggleAllergen(key: string) {
     setAllergens(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -350,6 +351,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         is_archived: product?.is_archived ?? false,
         order_index: product?.order_index ?? 9999,
         allergens,
+        bonus_percent: bonusPercent.trim() !== "" ? parseInt(bonusPercent, 10) || 0 : null,
       };
 
       let savedProduct: DbProduct;
@@ -678,6 +680,26 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                     ))}
                   </select>
                 </Field>
+              </div>
+
+              {/* Bonus percent */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Бонусы за блюдо (%)">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={bonusPercent}
+                    onChange={(e) => setBonusPercent(e.target.value)}
+                    placeholder="0"
+                    className={inputCls}
+                  />
+                </Field>
+                <div className="flex items-end pb-0.5">
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-relaxed">
+                    Сколько % от цены блюда начисляется гостю бонусами
+                  </p>
+                </div>
               </div>
 
               {/* Custom badge */}
