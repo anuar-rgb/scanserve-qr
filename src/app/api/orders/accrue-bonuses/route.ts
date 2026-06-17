@@ -20,8 +20,7 @@ type OrderItem = {
 // Body: { orderId, restaurantId }
 // Called after admin marks order as "completed".
 // Credits earned bonuses to the guest's balance.
-// Uses orders.earned_bonuses (set at placement) when available — avoids re-computing
-// from current bonus_percent values which may have changed since the order was placed.
+// Uses orders.earned_bonuses (set at placement) when available.
 // Idempotent: orders.bonuses_accrued flag prevents double-crediting.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({})) as { orderId?: string; restaurantId?: string };
@@ -33,18 +32,40 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  const { data: order, error: orderErr } = await supabase
+  // Try with earned_bonuses/bonuses_accrued; if columns missing, fall back to base select
+  let order: {
+    id: string;
+    guest_id: string | null;
+    items_json: unknown;
+    total_price?: number;
+    earned_bonuses?: number | null;
+    bonuses_accrued?: boolean | null;
+  } | null = null;
+
+  const { data: orderFull, error: orderErrFull } = await supabase
     .from("orders")
-    .select("id, guest_id, items_json, earned_bonuses, bonuses_accrued")
+    .select("id, guest_id, items_json, total_price, earned_bonuses, bonuses_accrued")
     .eq("id", orderId)
     .eq("restaurant_id", restaurantId)
     .single();
 
-  if (orderErr || !order) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (orderErrFull) {
+    // earned_bonuses or bonuses_accrued columns might not exist yet — try without them
+    const { data: orderBase, error: orderErrBase } = await supabase
+      .from("orders")
+      .select("id, guest_id, items_json, total_price")
+      .eq("id", orderId)
+      .eq("restaurant_id", restaurantId)
+      .single();
+    if (orderErrBase || !orderBase) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+    order = orderBase;
+  } else {
+    order = orderFull;
   }
 
-  if (!order.guest_id) {
+  if (!order || !order.guest_id) {
     return NextResponse.json({ ok: true, bonusesEarned: 0, noGuest: true });
   }
 
@@ -54,12 +75,15 @@ export async function POST(req: NextRequest) {
   }
 
   let bonusesEarned: number;
+  let source: string;
 
   if (order.earned_bonuses != null && order.earned_bonuses > 0) {
-    // Use the value computed and frozen at order creation time
+    // Use the value frozen at order creation time (what the guest saw in checkout)
     bonusesEarned = order.earned_bonuses;
+    source = "stored";
   } else {
-    // Fallback: compute from items_json + current bonus_percent (for orders placed before this fix)
+    // Fallback: compute from items_json + current bonus_percent
+    source = "computed";
     const orderItems: OrderItem[] = Array.isArray(order.items_json) ? order.items_json as OrderItem[] : [];
     const productIds = [...new Set(orderItems.map(i => i.product_id).filter(Boolean) as string[])];
 
@@ -79,15 +103,24 @@ export async function POST(req: NextRequest) {
       if (!item.product_id) continue;
       const pct = productBonusMap[item.product_id] ?? 0;
       if (pct <= 0) continue;
-      // Same rounding order as CartDrawer: round per-unit then multiply by qty
+      // Match CartDrawer formula: round per-unit price × bonus%, then × qty
       bonusesEarned += Math.round(item.price * pct / 100) * item.qty;
+    }
+
+    // Safety cap: bonuses cannot exceed 10% of order total (catches stale/wrong bonus_percent)
+    const orderTotal = order.total_price ?? 0;
+    const cap = Math.round(orderTotal * 0.10);
+    if (bonusesEarned > cap) {
+      console.warn(`[accrue-bonuses] computed ${bonusesEarned} but capping at ${cap} (10% of ${orderTotal})`);
+      bonusesEarned = cap;
     }
   }
 
   if (bonusesEarned <= 0) {
-    // Mark accrued even if 0 so we don't re-process
-    await supabase.from("orders").update({ bonuses_accrued: true }).eq("id", orderId);
-    return NextResponse.json({ ok: true, bonusesEarned: 0 });
+    if (order.bonuses_accrued !== undefined) {
+      await supabase.from("orders").update({ bonuses_accrued: true }).eq("id", orderId);
+    }
+    return NextResponse.json({ ok: true, bonusesEarned: 0, source });
   }
 
   const { data: balance } = await supabase
@@ -107,8 +140,10 @@ export async function POST(req: NextRequest) {
       { onConflict: "guest_id,restaurant_id" },
     );
 
-  // Mark order as accrued — prevents double-crediting on retry
-  await supabase.from("orders").update({ bonuses_accrued: true }).eq("id", orderId);
+  // Mark accrued to prevent double-crediting (only if column exists)
+  if (order.bonuses_accrued !== undefined) {
+    await supabase.from("orders").update({ bonuses_accrued: true }).eq("id", orderId);
+  }
 
-  return NextResponse.json({ ok: true, bonusesEarned, newBalance });
+  return NextResponse.json({ ok: true, bonusesEarned, newBalance, source });
 }
