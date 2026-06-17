@@ -104,6 +104,8 @@ export interface DbOrder {
   guest_id: string | null;
   used_bonuses: boolean | null;
   bonuses_deducted: number | null;
+  earned_bonuses: number | null;
+  bonuses_accrued: boolean | null;
 }
 
 export interface DbWaiterShiftRevenue {

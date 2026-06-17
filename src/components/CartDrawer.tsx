@@ -707,6 +707,7 @@ export function CartDrawer({
           guest_id: guestSession?.id ?? null,
           used_bonuses: bonusesApplied > 0,
           bonuses_deducted: bonusesApplied,
+          earned_bonuses: totalBonusesEarned > 0 ? totalBonusesEarned : null,
         });
         if (error) {
           setLoading(false);
@@ -751,6 +752,7 @@ export function CartDrawer({
           guest_id: guestSession?.id ?? null,
           used_bonuses: bonusesApplied > 0,
           bonuses_deducted: bonusesApplied,
+          earned_bonuses: totalBonusesEarned > 0 ? totalBonusesEarned : null,
         });
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
         // Deduct used bonuses from guest balance immediately (fire-and-forget)
