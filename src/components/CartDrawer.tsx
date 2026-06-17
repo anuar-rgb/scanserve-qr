@@ -42,6 +42,7 @@ interface PlacedOrder {
   deliveryFee?: number;
   savings?: number;
   tipsAmount?: number;
+  bonusesDeducted?: number;
 }
 
 export interface StoredOrder {
@@ -665,6 +666,7 @@ export function CartDrawer({
       deliveryFee: deliveryFee || undefined,
       savings: totalSavings || undefined,
       tipsAmount: tipsAmount || undefined,
+      bonusesDeducted: bonusesApplied > 0 ? bonusesApplied : undefined,
     };
     const orderId = `ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     setPlacedOrderId(orderId);
@@ -2073,6 +2075,12 @@ export function CartDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: isDark ? "#6DB86D" : "#2E7D32" }}>
                     <span>🎉 {tn("savings", lang)}</span>
                     <span style={{ fontWeight: 700 }}>-{placedOrder.savings.toLocaleString()} {placedOrder.currency}</span>
+                  </div>
+                ) : null}
+                {placedOrder.bonusesDeducted && placedOrder.bonusesDeducted > 0 ? (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: isDark ? "#6DB86D" : "#2E7D32" }}>
+                    <span>🌟 {lang === "en" ? "Bonuses used" : lang === "kz" ? "Бонустар есептелді" : "Использовано бонусов"}</span>
+                    <span style={{ fontWeight: 700 }}>-{placedOrder.bonusesDeducted.toLocaleString()} {placedOrder.currency}</span>
                   </div>
                 ) : null}
                 {placedOrder.tipsAmount && placedOrder.tipsAmount > 0 ? (
