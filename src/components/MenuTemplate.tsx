@@ -1433,7 +1433,7 @@ function AdBannerBlock({ ads }: { ads: AdItem[] }) {
   }
 
   return (
-    <div style={{ marginTop: 16, marginBottom: 4, position: "relative" }}>
+    <div style={{ marginTop: 16, marginBottom: 16, position: "relative" }}>
       {/* Track */}
       <div
         ref={trackRef}
