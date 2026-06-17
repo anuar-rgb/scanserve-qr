@@ -80,6 +80,7 @@ interface ZReportData {
 }
 
 interface PromoProduct   { id: string; name: LS; price: number; discount_label: string | null; }
+interface BonusProduct  { id: string; name: LS; price: number; bonus_percent: number; }
 interface Bar            { label: string; revenue: number; }
 interface TopDish        { name: string; count: number; }
 interface Breakdown      { label: string; count: number; pct: number; bg: string; }
@@ -355,6 +356,7 @@ export default function AnalyticsPage() {
   const [reviewAvg, setReviewAvg]     = useState<number | null>(null);
   const [reviewCount, setReviewCount] = useState(0);
   const [promoProducts, setPromoProducts] = useState<PromoProduct[]>([]);
+  const [bonusProducts, setBonusProducts] = useState<BonusProduct[]>([]);
 
   // ── invoices / expenses state ──
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
@@ -392,7 +394,7 @@ export default function AnalyticsPage() {
     const prevFrom = prevFromDate(p).toISOString();
     const now      = new Date().toISOString();
 
-    const [curRes, prevRes, revRes, promoRes, invRes, voidRes] = await Promise.all([
+    const [curRes, prevRes, revRes, promoRes, bonusRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
         .select("total_price, status, type, created_at, items_json, tips_amount, bonuses_earned, bonuses_deducted")
         .eq("restaurant_id", RESTAURANT_ID)
@@ -407,6 +409,12 @@ export default function AnalyticsPage() {
         .select("id, name, price, discount_label")
         .eq("restaurant_id", RESTAURANT_ID)
         .eq("is_promo", true).eq("is_archived", false).order("name->ru"),
+      supabase.from("products")
+        .select("id, name, price, bonus_percent")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("is_archived", false)
+        .gt("bonus_percent", 0)
+        .order("bonus_percent", { ascending: false }),
       supabase.from("invoices")
         .select("supplier_name, total_amount, created_at")
         .eq("restaurant_id", RESTAURANT_ID)
@@ -424,6 +432,7 @@ export default function AnalyticsPage() {
     setReviewCount(revs.length);
     setReviewAvg(revs.length ? revs.reduce((s, r) => s + r.rating, 0) / revs.length : null);
     setPromoProducts((promoRes.data as PromoProduct[]) ?? []);
+    setBonusProducts((bonusRes.data as BonusProduct[]) ?? []);
     setInvoiceRows((invRes.data ?? []) as InvoiceRow[]);
     setVoidRows((voidRes.data ?? []) as VoidRow[]);
     setLoading(false);
@@ -1177,6 +1186,50 @@ export default function AnalyticsPage() {
                         )}
                         <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 leading-tight">
                           {(discounted ?? p.price).toLocaleString()} ₸
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── bonus products ── */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+              <Star size={15} />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Блюда с бонусами</h2>
+              <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                {bonusProducts.length > 0 ? `${bonusProducts.length} блюд с бонусными баллами` : "Нет блюд с бонусами"}
+              </p>
+            </div>
+          </div>
+          {bonusProducts.length === 0 ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-600 text-center py-4">
+              Установите процент бонуса в карточке блюда, чтобы увидеть их здесь
+            </p>
+          ) : (
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {bonusProducts.map((p) => {
+                const bonusAmount = Math.round(p.price * p.bonus_percent / 100);
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate flex-1">
+                      {p.name?.ru ?? p.name?.en ?? "—"}
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0 ml-4">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        +{p.bonus_percent}%
+                      </span>
+                      <div className="text-right">
+                        <p className="text-[11px] text-zinc-400 leading-none">+{bonusAmount.toLocaleString()} ₸ бонусов</p>
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 leading-tight">
+                          {p.price.toLocaleString()} ₸
                         </p>
                       </div>
                     </div>
