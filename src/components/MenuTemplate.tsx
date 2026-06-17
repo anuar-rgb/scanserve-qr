@@ -1433,7 +1433,7 @@ function AdBannerBlock({ ads }: { ads: AdItem[] }) {
   }
 
   return (
-    <div style={{ marginTop: 16, marginBottom: 4 }}>
+    <div style={{ marginTop: 16, marginBottom: 4, position: "relative" }}>
       {/* Track */}
       <div
         ref={trackRef}
@@ -1497,9 +1497,17 @@ function AdBannerBlock({ ads }: { ads: AdItem[] }) {
         })}
       </div>
 
-      {/* Dots */}
+      {/* Dots — overlaid on the image */}
       {ads.length > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 10 }}>
+        <div style={{
+          position: "absolute",
+          bottom: 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10,
+          display: "flex",
+          gap: 6,
+        } as React.CSSProperties}>
           {ads.map((_, i) => (
             <button
               key={i}
@@ -1511,7 +1519,7 @@ function AdBannerBlock({ ads }: { ads: AdItem[] }) {
                 border: "none",
                 padding: 0,
                 cursor: "pointer",
-                background: i === activeIdx ? "var(--accent, #8B5CF6)" : "var(--border-color)",
+                background: i === activeIdx ? "#ffffff" : "rgba(255,255,255,0.5)",
                 transition: "width 0.3s ease, background 0.3s ease",
               }}
             />
