@@ -388,16 +388,6 @@ export default function ProductModal({ mode, product, categories, defaultCategor
           }))
         );
         if (insErr) throw new Error(`Ошибка сохранения тех.карты: ${insErr.message}`);
-
-        // Sync product.ingredients text from recipe names
-        const ingredientNames = validRows
-          .map(r => dbIngredients.find(i => i.id === r.ingredientId)?.name)
-          .filter(Boolean)
-          .join(", ");
-        if (ingredientNames) {
-          await supabase.from("products").update({ ingredients: ingredientNames }).eq("id", savedProduct.id);
-          savedProduct = { ...savedProduct, ingredients: ingredientNames };
-        }
       }
 
       onSaved(savedProduct);
