@@ -261,6 +261,13 @@ export function ProductDetailModal({
                 </div>
               </div>
 
+              {/* Bonus info */}
+              {!!dish.bonusPercent && dish.bonusPercent > 0 && (
+                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: "#10B981" }}>
+                  ⭐ +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} {lang === "en" ? "bonuses" : "бонусов"}
+                </p>
+              )}
+
               {/* Description */}
               {resolve(dish.desc, lang) && (
                 <p
