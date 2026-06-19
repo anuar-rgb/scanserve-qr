@@ -535,7 +535,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                 </div>
               </div>
 
-              {/* Recipe / Калькуляция */}
+              {/* Технологическая карта */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-700/60">
                   <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
@@ -560,26 +560,22 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   </p>
                 ) : recipeRows.length === 0 ? (
                   <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-4 py-3">
-                    Нет ингредиентов. Нажмите «Добавить» для создания калькуляции.
+                    Нет ингредиентов. Нажмите «Добавить» для создания рецептуры.
                   </p>
                 ) : (
                   <div>
-                    {/* Table header */}
-                    <div className="grid grid-cols-[1fr_80px_70px_60px_28px] gap-1.5 px-3 pt-2 pb-1">
+                    <div className="grid grid-cols-[1fr_80px_70px_28px] gap-1.5 px-3 pt-2 pb-1">
                       <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Ингредиент</span>
                       <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Брутто</span>
                       <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Нетто</span>
-                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">₸</span>
                       <span />
                     </div>
-                    {/* Rows */}
                     <div className="px-3 pb-2 space-y-1.5">
                       {recipeRows.map(row => {
-                        const ing      = dbIngredients.find(i => i.id === row.ingredientId);
-                        const unitLbl  = ing ? UNIT_INPUT_LABEL[ing.unit] : "г";
-                        const lineCost = ing ? calcLineCost(ing, parseFloat(row.weightGross) || 0) : 0;
+                        const ing     = dbIngredients.find(i => i.id === row.ingredientId);
+                        const unitLbl = ing ? UNIT_INPUT_LABEL[ing.unit] : "г";
                         return (
-                          <div key={row.key} className="grid grid-cols-[1fr_80px_70px_60px_28px] gap-1.5 items-center">
+                          <div key={row.key} className="grid grid-cols-[1fr_80px_70px_28px] gap-1.5 items-center">
                             <select
                               value={row.ingredientId}
                               onChange={e => updateRecipeRow(row.key, { ingredientId: e.target.value })}
@@ -591,9 +587,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                             </select>
                             <div className="relative">
                               <input
-                                type="number"
-                                min={0}
-                                step="0.1"
+                                type="number" min={0} step="0.1"
                                 value={row.weightGross}
                                 onChange={e => updateRecipeRow(row.key, { weightGross: e.target.value })}
                                 placeholder="0"
@@ -603,9 +597,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                             </div>
                             <div className="relative">
                               <input
-                                type="number"
-                                min={0}
-                                step="0.1"
+                                type="number" min={0} step="0.1"
                                 value={row.weightNet}
                                 onChange={e => updateRecipeRow(row.key, { weightNet: e.target.value })}
                                 placeholder="0"
@@ -613,9 +605,6 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                               />
                               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">{unitLbl}</span>
                             </div>
-                            <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 text-right tabular-nums">
-                              {lineCost > 0 ? fmtNum(lineCost) : "—"}
-                            </span>
                             <button
                               type="button"
                               onClick={() => removeRecipeRow(row.key)}
@@ -627,33 +616,55 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                         );
                       })}
                     </div>
-
-                    {/* Summary */}
-                    {totalCost > 0 && (
-                      <div className="border-t border-zinc-200 dark:border-zinc-700/60 px-3 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/30 flex flex-wrap gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Себестоимость</span>
-                          <span className="text-xs font-black tabular-nums text-zinc-800 dark:text-zinc-200">{fmtNum(totalCost)} ₸</span>
-                        </div>
-                        {markupPct !== null && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Наценка</span>
-                            <span className="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400">{fmtNum(markupPct)}%</span>
-                          </div>
-                        )}
-                        {foodCostPct !== null && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Фудкост</span>
-                            <span className={`text-xs font-black tabular-nums ${foodCostPct > 35 ? "text-red-500" : "text-amber-500"}`}>
-                              {fmtNum(foodCostPct)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
+
+              {/* Калькуляция — автоматический расчёт */}
+              {recipeRows.length > 0 && totalCost > 0 && (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 overflow-hidden">
+                  <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-700/60">
+                    <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                      Калькуляция
+                    </label>
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <div className="grid grid-cols-[1fr_70px] gap-1 px-1">
+                      {recipeRows.map(row => {
+                        const ing = dbIngredients.find(i => i.id === row.ingredientId);
+                        const lineCost = ing ? calcLineCost(ing, parseFloat(row.weightGross) || 0) : 0;
+                        if (lineCost <= 0) return null;
+                        return (
+                          <div key={row.key} className="contents">
+                            <span className="text-[11px] text-zinc-600 dark:text-zinc-400">{ing?.name}</span>
+                            <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 text-right tabular-nums">{fmtNum(lineCost)} ₸</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t border-zinc-200 dark:border-zinc-700/60 mt-2 pt-2 flex flex-wrap gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Себестоимость</span>
+                        <span className="text-xs font-black tabular-nums text-zinc-800 dark:text-zinc-200">{fmtNum(totalCost)} ₸</span>
+                      </div>
+                      {markupPct !== null && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Наценка</span>
+                          <span className="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400">{fmtNum(markupPct)}%</span>
+                        </div>
+                      )}
+                      {foodCostPct !== null && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-semibold">Фудкост</span>
+                          <span className={`text-xs font-black tabular-nums ${foodCostPct > 35 ? "text-red-500" : "text-amber-500"}`}>
+                            {fmtNum(foodCostPct)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Price + Category */}
               <div className="grid grid-cols-2 gap-3">
