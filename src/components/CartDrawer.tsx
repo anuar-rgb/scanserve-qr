@@ -59,6 +59,7 @@ export interface StoredOrder {
   total: number;
   currency: string;
   status: "pending" | "refund-requested";
+  earnedBonuses?: number;
 }
 
 // ── Design tokens (mirrors MenuTemplate) ──────────────────────────────────────
@@ -802,6 +803,7 @@ export function CartDrawer({
       total: grandTotal,
       currency,
       status: "pending",
+      earnedBonuses: totalBonusesEarned > 0 ? totalBonusesEarned : undefined,
     });
   };
 
@@ -2111,6 +2113,12 @@ export function CartDrawer({
                   <span>{tn("total", lang)}</span>
                   <span>{placedOrder.total.toLocaleString()} {placedOrder.currency}</span>
                 </div>
+                {totalBonusesEarned > 0 && (
+                  <div style={{ marginTop: SP.sm, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#10B981" }}>
+                    <span>⭐</span>
+                    <span>{lang === "kz" ? "Сізге" : "Вам начислено"} +{totalBonusesEarned.toLocaleString()} {lang === "en" ? "bonuses" : "бонусов"}</span>
+                  </div>
+                )}
               </div>
 
               {/* ── Payment reminder (card-transfer / remote-payment) ── */}

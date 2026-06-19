@@ -570,6 +570,12 @@ export function OrdersModal({
                           <span>{t.total}</span>
                           <span>{order.total.toLocaleString()} {order.currency}</span>
                         </div>
+                        {(order.earnedBonuses ?? 0) > 0 && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12, fontWeight: 600, color: "#10B981" }}>
+                            <span>⭐</span>
+                            <span>+{order.earnedBonuses!.toLocaleString()} бонусов</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Full-order refund button */}

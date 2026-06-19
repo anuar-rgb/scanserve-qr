@@ -805,6 +805,11 @@ function LoggedInView({
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: textPri }}>
                     {fmtCurrency(order.total, order.currency)}
                   </p>
+                  {(order.earnedBonuses ?? 0) > 0 && (
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: "#10B981", fontWeight: 600 }}>
+                      +{order.earnedBonuses} {isRu ? "бонусов" : "bonuses"}
+                    </p>
+                  )}
                   {order.status === "refund-requested" && (
                     <p style={{ margin: "2px 0 0", fontSize: 11, color: "#F59E0B", fontWeight: 600 }}>
                       {isRu ? "Возврат" : "Refund"}
