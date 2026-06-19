@@ -8,6 +8,32 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+type ItemRow = { name: string; price: number; qty: number; product_id?: string; [key: string]: unknown };
+
+async function calcEarnedBonuses(items: ItemRow[]): Promise<number> {
+  const productIds = [...new Set(items.map(i => i.product_id).filter(Boolean) as string[])];
+  if (productIds.length === 0) return 0;
+
+  const { data: products } = await supabaseAdmin
+    .from("products")
+    .select("id, bonus_percent")
+    .in("id", productIds);
+
+  const pctMap: Record<string, number> = {};
+  for (const p of products ?? []) {
+    if (p.bonus_percent) pctMap[p.id] = Number(p.bonus_percent);
+  }
+
+  let total = 0;
+  for (const item of items) {
+    if (!item.product_id) continue;
+    const pct = pctMap[item.product_id] ?? 0;
+    if (pct <= 0) continue;
+    total += Math.round(item.price * pct / 100) * item.qty;
+  }
+  return total;
+}
+
 // POST /api/admin/transfer-item — move a single item from one order to another table
 export async function POST(request: NextRequest) {
   const session = request.cookies.get("admin_session");
@@ -34,7 +60,7 @@ export async function POST(request: NextRequest) {
   // 1. Read source order
   const { data: sourceOrder, error: fetchError } = await supabaseAdmin
     .from("orders")
-    .select("id, items_json, total_price")
+    .select("id, items_json, total_price, guest_id, opened_by")
     .eq("id", source_order_id)
     .eq("restaurant_id", RESTAURANT_ID)
     .single();
@@ -43,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Source order not found" }, { status: 404 });
   }
 
-  const sourceItems: Array<{ name: string; price: number; qty: number; [key: string]: unknown }> =
+  const sourceItems: ItemRow[] =
     Array.isArray(sourceOrder.items_json) ? [...sourceOrder.items_json] : [];
 
   const idx = Number(item_idx);
@@ -54,6 +80,7 @@ export async function POST(request: NextRequest) {
   const transferredItem = sourceItems[idx];
   const updatedSourceItems = sourceItems.filter((_, i) => i !== idx);
   const newSourceTotal = updatedSourceItems.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const newSourceBonuses = await calcEarnedBonuses(updatedSourceItems);
 
   // 2. Find existing pending dine-in order for the target table
   const { data: existingTargetOrder } = await supabaseAdmin
@@ -68,16 +95,15 @@ export async function POST(request: NextRequest) {
   let targetOrderId: string;
 
   if (existingTargetOrder) {
-    // Append item to existing order
-    const targetItems: unknown[] = Array.isArray(existingTargetOrder.items_json)
+    const targetItems: ItemRow[] = Array.isArray(existingTargetOrder.items_json)
       ? [...existingTargetOrder.items_json, transferredItem]
       : [transferredItem];
-    const newTargetTotal = (targetItems as Array<{ price: number; qty: number }>)
-      .reduce((sum, it) => sum + it.price * it.qty, 0);
+    const newTargetTotal = targetItems.reduce((sum, it) => sum + it.price * it.qty, 0);
+    const newTargetBonuses = await calcEarnedBonuses(targetItems);
 
     const { error: targetUpdateError } = await supabaseAdmin
       .from("orders")
-      .update({ items_json: targetItems, total_price: newTargetTotal })
+      .update({ items_json: targetItems, total_price: newTargetTotal, earned_bonuses: newTargetBonuses > 0 ? newTargetBonuses : null })
       .eq("id", existingTargetOrder.id)
       .eq("restaurant_id", RESTAURANT_ID);
 
@@ -86,7 +112,8 @@ export async function POST(request: NextRequest) {
     }
     targetOrderId = existingTargetOrder.id;
   } else {
-    // Create new order for the free table
+    const itemBonuses = await calcEarnedBonuses([transferredItem]);
+
     const { data: newOrder, error: createError } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -97,7 +124,9 @@ export async function POST(request: NextRequest) {
         table_number: target_table_label,
         items_json: [transferredItem],
         total_price: transferredItem.price * transferredItem.qty,
+        earned_bonuses: itemBonuses > 0 ? itemBonuses : null,
         opened_by: (user_id as string) ?? null,
+        guest_id: sourceOrder.guest_id ?? null,
       })
       .select("id")
       .single();
@@ -108,18 +137,40 @@ export async function POST(request: NextRequest) {
     targetOrderId = newOrder.id;
   }
 
-  // 3. Remove item from source order (do this after target is confirmed safe)
-  const { error: sourceUpdateError } = await supabaseAdmin
-    .from("orders")
-    .update({ items_json: updatedSourceItems, total_price: newSourceTotal })
-    .eq("id", source_order_id)
-    .eq("restaurant_id", RESTAURANT_ID);
+  // 3. Update source order — recalculate bonuses + auto-close if empty
+  if (updatedSourceItems.length === 0) {
+    const { error: closeErr } = await supabaseAdmin
+      .from("orders")
+      .update({
+        items_json: [],
+        total_price: 0,
+        earned_bonuses: null,
+        status: "completed",
+        closed_at: new Date().toISOString(),
+      })
+      .eq("id", source_order_id)
+      .eq("restaurant_id", RESTAURANT_ID);
 
-  if (sourceUpdateError) {
-    return NextResponse.json({ error: sourceUpdateError.message }, { status: 500 });
+    if (closeErr) {
+      return NextResponse.json({ error: closeErr.message }, { status: 500 });
+    }
+  } else {
+    const { error: sourceUpdateError } = await supabaseAdmin
+      .from("orders")
+      .update({
+        items_json: updatedSourceItems,
+        total_price: newSourceTotal,
+        earned_bonuses: newSourceBonuses > 0 ? newSourceBonuses : null,
+      })
+      .eq("id", source_order_id)
+      .eq("restaurant_id", RESTAURANT_ID);
+
+    if (sourceUpdateError) {
+      return NextResponse.json({ error: sourceUpdateError.message }, { status: 500 });
+    }
   }
 
-  // 4. Log to order_transfers — Supabase client returns {data,error}, never throws
+  // 4. Log to order_transfers
   await supabaseAdmin.from("order_transfers").insert({
     restaurant_id: RESTAURANT_ID,
     source_order_id,

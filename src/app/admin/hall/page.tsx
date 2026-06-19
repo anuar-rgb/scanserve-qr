@@ -3189,6 +3189,22 @@ function calcSplitTotal(items: SplitLine[]) {
   return items.reduce((s, it) => s + it.price * it.qty, 0);
 }
 
+async function calcSplitBonuses(items: SplitLine[]): Promise<number> {
+  const pids = [...new Set(items.map(i => i.product_id).filter(Boolean) as string[])];
+  if (pids.length === 0) return 0;
+  const { data } = await supabase.from("products").select("id, bonus_percent").in("id", pids);
+  const map: Record<string, number> = {};
+  for (const p of data ?? []) { if (p.bonus_percent) map[p.id] = Number(p.bonus_percent); }
+  let total = 0;
+  for (const item of items) {
+    if (!item.product_id) continue;
+    const pct = map[item.product_id] ?? 0;
+    if (pct <= 0) continue;
+    total += Math.round(item.price * pct / 100) * item.qty;
+  }
+  return total;
+}
+
 function SplitBillModal({
   order,
   tableName,
@@ -3247,8 +3263,9 @@ function SplitBillModal({
     setSaving(true);
 
     const guestTotal = calcSplitTotal(guest.items);
+    const guestBonuses = await calcSplitBonuses(guest.items);
 
-    const { error: insertErr } = await supabase.from(DB_TABLES.orders).insert({
+    const { data: inserted, error: insertErr } = await supabase.from(DB_TABLES.orders).insert({
       restaurant_id: RESTAURANT_ID,
       table_number:  order.table_number,
       type:          order.type || "dine-in",
@@ -3259,12 +3276,23 @@ function SplitBillModal({
       payment_method: method,
       closed_at:     new Date().toISOString(),
       opened_by:     order.opened_by,
-    });
+      guest_id:      order.guest_id,
+      earned_bonuses: guestBonuses > 0 ? guestBonuses : null,
+    }).select("id").single();
 
     if (insertErr) {
       toast.error(`Ошибка создания чека: ${insertErr.message}`);
       setSaving(false);
       return;
+    }
+
+    // Accrue bonuses for split order (non-blocking)
+    if (guestBonuses > 0 && inserted?.id) {
+      fetch("/api/orders/accrue-bonuses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: inserted.id, restaurantId: RESTAURANT_ID }),
+      }).catch(() => {});
     }
 
     // Remaining = current mainItems + items of other unpaid guests
@@ -3276,7 +3304,7 @@ function SplitBillModal({
 
     if (remaining.length === 0) {
       const { error: closeErr } = await supabase.from(DB_TABLES.orders)
-        .update({ status: "completed", items_json: [], total_price: 0, payment_method: "split", closed_at: new Date().toISOString() })
+        .update({ status: "completed", items_json: [], total_price: 0, earned_bonuses: null, payment_method: "split", closed_at: new Date().toISOString() })
         .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
       if (closeErr) { toast.error(`Ошибка закрытия стола: ${closeErr.message}`); setSaving(false); return; }
       toast.success("Все гости рассчитались — стол закрыт!");
@@ -3285,8 +3313,9 @@ function SplitBillModal({
       setPayingGuestId(null);
       setTimeout(() => { onOrderClosed(order.id); onRefresh(); onClose(); }, 1200);
     } else {
+      const remainingBonuses = await calcSplitBonuses(remaining);
       const { error: updateErr } = await supabase.from(DB_TABLES.orders)
-        .update({ items_json: remaining, total_price: newTotal })
+        .update({ items_json: remaining, total_price: newTotal, earned_bonuses: remainingBonuses > 0 ? remainingBonuses : null })
         .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
       if (updateErr) { toast.error(`Ошибка обновления счёта: ${updateErr.message}`); setSaving(false); return; }
       toast.success(`${guest.label} оплатил — ${guestTotal.toLocaleString("ru-RU")} ₸`);
