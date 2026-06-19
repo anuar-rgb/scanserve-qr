@@ -65,7 +65,10 @@ export async function POST(req: NextRequest) {
     .eq("restaurant_id", restaurantId)
     .maybeSingle();
 
-  const newBalance = ((balance?.bonus_amount ?? 0) as number) + bonusesEarned;
+  const oldBalance = (balance?.bonus_amount ?? 0) as number;
+  const newBalance = oldBalance + bonusesEarned;
+
+  console.log(`[accrue-bonuses] order=${orderId} guest=${order.guest_id} earned=${bonusesEarned} oldBalance=${oldBalance} newBalance=${newBalance}`);
 
   await supabase
     .from("guest_balances")
@@ -74,5 +77,5 @@ export async function POST(req: NextRequest) {
       { onConflict: "guest_id,restaurant_id" },
     );
 
-  return NextResponse.json({ ok: true, bonusesEarned, newBalance });
+  return NextResponse.json({ ok: true, bonusesEarned, oldBalance, newBalance });
 }
