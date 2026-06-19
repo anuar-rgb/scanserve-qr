@@ -375,10 +375,11 @@ export default function ProductModal({ mode, product, categories, defaultCategor
       }
 
       // Save recipe items (калькуляция)
-      await supabase.from("recipe_items").delete().eq("product_id", savedProduct.id);
+      const { error: delErr } = await supabase.from("recipe_items").delete().eq("product_id", savedProduct.id);
+      if (delErr) throw new Error(`Ошибка удаления тех.карты: ${delErr.message}`);
       const validRows = recipeRows.filter(r => r.ingredientId && parseFloat(r.weightGross) > 0);
       if (validRows.length > 0) {
-        await supabase.from("recipe_items").insert(
+        const { error: insErr } = await supabase.from("recipe_items").insert(
           validRows.map(r => ({
             product_id:    savedProduct.id,
             ingredient_id: r.ingredientId,
@@ -386,6 +387,17 @@ export default function ProductModal({ mode, product, categories, defaultCategor
             weight_net:    parseFloat(r.weightNet)   || 0,
           }))
         );
+        if (insErr) throw new Error(`Ошибка сохранения тех.карты: ${insErr.message}`);
+
+        // Sync product.ingredients text from recipe names
+        const ingredientNames = validRows
+          .map(r => dbIngredients.find(i => i.id === r.ingredientId)?.name)
+          .filter(Boolean)
+          .join(", ");
+        if (ingredientNames) {
+          await supabase.from("products").update({ ingredients: ingredientNames }).eq("id", savedProduct.id);
+          savedProduct = { ...savedProduct, ingredients: ingredientNames };
+        }
       }
 
       onSaved(savedProduct);
