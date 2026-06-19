@@ -2224,9 +2224,17 @@ function OrderSlotPanel({
       ? items.filter((_, i) => i !== idx)
       : items.map((it, i) => i === idx ? { ...it, qty: it.qty - qty } : it);
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
-    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
-    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-    toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    const newBonuses = await calcSplitBonuses(updated as SplitLine[]);
+    if (updated.length === 0) {
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: [], total_price: 0, earned_bonuses: null, status: "completed", closed_at: new Date().toISOString() }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+      if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+      toast.success("Все блюда удалены — заказ закрыт");
+      onOrderClosed(order.id);
+    } else {
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal, earned_bonuses: newBonuses > 0 ? newBonuses : null }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+      if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+      toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    }
     setVoidingItem(null);
     setSelectedItemIdx(null);
     onRefresh();
@@ -3675,9 +3683,17 @@ function TablePanel({
       ? items.filter((_, i) => i !== idx)
       : items.map((it, i) => i === idx ? { ...it, qty: it.qty - qty } : it);
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
-    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
-    if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-    toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    const newBonuses = await calcSplitBonuses(updated as SplitLine[]);
+    if (updated.length === 0) {
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: [], total_price: 0, earned_bonuses: null, status: "completed", closed_at: new Date().toISOString() }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
+      if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+      toast.success("Все блюда удалены — заказ закрыт");
+      onOrderClosed(activeOrder.id);
+    } else {
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal, earned_bonuses: newBonuses > 0 ? newBonuses : null }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
+      if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+      toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
+    }
     setVoidingItem(null);
     setSelectedItemIdx(null);
     onRefresh();
