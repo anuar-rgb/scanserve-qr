@@ -850,6 +850,7 @@ export function CartDrawer({
     }
 
     onClearCart();
+    clearPromo();
     setPlacedOrder(order);
     setStep("success");
     setLoading(false);
