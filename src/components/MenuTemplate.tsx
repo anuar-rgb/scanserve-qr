@@ -1688,52 +1688,52 @@ function CategoryGrid({
                 )}
               </div>
 
-              {/* Food photo — only without bg image */}
-              {!hasBg && (
-                <div style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  position: "relative",
-                  zIndex: 1,
-                  paddingBottom: 14,
-                }}>
-                  {photoSrc ? (
-                    <img
-                      src={photoSrc}
-                      alt=""
-                      onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
-                      style={{
-                        width: 82, height: 82,
-                        objectFit: "cover",
-                        borderRadius: "50%",
-                        display: "block",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: 82, height: 82, borderRadius: "50%",
-                      background: "var(--bg-surface)",
-                      border: "1.5px solid var(--border-color)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
+              {/* Food photo */}
+              <div style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                zIndex: 1,
+                paddingBottom: 14,
+              }}>
+                {photoSrc ? (
+                  <img
+                    src={photoSrc}
+                    alt=""
+                    onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
+                    style={{
+                      width: 82, height: 82,
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                      display: "block",
                       pointerEvents: "none",
-                    }}>
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
-                        style={{ color: "var(--text-muted)", opacity: 0.45 }}>
-                        <circle cx="12" cy="12" r="9" />
-                        <circle cx="12" cy="12" r="4" />
-                        <line x1="12" y1="3" x2="12" y2="8" />
-                        <line x1="12" y1="16" x2="12" y2="21" />
-                        <line x1="3" y1="12" x2="8" y2="12" />
-                        <line x1="16" y1="12" x2="21" y2="12" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              )}
+                      boxShadow: hasBg ? "0 2px 12px rgba(0,0,0,0.4)" : "none",
+                      border: hasBg ? "2px solid rgba(255,255,255,0.5)" : "none",
+                    }}
+                  />
+                ) : !hasBg ? (
+                  <div style={{
+                    width: 82, height: 82, borderRadius: "50%",
+                    background: "var(--bg-surface)",
+                    border: "1.5px solid var(--border-color)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    pointerEvents: "none",
+                  }}>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
+                      style={{ color: "var(--text-muted)", opacity: 0.45 }}>
+                      <circle cx="12" cy="12" r="9" />
+                      <circle cx="12" cy="12" r="4" />
+                      <line x1="12" y1="3" x2="12" y2="8" />
+                      <line x1="12" y1="16" x2="12" y2="21" />
+                      <line x1="3" y1="12" x2="8" y2="12" />
+                      <line x1="16" y1="12" x2="21" y2="12" />
+                    </svg>
+                  </div>
+                ) : null}
+              </div>
 
               {/* Count — bottom right */}
               <div style={{
