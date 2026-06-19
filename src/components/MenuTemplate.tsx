@@ -1699,20 +1699,40 @@ function CategoryGrid({
                 paddingBottom: 14,
               }}>
                 {photoSrc ? (
-                  <img
-                    src={photoSrc}
-                    alt=""
-                    onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
-                    style={{
-                      width: 82, height: 82,
-                      objectFit: "cover",
-                      borderRadius: "50%",
-                      display: "block",
-                      pointerEvents: "none",
-                      boxShadow: hasBg ? "0 4px 16px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,255,255,0.15)" : "none",
-                      border: "none",
-                    }}
-                  />
+                  hasBg ? (
+                    <div style={{
+                      width: 88, height: 88, borderRadius: "50%",
+                      background: "linear-gradient(135deg, rgba(255,255,255,0.45), rgba(255,255,255,0.08))",
+                      padding: 3,
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                    }}>
+                      <img
+                        src={photoSrc}
+                        alt=""
+                        onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
+                        style={{
+                          width: "100%", height: "100%",
+                          objectFit: "cover",
+                          borderRadius: "50%",
+                          display: "block",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={photoSrc}
+                      alt=""
+                      onError={() => setFailedImgs(prev => new Set(prev).add(cat.id))}
+                      style={{
+                        width: 82, height: 82,
+                        objectFit: "cover",
+                        borderRadius: "50%",
+                        display: "block",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )
                 ) : !hasBg ? (
                   <div style={{
                     width: 82, height: 82, borderRadius: "50%",
