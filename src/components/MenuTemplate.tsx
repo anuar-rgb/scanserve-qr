@@ -1709,8 +1709,8 @@ function CategoryGrid({
                       borderRadius: "50%",
                       display: "block",
                       pointerEvents: "none",
-                      boxShadow: hasBg ? "0 2px 12px rgba(0,0,0,0.4)" : "none",
-                      border: hasBg ? "2px solid rgba(255,255,255,0.5)" : "none",
+                      boxShadow: hasBg ? "0 4px 16px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,255,255,0.15)" : "none",
+                      border: "none",
                     }}
                   />
                 ) : !hasBg ? (
