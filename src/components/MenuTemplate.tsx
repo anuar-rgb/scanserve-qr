@@ -3527,6 +3527,9 @@ export function MenuTemplate({
         cart={cart}
         onClose={() => setSelectedDish(null)}
         onAddToCart={addToCart}
+        liked={liked}
+        onToggleLike={toggleLike}
+        getLikeCount={getLikeCount}
       />
 
       {/* ── Web Push subscription banner ──────────────────────────────────── */}

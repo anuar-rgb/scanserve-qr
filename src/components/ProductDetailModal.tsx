@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+import { X, Heart } from "lucide-react";
 import type { Dish, Lang } from "./MenuTemplate";
 import { resolve } from "./MenuTemplate";
 import type { CartMap } from "./CartDrawer";
@@ -45,10 +45,13 @@ export interface ProductDetailModalProps {
   cart: CartMap;
   onClose: () => void;
   onAddToCart: (dish: Dish, currency: string, delta: number) => void;
+  liked?: Record<string, boolean>;
+  onToggleLike?: (id: string) => void;
+  getLikeCount?: (id: string) => number;
 }
 
 export function ProductDetailModal({
-  dish, lang, currency, cart, onClose, onAddToCart,
+  dish, lang, currency, cart, onClose, onAddToCart, liked = {}, onToggleLike, getLikeCount,
 }: ProductDetailModalProps) {
   const [added, setAdded] = useState(false);
 
@@ -261,12 +264,30 @@ export function ProductDetailModal({
                 </div>
               </div>
 
-              {/* Bonus info */}
-              {!!dish.bonusPercent && dish.bonusPercent > 0 && (
-                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: "#10B981" }}>
-                  ⭐ +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} {lang === "en" ? "bonuses" : "бонусов"}
-                </p>
-              )}
+              {/* Bonus + Like row */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                {!!dish.bonusPercent && dish.bonusPercent > 0 ? (
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#10B981" }}>
+                    ⭐ +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} {lang === "en" ? "bonuses" : "бонусов"}
+                  </p>
+                ) : <span />}
+                {onToggleLike && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleLike(dish.id); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 4,
+                      background: "none", border: "none", cursor: "pointer",
+                      padding: "4px 8px", borderRadius: 99,
+                      color: liked[dish.id] ? "#EF4444" : "var(--text-muted)",
+                      fontSize: 13, fontWeight: 600,
+                      transition: "color 0.2s",
+                    }}
+                  >
+                    <Heart size={16} fill={liked[dish.id] ? "#EF4444" : "none"} />
+                    {getLikeCount ? getLikeCount(dish.id) : 0}
+                  </button>
+                )}
+              </div>
 
               {/* Description */}
               {resolve(dish.desc, lang) && (
