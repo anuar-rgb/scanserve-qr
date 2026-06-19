@@ -3243,15 +3243,18 @@ function SplitBillModal({
     modifiers: it.modifiers, original_price: it.original_price, product_id: it.product_id,
   }));
 
+  const baseTable = (order.table_number ?? tableName ?? "").replace(/\.\d+$/, "");
+
   const [mainItems, setMainItems] = useState<SplitLine[]>(initialItems);
   const [guests, setGuests]       = useState<GuestBucket[]>([
     { id: "g1", label: "Гость 1", items: [], paid: false },
   ]);
   const [activeGuestId, setActiveGuestId] = useState("g1");
-  const [payingGuestId, setPayingGuestId] = useState<string | null>(null);
   const [saving, setSaving]               = useState(false);
 
   const activeGuest = guests.find(g => g.id === activeGuestId) ?? guests[0];
+  const guestsWithItems = guests.filter(g => g.items.length > 0);
+  const canSave = guestsWithItems.length > 0;
 
   function addGuest() {
     const n  = guests.length + 1;
@@ -3261,7 +3264,6 @@ function SplitBillModal({
   }
 
   function moveToGuest(item: SplitLine) {
-    if (activeGuest?.paid) return;
     setMainItems(prev => removeFromSplitList(prev, item, 1));
     setGuests(prev => prev.map(g =>
       g.id !== activeGuestId ? g : { ...g, items: addToSplitList(g.items, item, 1) }
@@ -3269,114 +3271,62 @@ function SplitBillModal({
   }
 
   function moveToMain(item: SplitLine) {
-    if (activeGuest?.paid) return;
     setGuests(prev => prev.map(g =>
       g.id !== activeGuestId ? g : { ...g, items: removeFromSplitList(g.items, item, 1) }
     ));
     setMainItems(prev => addToSplitList(prev, item, 1));
   }
 
-  async function payGuest(guestId: string, method: string) {
-    const guest = guests.find(g => g.id === guestId);
-    if (!guest || guest.items.length === 0 || saving) return;
+  async function saveSplit() {
+    if (!canSave || saving) return;
     setSaving(true);
 
-    const guestTotal = calcSplitTotal(guest.items);
-    const guestBonuses = await calcSplitBonuses(guest.items);
+    let subIdx = 1;
 
-    const { data: inserted, error: insertErr } = await supabase.from(DB_TABLES.orders).insert({
-      restaurant_id: RESTAURANT_ID,
-      table_number:  order.table_number,
-      type:          order.type || "dine-in",
-      order_type:    order.order_type,
-      status:        "completed",
-      items_json:    guest.items,
-      total_price:   guestTotal,
-      payment_method: method,
-      closed_at:     new Date().toISOString(),
-      opened_by:     order.opened_by,
-      guest_id:      order.guest_id,
-      earned_bonuses: guestBonuses > 0 ? guestBonuses : null,
-    }).select("id").single();
+    for (const guest of guestsWithItems) {
+      const subTable = `${baseTable}.${subIdx}`;
+      const guestTotal = calcSplitTotal(guest.items);
+      const guestBonuses = await calcSplitBonuses(guest.items);
 
-    if (insertErr) {
-      toast.error(`Ошибка создания чека: ${insertErr.message}`);
-      setSaving(false);
-      return;
+      const { error: insertErr } = await supabase.from(DB_TABLES.orders).insert({
+        restaurant_id: RESTAURANT_ID,
+        table_number:  subTable,
+        type:          order.type || "dine-in",
+        order_type:    order.order_type,
+        status:        "pending",
+        items_json:    guest.items,
+        total_price:   guestTotal,
+        opened_by:     order.opened_by,
+        guest_id:      order.guest_id,
+        earned_bonuses: guestBonuses > 0 ? guestBonuses : null,
+      });
+
+      if (insertErr) {
+        toast.error(`Ошибка создания ${subTable}: ${insertErr.message}`);
+        setSaving(false);
+        return;
+      }
+      subIdx++;
     }
 
-    // Accrue bonuses for split order (non-blocking)
-    if (guestBonuses > 0 && inserted?.id) {
-      fetch("/api/orders/accrue-bonuses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: inserted.id, restaurantId: RESTAURANT_ID }),
-      }).catch(() => {});
-    }
-
-    // Remaining = current mainItems + items of other unpaid guests
-    const otherUnpaid = guests
-      .filter(g => g.id !== guestId && !g.paid)
-      .flatMap(g => g.items);
-    const remaining = collapseItems([...mainItems, ...otherUnpaid]);
-    const newTotal  = calcSplitTotal(remaining);
-
-    if (remaining.length === 0) {
-      const { error: closeErr } = await supabase.from(DB_TABLES.orders)
-        .update({ status: "completed", items_json: [], total_price: 0, earned_bonuses: null, payment_method: "split", closed_at: new Date().toISOString() })
+    if (mainItems.length > 0) {
+      const mainTotal = calcSplitTotal(mainItems);
+      const mainBonuses = await calcSplitBonuses(mainItems);
+      await supabase.from(DB_TABLES.orders)
+        .update({ items_json: mainItems, total_price: mainTotal, earned_bonuses: mainBonuses > 0 ? mainBonuses : null })
         .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
-      if (closeErr) { toast.error(`Ошибка закрытия стола: ${closeErr.message}`); setSaving(false); return; }
-      toast.success("Все гости рассчитались — стол закрыт!");
-      setSaving(false);
-      setGuests(prev => prev.map(g => g.id === guestId ? { ...g, paid: true, paidMethod: method } : g));
-      setPayingGuestId(null);
-      setTimeout(() => { onOrderClosed(order.id); onRefresh(); onClose(); }, 1200);
     } else {
-      const remainingBonuses = await calcSplitBonuses(remaining);
-      const { error: updateErr } = await supabase.from(DB_TABLES.orders)
-        .update({ items_json: remaining, total_price: newTotal, earned_bonuses: remainingBonuses > 0 ? remainingBonuses : null })
+      await supabase.from(DB_TABLES.orders)
+        .update({ status: "completed", items_json: [], total_price: 0, earned_bonuses: null, closed_at: new Date().toISOString() })
         .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
-      if (updateErr) { toast.error(`Ошибка обновления счёта: ${updateErr.message}`); setSaving(false); return; }
-      toast.success(`${guest.label} оплатил — ${guestTotal.toLocaleString("ru-RU")} ₸`);
-      setSaving(false);
-      setGuests(prev => prev.map(g => g.id === guestId ? { ...g, paid: true, paidMethod: method } : g));
-      setPayingGuestId(null);
-      onRefresh();
+      onOrderClosed(order.id);
     }
-  }
 
-  // Payment method picker
-  if (payingGuestId) {
-    const payingGuest = guests.find(g => g.id === payingGuestId)!;
-    const gTotal      = calcSplitTotal(payingGuest.items);
-    return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="bg-background rounded-2xl shadow-2xl w-[340px] max-w-[94vw] overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <p className="font-semibold text-sm">Оплата — {payingGuest.label}</p>
-            <button onClick={() => setPayingGuestId(null)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <X size={15} />
-            </button>
-          </div>
-          <div className="px-5 py-5 space-y-4">
-            <p className="text-center text-3xl font-black tabular-nums">{gTotal.toLocaleString("ru-RU")} ₸</p>
-            <div className="grid grid-cols-2 gap-2.5">
-              {PAYMENT_METHODS.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => payGuest(payingGuestId, m.id)}
-                  disabled={saving}
-                  className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-border hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors text-sm font-semibold disabled:opacity-50"
-                >
-                  <span className="text-lg leading-none">{m.icon}</span>
-                  <span>{m.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    const subNames = guestsWithItems.map((_, i) => `${baseTable}.${i + 1}`).join(", ");
+    toast.success(`Чек разделён → ${subNames}`);
+    setSaving(false);
+    onRefresh();
+    onClose();
   }
 
   return (
@@ -3404,24 +3354,24 @@ function SplitBillModal({
 
       {/* Guest tabs */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border overflow-x-auto shrink-0">
-        {guests.map(g => (
+        {guests.map((g, i) => (
           <button
             key={g.id}
-            onClick={() => { if (!g.paid) setActiveGuestId(g.id); }}
+            onClick={() => setActiveGuestId(g.id)}
             className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              g.paid
-                ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
-                : g.id === activeGuestId
+              g.id === activeGuestId
                 ? "bg-violet-600 text-white"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             }`}
           >
-            {g.paid && <Check size={11} />}
             {g.label}
-            {!g.paid && g.items.length > 0 && (
-              <span className={`rounded-full px-1 text-[10px] ${g.id === activeGuestId ? "bg-white/20" : "bg-border"}`}>
-                {calcSplitTotal(g.items).toLocaleString("ru-RU")} ₸
-              </span>
+            {g.items.length > 0 && (
+              <>
+                <span className={`rounded-full px-1 text-[10px] ${g.id === activeGuestId ? "bg-white/20" : "bg-border"}`}>
+                  {calcSplitTotal(g.items).toLocaleString("ru-RU")} ₸
+                </span>
+                <span className={`text-[9px] opacity-60`}>→ {baseTable}.{i + 1}</span>
+              </>
             )}
           </button>
         ))}
@@ -3433,7 +3383,7 @@ function SplitBillModal({
         {/* Main column */}
         <div className="flex flex-col w-1/2 border-r border-border overflow-hidden">
           <div className="px-3 py-2 bg-muted/30 border-b border-border/50 shrink-0">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Основной чек</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Основной чек — Стол {baseTable}</p>
             <p className="text-[10px] text-muted-foreground">нажмите → в чек гостя</p>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -3447,8 +3397,7 @@ function SplitBillModal({
                 <button
                   key={`m-${idx}-${item.name}`}
                   onClick={() => moveToGuest(item)}
-                  disabled={activeGuest?.paid}
-                  className="w-full flex items-start gap-2 px-3 py-2.5 border-b border-border/30 text-left hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group disabled:opacity-40"
+                  className="w-full flex items-start gap-2 px-3 py-2.5 border-b border-border/30 text-left hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold leading-tight">{item.name}</p>
@@ -3478,25 +3427,24 @@ function SplitBillModal({
           <div className="px-3 py-2 bg-muted/30 border-b border-border/50 shrink-0">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               {activeGuest?.label ?? "Гость"}
-              {activeGuest?.paid && <span className="ml-1 text-emerald-600">✓</span>}
+              {activeGuest && activeGuest.items.length > 0 && (
+                <span className="ml-1.5 text-violet-400">→ Стол {baseTable}.{guests.indexOf(activeGuest) + 1}</span>
+              )}
             </p>
-            {!activeGuest?.paid && <p className="text-[10px] text-muted-foreground">← нажмите для возврата</p>}
+            <p className="text-[10px] text-muted-foreground">← нажмите для возврата</p>
           </div>
           <div className="flex-1 overflow-y-auto">
             {!activeGuest || activeGuest.items.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-4">
                 <Users size={24} className="opacity-30" />
-                <p className="text-xs text-center">
-                  {activeGuest?.paid ? "Оплачено" : "Добавьте блюда из основного чека"}
-                </p>
+                <p className="text-xs text-center">Добавьте блюда из основного чека</p>
               </div>
             ) : (
               activeGuest.items.map((item, idx) => (
                 <button
                   key={`g-${idx}-${item.name}`}
                   onClick={() => moveToMain(item)}
-                  disabled={activeGuest.paid}
-                  className="w-full flex items-start gap-2 px-3 py-2.5 border-b border-border/30 text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors group disabled:opacity-60 disabled:cursor-default"
+                  className="w-full flex items-start gap-2 px-3 py-2.5 border-b border-border/30 text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors group"
                 >
                   <ChevronLeft size={12} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
@@ -3511,34 +3459,28 @@ function SplitBillModal({
               ))
             )}
           </div>
-          <div className="px-3 py-2.5 border-t border-border bg-muted/20 shrink-0 space-y-2">
+          <div className="px-3 py-2.5 border-t border-border bg-muted/20 shrink-0">
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-muted-foreground">Итого:</span>
               <span className="text-xs font-black tabular-nums">
                 {calcSplitTotal(activeGuest?.items ?? []).toLocaleString("ru-RU")} ₸
               </span>
             </div>
-            {activeGuest && !activeGuest.paid && activeGuest.items.length > 0 && (
-              <button
-                onClick={() => setPayingGuestId(activeGuest.id)}
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
-                <Check size={13} />
-                Оплатить {calcSplitTotal(activeGuest.items).toLocaleString("ru-RU")} ₸
-              </button>
-            )}
-            {activeGuest?.paid && activeGuest.paidMethod && (
-              <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                <Check size={12} />
-                <span className="text-xs font-semibold">
-                  {METHOD_META[activeGuest.paidMethod]?.label ?? activeGuest.paidMethod}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
+      </div>
+
+      {/* Save button — fixed bottom */}
+      <div className="px-4 py-3 border-t border-border bg-background shrink-0">
+        <button
+          onClick={saveSplit}
+          disabled={!canSave || saving}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 transition-colors disabled:opacity-40"
+        >
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+          Сохранить — {guestsWithItems.length} {guestsWithItems.length === 1 ? "чек" : "чека"} ({guestsWithItems.map((_, i) => `${baseTable}.${i + 1}`).join(", ")})
+        </button>
       </div>
     </div>
   );
