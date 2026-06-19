@@ -58,11 +58,21 @@ type SlideForm = {
   croppedBlob: Blob | null;
   mediaPreview: string | null;
   mediaType: "image" | "video";
+  titleFontSize: number;
+  descFontSize: number;
 };
+
+const FONT_PRESETS = [
+  { label: "S", titlePx: 16, descPx: 11 },
+  { label: "M", titlePx: 19, descPx: 13 },
+  { label: "L", titlePx: 24, descPx: 16 },
+  { label: "XL", titlePx: 30, descPx: 18 },
+];
 
 const EMPTY_FORM: SlideForm = {
   title: "", description: "", tags: [], is_active: true,
   mediaFile: null, croppedBlob: null, mediaPreview: null, mediaType: "image",
+  titleFontSize: 19, descFontSize: 13,
 };
 
 export default function HeroSliderPage() {
@@ -119,6 +129,8 @@ export default function HeroSliderPage() {
       croppedBlob: null,
       mediaPreview: s.url,
       mediaType: s.type,
+      titleFontSize: s.title_font_size ?? 19,
+      descFontSize: s.description_font_size ?? 13,
     });
     setTagPickerOpen(null);
     setModalOpen(true);
@@ -220,6 +232,8 @@ export default function HeroSliderPage() {
         description: form.description.trim() || null,
         tags: cleanTags.length > 0 ? cleanTags : null,
         is_active: form.is_active,
+        title_font_size: form.titleFontSize !== 19 ? form.titleFontSize : null,
+        description_font_size: form.descFontSize !== 13 ? form.descFontSize : null,
       };
 
       if (editingId) {
@@ -468,6 +482,30 @@ export default function HeroSliderPage() {
               />
             </div>
 
+            {/* Font size preset */}
+            <div className="space-y-1.5">
+              <Label>Размер шрифта</Label>
+              <div className="flex gap-1.5">
+                {FONT_PRESETS.map(p => {
+                  const active = form.titleFontSize === p.titlePx;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, titleFontSize: p.titlePx, descFontSize: p.descPx }))}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        active
+                          ? "bg-violet-600 text-white"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-violet-600"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Multi-tag editor */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -549,6 +587,8 @@ export default function HeroSliderPage() {
                 tags={form.tags}
                 mediaPreview={form.mediaPreview}
                 mediaType={form.mediaType}
+                titleFontSize={form.titleFontSize}
+                descFontSize={form.descFontSize}
               />
               <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
                 Так выглядит слайд в меню гостя
@@ -633,10 +673,11 @@ function TagColorPicker({
 // ── Slider phone mockup ───────────────────────────────────────────────────────
 
 function SliderPhoneMockup({
-  title, description, tags, mediaPreview, mediaType,
+  title, description, tags, mediaPreview, mediaType, titleFontSize = 19, descFontSize = 13,
 }: {
   title: string; description: string; tags: SlideTag[];
   mediaPreview: string | null; mediaType: "image" | "video";
+  titleFontSize?: number; descFontSize?: number;
 }) {
   const visibleTags = tags.filter(t => t.text.trim());
   return (
@@ -706,7 +747,7 @@ function SliderPhoneMockup({
             )}
             {title && (
               <p style={{
-                color: "#fff", fontWeight: 800, fontSize: 9, margin: 0,
+                color: "#fff", fontWeight: 800, fontSize: titleFontSize * 0.47, margin: 0,
                 textShadow: "0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35)",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
                 lineHeight: 1.3,
@@ -714,7 +755,7 @@ function SliderPhoneMockup({
             )}
             {description && (
               <p style={{
-                color: "rgba(255,255,255,0.85)", fontWeight: 500, fontSize: 7, margin: "2px 0 0",
+                color: "rgba(255,255,255,0.85)", fontWeight: 500, fontSize: descFontSize * 0.54, margin: "2px 0 0",
                 textShadow: "0 1px 8px rgba(0,0,0,0.65)",
                 fontFamily: "'Montserrat', system-ui, sans-serif",
               }}>{description}</p>

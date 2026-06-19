@@ -69,6 +69,8 @@ export default async function TenantMenuPage({
     title: s.title,
     description: s.description,
     tags: s.tags ?? [],
+    title_font_size: s.title_font_size,
+    description_font_size: s.description_font_size,
   }));
 
   const showcaseItems: ShowcaseItem[] = dbShowcase.map((c) => ({

@@ -105,6 +105,8 @@ export interface HeroSlide {
   title?: string | null;
   description?: string | null;
   tags?: SlideTag[] | null;
+  title_font_size?: number | null;
+  description_font_size?: number | null;
 }
 
 export interface FeaturedItem {
@@ -2374,14 +2376,14 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
 
             {/* Title */}
             {slide.title && (
-              <p style={{ color: "#fff", fontWeight: 700, fontSize: 19, margin: 0, lineHeight: 1.25, textShadow: "0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35)" }}>
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: slide.title_font_size ?? 19, margin: 0, lineHeight: 1.25, textShadow: "0 1px 8px rgba(0,0,0,0.65), 0 2px 20px rgba(0,0,0,0.35)" }}>
                 {slide.title}
               </p>
             )}
 
             {/* Description */}
             {slide.description && (
-              <p style={{ color: "rgba(255,255,255,0.88)", fontSize: 13, margin: 0, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
+              <p style={{ color: "rgba(255,255,255,0.88)", fontSize: slide.description_font_size ?? 13, margin: 0, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
                 {slide.description}
               </p>
             )}

@@ -142,6 +142,8 @@ export interface DbHeroSlide {
   order_index: number;
   is_active: boolean;
   created_at: string;
+  title_font_size: number | null;
+  description_font_size: number | null;
 }
 
 export interface DbInfoShowcase {
