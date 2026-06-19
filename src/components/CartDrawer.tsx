@@ -62,6 +62,9 @@ export interface StoredOrder {
   currency: string;
   status: "pending" | "refund-requested";
   earnedBonuses?: number;
+  bonusesDeducted?: number;
+  promoCode?: string;
+  promoDiscount?: number;
 }
 
 // ── Design tokens (mirrors MenuTemplate) ──────────────────────────────────────

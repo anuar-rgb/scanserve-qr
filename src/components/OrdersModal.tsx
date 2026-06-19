@@ -566,6 +566,18 @@ export function OrdersModal({
                             )}
                           </div>
                         ))}
+                        {(order.bonusesDeducted ?? 0) > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 4, color: "#10B981" }}>
+                            <span>🌟 Бонусы</span>
+                            <span style={{ fontWeight: 600 }}>−{order.bonusesDeducted!.toLocaleString()} {order.currency}</span>
+                          </div>
+                        )}
+                        {(order.promoDiscount ?? 0) > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 4, color: "#7C3AED" }}>
+                            <span>🏷️ {order.promoCode}</span>
+                            <span style={{ fontWeight: 600 }}>−{order.promoDiscount!.toLocaleString()} {order.currency}</span>
+                          </div>
+                        )}
                         <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.xs, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}>
                           <span>{t.total}</span>
                           <span>{order.total.toLocaleString()} {order.currency}</span>
