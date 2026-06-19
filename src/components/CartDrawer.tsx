@@ -646,6 +646,11 @@ export function CartDrawer({
     setTipsInput("");
     setTipsAmount(0);
     setUseBonuses(false);
+    setPromoInput("");
+    setPromoCode(null);
+    setPromoDiscount(0);
+    setPromoLabel("");
+    setPromoError("");
   };
 
   const handleClose = () => {
