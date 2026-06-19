@@ -2681,6 +2681,14 @@ function OrderSlotPanel({
                 </span>
               </div>
             )}
+            {(order.promo_discount ?? 0) > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-violet-600 dark:text-violet-400">🏷️ {order.promo_code}</span>
+                <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">
+                  −{(order.promo_discount ?? 0).toLocaleString("ru-RU")} ₸
+                </span>
+              </div>
+            )}
             {earnedBonuses > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1">
@@ -4249,6 +4257,14 @@ function TablePanel({
                   <span className="text-xs text-emerald-600 dark:text-emerald-400">🌟 Оплата бонусами</span>
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">
                     −{(activeOrder.bonuses_deducted ?? 0).toLocaleString("ru-RU")} ₸
+                  </span>
+                </div>
+              )}
+              {(activeOrder.promo_discount ?? 0) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-violet-600 dark:text-violet-400">🏷️ {activeOrder.promo_code}</span>
+                  <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">
+                    −{(activeOrder.promo_discount ?? 0).toLocaleString("ru-RU")} ₸
                   </span>
                 </div>
               )}
