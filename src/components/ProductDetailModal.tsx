@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Heart } from "lucide-react";
 import type { Dish, Lang } from "./MenuTemplate";
 import { resolve } from "./MenuTemplate";
 import type { CartMap } from "./CartDrawer";
 import { capFirst } from "@/lib/utils";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 const R = { sm: 10, md: 20, lg: 24, full: 999 };
 
@@ -54,6 +55,30 @@ export function ProductDetailModal({
   dish, lang, currency, cart, onClose, onAddToCart, liked = {}, onToggleLike, getLikeCount,
 }: ProductDetailModalProps) {
   const [added, setAdded] = useState(false);
+  const [recipe, setRecipe] = useState<{ name: string; weight: number; unit: string }[]>([]);
+
+  useEffect(() => {
+    if (!dish) { setRecipe([]); return; }
+    let cancelled = false;
+    const sb = getSupabaseBrowser();
+    sb.from("recipe_items")
+      .select("weight_gross, ingredients:ingredient_id(name, unit)")
+      .eq("product_id", dish.id)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const UNIT_LABEL: Record<string, string> = { kg: "г", liter: "мл", pcs: "шт" };
+        setRecipe(
+          (data as { weight_gross: number; ingredients: { name: string; unit: string } | null }[])
+            .filter(r => r.ingredients)
+            .map(r => ({
+              name: r.ingredients!.name,
+              weight: r.weight_gross,
+              unit: UNIT_LABEL[r.ingredients!.unit] ?? r.ingredients!.unit,
+            }))
+        );
+      });
+    return () => { cancelled = true; };
+  }, [dish?.id]);
 
   const qty = dish
     ? dish.modifiers?.length
@@ -368,6 +393,29 @@ export function ProductDetailModal({
                       >
                         {b.emoji} {b.label}
                       </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recipe / Рецептура */}
+              {recipe.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{
+                    fontSize: 11, fontWeight: 700, margin: "0 0 8px",
+                    color: "var(--text-muted)", textTransform: "uppercase",
+                    letterSpacing: "0.06em", fontFamily: "'Montserrat', system-ui, sans-serif",
+                  }}>
+                    {lang === "kz" ? "Рецептура" : lang === "ru" ? "Рецептура" : "Recipe"}
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {recipe.map((r, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 13, color: "var(--text-color)" }}>{r.name}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                          {r.weight} {r.unit}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>
