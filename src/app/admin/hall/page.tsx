@@ -2115,6 +2115,7 @@ function OrderSlotPanel({
   const [reassigning, setReassigning]             = useState(false);
   const [notifying, setNotifying]                 = useState(false);
   const [notifyDone, setNotifyDone]               = useState(false);
+  const [showSplitBillModal, setShowSplitBillModal] = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -2705,10 +2706,19 @@ function OrderSlotPanel({
           </div>
 
           {!isWaiter && (
-            <button onClick={() => setShowPaymentModal(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
-              <Check size={15} />
-              {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
-            </button>
+            <>
+              <button onClick={() => setShowPaymentModal(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
+                <Check size={15} />
+                {prepaid > 0 ? `Оплатить остаток: ${balanceDue.toLocaleString("ru-RU")} ₸` : "Оплатить"}
+              </button>
+              <button
+                onClick={() => setShowSplitBillModal(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-accent transition-colors"
+              >
+                <Users size={14} />
+                Разделить чек
+              </button>
+            </>
           )}
 
         </div>
@@ -2718,6 +2728,15 @@ function OrderSlotPanel({
           order={order}
           onDone={() => { setShowPaymentModal(false); onOrderClosed(order.id); onClose(); onRefresh(); }}
           onClose={() => setShowPaymentModal(false)}
+        />
+      )}
+      {!isWaiter && showSplitBillModal && (
+        <SplitBillModal
+          order={order}
+          tableName={typeLabel}
+          onClose={() => setShowSplitBillModal(false)}
+          onRefresh={onRefresh}
+          onOrderClosed={(id) => { onOrderClosed(id); onClose(); }}
         />
       )}
       {voidingItem && (
