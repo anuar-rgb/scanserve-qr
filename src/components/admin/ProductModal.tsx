@@ -564,10 +564,9 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   </p>
                 ) : (
                   <div>
-                    <div className="grid grid-cols-[1fr_80px_70px_28px] gap-1.5 px-3 pt-2 pb-1">
+                    <div className="grid grid-cols-[1fr_80px_28px] gap-1.5 px-3 pt-2 pb-1">
                       <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Ингредиент</span>
-                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Брутто</span>
-                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Нетто</span>
+                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide text-right">Вес</span>
                       <span />
                     </div>
                     <div className="px-3 pb-2 space-y-1.5">
@@ -575,7 +574,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                         const ing     = dbIngredients.find(i => i.id === row.ingredientId);
                         const unitLbl = ing ? UNIT_INPUT_LABEL[ing.unit] : "г";
                         return (
-                          <div key={row.key} className="grid grid-cols-[1fr_80px_70px_28px] gap-1.5 items-center">
+                          <div key={row.key} className="grid grid-cols-[1fr_80px_28px] gap-1.5 items-center">
                             <select
                               value={row.ingredientId}
                               onChange={e => updateRecipeRow(row.key, { ingredientId: e.target.value })}
@@ -589,17 +588,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                               <input
                                 type="number" min={0} step="0.1"
                                 value={row.weightGross}
-                                onChange={e => updateRecipeRow(row.key, { weightGross: e.target.value })}
-                                placeholder="0"
-                                className="w-full pr-6 pl-2 py-1.5 text-xs rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/40 text-right"
-                              />
-                              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">{unitLbl}</span>
-                            </div>
-                            <div className="relative">
-                              <input
-                                type="number" min={0} step="0.1"
-                                value={row.weightNet}
-                                onChange={e => updateRecipeRow(row.key, { weightNet: e.target.value })}
+                                onChange={e => updateRecipeRow(row.key, { weightGross: e.target.value, weightNet: e.target.value })}
                                 placeholder="0"
                                 className="w-full pr-6 pl-2 py-1.5 text-xs rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/40 text-right"
                               />
