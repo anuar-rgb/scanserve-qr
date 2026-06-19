@@ -7,6 +7,13 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { RESTAURANT_ID } from "@/constants";
 import type { DbPromoCode } from "@/lib/db-types";
 
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 export default function PromotionsPage() {
   const [codes, setCodes] = useState<DbPromoCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +59,8 @@ export default function PromotionsPage() {
     setDiscountValue(String(p.discount_value));
     setMinOrder(p.min_order_amount ? String(p.min_order_amount) : "");
     setMaxUses(p.max_uses != null ? String(p.max_uses) : "");
-    setValidFrom(p.valid_from ? p.valid_from.slice(0, 16) : "");
-    setValidTo(p.valid_to ? p.valid_to.slice(0, 16) : "");
+    setValidFrom(p.valid_from ? toLocalInput(p.valid_from) : "");
+    setValidTo(p.valid_to ? toLocalInput(p.valid_to) : "");
     setIsActive(p.is_active);
     setModalOpen(true);
   }
@@ -72,8 +79,8 @@ export default function PromotionsPage() {
       discount_value: val,
       min_order_amount: minOrder ? parseInt(minOrder, 10) : 0,
       max_uses: maxUses ? parseInt(maxUses, 10) : null,
-      valid_from: validFrom || null,
-      valid_to: validTo || null,
+      valid_from: validFrom ? new Date(validFrom).toISOString() : null,
+      valid_to: validTo ? new Date(validTo).toISOString() : null,
       is_active: isActive,
     };
 
