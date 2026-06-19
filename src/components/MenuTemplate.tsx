@@ -2530,41 +2530,40 @@ export function MenuTemplate({
     }
     setClientId(cid);
 
-    // Orders — filter out entries older than 7 days
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    const raw = localStorage.getItem("menu-orders");
-    if (raw) {
-      try {
-        const parsed: StoredOrder[] = JSON.parse(raw);
-        const fresh = parsed.filter((o) => Date.now() - o.timestamp < sevenDays);
-        setOrders(fresh);
-        if (fresh.length !== parsed.length) {
-          localStorage.setItem("menu-orders", JSON.stringify(fresh));
-        }
-      } catch {}
-    }
   }, []);
 
-  const saveOrder = (order: StoredOrder) => {
-    setOrders((prev) => {
-      const next = [order, ...prev];
-      localStorage.setItem("menu-orders", JSON.stringify(next));
-      return next;
-    });
+  // Fetch orders from DB when guest is logged in
+  const fetchGuestOrders = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem("menu-guest-session");
+      if (!raw || !restaurantId) return;
+      const session = JSON.parse(raw) as { id?: string; email?: string };
+      if (!session?.id || !session?.email) return;
+      const res = await fetch(`/api/guest/orders?guestId=${session.id}&restaurantId=${restaurantId}`);
+      if (!res.ok) return;
+      const data: StoredOrder[] = await res.json();
+      setOrders(data);
+} catch {}
+  }, [restaurantId]);
+
+  useEffect(() => {
+    fetchGuestOrders();
+  }, [fetchGuestOrders]);
+
+  const saveOrder = (_order: StoredOrder) => {
     setHasUnseenOrder(true);
+    fetchGuestOrders();
   };
 
   const handleRefundRequest = (orderId: string) => {
-    setOrders((prev) => {
-      const next = prev.map((o) => o.id === orderId ? { ...o, status: "refund-requested" as const } : o);
-      localStorage.setItem("menu-orders", JSON.stringify(next));
-      return next;
-    });
+    setOrders((prev) =>
+      prev.map((o) => o.id === orderId ? { ...o, status: "refund-requested" as const } : o),
+    );
   };
 
   const handlePartialRefund = (orderId: string, itemIndex: number, qtyReturned: number) => {
-    setOrders((prev) => {
-      const next = prev.map((order) => {
+    setOrders((prev) =>
+      prev.map((order) => {
         if (order.id !== orderId) return order;
         const newItems = order.items
           .map((item, i) => i === itemIndex ? { ...item, qty: item.qty - qtyReturned } : item)
@@ -2576,10 +2575,8 @@ export function MenuTemplate({
           total: newTotal,
           status: newItems.length === 0 ? "refund-requested" as const : order.status,
         };
-      });
-      localStorage.setItem("menu-orders", JSON.stringify(next));
-      return next;
-    });
+      }),
+    );
   };
 
   const toggleTheme = () => {
