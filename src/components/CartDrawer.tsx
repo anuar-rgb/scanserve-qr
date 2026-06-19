@@ -448,6 +448,48 @@ export function CartDrawer({
   const [tipsAmount, setTipsAmount]                   = useState(0);
   const [guestSession, setGuestSession]               = useState<{id: string; name: string|null; phone: string|null; email?: string; bonusAmount: number} | null>(null);
   const [useBonuses, setUseBonuses]                   = useState(false);
+  const [promoInput, setPromoInput]                   = useState("");
+  const [promoCode, setPromoCode]                     = useState<string | null>(null);
+  const [promoDiscount, setPromoDiscount]              = useState(0);
+  const [promoLabel, setPromoLabel]                   = useState("");
+  const [promoLoading, setPromoLoading]               = useState(false);
+  const [promoError, setPromoError]                   = useState("");
+
+  async function applyPromo() {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true);
+    setPromoError("");
+    try {
+      const res = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoInput.trim(), restaurantId: RESTAURANT_ID, orderTotal: total + deliveryFee }),
+      });
+      const d = await res.json() as { valid: boolean; code?: string; discountAmount?: number; label?: string; message?: string };
+      if (d.valid) {
+        setPromoCode(d.code ?? promoInput.trim().toUpperCase());
+        setPromoDiscount(d.discountAmount ?? 0);
+        setPromoLabel(d.label ?? "");
+        setPromoError("");
+      } else {
+        setPromoError(d.message ?? "Промокод недействителен");
+        setPromoCode(null);
+        setPromoDiscount(0);
+        setPromoLabel("");
+      }
+    } catch {
+      setPromoError("Ошибка проверки промокода");
+    }
+    setPromoLoading(false);
+  }
+
+  function clearPromo() {
+    setPromoCode(null);
+    setPromoDiscount(0);
+    setPromoLabel("");
+    setPromoInput("");
+    setPromoError("");
+  }
 
   useEffect(() => {
     // Refresh guest session every time the drawer opens
@@ -508,7 +550,7 @@ export function CartDrawer({
   // Bonuses can cover food + delivery but not tips (tips go to staff in cash)
   const maxBonuses   = guestSession ? Math.min(guestSession.bonusAmount, total + deliveryFee) : 0;
   const bonusesApplied = useBonuses ? maxBonuses : 0;
-  const grandTotal   = total + deliveryFee + tipsAmount - bonusesApplied;
+  const grandTotal   = Math.max(0, total + deliveryFee + tipsAmount - bonusesApplied - promoDiscount);
   const totalBonusesEarned = items.reduce((s, { dish, qty, selectedModifiers }) => {
     if (!dish.bonusPercent || dish.bonusPercent <= 0) return s;
     return s + Math.round(effPrice(dish, selectedModifiers) * dish.bonusPercent / 100) * qty;
@@ -709,6 +751,8 @@ export function CartDrawer({
           used_bonuses: bonusesApplied > 0,
           bonuses_deducted: bonusesApplied,
           earned_bonuses: totalBonusesEarned > 0 ? totalBonusesEarned : null,
+          promo_code: promoCode ?? null,
+          promo_discount: promoDiscount > 0 ? promoDiscount : 0,
         });
         if (error) {
           setLoading(false);
@@ -721,6 +765,9 @@ export function CartDrawer({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ guestId: guestSession.id, restaurantId: RESTAURANT_ID, amount: bonusesApplied }),
           }).catch(() => {});
+        }
+        if (promoCode) {
+          fetch("/api/promo/use", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode, restaurantId: RESTAURANT_ID }) }).catch(() => {});
         }
       }
     } else {
@@ -754,6 +801,8 @@ export function CartDrawer({
           used_bonuses: bonusesApplied > 0,
           bonuses_deducted: bonusesApplied,
           earned_bonuses: totalBonusesEarned > 0 ? totalBonusesEarned : null,
+          promo_code: promoCode ?? null,
+          promo_discount: promoDiscount > 0 ? promoDiscount : 0,
         });
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
         // Deduct used bonuses from guest balance immediately (fire-and-forget)
@@ -763,6 +812,9 @@ export function CartDrawer({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ guestId: guestSession.id, restaurantId: RESTAURANT_ID, amount: bonusesApplied }),
           }).catch(() => {});
+        }
+        if (promoCode) {
+          fetch("/api/promo/use", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode, restaurantId: RESTAURANT_ID }) }).catch(() => {});
         }
       }
 
@@ -1859,6 +1911,59 @@ export function CartDrawer({
                 )}
               </div>
 
+              {/* ── Promo code ── */}
+              <div style={{ marginBottom: SP.lg }}>
+                {promoCode ? (
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 14px", borderRadius: R.md,
+                    background: isDark ? "#0A2E1A" : "#ECFDF5",
+                    border: `1px solid ${isDark ? "#166534" : "#A7F3D0"}`,
+                  }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#10B981" }}>✅ {promoLabel}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "#10B981" }}>
+                        −{promoDiscount.toLocaleString()} {currency}
+                      </p>
+                    </div>
+                    <button onClick={clearPromo} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: muted }}>
+                      <span style={{ fontSize: 16 }}>✕</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={promoInput}
+                      onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(""); }}
+                      placeholder={lang === "kz" ? "Промокод" : "Промокод"}
+                      style={{
+                        flex: 1, padding: "10px 14px", borderRadius: R.md,
+                        border: `1px solid ${promoError ? "#EF4444" : border}`,
+                        background: "var(--bg-card)", color: "var(--text-color)",
+                        fontSize: 14, fontFamily: "monospace", letterSpacing: "0.05em",
+                        outline: "none",
+                      }}
+                      onKeyDown={e => { if (e.key === "Enter") applyPromo(); }}
+                    />
+                    <button
+                      onClick={applyPromo}
+                      disabled={promoLoading || !promoInput.trim()}
+                      style={{
+                        padding: "10px 18px", borderRadius: R.md,
+                        background: "#7C3AED", color: "#fff",
+                        fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+                        opacity: promoLoading || !promoInput.trim() ? 0.5 : 1,
+                      }}
+                    >
+                      {promoLoading ? "..." : lang === "kz" ? "Қолдану" : "Применить"}
+                    </button>
+                  </div>
+                )}
+                {promoError && (
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{promoError}</p>
+                )}
+              </div>
+
               {/* ── Bonus points ── */}
               {guestSession && maxBonuses > 0 && (
                 <div style={{ marginBottom: SP.lg }}>
@@ -1954,6 +2059,12 @@ export function CartDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#10B981" }}>
                     <span>🎁 {lang === "kz" ? "Бонустар" : "Бонусы"}</span>
                     <span style={{ fontWeight: 700 }}>-{bonusesApplied.toLocaleString()} {currency}</span>
+                  </div>
+                )}
+                {promoDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#7C3AED" }}>
+                    <span>🏷️ {promoCode}</span>
+                    <span style={{ fontWeight: 700 }}>-{promoDiscount.toLocaleString()} {currency}</span>
                   </div>
                 )}
                 <div style={{ borderTop: `1px solid ${border}`, paddingTop: SP.sm, marginTop: SP.xs, display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700 }}>

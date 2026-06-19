@@ -106,6 +106,23 @@ export interface DbOrder {
   bonuses_deducted: number | null;
   earned_bonuses: number | null;
   bonuses_accrued: boolean | null;
+  promo_code: string | null;
+  promo_discount: number | null;
+}
+
+export interface DbPromoCode {
+  id: string;
+  restaurant_id: string;
+  code: string;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  min_order_amount: number;
+  max_uses: number | null;
+  used_count: number;
+  valid_from: string | null;
+  valid_to: string | null;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface DbWaiterShiftRevenue {
