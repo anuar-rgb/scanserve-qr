@@ -462,6 +462,7 @@ export function CartDrawer({
   const [promoLabel, setPromoLabel]                   = useState("");
   const [promoLoading, setPromoLoading]               = useState(false);
   const [promoError, setPromoError]                   = useState("");
+  const [hasActivePromos, setHasActivePromos]         = useState(false);
 
   async function applyPromo() {
     if (!promoInput.trim()) return;
@@ -515,7 +516,7 @@ export function CartDrawer({
     let cancelled = false;
     async function fetchData() {
       setTablesLoading(true);
-      const [tablesRes, ordersRes, banks] = await Promise.all([
+      const [tablesRes, ordersRes, banks, promosRes] = await Promise.all([
         supabase
           .from(DB_TABLES.restaurantTables)
           .select("id, label, seats")
@@ -529,6 +530,12 @@ export function CartDrawer({
           .eq("status", "pending")
           .eq("type", "dine-in"),
         fetchPaymentBanks(RESTAURANT_ID),
+        supabase
+          .from(DB_TABLES.promoCodes)
+          .select("id")
+          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("is_active", true)
+          .limit(1),
       ]);
       if (cancelled) return;
       setGuestTables((tablesRes.data as GuestTable[]) ?? []);
@@ -536,6 +543,7 @@ export function CartDrawer({
         new Set(((ordersRes.data ?? []) as { table_number: string }[]).map((o) => o.table_number))
       );
       setPaymentBanks(banks ?? []);
+      setHasActivePromos((promosRes.data ?? []).length > 0);
       setTablesLoading(false);
     }
     fetchData();
@@ -1935,7 +1943,7 @@ export function CartDrawer({
               </div>
 
               {/* ── Promo code ── */}
-              <div style={{ marginBottom: SP.lg }}>
+              {(hasActivePromos || promoCode) && <div style={{ marginBottom: SP.lg }}>
                 {promoCode ? (
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -1985,7 +1993,7 @@ export function CartDrawer({
                 {promoError && (
                   <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{promoError}</p>
                 )}
-              </div>
+              </div>}
 
               {/* ── Bonus points ── */}
               {guestSession && maxBonuses > 0 && (
