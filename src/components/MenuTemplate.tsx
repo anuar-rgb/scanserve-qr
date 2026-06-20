@@ -31,8 +31,38 @@ export interface DishModifier {
   price: number;
 }
 
+export interface HappyHourInfo {
+  id: string;
+  name: string;
+  discountPercent: number;
+  categoryIds: string[];
+  startTime: string;
+  endTime: string;
+  daysOfWeek: number[];
+}
+
+export function isHappyHourActive(hh: HappyHourInfo): boolean {
+  const now = new Date();
+  const day = now.getDay();
+  if (!hh.daysOfWeek.includes(day)) return false;
+  const t = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+  return t >= hh.startTime && t < hh.endTime;
+}
+
+export function getHappyHourDiscount(categoryId: string | undefined, happyHours: HappyHourInfo[]): number {
+  if (!categoryId) return 0;
+  let max = 0;
+  for (const hh of happyHours) {
+    if (hh.categoryIds.includes(categoryId) && isHappyHourActive(hh)) {
+      max = Math.max(max, hh.discountPercent);
+    }
+  }
+  return max;
+}
+
 export interface Dish {
   id: string;
+  categoryId?: string;
   emoji: string;
   imageUrl?: string;
   discountLabel?: string;
@@ -148,6 +178,7 @@ export interface MenuTemplateProps {
   restaurantTables?: { id: string; label: string }[];
   restaurantId?: string;
   ads?: AdItem[];
+  happyHours?: HappyHourInfo[];
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -1833,6 +1864,7 @@ function CatalogDishCard({
   getLikeCount,
   onDishClick,
   id,
+  happyHours = [],
 }: {
   dish: Dish;
   lang: Lang;
@@ -1844,6 +1876,7 @@ function CatalogDishCard({
   getLikeCount: (id: string) => number;
   onDishClick: (dish: Dish) => void;
   id?: string;
+  happyHours?: HappyHourInfo[];
 }) {
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const isLiked = !!liked[dish.id];
@@ -1853,8 +1886,10 @@ function CatalogDishCard({
     : cart[dish.id]?.qty ?? 0;
   const catBadges = catalogBadges(dish);
   const dishPct   = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
-  const discountedPrice = !isNaN(dishPct) && dishPct > 0 && dishPct < 100
-    ? Math.round(dish.price * (1 - dishPct / 100))
+  const hhPct     = getHappyHourDiscount(dish.categoryId, happyHours);
+  const effectivePct = Math.max(dishPct, hhPct);
+  const discountedPrice = effectivePct > 0 && effectivePct < 100
+    ? Math.round(dish.price * (1 - effectivePct / 100))
     : null;
 
   return (
@@ -2478,6 +2513,7 @@ export function MenuTemplate({
   restaurantTables,
   restaurantId = "",
   ads = [],
+  happyHours = [],
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -3089,6 +3125,7 @@ export function MenuTemplate({
                   onAddToCart={addToCart}
                   onToggleLike={toggleLike}
                   getLikeCount={getLikeCount}
+                  happyHours={happyHours}
                   onDishClick={(d) => { setSelectedDish(d); setSelectedDishCurrency(d.currency ?? restaurant.currency ?? ""); }}
                 />
               ))}
@@ -3174,6 +3211,7 @@ export function MenuTemplate({
                     onAddToCart={addToCart}
                     onToggleLike={toggleLike}
                     getLikeCount={getLikeCount}
+                    happyHours={happyHours}
                     onDishClick={(d) => { setSelectedDish(d); setSelectedDishCurrency(d.currency ?? restaurant.currency ?? ""); }}
                   />
                 ))}
@@ -3352,6 +3390,7 @@ export function MenuTemplate({
         clientId={clientId}
         onOrderPlaced={saveOrder}
         initialTableNumber={initialTableNumber}
+        happyHours={happyHours}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}

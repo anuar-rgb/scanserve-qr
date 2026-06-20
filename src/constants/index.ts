@@ -36,6 +36,7 @@ export const DB_TABLES = {
   stockMovements: "stock_movements",
   trainingArticles: "training_articles",
   promoCodes: "promo_codes",
+  happyHours: "happy_hours",
 } as const;
 
 export const SUPPORTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";

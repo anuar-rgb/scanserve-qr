@@ -1,7 +1,7 @@
 import { MenuTemplate, type HeroBanner, type Banner, type HeroSlide, type ShowcaseItem } from "@/components/MenuTemplate";
 import { RealtimeRefresher } from "@/components/RealtimeRefresher";
 import { restaurant } from "@/data/as-tori";
-import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchPaymentBanks, fetchRestaurantBySlug, fetchRestaurantTables, fetchActiveAds } from "@/lib/fetch-menu";
+import { fetchMenuCategories, fetchBanners, fetchHeroSlides, fetchInfoShowcase, fetchPaymentBanks, fetchRestaurantBySlug, fetchRestaurantTables, fetchActiveAds, fetchHappyHours } from "@/lib/fetch-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function AsToriPage({
   const initialTableNumber = params.table?.trim() || undefined;
   const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
-  const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables, dbAds] = await Promise.all([
+  const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables, dbAds, dbHappyHours] = await Promise.all([
     fetchMenuCategories(restaurantId).then(r => r ?? []),
     fetchBanners(restaurantId).then(r => r ?? []),
     fetchRestaurantBySlug("as-tori"),
@@ -34,6 +34,7 @@ export default async function AsToriPage({
     fetchPaymentBanks(restaurantId).then(r => r ?? []),
     fetchRestaurantTables(restaurantId).then(r => r ?? []),
     fetchActiveAds(),
+    fetchHappyHours(restaurantId),
   ]);
 
   const heroBanner: HeroBanner = FALLBACK_HERO;
@@ -94,6 +95,15 @@ export default async function AsToriPage({
         restaurantTables={dbTables.map(t => ({ id: t.id, label: t.label }))}
         restaurantId={restaurantId}
         ads={dbAds}
+        happyHours={dbHappyHours.map(h => ({
+          id: h.id,
+          name: h.name,
+          discountPercent: h.discount_percent,
+          categoryIds: h.category_ids,
+          startTime: h.start_time.slice(0, 5),
+          endTime: h.end_time.slice(0, 5),
+          daysOfWeek: h.days_of_week,
+        }))}
       />
     </>
   );

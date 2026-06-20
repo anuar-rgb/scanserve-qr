@@ -1,6 +1,6 @@
 import { supabase, isConfigured } from "./supabase";
 import type { MenuCategory } from "@/components/MenuTemplate";
-import type { DbBanner, DbCategory, DbHeroSlide, DbInfoShowcase, DbModifier, DbPaymentBank, DbProduct, DbRestaurant, DbRestaurantTable } from "./db-types";
+import type { DbBanner, DbCategory, DbHappyHour, DbHeroSlide, DbInfoShowcase, DbModifier, DbPaymentBank, DbProduct, DbRestaurant, DbRestaurantTable } from "./db-types";
 
 export async function fetchRestaurantBySlug(slug: string): Promise<DbRestaurant | null> {
   if (!isConfigured || !slug) return null;
@@ -53,6 +53,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
         .filter(p => p.category_id === cat.id)
         .map(p => ({
           id: p.id,
+          categoryId: cat.id,
           emoji: p.emoji ?? "🍽️",
           imageUrl: p.image_url ?? undefined,
           badge: p.badge ?? undefined,
@@ -138,6 +139,16 @@ export async function fetchModifiers(restaurantId: string): Promise<DbModifier[]
     .order("order_index");
   if (error || !data) return null;
   return data as DbModifier[];
+}
+
+export async function fetchHappyHours(restaurantId: string): Promise<DbHappyHour[]> {
+  if (!isConfigured || !restaurantId) return [];
+  const { data } = await supabase
+    .from("happy_hours")
+    .select("*")
+    .eq("restaurant_id", restaurantId)
+    .eq("is_active", true);
+  return (data ?? []) as DbHappyHour[];
 }
 
 export async function fetchRestaurantTables(restaurantId: string): Promise<DbRestaurantTable[] | null> {

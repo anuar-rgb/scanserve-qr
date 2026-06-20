@@ -125,6 +125,19 @@ export interface DbPromoCode {
   created_at: string;
 }
 
+export interface DbHappyHour {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  discount_percent: number;
+  category_ids: string[];
+  start_time: string;
+  end_time: string;
+  days_of_week: number[];
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface DbWaiterShiftRevenue {
   id: string;
   shift_id: string;

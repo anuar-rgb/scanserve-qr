@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Plus, Minus, Check, ChevronLeft, ChevronDown, Trash2, Star, Copy } from "lucide-react";
-import { resolve, type Lang, type Dish, type PaymentInfo } from "./MenuTemplate";
+import { resolve, getHappyHourDiscount, type Lang, type Dish, type PaymentInfo, type HappyHourInfo } from "./MenuTemplate";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { fetchPaymentBanks } from "@/lib/fetch-menu";
 import type { DbPaymentBank } from "@/lib/db-types";
@@ -73,12 +73,13 @@ const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const DELIVERY_FEE = 600;
 
-function effPrice(dish: Dish, selectedModifiers?: { id: string; name: string; price: number }[]): number {
+function effPrice(dish: Dish, selectedModifiers?: { id: string; name: string; price: number }[], happyHours?: HappyHourInfo[]): number {
   const modTotal = selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0;
-  if (!dish.isPromo || !dish.discountLabel) return dish.price + modTotal;
-  const pct = parseInt(dish.discountLabel, 10);
-  if (isNaN(pct) || pct <= 0 || pct >= 100) return dish.price + modTotal;
-  return Math.round(dish.price * (1 - pct / 100)) + modTotal;
+  const promoPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+  const hhPct = getHappyHourDiscount(dish.categoryId, happyHours ?? []);
+  const pct = Math.max(isNaN(promoPct) ? 0 : promoPct, hhPct);
+  if (pct > 0 && pct < 100) return Math.round(dish.price * (1 - pct / 100)) + modTotal;
+  return dish.price + modTotal;
 }
 
 // ── Kazakhstan cities ─────────────────────────────────────────────────────────
@@ -395,6 +396,7 @@ export interface CartDrawerProps {
   onOrderPlaced?: (order: StoredOrder) => void;
   clientId?: string;
   initialTableNumber?: string;
+  happyHours?: HappyHourInfo[];
 }
 
 export function CartDrawer({
@@ -413,6 +415,7 @@ export function CartDrawer({
   onOrderPlaced,
   clientId = "anon",
   initialTableNumber,
+  happyHours = [],
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
   const [step, setStep]                       = useState<Step>("cart");
@@ -550,7 +553,7 @@ export function CartDrawer({
   const border  = isDark ? "#2A2A2A" : "#DDE1E6";
 
   const items        = Object.values(cart);
-  const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers) * qty, 0);
+  const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers, happyHours) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
   // Bonuses can cover food + delivery but not tips (tips go to staff in cash)
   const maxBonuses   = guestSession ? Math.min(guestSession.bonusAmount, total + deliveryFee) : 0;
@@ -558,7 +561,7 @@ export function CartDrawer({
   const grandTotal   = Math.max(0, total + deliveryFee + tipsAmount - bonusesApplied - promoDiscount);
   const totalBonusesEarned = items.reduce((s, { dish, qty, selectedModifiers }) => {
     if (!dish.bonusPercent || dish.bonusPercent <= 0) return s;
-    return s + Math.round(effPrice(dish, selectedModifiers) * dish.bonusPercent / 100) * qty;
+    return s + Math.round(effPrice(dish, selectedModifiers, happyHours) * dish.bonusPercent / 100) * qty;
   }, 0);
   const totalSavings = items.reduce((s, { dish, qty }) => {
     const promoBase = dish.isPromo && dish.discountLabel
@@ -683,7 +686,7 @@ export function CartDrawer({
     if (!canPlaceOrder || loading) return;
     setLoading(true);
     const orderItems = items.map(({ dish, qty, currency: c, selectedModifiers }) => {
-      const finalPrice = effPrice(dish, selectedModifiers);
+      const finalPrice = effPrice(dish, selectedModifiers, happyHours);
       const modSuffix = selectedModifiers?.length
         ? ` (+ ${selectedModifiers.map(m => m.name).join(", ")})`
         : "";
@@ -1055,7 +1058,7 @@ export function CartDrawer({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: SP.sm, paddingBottom: SP.sm }}>
                   {items.map(({ dish, qty, currency: ic, cartKey: ck, selectedModifiers }) => {
-                    const fp = effPrice(dish, selectedModifiers);
+                    const fp = effPrice(dish, selectedModifiers, happyHours);
                     const hasPromoDiscount = fp - (selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0) < dish.price;
                     return (
                     <div key={ck} style={{ display: "flex", alignItems: "center", gap: SP.md - 4, padding: SP.sm + 2, background: card, borderRadius: R.md, border: `1px solid ${border}` }}>
@@ -2030,12 +2033,12 @@ export function CartDrawer({
                         {capFirst(resolve(dish.name, lang))} × {qty}
                       </span>
                       <span style={{ fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
-                        {effPrice(dish, selectedModifiers) < dish.price && (
+                        {effPrice(dish, selectedModifiers, happyHours) < dish.price && (
                           <span style={{ fontSize: 11, color: muted, textDecoration: "line-through", marginRight: 4, fontWeight: 400 }}>
                             {(dish.price * qty).toLocaleString()}
                           </span>
                         )}
-                        {(effPrice(dish, selectedModifiers) * qty).toLocaleString()} {ic || currency}
+                        {(effPrice(dish, selectedModifiers, happyHours) * qty).toLocaleString()} {ic || currency}
                       </span>
                     </div>
                     {selectedModifiers && selectedModifiers.length > 0 && (
@@ -2043,7 +2046,7 @@ export function CartDrawer({
                         + {selectedModifiers.map(m => m.name).join(", ")}
                       </p>
                     )}
-                    {effPrice(dish, selectedModifiers) < dish.price && (
+                    {effPrice(dish, selectedModifiers, happyHours) < dish.price && (
                       <span style={{ display: "inline-block", marginTop: 2, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em" }}>
                         -{dish.discountLabel}%
                       </span>
