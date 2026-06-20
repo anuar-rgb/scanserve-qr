@@ -95,13 +95,18 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (!activeAtt) {
-      await supabase.from("employee_attendance").insert({
+      const payload: Record<string, unknown> = {
         employee_id: staffUserId,
         restaurant_id: RID(request),
         check_in: new Date().toISOString(),
         status: "active",
         source: "shift",
-      });
+      };
+      const { error: attErr } = await supabase.from("employee_attendance").insert(payload);
+      if (attErr && (attErr.message.includes("source") || attErr.code === "42703")) {
+        const { source: _, ...withoutSource } = payload;
+        await supabase.from("employee_attendance").insert(withoutSource);
+      }
     }
   } catch (_) { /* attendance sync failure must not block shift checkin */ }
 

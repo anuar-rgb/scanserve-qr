@@ -32,13 +32,18 @@ async function createAttendanceForUser(supabase: ReturnType<typeof db>, userId: 
     .maybeSingle();
 
   if (!existing) {
-    await supabase.from("employee_attendance").insert({
+    const payload: Record<string, unknown> = {
       employee_id: userId,
       restaurant_id: restaurantId,
       check_in: new Date().toISOString(),
       status: "active",
       source: "shift",
-    });
+    };
+    const { error } = await supabase.from("employee_attendance").insert(payload);
+    if (error && (error.message.includes("source") || error.code === "42703")) {
+      const { source: _, ...withoutSource } = payload;
+      await supabase.from("employee_attendance").insert(withoutSource);
+    }
   }
 }
 
@@ -84,8 +89,9 @@ export async function GET(request: NextRequest) {
 
   const { data: checkins } = await supabase
     .from("shift_checkins")
-    .select("staff_user_id, checked_in_at")
+    .select("staff_user_id, checked_in_at, checked_out_at")
     .eq("shift_id", shift.id)
+    .is("checked_out_at", null)
     .order("checked_in_at", { ascending: true });
 
   return NextResponse.json({ shift, checkins: checkins ?? [] });

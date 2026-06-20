@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
-import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID } from "@/constants";
+import { isConfigured } from "@/lib/supabase";
 
 interface StaffRow {
   id: string;
@@ -60,17 +59,16 @@ export default function AttendancePage() {
     const monthStart = `${year}-${String(mon + 1).padStart(2, "0")}-01T00:00:00`;
     const monthEnd = `${year}-${String(mon + 1).padStart(2, "0")}-${String(totalDays).padStart(2, "0")}T23:59:59`;
 
-    const [staffRes, attRes] = await Promise.all([
-      supabase.from("staff_users").select("id, display_name, username, role, daily_rate").eq("restaurant_id", RESTAURANT_ID).neq("role", "owner").order("display_name"),
-      supabase.from("employee_attendance").select("id, employee_id, check_in, source").eq("restaurant_id", RESTAURANT_ID).gte("check_in", monthStart).lte("check_in", monthEnd),
-    ]);
-
-    const staffData = (staffRes.data ?? []) as StaffRow[];
-    setStaff(staffData);
-    setRecords((attRes.data ?? []) as AttRecord[]);
-    const r: Record<string, number> = {};
-    for (const s of staffData) r[s.id] = s.daily_rate ?? 0;
-    setRates(r);
+    try {
+      const res = await fetch(`/api/admin/attendance/grid?start=${encodeURIComponent(monthStart)}&end=${encodeURIComponent(monthEnd)}`);
+      if (!res.ok) { setLoading(false); return; }
+      const data = await res.json() as { staff: StaffRow[]; records: AttRecord[] };
+      setStaff(data.staff);
+      setRecords(data.records);
+      const r: Record<string, number> = {};
+      for (const s of data.staff) r[s.id] = s.daily_rate ?? 0;
+      setRates(r);
+    } catch { /* ignore */ }
     setLoading(false);
   }, [year, mon, totalDays]);
 

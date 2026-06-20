@@ -109,49 +109,47 @@ export default function StaffPage() {
     setLoadingActive(true);
     setNoShift(false);
 
-    const { data: shift } = await supabase
-      .from("shifts")
-      .select("id")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .eq("status", "open")
-      .order("opened_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    try {
+      const shiftRes = await fetch("/api/admin/shift");
+      if (!shiftRes.ok) { setNoShift(true); setActiveStaff([]); setLoadingActive(false); return; }
+      const shiftData = await shiftRes.json() as { shift: { id: string } | null; checkins: { staff_user_id: string; checked_in_at: string }[] };
 
-    if (!shift) {
-      setNoShift(true);
+      if (!shiftData.shift) {
+        setNoShift(true);
+        setActiveStaff([]);
+        setLoadingActive(false);
+        return;
+      }
+
+      const checkins = shiftData.checkins ?? [];
+      if (checkins.length === 0) {
+        setActiveStaff([]);
+        setLoadingActive(false);
+        return;
+      }
+
+      const staffRes = await fetch("/api/admin/staff");
+      const staffData = staffRes.ok ? await staffRes.json() as { staff: { id: string; display_name: string | null; username: string; role: StaffRole }[] } : { staff: [] };
+      const staffMap = new Map((staffData.staff ?? []).map((s) => [s.id, s]));
+
+      const merged: ActiveStaffMember[] = checkins
+        .map((c) => {
+          const u = staffMap.get(c.staff_user_id);
+          if (!u) return null;
+          return {
+            id: u.id,
+            display_name: u.display_name,
+            username: u.username,
+            role: u.role,
+            checked_in_at: c.checked_in_at,
+          };
+        })
+        .filter((x): x is ActiveStaffMember => x !== null);
+
+      setActiveStaff(merged);
+    } catch {
       setActiveStaff([]);
-      setLoadingActive(false);
-      return;
     }
-
-    const { data: checkins } = await supabase
-      .from("shift_checkins")
-      .select("staff_user_id, checked_in_at")
-      .eq("shift_id", shift.id)
-      .is("checked_out_at", null);
-
-    if (!checkins || checkins.length === 0) {
-      setActiveStaff([]);
-      setLoadingActive(false);
-      return;
-    }
-
-    const userIds = checkins.map((c) => c.staff_user_id as string);
-    const { data: users } = await supabase
-      .from("staff_users")
-      .select("id, display_name, username, role")
-      .in("id", userIds);
-
-    const merged: ActiveStaffMember[] = (users ?? []).map((u) => ({
-      id: u.id as string,
-      display_name: u.display_name as string | null,
-      username: u.username as string,
-      role: u.role as StaffRole,
-      checked_in_at: (checkins.find((c) => c.staff_user_id === u.id)?.checked_in_at as string) ?? "",
-    }));
-
-    setActiveStaff(merged);
     setLoadingActive(false);
   }, []);
 

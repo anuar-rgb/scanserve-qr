@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!existing) {
-      await supabase.from("employee_attendance").insert({
+      const payload: Record<string, unknown> = {
         employee_id: employeeId,
         restaurant_id: RESTAURANT_ID,
         check_in: `${date}T09:00:00`,
@@ -42,7 +42,12 @@ export async function POST(req: NextRequest) {
         total_hours: 9,
         status: "completed",
         source: "manual",
-      });
+      };
+      const { error: insErr } = await supabase.from("employee_attendance").insert(payload);
+      if (insErr && (insErr.message.includes("source") || insErr.code === "42703")) {
+        const { source: _, ...withoutSource } = payload;
+        await supabase.from("employee_attendance").insert(withoutSource);
+      }
     }
   } else {
     await supabase
