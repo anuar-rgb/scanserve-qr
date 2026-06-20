@@ -1,434 +1,285 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  RefreshCw, Users, Clock, ChevronDown, X, Search,
-} from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslations } from "@/lib/i18n";
+import { supabase, isConfigured } from "@/lib/supabase";
+import { RESTAURANT_ID } from "@/constants";
 
-// ─── types ────────────────────────────────────────────────────────────────────
-
-type StaffRole =
-  | "owner" | "manager" | "cashier" | "waiter" | "chef"
-  | "bartender" | "hostess" | "courier" | "cleaner" | "doorman"
-  | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant";
-
-interface StaffUser {
+interface StaffRow {
   id: string;
   display_name: string | null;
   username: string;
-  role: StaffRole;
+  role: string;
+  daily_rate: number;
 }
 
-interface AttendanceRecord {
+interface AttRecord {
   id: string;
   employee_id: string;
   check_in: string;
-  check_out: string | null;
-  total_hours: number | null;
-  status: "active" | "completed";
-  staff_users: StaffUser | null;
 }
 
-type Period = "today" | "week" | "month";
+const MONTH_NAMES = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const DAY_NAMES = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
-// ─── constants ────────────────────────────────────────────────────────────────
-
-const ROLE_LABEL: Record<StaffRole, string> = {
-  owner:        "Владелец",
-  manager:      "Менеджер",
-  cashier:      "Кассир",
-  waiter:       "Официант",
-  senior_waiter:"Ст. официант",
-  chef:         "Повар",
-  bartender:    "Бармен",
-  sommelier:    "Сомелье",
-  hostess:      "Хостес",
-  runner:       "Раннер",
-  courier:      "Курьер",
-  storekeeper:  "Кладовщик",
-  accountant:   "Бухгалтер",
-  cleaner:      "Уборщик",
-  doorman:      "Швейцар",
-};
-
-const ROLE_COLOR: Record<StaffRole, string> = {
-  owner:        "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  manager:      "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-  cashier:      "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  waiter:       "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  senior_waiter:"bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  chef:         "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
-  bartender:    "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
-  sommelier:    "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
-  hostess:      "bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300",
-  runner:       "bg-lime-100 text-lime-700 dark:bg-lime-500/15 dark:text-lime-300",
-  courier:      "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  storekeeper:  "bg-zinc-100 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300",
-  accountant:   "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
-  cleaner:      "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
-  doorman:      "bg-stone-100 text-stone-700 dark:bg-stone-500/15 dark:text-stone-300",
-};
-
-const FILTERABLE_ROLES: StaffRole[] = [
-  "waiter", "senior_waiter", "chef", "bartender", "cashier",
-  "hostess", "runner", "courier", "storekeeper", "accountant",
-  "cleaner", "doorman", "sommelier",
-];
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-  });
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function fmtHours(h: number) {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
-  return `${hrs}ч ${String(mins).padStart(2, "0")}м`;
+function staffName(s: StaffRow): string {
+  return s.display_name || s.username || "—";
 }
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function startOfDaysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function periodDates(period: Period): { start: Date; end: Date } {
-  const end = new Date();
-  if (period === "today")  return { start: startOfToday(), end };
-  if (period === "week")   return { start: startOfDaysAgo(6), end };
-  return { start: startOfDaysAgo(29), end };
-}
-
-function employeeName(su: StaffUser | null) {
-  return su?.display_name ?? su?.username ?? "—";
-}
-
-// ─── page ─────────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
-  const { t } = useTranslations();
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [staff, setStaff] = useState<StaffRow[]>([]);
+  const [records, setRecords] = useState<AttRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rates, setRates] = useState<Record<string, number>>({});
+  const [rateEditing, setRateEditing] = useState<string | null>(null);
+  const [rateInput, setRateInput] = useState("");
+  const [toggling, setToggling] = useState<string | null>(null);
 
-  const [records, setRecords]       = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [period, setPeriod]         = useState<Period>("today");
-  const [roleFilter, setRoleFilter] = useState<StaffRole | "">("");
-  const [search, setSearch]         = useState("");
+  const year = month.getFullYear();
+  const mon = month.getMonth();
+  const totalDays = daysInMonth(year, mon);
+  const today = dateKey(new Date());
 
-  // ─── fetch ────────────────────────────────────────────────────────────────
-
-  const fetchRecords = useCallback(async (p: Period, role: StaffRole | "") => {
+  const load = useCallback(async () => {
+    if (!isConfigured) return;
     setLoading(true);
-    try {
-      const { start, end } = periodDates(p);
-      const params = new URLSearchParams({
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
-      });
-      if (role) params.set("role", role);
-      const res = await fetch(`/api/admin/attendance?${params}`);
-      if (!res.ok) { toast.error("Ошибка загрузки"); return; }
-      const data = await res.json() as { records: AttendanceRecord[] };
-      setRecords(data.records ?? []);
-    } finally {
-      setLoading(false);
+    const monthStart = `${year}-${String(mon + 1).padStart(2, "0")}-01T00:00:00`;
+    const monthEnd = `${year}-${String(mon + 1).padStart(2, "0")}-${String(totalDays).padStart(2, "0")}T23:59:59`;
+
+    const [staffRes, attRes] = await Promise.all([
+      supabase.from("staff_users").select("id, display_name, username, role, daily_rate").eq("restaurant_id", RESTAURANT_ID).neq("role", "owner").order("display_name"),
+      supabase.from("employee_attendance").select("id, employee_id, check_in").eq("restaurant_id", RESTAURANT_ID).gte("check_in", monthStart).lte("check_in", monthEnd),
+    ]);
+
+    const staffData = (staffRes.data ?? []) as StaffRow[];
+    setStaff(staffData);
+    setRecords((attRes.data ?? []) as AttRecord[]);
+    const r: Record<string, number> = {};
+    for (const s of staffData) r[s.id] = s.daily_rate ?? 0;
+    setRates(r);
+    setLoading(false);
+  }, [year, mon, totalDays]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const presentMap = new Map<string, Set<number>>();
+  for (const rec of records) {
+    const d = new Date(rec.check_in);
+    const day = d.getDate();
+    if (!presentMap.has(rec.employee_id)) presentMap.set(rec.employee_id, new Set());
+    presentMap.get(rec.employee_id)!.add(day);
+  }
+
+  function isPresent(empId: string, day: number): boolean {
+    return presentMap.get(empId)?.has(day) ?? false;
+  }
+
+  async function toggleDay(empId: string, day: number) {
+    const dk = `${year}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const present = !isPresent(empId, day);
+    const key = `${empId}-${day}`;
+    setToggling(key);
+
+    if (present) {
+      if (!presentMap.has(empId)) presentMap.set(empId, new Set());
+      presentMap.get(empId)!.add(day);
+    } else {
+      presentMap.get(empId)?.delete(day);
     }
-  }, []);
+    setRecords([...records]);
 
-  useEffect(() => {
-    void fetchRecords(period, roleFilter);
-  }, [period, roleFilter, fetchRecords]);
+    await fetch("/api/admin/attendance/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId: empId, date: dk, present }),
+    });
+    setToggling(null);
+    load();
+  }
 
-  // ─── derived ──────────────────────────────────────────────────────────────
+  async function saveRate(empId: string) {
+    const val = parseInt(rateInput, 10);
+    if (isNaN(val) || val < 0) { setRateEditing(null); return; }
+    setRates(prev => ({ ...prev, [empId]: val }));
+    setRateEditing(null);
+    await fetch("/api/admin/staff/daily-rate", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId: empId, dailyRate: val }),
+    });
+    toast.success("Ставка сохранена");
+  }
 
-  const filtered = search.trim()
-    ? records.filter((r) => {
-        const name = employeeName(r.staff_users).toLowerCase();
-        return name.includes(search.toLowerCase());
-      })
-    : records;
+  function prevMonth() { setMonth(new Date(year, mon - 1, 1)); }
+  function nextMonth() { setMonth(new Date(year, mon + 1, 1)); }
 
-  const totalHours = filtered.reduce((acc, r) => acc + (r.total_hours ?? 0), 0);
-  const onShiftNow = filtered.filter((r) => r.status === "active").length;
-
-  // ─── ui ───────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin text-muted-foreground" size={24} />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950">
-
-      {/* ── Desktop header ────────────────────────────────────────────────── */}
-      <div className="hidden md:flex items-center justify-between px-8 py-5 border-b border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-950 shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t.admin.attendanceTitle}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{t.admin.descAttendance}</p>
-        </div>
-        <button
-          onClick={() => fetchRecords(period, roleFilter)}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          Обновить
-        </button>
-      </div>
-
-      {/* ── Mobile header ─────────────────────────────────────────────────── */}
-      <div className="md:hidden sticky top-0 z-10 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800/60 px-4 py-3 flex items-center justify-between shrink-0">
-        <h1 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t.admin.attendanceTitle}</h1>
-        <button onClick={() => fetchRecords(period, roleFilter)} disabled={loading}>
-          <RefreshCw size={16} className={`text-zinc-400 ${loading ? "animate-spin" : ""}`} />
-        </button>
-      </div>
-
-      {/* ── Filters ───────────────────────────────────────────────────────── */}
-      <div className="shrink-0 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800/60 px-4 md:px-8 py-3 space-y-2.5">
-        {/* Period pills */}
-        <div className="flex gap-2">
-          {(["today", "week", "month"] as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                period === p
-                  ? "bg-violet-600 text-white"
-                  : "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-              }`}
-            >
-              {p === "today" ? t.admin.attendanceToday : p === "week" ? t.admin.attendanceWeek : t.admin.attendanceMonth}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t.admin.attendanceFilterAll}
-              className="w-full pl-8 pr-3 py-2 text-sm bg-zinc-100 dark:bg-zinc-800/60 rounded-xl border-0 outline-none focus:ring-2 focus:ring-violet-500/30 text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X size={13} className="text-zinc-400" />
-              </button>
-            )}
-          </div>
-
-          {/* Role filter */}
-          <div className="relative">
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as StaffRole | "")}
-              className="appearance-none pl-3 pr-7 py-2 text-sm bg-zinc-100 dark:bg-zinc-800/60 rounded-xl border-0 outline-none focus:ring-2 focus:ring-violet-500/30 text-zinc-800 dark:text-zinc-200"
-            >
-              <option value="">Все роли</option>
-              {FILTERABLE_ROLES.map((r) => (
-                <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-              ))}
-            </select>
-            <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-          </div>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <h1 className="text-lg font-bold">Табель</h1>
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-accent transition-colors"><ChevronLeft size={18} /></button>
+          <span className="text-sm font-semibold min-w-[140px] text-center">{MONTH_NAMES[mon]} {year}</span>
+          <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-accent transition-colors"><ChevronRight size={18} /></button>
         </div>
       </div>
 
-      {/* ── Summary row ───────────────────────────────────────────────────── */}
-      <div className="shrink-0 grid grid-cols-3 gap-3 px-4 md:px-8 py-3">
-        <div className="rounded-xl bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/60 px-3 py-2.5 text-center">
-          <p className="text-lg font-black tabular-nums text-zinc-900 dark:text-zinc-100">{filtered.length}</p>
-          <p className="text-[10px] text-zinc-400 font-medium">Записей</p>
+      {staff.length === 0 ? (
+        <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground gap-2 py-20">
+          <p className="text-sm">Нет сотрудников</p>
         </div>
-        <div className="rounded-xl bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/60 px-3 py-2.5 text-center">
-          <p className="text-lg font-black tabular-nums text-zinc-900 dark:text-zinc-100">
-            {totalHours.toFixed(1)}
-          </p>
-          <p className="text-[10px] text-zinc-400 font-medium">{t.admin.attendanceTotalHours}</p>
-        </div>
-        <div className="rounded-xl bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/60 px-3 py-2.5 text-center">
-          <div className="flex items-center justify-center gap-1">
-            {onShiftNow > 0 && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
-            <p className="text-lg font-black tabular-nums text-zinc-900 dark:text-zinc-100">{onShiftNow}</p>
-          </div>
-          <p className="text-[10px] text-zinc-400 font-medium">На смене</p>
-        </div>
-      </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <table className="border-collapse min-w-max">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 bg-background border-b border-r border-border px-3 py-2 text-left text-[11px] font-semibold text-muted-foreground min-w-[120px]">
+                  Сотрудник
+                </th>
+                <th className="border-b border-r border-border px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground min-w-[70px]">
+                  ₸/день
+                </th>
+                {Array.from({ length: totalDays }, (_, i) => {
+                  const d = new Date(year, mon, i + 1);
+                  const dk = dateKey(d);
+                  const isToday = dk === today;
+                  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                  return (
+                    <th
+                      key={i}
+                      className={`border-b border-r border-border px-0 py-1 text-center min-w-[34px] ${isToday ? "bg-violet-100 dark:bg-violet-900/30" : isWeekend ? "bg-red-50 dark:bg-red-900/10" : ""}`}
+                    >
+                      <div className="text-[8px] text-muted-foreground leading-none">{DAY_NAMES[d.getDay()]}</div>
+                      <div className={`text-[11px] font-bold leading-tight ${isToday ? "text-violet-600 dark:text-violet-400" : ""}`}>{i + 1}</div>
+                    </th>
+                  );
+                })}
+                <th className="border-b border-border px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground min-w-[50px]">Дн</th>
+                <th className="border-b border-border px-3 py-2 text-right text-[11px] font-semibold text-muted-foreground min-w-[90px]">Итого</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => {
+                const presentDays = presentMap.get(s.id)?.size ?? 0;
+                const rate = rates[s.id] ?? 0;
+                const totalPay = presentDays * rate;
 
-      {/* ── Table (desktop) / Cards (mobile) ──────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
-
-        {/* Desktop table */}
-        <div className="hidden md:block px-8 pb-8">
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-14 rounded-xl bg-zinc-100 dark:bg-zinc-800/40 animate-pulse" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center py-20 text-zinc-400">
-              <Users size={40} className="mb-3 opacity-30" />
-              <p className="text-sm">{t.admin.attendanceNoRecords}</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/60">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{t.admin.attendanceDate}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{t.admin.attendanceEmployee}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{t.admin.attendanceCheckIn}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{t.admin.attendanceCheckOut}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{t.admin.attendanceHours}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{t.admin.attendanceStatus}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((rec, i) => {
-                    const su = rec.staff_users;
-                    return (
-                      <tr
-                        key={rec.id}
-                        className={`border-b border-zinc-100 dark:border-zinc-800/40 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors ${i % 2 === 0 ? "" : "bg-zinc-50/40 dark:bg-zinc-900/20"}`}
-                      >
-                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
-                          {fmtDate(rec.check_in)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-600 dark:text-violet-400 select-none shrink-0">
-                              {(employeeName(su))[0]?.toUpperCase() ?? "?"}
-                            </div>
-                            <div>
-                              <p className="font-medium text-zinc-800 dark:text-zinc-200 leading-tight">{employeeName(su)}</p>
-                              {su?.role && (
-                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${ROLE_COLOR[su.role]}`}>
-                                  {ROLE_LABEL[su.role]}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">
-                          {fmtTime(rec.check_in)}
-                        </td>
-                        <td className="px-4 py-3 tabular-nums text-zinc-500 dark:text-zinc-400">
-                          {rec.check_out ? fmtTime(rec.check_out) : "—"}
-                        </td>
-                        <td className="px-4 py-3 tabular-nums font-semibold text-zinc-700 dark:text-zinc-300">
-                          {rec.total_hours != null ? fmtHours(rec.total_hours) : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          {rec.status === "active" ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              {t.admin.attendanceStatusActive}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded-full">
-                              {t.admin.attendanceStatusCompleted}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile cards */}
-        <div className="md:hidden px-4 py-3 space-y-2.5 pb-24">
-          {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800/40 animate-pulse" />
-            ))
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-zinc-400">
-              <Clock size={36} className="mb-3 opacity-30" />
-              <p className="text-sm">{t.admin.attendanceNoRecords}</p>
-            </div>
-          ) : (
-            filtered.map((rec) => {
-              const su = rec.staff_users;
-              return (
-                <div
-                  key={rec.id}
-                  className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40 px-4 py-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-600 dark:text-violet-400 select-none shrink-0">
-                        {(employeeName(su))[0]?.toUpperCase() ?? "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">{employeeName(su)}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {su?.role && (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${ROLE_COLOR[su.role]}`}>
-                              {ROLE_LABEL[su.role]}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-zinc-400">{fmtDate(rec.check_in)}</span>
+                return (
+                  <tr key={s.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="sticky left-0 z-10 bg-background border-b border-r border-border px-3 py-1.5">
+                      <p className="text-[11px] font-semibold truncate max-w-[110px]">{staffName(s)}</p>
+                    </td>
+                    <td className="border-b border-r border-border px-1 py-1 text-center">
+                      {rateEditing === s.id ? (
+                        <div className="flex items-center gap-0.5">
+                          <input
+                            autoFocus
+                            type="number"
+                            min={0}
+                            value={rateInput}
+                            onChange={e => setRateInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") saveRate(s.id); if (e.key === "Escape") setRateEditing(null); }}
+                            onBlur={() => saveRate(s.id)}
+                            className="w-14 px-1 py-0.5 text-[11px] text-center rounded border border-violet-400 bg-background focus:outline-none"
+                          />
                         </div>
-                      </div>
-                    </div>
+                      ) : (
+                        <button
+                          onClick={() => { setRateEditing(s.id); setRateInput(String(rate)); }}
+                          className="text-[11px] tabular-nums text-muted-foreground hover:text-foreground transition-colors px-1"
+                        >
+                          {rate > 0 ? rate.toLocaleString("ru-RU") : "—"}
+                        </button>
+                      )}
+                    </td>
+                    {Array.from({ length: totalDays }, (_, i) => {
+                      const day = i + 1;
+                      const present = isPresent(s.id, day);
+                      const d = new Date(year, mon, day);
+                      const dk = dateKey(d);
+                      const isToday = dk === today;
+                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                      const cellKey = `${s.id}-${day}`;
 
-                    {rec.status === "active" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {t.admin.attendanceStatusActive}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/60 px-2 py-1 rounded-full shrink-0">
-                        {t.admin.attendanceStatusCompleted}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-4 mt-2.5 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/40">
-                    <div className="text-center">
-                      <p className="text-xs text-zinc-400">{t.admin.attendanceCheckIn}</p>
-                      <p className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{fmtTime(rec.check_in)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-zinc-400">{t.admin.attendanceCheckOut}</p>
-                      <p className="text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
-                        {rec.check_out ? fmtTime(rec.check_out) : "—"}
-                      </p>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <p className="text-xs text-zinc-400">{t.admin.attendanceHours}</p>
-                      <p className="text-sm font-bold tabular-nums text-violet-600 dark:text-violet-400">
-                        {rec.total_hours != null ? fmtHours(rec.total_hours) : "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                      return (
+                        <td
+                          key={i}
+                          onClick={() => toggleDay(s.id, day)}
+                          className={`border-b border-r border-border text-center cursor-pointer select-none transition-colors ${
+                            present
+                              ? "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
+                              : isToday
+                              ? "bg-violet-50 dark:bg-violet-900/10 hover:bg-violet-100 dark:hover:bg-violet-900/30"
+                              : isWeekend
+                              ? "bg-red-50/50 dark:bg-red-900/5 hover:bg-red-100 dark:hover:bg-red-900/20"
+                              : "hover:bg-muted/40"
+                          }`}
+                          style={{ minWidth: 34, height: 32 }}
+                        >
+                          {toggling === cellKey ? (
+                            <Loader2 size={10} className="animate-spin mx-auto text-muted-foreground" />
+                          ) : present ? (
+                            <Check size={13} className="mx-auto text-emerald-600 dark:text-emerald-400" />
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                    <td className="border-b border-border px-2 py-1 text-center text-[11px] font-bold tabular-nums">
+                      {presentDays}
+                    </td>
+                    <td className="border-b border-border px-3 py-1 text-right text-[12px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {totalPay > 0 ? totalPay.toLocaleString("ru-RU") : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-muted/30">
+                <td className="sticky left-0 z-10 bg-muted/30 border-t border-r border-border px-3 py-2 text-[11px] font-semibold" colSpan={2}>
+                  Итого
+                </td>
+                {Array.from({ length: totalDays }, (_, i) => {
+                  const day = i + 1;
+                  const count = staff.filter(s => isPresent(s.id, day)).length;
+                  return (
+                    <td key={i} className="border-t border-r border-border text-center text-[10px] font-semibold text-muted-foreground py-1">
+                      {count > 0 ? count : ""}
+                    </td>
+                  );
+                })}
+                <td className="border-t border-border px-2 py-2 text-center text-[11px] font-bold">
+                  {staff.reduce((s, emp) => s + (presentMap.get(emp.id)?.size ?? 0), 0)}
+                </td>
+                <td className="border-t border-border px-3 py-2 text-right text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {staff.reduce((s, emp) => s + (presentMap.get(emp.id)?.size ?? 0) * (rates[emp.id] ?? 0), 0).toLocaleString("ru-RU")} ₸
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
-      </div>
+      )}
     </div>
   );
 }
