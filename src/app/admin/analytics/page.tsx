@@ -1228,6 +1228,42 @@ export default function AnalyticsPage() {
         </div>
 
 
+        {/* ── Bonus & Promo products ── */}
+        {(bonusProducts.length > 0 || promoProducts.length > 0) && (
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <Star size={15} />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Блюда с бонусами</h2>
+                <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">{bonusProducts.length} блюд</p>
+              </div>
+            </div>
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {bonusProducts.map((p) => {
+                const bonusAmount = Math.round(p.price * p.bonus_percent / 100);
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate flex-1">
+                      {p.name?.ru ?? p.name?.en ?? "—"}
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0 ml-4">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        +{p.bonus_percent}%
+                      </span>
+                      <div className="text-right">
+                        <p className="text-[11px] text-zinc-400 leading-none">+{bonusAmount.toLocaleString()} ₸</p>
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 leading-tight">{p.price.toLocaleString()} ₸</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── Shifts Archive ── */}
         {pastShifts.length > 0 && (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
