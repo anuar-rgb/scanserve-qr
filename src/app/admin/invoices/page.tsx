@@ -281,7 +281,7 @@ export default function InvoicesPage() {
 
           <div className="space-y-4 py-2">
             {/* Top fields */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">{t.admin.invoiceNumberLabel}</Label>
                 <Input
@@ -322,12 +322,11 @@ export default function InvoicesPage() {
 
             {/* Line items table */}
             <div>
-              <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr 80px 72px 100px 90px 32px" }}>
-                {/* header */}
+              {/* Desktop table */}
+              <div className="hidden sm:grid gap-1.5" style={{ gridTemplateColumns: "1fr 80px 72px 100px 90px 32px" }}>
                 {[t.admin.invoiceItemName, t.admin.invoiceItemQty, t.admin.invoiceItemUnit, t.admin.invoiceItemPrice, t.admin.invoiceItemTotal, ""].map((h, i) => (
                   <p key={i} className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 px-1">{h}</p>
                 ))}
-                {/* rows */}
                 {lines.map((line, idx) => {
                   const rowTotal = (parseFloat(line.quantity) || 0) * (parseFloat(line.price_per_unit) || 0);
                   return (
@@ -339,6 +338,51 @@ export default function InvoicesPage() {
                       onRemove={() => removeLine(idx)}
                       canRemove={lines.length > 1}
                     />
+                  );
+                })}
+              </div>
+              {/* Mobile cards */}
+              <div className="sm:hidden space-y-3">
+                {lines.map((line, idx) => {
+                  const rowTotal = (parseFloat(line.quantity) || 0) * (parseFloat(line.price_per_unit) || 0);
+                  return (
+                    <div key={line.id} className="rounded-xl border border-border p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={line.item_name}
+                          onChange={e => updateLine(idx, "item_name", e.target.value)}
+                          placeholder={t.admin.invoiceItemName}
+                          className="flex-1 text-sm"
+                        />
+                        {lines.length > 1 && (
+                          <button onClick={() => removeLine(idx)} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">{t.admin.invoiceItemQty}</p>
+                          <Input type="number" min={0} value={line.quantity} onChange={e => updateLine(idx, "quantity", e.target.value)} className="text-sm" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">{t.admin.invoiceItemUnit}</p>
+                          <select value={line.unit} onChange={e => updateLine(idx, "unit", e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+                            <option value="шт">шт</option>
+                            <option value="кг">кг</option>
+                            <option value="л">л</option>
+                            <option value="уп">уп</option>
+                          </select>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">{t.admin.invoiceItemPrice}</p>
+                          <Input type="number" min={0} value={line.price_per_unit} onChange={e => updateLine(idx, "price_per_unit", e.target.value)} className="text-sm" />
+                        </div>
+                      </div>
+                      <div className="text-right text-xs font-semibold text-muted-foreground">
+                        = {rowTotal.toLocaleString("ru-RU")} ₸
+                      </div>
+                    </div>
                   );
                 })}
               </div>
