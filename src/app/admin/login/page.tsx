@@ -104,7 +104,7 @@ export default function AdminLogin() {
         }}
       >
         <h1 style={{ color: "#E0E0E0", fontSize: 22, fontWeight: 700, textAlign: "center", margin: "0 0 6px" }}>
-          АС ТӨРІ
+          ScanServe
         </h1>
         <p style={{ color: "rgba(224,224,224,0.45)", fontSize: 14, textAlign: "center", margin: "0 0 28px" }}>
           Admin Panel
