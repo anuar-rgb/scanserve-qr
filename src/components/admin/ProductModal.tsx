@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, Loader2, ImageIcon, Flame, Star, Sparkles, Plus, Trash2 } from "lucide-react";
+import { X, Loader2, ImageIcon, Flame, Star, Sparkles, Plus, Trash2, Check } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbIngredient, DbProduct, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
@@ -99,6 +99,86 @@ export const ALLERGEN_TAGS = [
   { key: "lactose_free", emoji: "🥛",  label: "Без лактозы",      activeCls: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30" },
   { key: "gluten",       emoji: "🌾",  label: "Содержит глютен",  activeCls: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30" },
 ];
+
+const CUSTOM_TAG_CLS = "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30";
+
+function AllergenPicker({ allergens, onToggle, onChange }: { allergens: string[]; onToggle: (key: string) => void; onChange: (v: string[]) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [newTag, setNewTag] = useState("");
+
+  const knownKeys = new Set(ALLERGEN_TAGS.map(t => t.key));
+  const customTags = allergens.filter(k => !knownKeys.has(k));
+
+  function addCustom() {
+    const tag = newTag.trim();
+    if (!tag) return;
+    if (!allergens.includes(tag)) onChange([...allergens, tag]);
+    setNewTag("");
+    setAdding(false);
+  }
+
+  function removeCustom(tag: string) {
+    onChange(allergens.filter(k => k !== tag));
+  }
+
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {ALLERGEN_TAGS.map(({ key, emoji, label, activeCls }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onToggle(key)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+            allergens.includes(key)
+              ? activeCls
+              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700"
+          }`}
+        >
+          <span>{emoji}</span>
+          {label}
+        </button>
+      ))}
+      {customTags.map(tag => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => removeCustom(tag)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${CUSTOM_TAG_CLS}`}
+        >
+          {tag}
+          <X size={10} />
+        </button>
+      ))}
+      {adding ? (
+        <div className="flex items-center gap-1">
+          <input
+            autoFocus
+            value={newTag}
+            onChange={e => setNewTag(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } if (e.key === "Escape") setAdding(false); }}
+            placeholder="Название..."
+            className="w-28 px-2 py-1 rounded-full text-xs border border-violet-400 bg-background focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+          />
+          <button type="button" onClick={addCustom} className="p-1 rounded-full text-violet-600 hover:bg-violet-100 dark:hover:bg-violet-900/30">
+            <Check size={12} />
+          </button>
+          <button type="button" onClick={() => { setAdding(false); setNewTag(""); }} className="p-1 rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:text-violet-600 hover:border-violet-400 transition-colors"
+        >
+          <Plus size={11} />
+          Добавить
+        </button>
+      )}
+    </div>
+  );
+}
 
 function fgFromHex(hex: string): string {
   const h = hex.replace("#", "");
@@ -516,23 +596,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                 <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
                   Аллергены и особенности
                 </label>
-                <div className="flex gap-2 flex-wrap">
-                  {ALLERGEN_TAGS.map(({ key, emoji, label, activeCls }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => toggleAllergen(key)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                        allergens.includes(key)
-                          ? activeCls
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700"
-                      }`}
-                    >
-                      <span>{emoji}</span>
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <AllergenPicker allergens={allergens} onToggle={toggleAllergen} onChange={setAllergens} />
               </div>
 
               {/* Технологическая карта */}

@@ -101,10 +101,9 @@ export function ProductDetailModal({
         return keys
           .map((k) => {
             const def = ALLERGEN_MAP[k];
-            if (!def) return null;
-            return { emoji: def.emoji, label: def.label[lang] ?? def.label.en, bg: def.bg, fg: def.fg };
-          })
-          .filter(Boolean) as { emoji: string; label: string; bg: string; fg: string }[];
+            if (def) return { emoji: def.emoji, label: def.label[lang] ?? def.label.en, bg: def.bg, fg: def.fg };
+            return { emoji: "🏷️", label: k, bg: "#7C3AED", fg: "#fff" };
+          });
       })()
     : [];
 
