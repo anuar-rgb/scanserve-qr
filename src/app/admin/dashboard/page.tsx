@@ -327,27 +327,16 @@ export default function CatalogPage() {
                           </p>
                         )}
 
-                        {/* Mobile-only: price + toggle + action buttons below the name */}
+                        {/* Mobile-only: price + action buttons below the name */}
                         <div className="flex items-center gap-2 mt-2 md:hidden">
                           <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400 select-none">
                             {p.price.toLocaleString()}₸
                           </span>
-                          <button
-                            onClick={() => toggleAvailable(p)}
-                            disabled={saving === p.id || p.is_archived}
-                            className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg border transition-all ${
-                              saving === p.id
-                                ? "opacity-40 cursor-wait border-zinc-300 dark:border-zinc-700 text-zinc-400"
-                                : p.is_available
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                : "bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20"
-                            }`}
-                          >
-                            {p.is_available
-                              ? <><CheckCircle2 size={11} /> {t.admin.on}</>
-                              : <><XCircle size={11} /> {t.admin.off}</>
-                            }
-                          </button>
+                          {!p.is_available && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">
+                              Выкл
+                            </span>
+                          )}
                           <div className="flex items-center gap-0.5 ml-auto">
                             <button
                               onClick={() => setProductModal({ mode: "edit", product: p })}
