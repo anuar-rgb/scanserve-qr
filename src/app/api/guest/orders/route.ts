@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     .limit(50);
 
   const mapped = (orders ?? []).map((o) => {
-    const itemsRaw = Array.isArray(o.items_json) ? o.items_json as { name?: string; qty?: number; price?: number }[] : [];
+    const itemsRaw = Array.isArray(o.items_json) ? o.items_json as { name?: string; qty?: number; price?: number; original_price?: number; discountPct?: number }[] : [];
     return {
       id: o.id,
       clientId: guestId,
@@ -55,6 +55,8 @@ export async function GET(req: NextRequest) {
         qty: it.qty ?? 1,
         price: it.price ?? 0,
         currency: "₸",
+        originalPrice: it.original_price ?? undefined,
+        discountPct: it.discountPct ?? undefined,
       })),
       total: o.total_price,
       currency: "₸",

@@ -36,7 +36,7 @@ interface PlacedOrder {
   paymentComment?: string;
   notes?: string;
   phoneNumber?: string;
-  items: { name: string; qty: number; price: number; currency: string }[];
+  items: { name: string; qty: number; price: number; originalPrice?: number; discountPct?: number; currency: string }[];
   total: number;
   currency: string;
   deliveryFee?: number;
@@ -57,7 +57,7 @@ export interface StoredOrder {
   preorderDate?: string;
   preorderTime?: string;
   tableNumber?: string;
-  items: { name: string; qty: number; price: number; currency: string }[];
+  items: { name: string; qty: number; price: number; originalPrice?: number; discountPct?: number; currency: string }[];
   total: number;
   currency: string;
   status: "pending" | "refund-requested";
@@ -690,13 +690,16 @@ export function CartDrawer({
       const modSuffix = selectedModifiers?.length
         ? ` (+ ${selectedModifiers.map(m => m.name).join(", ")})`
         : "";
+      const pp = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+      const hp = getHappyHourDiscount(dish.categoryId, happyHours);
+      const dp = Math.max(isNaN(pp) ? 0 : pp, hp);
       return {
         name: resolve(dish.name, lang) + modSuffix,
         qty,
         price: finalPrice,
         currency: c || currency,
         product_id: dish.id,
-        ...(dish.isPromo && dish.discountLabel ? { original_price: dish.price } : {}),
+        ...(dp > 0 ? { original_price: dish.price, discountPct: dp } : {}),
       };
     });
     const foundCity = KZ_CITIES.find((c) => c.id === city);
@@ -1059,7 +1062,11 @@ export function CartDrawer({
                 <div style={{ display: "flex", flexDirection: "column", gap: SP.sm, paddingBottom: SP.sm }}>
                   {items.map(({ dish, qty, currency: ic, cartKey: ck, selectedModifiers }) => {
                     const fp = effPrice(dish, selectedModifiers, happyHours);
-                    const hasPromoDiscount = fp - (selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0) < dish.price;
+                    const baseAfterMods = fp - (selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0);
+                    const hasPromoDiscount = baseAfterMods < dish.price;
+                    const promoPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+                    const hhPct = getHappyHourDiscount(dish.categoryId, happyHours);
+                    const discPct = Math.max(isNaN(promoPct) ? 0 : promoPct, hhPct);
                     return (
                     <div key={ck} style={{ display: "flex", alignItems: "center", gap: SP.md - 4, padding: SP.sm + 2, background: card, borderRadius: R.md, border: `1px solid ${border}` }}>
                       <span style={{ fontSize: 26, flexShrink: 0 }}>{dish.emoji}</span>
@@ -1068,9 +1075,9 @@ export function CartDrawer({
                           <p style={{ fontSize: 14, fontWeight: 600, margin: 0, lineHeight: 1.3 }}>
                             {capFirst(resolve(dish.name, lang))}
                           </p>
-                          {hasPromoDiscount && (
+                          {hasPromoDiscount && discPct > 0 && (
                             <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 7px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em", flexShrink: 0 }}>
-                              -{dish.discountLabel}%
+                              -{discPct}%
                             </span>
                           )}
                         </div>
@@ -2046,11 +2053,16 @@ export function CartDrawer({
                         + {selectedModifiers.map(m => m.name).join(", ")}
                       </p>
                     )}
-                    {effPrice(dish, selectedModifiers, happyHours) < dish.price && (
-                      <span style={{ display: "inline-block", marginTop: 2, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em" }}>
-                        -{dish.discountLabel}%
-                      </span>
-                    )}
+                    {(() => {
+                      const pp = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
+                      const hp = getHappyHourDiscount(dish.categoryId, happyHours);
+                      const dp = Math.max(isNaN(pp) ? 0 : pp, hp);
+                      return dp > 0 && effPrice(dish, selectedModifiers, happyHours) < dish.price + (selectedModifiers?.reduce((s, m) => s + m.price, 0) ?? 0) ? (
+                        <span style={{ display: "inline-block", marginTop: 2, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", letterSpacing: "0.05em" }}>
+                          -{dp}%
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                 ))}
                 {deliveryFee > 0 && (
@@ -2207,9 +2219,23 @@ export function CartDrawer({
                   {tn("summary", lang)}
                 </p>
                 {placedOrder.items.map((item, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
-                    <span style={{ color: muted }}>{capFirst(item.name)} × {item.qty}</span>
-                    <span style={{ fontWeight: 600 }}>{(item.price * item.qty).toLocaleString()} {item.currency}</span>
+                  <div key={i} style={{ marginBottom: 5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: muted }}>{capFirst(item.name)} × {item.qty}</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {item.originalPrice && item.originalPrice > item.price && (
+                          <span style={{ textDecoration: "line-through", color: muted, fontWeight: 400, marginRight: 4, fontSize: 11 }}>
+                            {(item.originalPrice * item.qty).toLocaleString()}
+                          </span>
+                        )}
+                        {(item.price * item.qty).toLocaleString()} {item.currency}
+                      </span>
+                    </div>
+                    {item.discountPct && item.discountPct > 0 && (
+                      <span style={{ display: "inline-block", marginTop: 2, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff" }}>
+                        -{item.discountPct}%
+                      </span>
+                    )}
                   </div>
                 ))}
                 {placedOrder.deliveryFee && (
