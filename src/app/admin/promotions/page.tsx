@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Edit2, Loader2, X, Check, Copy, Tag, Clock } from "lucide-react";
+import { Plus, Trash2, Edit2, Loader2, X, Check, Copy, Tag, Clock, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { RESTAURANT_ID } from "@/constants";
-import type { DbPromoCode, DbHappyHour, DbCategory } from "@/lib/db-types";
+import type { DbPromoCode, DbHappyHour, DbCategory, LS } from "@/lib/db-types";
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -17,7 +17,7 @@ function toLocalInput(iso: string): string {
 const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
 export default function PromotionsPage() {
-  const [tab, setTab] = useState<"promo" | "happy">("promo");
+  const [tab, setTab] = useState<"promo" | "happy" | "bonus">("promo");
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-1 border-b border-border">
@@ -35,8 +35,15 @@ export default function PromotionsPage() {
           <Clock size={14} className="inline mr-1.5 -mt-0.5" />
           Счастливые часы
         </button>
+        <button
+          onClick={() => setTab("bonus")}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === "bonus" ? "border-violet-600 text-violet-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          <Star size={14} className="inline mr-1.5 -mt-0.5" />
+          Бонусы
+        </button>
       </div>
-      {tab === "promo" ? <PromoCodesTab /> : <HappyHoursTab />}
+      {tab === "promo" ? <PromoCodesTab /> : tab === "happy" ? <HappyHoursTab /> : <BonusTab />}
     </div>
   );
 }
@@ -534,6 +541,106 @@ function HappyHoursTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Bonus Tab ────────────────────────────────────────────────────────────────
+
+type BonusProduct = { id: string; name: LS; price: number; bonus_percent: number };
+
+function BonusTab() {
+  const [products, setProducts] = useState<BonusProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bulkValue, setBulkValue] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!isConfigured) return;
+    const { data } = await supabase
+      .from("products")
+      .select("id, name, price, bonus_percent")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("is_archived", false)
+      .gt("bonus_percent", 0)
+      .order("bonus_percent", { ascending: false });
+    setProducts((data as BonusProduct[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleBulkSet() {
+    const val = parseFloat(bulkValue);
+    if (isNaN(val) || val < 0) return;
+    if (!window.confirm(`Установить бонус ${val}% для ВСЕХ блюд?`)) return;
+    setBulkSaving(true);
+    const { error } = await supabase
+      .from("products")
+      .update({ bonus_percent: val })
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("is_archived", false);
+    setBulkSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Бонус ${val}% установлен для всех блюд`);
+    setBulkValue("");
+    load();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold">Бонусные баллы</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Кешбэк за покупки — процент от стоимости блюда</p>
+      </div>
+
+      <div className="rounded-xl border bg-card p-5">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Массовая установка бонуса</p>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-[160px]">
+            <input type="number" min={0} max={100} step={0.01} value={bulkValue} onChange={e => setBulkValue(e.target.value)} placeholder="0.2" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+          </div>
+          <button onClick={handleBulkSet} disabled={bulkSaving || !bulkValue.trim() || isNaN(parseFloat(bulkValue))} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+            {bulkSaving ? <Loader2 size={13} className="animate-spin" /> : <Star size={13} />}
+            Применить ко всем блюдам
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2">Установит одинаковый процент бонуса для всех блюд (не затрагивает архивные)</p>
+      </div>
+
+      <div className="rounded-xl border bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Star size={15} className="text-emerald-500" />
+          <div>
+            <h2 className="text-sm font-semibold">Блюда с бонусами</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{products.length > 0 ? `${products.length} блюд` : "Нет блюд с бонусами"}</p>
+          </div>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>
+        ) : products.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Установите процент бонуса в карточке блюда или используйте массовую установку</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {products.map(p => {
+              const amt = Math.round(p.price * p.bonus_percent / 100);
+              return (
+                <div key={p.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm truncate flex-1">{p.name?.ru ?? p.name?.en ?? "—"}</span>
+                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">+{p.bonus_percent}%</span>
+                    <div className="text-right">
+                      <p className="text-[11px] text-muted-foreground leading-none">+{amt.toLocaleString()} ₸</p>
+                      <p className="text-sm font-semibold leading-tight">{p.price.toLocaleString()} ₸</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
