@@ -543,13 +543,13 @@ export function OrdersModal({
                       <div style={{ padding: "10px 14px 6px" }}>
                         {order.items.map((item, i) => (
                           <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: SP.xs }}>
-                            <span style={{ color: muted, fontSize: 13, flex: 1 }}>
+                            <span style={{ color: muted, fontSize: 13, flex: 1, minWidth: 0 }}>
                               {item.name} × {item.qty}
                               {item.discountPct && item.discountPct > 0 && (
-                                <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", verticalAlign: "middle" }}>-{item.discountPct}%</span>
+                                <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 999, backgroundColor: "#FF4D6D", color: "#fff", verticalAlign: "middle", whiteSpace: "nowrap" }}>-{item.discountPct}%</span>
                               )}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13, flexShrink: 0, textAlign: "right", whiteSpace: "nowrap" }}>
                               {item.originalPrice && item.originalPrice > item.price && (
                                 <span style={{ textDecoration: "line-through", color: muted, fontWeight: 400, marginRight: 4, fontSize: 11 }}>{(item.originalPrice * item.qty).toLocaleString()}</span>
                               )}
