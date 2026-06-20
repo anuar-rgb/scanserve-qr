@@ -161,14 +161,6 @@ export default function CrmPage() {
     setSending(false);
   }
 
-  if (!isOwner) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-zinc-500">Раздел доступен только владельцу.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex-1 overflow-y-auto admin-scroll p-4 md:p-6 space-y-6">
 
@@ -432,7 +424,7 @@ export default function CrmPage() {
                               </div>
 
                               {/* Bonus balance — owner only */}
-                              {isOwner && c.phone && (() => {
+                              {c.phone && (() => {
                                 const bonus = bonusMap.get(c.phone!);
                                 return (
                                   <div>
@@ -450,18 +442,20 @@ export default function CrmPage() {
                                         <span className="text-sm font-bold text-violet-600 dark:text-violet-400 tabular-nums">
                                           {(bonus.bonusAmount ?? 0).toLocaleString("ru-RU")} ₸
                                         </span>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setBonusMap((m) => { const next = new Map(m); next.set(c.phone!, { ...bonus, editing: true, editValue: String(bonus.bonusAmount ?? 0) }); return next; });
-                                          }}
-                                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
-                                        >
-                                          <Pencil size={10} /> Изменить
-                                        </button>
+                                        {isOwner && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setBonusMap((m) => { const next = new Map(m); next.set(c.phone!, { ...bonus, editing: true, editValue: String(bonus.bonusAmount ?? 0) }); return next; });
+                                            }}
+                                            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
+                                          >
+                                            <Pencil size={10} /> Изменить
+                                          </button>
+                                        )}
                                       </div>
                                     )}
-                                    {!bonus?.loading && bonus?.guestId && bonus.editing && (
+                                    {isOwner && !bonus?.loading && bonus?.guestId && bonus.editing && (
                                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                         <input
                                           type="number"
