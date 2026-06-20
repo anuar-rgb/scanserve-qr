@@ -18,6 +18,7 @@ interface AttRecord {
   id: string;
   employee_id: string;
   check_in: string;
+  source: string | null;
 }
 
 const MONTH_NAMES = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -61,7 +62,7 @@ export default function AttendancePage() {
 
     const [staffRes, attRes] = await Promise.all([
       supabase.from("staff_users").select("id, display_name, username, role, daily_rate").eq("restaurant_id", RESTAURANT_ID).neq("role", "owner").order("display_name"),
-      supabase.from("employee_attendance").select("id, employee_id, check_in").eq("restaurant_id", RESTAURANT_ID).gte("check_in", monthStart).lte("check_in", monthEnd),
+      supabase.from("employee_attendance").select("id, employee_id, check_in, source").eq("restaurant_id", RESTAURANT_ID).gte("check_in", monthStart).lte("check_in", monthEnd),
     ]);
 
     const staffData = (staffRes.data ?? []) as StaffRow[];
@@ -75,16 +76,22 @@ export default function AttendancePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const presentMap = new Map<string, Set<number>>();
+  const presentMap = new Map<string, Map<number, string>>();
   for (const rec of records) {
     const d = new Date(rec.check_in);
     const day = d.getDate();
-    if (!presentMap.has(rec.employee_id)) presentMap.set(rec.employee_id, new Set());
-    presentMap.get(rec.employee_id)!.add(day);
+    if (!presentMap.has(rec.employee_id)) presentMap.set(rec.employee_id, new Map());
+    const src = rec.source ?? "shift";
+    const existing = presentMap.get(rec.employee_id)!.get(day);
+    if (!existing || src === "shift") presentMap.get(rec.employee_id)!.set(day, src);
   }
 
   function isPresent(empId: string, day: number): boolean {
     return presentMap.get(empId)?.has(day) ?? false;
+  }
+
+  function getSource(empId: string, day: number): string {
+    return presentMap.get(empId)?.get(day) ?? "shift";
   }
 
   async function toggleDay(empId: string, day: number) {
@@ -94,8 +101,8 @@ export default function AttendancePage() {
     setToggling(key);
 
     if (present) {
-      if (!presentMap.has(empId)) presentMap.set(empId, new Set());
-      presentMap.get(empId)!.add(day);
+      if (!presentMap.has(empId)) presentMap.set(empId, new Map());
+      presentMap.get(empId)!.set(day, "manual");
     } else {
       presentMap.get(empId)?.delete(day);
     }
@@ -227,8 +234,10 @@ export default function AttendancePage() {
                           key={i}
                           onClick={() => toggleDay(s.id, day)}
                           className={`border-b border-r border-border text-center cursor-pointer select-none transition-colors ${
-                            present
+                            present && getSource(s.id, day) === "shift"
                               ? "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
+                              : present && getSource(s.id, day) === "manual"
+                              ? "bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50"
                               : isToday
                               ? "bg-violet-50 dark:bg-violet-900/10 hover:bg-violet-100 dark:hover:bg-violet-900/30"
                               : isWeekend
@@ -240,7 +249,7 @@ export default function AttendancePage() {
                           {toggling === cellKey ? (
                             <Loader2 size={10} className="animate-spin mx-auto text-muted-foreground" />
                           ) : present ? (
-                            <Check size={13} className="mx-auto text-emerald-600 dark:text-emerald-400" />
+                            <Check size={13} className={`mx-auto ${getSource(s.id, day) === "manual" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`} />
                           ) : null}
                         </td>
                       );

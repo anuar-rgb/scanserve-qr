@@ -81,5 +81,29 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Sync: also create employee_attendance record (best effort)
+  try {
+    const { data: activeAtt } = await supabase
+      .from("employee_attendance")
+      .select("id")
+      .eq("employee_id", staffUserId)
+      .eq("restaurant_id", RID(request))
+      .eq("status", "active")
+      .is("check_out", null)
+      .limit(1)
+      .maybeSingle();
+
+    if (!activeAtt) {
+      await supabase.from("employee_attendance").insert({
+        employee_id: staffUserId,
+        restaurant_id: RID(request),
+        check_in: new Date().toISOString(),
+        status: "active",
+        source: "shift",
+      });
+    }
+  } catch (_) { /* attendance sync failure must not block shift checkin */ }
+
   return NextResponse.json({ checkin: data });
 }

@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
         check_out: `${date}T18:00:00`,
         total_hours: 9,
         status: "completed",
+        source: "manual",
       });
     }
   } else {

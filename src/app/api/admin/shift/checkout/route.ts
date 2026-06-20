@@ -51,5 +51,29 @@ export async function POST(request: NextRequest) {
     .eq("staff_user_id", staffUserId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Sync: close active employee_attendance record (best effort)
+  try {
+    const now = new Date();
+    const { data: activeAtt } = await supabase
+      .from("employee_attendance")
+      .select("id, check_in")
+      .eq("employee_id", staffUserId)
+      .eq("restaurant_id", RID(request))
+      .eq("status", "active")
+      .is("check_out", null)
+      .order("check_in", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (activeAtt) {
+      const totalHours = (now.getTime() - new Date(activeAtt.check_in).getTime()) / 3_600_000;
+      await supabase
+        .from("employee_attendance")
+        .update({ check_out: now.toISOString(), total_hours: Math.round(totalHours * 100) / 100, status: "completed" })
+        .eq("id", activeAtt.id);
+    }
+  } catch (_) { /* attendance sync failure must not block shift checkout */ }
+
   return NextResponse.json({ ok: true });
 }

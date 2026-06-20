@@ -1,14 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Clock, LogIn, LogOut, CheckCircle2, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
-import dynamic from "next/dynamic";
+import { useCallback, useEffect, useState } from "react";
+import { Clock, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
-
-const QrScannerModal = dynamic(() => import("@/components/admin/QrScannerModal"), { ssr: false });
-
-// ─── types ────────────────────────────────────────────────────────────────────
 
 interface AttendanceRecord {
   id: string;
@@ -17,8 +11,6 @@ interface AttendanceRecord {
   total_hours: number | null;
   status: "active" | "completed";
 }
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
@@ -56,15 +48,11 @@ function useElapsed(checkIn: string | null) {
   return elapsed;
 }
 
-// ─── page ─────────────────────────────────────────────────────────────────────
-
 export default function MyAttendancePage() {
   const { t } = useTranslations();
   const [active, setActive]     = useState<AttendanceRecord | null>(null);
   const [history, setHistory]   = useState<AttendanceRecord[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [scanning, setScanning] = useState<"checkin" | "checkout" | null>(null);
-  const [busy, setBusy]         = useState(false);
   const elapsed = useElapsed(active?.check_in ?? null);
 
   const loadStatus = useCallback(async () => {
@@ -89,50 +77,11 @@ export default function MyAttendancePage() {
 
   useEffect(() => { void loadStatus(); }, [loadStatus]);
 
-  async function handleScan(qrToken: string) {
-    const mode = scanning;
-    setScanning(null);
-    setBusy(true);
-    try {
-      const url = mode === "checkin"
-        ? "/api/admin/attendance/checkin"
-        : "/api/admin/attendance/checkout";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qrToken }),
-      });
-      const data = await res.json() as { attendance?: AttendanceRecord; error?: string };
-      if (!res.ok) {
-        toast.error(data.error ?? "Ошибка");
-        return;
-      }
-      if (mode === "checkin") {
-        setActive(data.attendance ?? null);
-        setHistory((prev) => [data.attendance!, ...prev].filter(Boolean));
-        toast.success("Смена начата!");
-      } else {
-        // Clear active state directly from confirmed API response — do NOT re-fetch
-        // (re-fetching risks race-condition restoring old "active" record)
-        setActive(null);
-        if (data.attendance) {
-          setHistory((prev) =>
-            prev.map((r) => r.id === data.attendance!.id ? data.attendance! : r)
-          );
-        }
-        const fin = data.attendance;
-        if (fin?.total_hours != null) {
-          toast.success(`Смена завершена. Отработано: ${fmtHours(fin.total_hours)}`);
-        } else {
-          toast.success("Смена завершена!");
-        }
-        // Reload history after a short delay so the DB record is visible
-        setTimeout(() => { void loadStatus(); }, 600);
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Auto-refresh every 30s to pick up changes from shift checkin/checkout
+  useEffect(() => {
+    const id = setInterval(() => { void loadStatus(); }, 30_000);
+    return () => clearInterval(id);
+  }, [loadStatus]);
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
@@ -164,24 +113,12 @@ export default function MyAttendancePage() {
             </p>
 
             {/* Timer */}
-            <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-3">
               <Clock size={20} className="text-emerald-500 shrink-0" />
               <span className="text-3xl font-black tabular-nums text-emerald-700 dark:text-emerald-300 tracking-tight">
                 {elapsed}
               </span>
             </div>
-
-            <button
-              onClick={() => setScanning("checkout")}
-              disabled={busy}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-red-500 hover:bg-red-600 active:scale-95 text-white text-sm font-bold transition-all disabled:opacity-60"
-            >
-              <LogOut size={16} />
-              {t.admin.attendanceEndShift}
-            </button>
-            <p className="text-center text-xs text-emerald-600 dark:text-emerald-500 mt-2">
-              {t.admin.attendanceScanEnd}
-            </p>
           </div>
         ) : (
           /* Not on shift */
@@ -191,18 +128,13 @@ export default function MyAttendancePage() {
                 {t.admin.attendanceNotOnShift}
               </span>
             </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
               {t.admin.attendanceScanStart}
             </p>
-
-            <button
-              onClick={() => setScanning("checkin")}
-              disabled={busy}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-sm font-bold transition-all disabled:opacity-60"
-            >
-              <LogIn size={16} />
-              {t.admin.attendanceStartShift}
-            </button>
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 text-xs font-medium">
+              <Info size={14} className="shrink-0" />
+              Сканируйте QR на входе для начала смены
+            </div>
           </div>
         )}
 
@@ -248,16 +180,6 @@ export default function MyAttendancePage() {
           </div>
         )}
       </div>
-
-      {/* QR Scanner */}
-      {scanning && (
-        <QrScannerModal
-          title={scanning === "checkin" ? t.admin.attendanceStartShift : t.admin.attendanceEndShift}
-          hint={scanning === "checkin" ? t.admin.attendanceScanStart : t.admin.attendanceScanEnd}
-          onScan={handleScan}
-          onClose={() => setScanning(null)}
-        />
-      )}
     </div>
   );
 }
