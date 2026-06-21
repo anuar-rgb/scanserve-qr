@@ -68,7 +68,6 @@ export async function POST(req: NextRequest) {
   const oldBalance = (balance?.bonus_amount ?? 0) as number;
   const newBalance = oldBalance + bonusesEarned;
 
-  console.log(`[accrue-bonuses] order=${orderId} guest=${order.guest_id} earned=${bonusesEarned} oldBalance=${oldBalance} newBalance=${newBalance}`);
 
   await supabase
     .from("guest_balances")

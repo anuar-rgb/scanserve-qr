@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import AdminSidebar from "./AdminSidebar";
 import MobileAdminHeader from "./MobileAdminHeader";
@@ -12,8 +11,6 @@ import { CheckinProvider } from "@/lib/checkin-context";
 import { WaiterCallProvider } from "@/lib/waiter-call-context";
 
 export default function AdminShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-
   return (
     <RoleProvider>
       <ShiftProvider>
