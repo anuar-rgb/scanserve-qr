@@ -155,6 +155,8 @@ export default function AdminSidebar() {
     setCheckoutBusy(false);
     if (result.ok) {
       toast.success("Смена завершена. До свидания!");
+      await fetch("/api/admin/logout", { method: "POST" });
+      router.replace("/admin/login");
     } else {
       toast.error(result.error ?? "Неверный QR-код");
     }

@@ -181,8 +181,13 @@ export default function MobileBottomNav() {
     setCheckoutBusy(true);
     const result = await checkout(token);
     setCheckoutBusy(false);
-    if (result.ok) toast.success("Смена завершена. До свидания!");
-    else toast.error(result.error ?? "Неверный QR-код");
+    if (result.ok) {
+      toast.success("Смена завершена. До свидания!");
+      await fetch("/api/admin/logout", { method: "POST" });
+      router.replace("/admin/login");
+    } else {
+      toast.error(result.error ?? "Неверный QR-код");
+    }
   }
 
   const visibleTabs = BOTTOM_TABS.filter((tab) => {
