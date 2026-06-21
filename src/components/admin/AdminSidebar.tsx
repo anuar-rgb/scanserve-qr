@@ -104,6 +104,7 @@ export default function AdminSidebar() {
   const { t, lang, setLang } = useTranslations();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const role = useRole();
   const isOwner = useIsOwner();
   const isStrictOwner = useIsStrictOwner();
@@ -174,25 +175,32 @@ export default function AdminSidebar() {
 
   return (
   <>
-    <aside className="fixed inset-y-0 left-0 w-60 hidden md:flex flex-col bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800/60 z-20 transition-colors duration-200">
+    <aside
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => { setExpanded(false); setConfirmClose(false); }}
+      className={`fixed inset-y-0 left-0 hidden md:flex flex-col bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800/60 z-20 overflow-hidden ${
+        expanded ? "w-60" : "w-16"
+      }`}
+      style={{ transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
+    >
       {/* Brand */}
-      <div className="px-4 py-4 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
+      <div className="px-3 py-4 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0 select-none">
-            А
+          <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0 select-none">
+            S
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight">АС ТӨРІ</p>
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight">
+          <div className={`min-w-0 flex-1 transition-opacity duration-200 ${expanded ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight whitespace-nowrap">ScanServe</p>
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight whitespace-nowrap">
               {platformLabel}
             </p>
           </div>
-          {!isOwner && <WaiterCallBell />}
+          {!isOwner && expanded && <WaiterCallBell />}
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-4">
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-3">
         {visibleSections.map((section) => {
           const visibleItems = section.items.filter((item) => {
             if (item.strictOwner && !isStrictOwner) return false;
@@ -203,7 +211,7 @@ export default function AdminSidebar() {
           if (visibleItems.length === 0) return null;
           return (
             <div key={section.titleKey}>
-              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
+              <p className={`px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 whitespace-nowrap transition-opacity duration-200 ${expanded ? "opacity-100" : "opacity-0 h-0 mb-0 overflow-hidden"}`}>
                 {t.admin[section.titleKey]}
               </p>
               <div className="space-y-0.5">
@@ -214,17 +222,22 @@ export default function AdminSidebar() {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      title={expanded ? undefined : String(t.admin[item.labelKey])}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        expanded ? "" : "justify-center"
+                      } ${
                         isActive
                           ? "bg-violet-50 dark:bg-violet-600/15 text-violet-700 dark:text-violet-300"
                           : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
                       }`}
                     >
                       <Icon
-                        size={14}
-                        className={isActive ? "text-violet-600 dark:text-violet-400" : "text-zinc-400 dark:text-zinc-500"}
+                        size={16}
+                        className={`shrink-0 ${isActive ? "text-violet-600 dark:text-violet-400" : "text-zinc-400 dark:text-zinc-500"}`}
                       />
-                      {t.admin[item.labelKey]}
+                      <span className={`transition-opacity duration-200 ${expanded ? "opacity-100" : "opacity-0 w-0 overflow-hidden"}`}>
+                        {t.admin[item.labelKey]}
+                      </span>
                     </Link>
                   );
                 })}
@@ -235,79 +248,90 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800/60 p-2.5 space-y-0.5">
+      <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800/60 p-2 space-y-0.5">
         {/* Theme toggle */}
         <button
           onClick={() => mounted && setTheme(isDark ? "light" : "dark")}
-          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+          title={expanded ? undefined : (isDark ? "Dark mode" : "Light mode")}
+          className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors whitespace-nowrap ${expanded ? "" : "justify-center"}`}
         >
           {isDark
-            ? <Moon size={14} className="text-zinc-500 shrink-0" />
-            : <Sun size={14} className="text-amber-500 shrink-0" />
+            ? <Moon size={16} className="text-zinc-500 shrink-0" />
+            : <Sun size={16} className="text-amber-500 shrink-0" />
           }
-          <span>{isDark ? t.admin.darkMode : t.admin.lightMode}</span>
-          <div
-            className={`ml-auto w-8 h-4 rounded-full flex items-center px-0.5 shrink-0 transition-all duration-200 ${
-              isDark ? "bg-violet-600 justify-end" : "bg-zinc-300 justify-start"
-            }`}
-          >
-            <div className="w-3 h-3 rounded-full bg-white shadow-sm" />
-          </div>
+          {expanded && (
+            <>
+              <span>{isDark ? t.admin.darkMode : t.admin.lightMode}</span>
+              <div
+                className={`ml-auto w-8 h-4 rounded-full flex items-center px-0.5 shrink-0 transition-all duration-200 ${
+                  isDark ? "bg-violet-600 justify-end" : "bg-zinc-300 justify-start"
+                }`}
+              >
+                <div className="w-3 h-3 rounded-full bg-white shadow-sm" />
+              </div>
+            </>
+          )}
         </button>
 
         {/* Language switcher */}
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
-            Lang
-          </span>
-          <div className="ml-auto flex items-center gap-1">
-            {(["en", "ru"] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLang(l)}
-                className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
-                  lang === l
-                    ? "bg-violet-600 text-white"
-                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                }`}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
+        {expanded && (
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
+              Lang
+            </span>
+            <div className="ml-auto flex items-center gap-1">
+              {(["en", "ru"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                    lang === l
+                      ? "bg-violet-600 text-white"
+                      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                  }`}
+                >
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Shift status */}
         {shift && (
-          <div className="flex items-center gap-2 px-2.5 py-1.5">
-            <Clock size={12} className="text-emerald-500 shrink-0" />
-            <span className="flex-1 min-w-0 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-              Смена с {fmtTime(shift.opened_at)}
-            </span>
-            {isOwner && !confirmClose && (
-              <button
-                onClick={() => setConfirmClose(true)}
-                className="ml-auto shrink-0 text-[10px] text-red-400 hover:text-red-500 transition-colors"
-              >
-                Закрыть
-              </button>
-            )}
-            {isOwner && confirmClose && (
-              <div className="ml-auto flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={handleCloseShift}
-                  className="text-[10px] font-semibold text-red-500 hover:text-red-600"
-                >
-                  Да
-                </button>
-                <span className="text-zinc-300 dark:text-zinc-700 text-[10px]">·</span>
-                <button
-                  onClick={() => setConfirmClose(false)}
-                  className="text-[10px] text-zinc-400 hover:text-zinc-600"
-                >
-                  Нет
-                </button>
-              </div>
+          <div className={`flex items-center gap-2 px-2.5 py-1.5 whitespace-nowrap ${expanded ? "" : "justify-center"}`}>
+            <Clock size={14} className="text-emerald-500 shrink-0" />
+            {expanded && (
+              <>
+                <span className="flex-1 min-w-0 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                  Смена с {fmtTime(shift.opened_at)}
+                </span>
+                {isOwner && !confirmClose && (
+                  <button
+                    onClick={() => setConfirmClose(true)}
+                    className="ml-auto shrink-0 text-[10px] text-red-400 hover:text-red-500 transition-colors"
+                  >
+                    Закрыть
+                  </button>
+                )}
+                {isOwner && confirmClose && (
+                  <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={handleCloseShift}
+                      className="text-[10px] font-semibold text-red-500 hover:text-red-600"
+                    >
+                      Да
+                    </button>
+                    <span className="text-zinc-300 dark:text-zinc-700 text-[10px]">·</span>
+                    <button
+                      onClick={() => setConfirmClose(false)}
+                      className="text-[10px] text-zinc-400 hover:text-zinc-600"
+                    >
+                      Нет
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -317,20 +341,24 @@ export default function AdminSidebar() {
           <button
             onClick={() => setCheckoutScanning(true)}
             disabled={checkoutBusy}
-            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-60"
+            title={expanded ? undefined : "Завершить работу"}
+            className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-60 whitespace-nowrap ${expanded ? "" : "justify-center"}`}
           >
-            <LogIn size={14} className="shrink-0 rotate-180" />
-            {checkoutBusy ? "Проверяем…" : "Завершить работу"}
+            <LogIn size={16} className="shrink-0 rotate-180" />
+            {expanded && (checkoutBusy ? "Проверяем…" : "Завершить работу")}
           </button>
         )}
 
         {/* Sign out */}
         <button
           onClick={signOut}
-          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+          title={expanded ? undefined : String(t.admin.signOut)}
+          className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors whitespace-nowrap ${expanded ? "" : "justify-center"}`}
         >
-          <LogOut size={14} className="text-zinc-400 dark:text-zinc-600 shrink-0" />
-          {t.admin.signOut}
+          <LogOut size={16} className="text-zinc-400 dark:text-zinc-600 shrink-0" />
+          <span className={`transition-opacity duration-200 ${expanded ? "opacity-100" : "opacity-0 w-0 overflow-hidden"}`}>
+            {t.admin.signOut}
+          </span>
         </button>
       </div>
 
