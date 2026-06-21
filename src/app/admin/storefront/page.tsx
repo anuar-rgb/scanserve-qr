@@ -494,7 +494,7 @@ function HeroSliderSection() {
                 <Input
                   value={form.title}
                   onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="АС ТӨРІ"
+                  placeholder="Название ресторана"
                 />
               </div>
 

@@ -12,6 +12,8 @@ import { toast } from "sonner";
 
 const QrScannerModal = dynamic(() => import("./QrScannerModal"), { ssr: false });
 
+const R_NAME = process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe";
+
 const ROLE_LABEL: Record<string, string> = {
   owner:   "Owner Platform",
   manager: "Manager Platform",
@@ -69,7 +71,7 @@ export default function MobileAdminHeader() {
             </>
           ) : (
             <>
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight">АС ТӨРІ</p>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-tight">{R_NAME}</p>
               <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-tight">
                 {role ? (ROLE_LABEL[role] ?? "Staff Terminal") : "…"}
               </p>

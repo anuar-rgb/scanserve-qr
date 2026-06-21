@@ -2168,7 +2168,7 @@ function OrderSlotPanel({
       if (phone) {
         const displayName = data.name ?? order.customer_name ?? "";
         const displayId   = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8).toUpperCase()}`;
-        const text = `Здравствуйте${displayName ? `, ${displayName}` : ""}! Ваш заказ ${displayId} готов к выдаче. Ждём вас! С уважением, ${restaurantName || "АС ТӨРІ"}.`;
+        const text = `Здравствуйте${displayName ? `, ${displayName}` : ""}! Ваш заказ ${displayId} готов к выдаче. Ждём вас! С уважением, ${restaurantName || "Ресторан"}.`;
         window.open(`https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(text)}`, "_blank");
         if (!data.pushSent) toast.success("Открыт WhatsApp для уведомления гостя");
       } else if (!data.pushSent) {

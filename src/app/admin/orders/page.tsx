@@ -523,7 +523,7 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
       const phone = data.phone ?? order!.customer_phone;
       if (phone) {
         const displayName = data.name ?? order!.customer_name ?? "";
-        const text = `Здравствуйте${displayName ? `, ${displayName}` : ""}! Ваш заказ ${shortId(order!.id)} готов к выдаче. Ждём вас! С уважением, АС ТӨРІ.`;
+        const text = `Здравствуйте${displayName ? `, ${displayName}` : ""}! Ваш заказ ${shortId(order!.id)} готов к выдаче. Ждём вас! С уважением, ${process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe"}.`;
         window.open(`https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(text)}`, "_blank");
         if (!data.pushSent) toast.success("Открыт WhatsApp для уведомления гостя");
       } else if (!data.pushSent) {

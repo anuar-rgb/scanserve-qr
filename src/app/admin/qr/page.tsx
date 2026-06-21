@@ -87,7 +87,7 @@ export default function QrPage() {
               </div>
 
               <div className="text-center space-y-1">
-                <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">АС ТӨРІ</p>
+                <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe"}</p>
                 <p className="text-xs text-zinc-400 dark:text-zinc-500">Отметка прихода / ухода</p>
               </div>
 

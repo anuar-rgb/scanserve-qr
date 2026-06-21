@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
 
-export const metadata: Metadata = { title: "Admin — АС ТӨРІ" };
+export const metadata: Metadata = { title: `Admin — ${process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe"}` };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return <AdminShell>{children}</AdminShell>;

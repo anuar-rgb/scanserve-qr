@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Loader2, Star, LogOut } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
+
+const R_NAME = process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -419,7 +421,7 @@ export default function OwnerPage() {
     return (
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 380, background: CARD, borderRadius: 24, border: BORDER, padding: "36px 28px" }}>
-          <h1 style={{ color: TEXT, fontSize: 22, fontWeight: 800, textAlign: "center", margin: "0 0 4px" }}>АС ТӨРІ</h1>
+          <h1 style={{ color: TEXT, fontSize: 22, fontWeight: 800, textAlign: "center", margin: "0 0 4px" }}>{R_NAME}</h1>
           <p style={{ color: MUTED, fontSize: 14, textAlign: "center", margin: "0 0 28px" }}>Панель владельца</p>
           <form onSubmit={login} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <input type="text" placeholder="Логин" value={loginUser} onChange={e => setLoginUser(e.target.value)} required autoComplete="username" style={inp} />
@@ -447,7 +449,7 @@ export default function OwnerPage() {
       <div style={{ padding: "18px 16px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div>
-            <h1 style={{ color: TEXT, fontSize: 18, fontWeight: 800, margin: 0 }}>АС ТӨРІ</h1>
+            <h1 style={{ color: TEXT, fontSize: 18, fontWeight: 800, margin: 0 }}>{R_NAME}</h1>
             <p style={{ color: MUTED, fontSize: 11, margin: "2px 0 0" }}>
               {updatedAt ? `Обновлено в ${fmtTime(updatedAt.toISOString())}` : "Загрузка…"}
             </p>
