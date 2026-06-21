@@ -146,6 +146,7 @@ export interface DbWaiterShiftRevenue {
   card_amount: number;
   total_amount: number;
   orders_count: number;
+  commission_amount: number;
   created_at: string;
 }
 

@@ -54,6 +54,8 @@ interface WaiterRevenue {
   cardAmount: number;
   totalAmount: number;
   ordersCount: number;
+  commissionPct: number;
+  commissionAmount: number;
 }
 
 interface WaiterPerfRow {
@@ -237,13 +239,15 @@ const CASH_METHODS = new Set(["cash"]);
 function computeWaiterRevenues(
   orders: ShiftOrderRow[],
   staffMap: Map<string, string>,
+  commMap?: Map<string, number>,
 ): WaiterRevenue[] {
   const map = new Map<string, WaiterRevenue>();
   for (const o of orders) {
     if (o.status !== "completed" || !o.opened_by) continue;
     const id = o.opened_by;
     if (!map.has(id)) {
-      map.set(id, { waiterId: id, waiterName: staffMap.get(id) ?? "Неизвестно", cashAmount: 0, cardAmount: 0, totalAmount: 0, ordersCount: 0 });
+      const pct = commMap?.get(id) ?? 0;
+      map.set(id, { waiterId: id, waiterName: staffMap.get(id) ?? "Неизвестно", cashAmount: 0, cardAmount: 0, totalAmount: 0, ordersCount: 0, commissionPct: pct, commissionAmount: 0 });
     }
     const e = map.get(id)!;
     const total = o.total_price ?? 0;
@@ -260,7 +264,11 @@ function computeWaiterRevenues(
       else e.cardAmount += total;
     }
   }
-  return [...map.values()].sort((a, b) => b.totalAmount - a.totalAmount);
+  const result = [...map.values()];
+  for (const w of result) {
+    w.commissionAmount = Math.round(w.totalAmount * w.commissionPct) / 100;
+  }
+  return result.sort((a, b) => b.totalAmount - a.totalAmount);
 }
 
 function computeZReport(orders: ShiftOrderRow[]): ZReportData {
@@ -678,14 +686,16 @@ export default function AnalyticsPage() {
 
     const { data: staffData } = await supabase
       .from("staff_users")
-      .select("id, display_name, username")
+      .select("id, display_name, username, commission_pct")
       .eq("restaurant_id", RESTAURANT_ID);
 
     const staffMap = new Map<string, string>();
-    for (const s of (staffData ?? []) as StaffUser[]) {
+    const commMap = new Map<string, number>();
+    for (const s of (staffData ?? []) as (StaffUser & { commission_pct?: number })[]) {
       staffMap.set(s.id, s.display_name || s.username);
+      commMap.set(s.id, s.commission_pct ?? 0);
     }
-    setWaiterRevenues(computeWaiterRevenues(orders, staffMap));
+    setWaiterRevenues(computeWaiterRevenues(orders, staffMap, commMap));
     setZConfirmed(false);
     setShowZReport(true);
   };
@@ -733,6 +743,7 @@ export default function AnalyticsPage() {
             card_amount: w.cardAmount,
             total_amount: w.totalAmount,
             orders_count: w.ordersCount,
+            commission_amount: w.commissionAmount,
           }))
         );
       }
@@ -1856,6 +1867,11 @@ function ZReportModal({ shift, data, waiterRevenues, confirmed, closing, onConfi
                       <div className="text-xs font-bold tabular-nums text-violet-700 dark:text-violet-300">
                         {w.totalAmount.toLocaleString("ru-RU")} ₸
                       </div>
+                      {w.commissionPct > 0 && (
+                        <div className="text-[10px] tabular-nums text-emerald-600 dark:text-emerald-400">
+                          {w.commissionPct}% = {w.commissionAmount.toLocaleString("ru-RU")} ₸
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

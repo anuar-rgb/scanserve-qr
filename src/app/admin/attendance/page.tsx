@@ -11,6 +11,7 @@ interface StaffRow {
   username: string;
   role: string;
   daily_rate: number;
+  commission_pct: number;
 }
 
 interface AttRecord {
@@ -44,8 +45,12 @@ export default function AttendancePage() {
   const [records, setRecords] = useState<AttRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [rates, setRates] = useState<Record<string, number>>({});
+  const [commPcts, setCommPcts] = useState<Record<string, number>>({});
+  const [commTotals, setCommTotals] = useState<Record<string, number>>({});
   const [rateEditing, setRateEditing] = useState<string | null>(null);
   const [rateInput, setRateInput] = useState("");
+  const [commEditing, setCommEditing] = useState<string | null>(null);
+  const [commInput, setCommInput] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
 
   const year = month.getFullYear();
@@ -62,12 +67,18 @@ export default function AttendancePage() {
     try {
       const res = await fetch(`/api/admin/attendance/grid?start=${encodeURIComponent(monthStart)}&end=${encodeURIComponent(monthEnd)}`);
       if (!res.ok) { setLoading(false); return; }
-      const data = await res.json() as { staff: StaffRow[]; records: AttRecord[] };
+      const data = await res.json() as { staff: StaffRow[]; records: AttRecord[]; commissions: Record<string, number> };
       setStaff(data.staff);
       setRecords(data.records);
       const r: Record<string, number> = {};
-      for (const s of data.staff) r[s.id] = s.daily_rate ?? 0;
+      const c: Record<string, number> = {};
+      for (const s of data.staff) {
+        r[s.id] = s.daily_rate ?? 0;
+        c[s.id] = s.commission_pct ?? 0;
+      }
       setRates(r);
+      setCommPcts(c);
+      setCommTotals(data.commissions ?? {});
     } catch { /* ignore */ }
     setLoading(false);
   }, [year, mon, totalDays]);
@@ -128,6 +139,20 @@ export default function AttendancePage() {
     toast.success("Ставка сохранена");
   }
 
+  async function saveComm(empId: string) {
+    const val = parseFloat(commInput);
+    if (isNaN(val) || val < 0) { setCommEditing(null); return; }
+    const clamped = Math.min(100, val);
+    setCommPcts(prev => ({ ...prev, [empId]: clamped }));
+    setCommEditing(null);
+    await fetch("/api/admin/staff/daily-rate", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId: empId, commissionPct: clamped }),
+    });
+    toast.success("Процент сохранён");
+  }
+
   function prevMonth() { setMonth(new Date(year, mon - 1, 1)); }
   function nextMonth() { setMonth(new Date(year, mon + 1, 1)); }
 
@@ -165,6 +190,9 @@ export default function AttendancePage() {
                 <th className="border-b border-r border-border px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground min-w-[70px]">
                   ₸/день
                 </th>
+                <th className="border-b border-r border-border px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground min-w-[45px]">
+                  %
+                </th>
                 {Array.from({ length: totalDays }, (_, i) => {
                   const d = new Date(year, mon, i + 1);
                   const dk = dateKey(d);
@@ -180,7 +208,9 @@ export default function AttendancePage() {
                     </th>
                   );
                 })}
-                <th className="border-b border-border px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground min-w-[50px]">Дн</th>
+                <th className="border-b border-r border-border px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground min-w-[35px]">Дн</th>
+                <th className="border-b border-r border-border px-2 py-2 text-right text-[11px] font-semibold text-muted-foreground min-w-[80px]">Зарплата</th>
+                <th className="border-b border-r border-border px-2 py-2 text-right text-[11px] font-semibold text-muted-foreground min-w-[80px]">Комиссия</th>
                 <th className="border-b border-border px-3 py-2 text-right text-[11px] font-semibold text-muted-foreground min-w-[90px]">Итого</th>
               </tr>
             </thead>
@@ -188,7 +218,10 @@ export default function AttendancePage() {
               {staff.map((s) => {
                 const presentDays = presentMap.get(s.id)?.size ?? 0;
                 const rate = rates[s.id] ?? 0;
-                const totalPay = presentDays * rate;
+                const pct = commPcts[s.id] ?? 0;
+                const salary = presentDays * rate;
+                const commission = commTotals[s.id] ?? 0;
+                const total = salary + commission;
 
                 return (
                   <tr key={s.id} className="hover:bg-muted/20 transition-colors">
@@ -197,24 +230,45 @@ export default function AttendancePage() {
                     </td>
                     <td className="border-b border-r border-border px-1 py-1 text-center">
                       {rateEditing === s.id ? (
-                        <div className="flex items-center gap-0.5">
-                          <input
-                            autoFocus
-                            type="number"
-                            min={0}
-                            value={rateInput}
-                            onChange={e => setRateInput(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") saveRate(s.id); if (e.key === "Escape") setRateEditing(null); }}
-                            onBlur={() => saveRate(s.id)}
-                            className="w-14 px-1 py-0.5 text-[11px] text-center rounded border border-violet-400 bg-background focus:outline-none"
-                          />
-                        </div>
+                        <input
+                          autoFocus
+                          type="number"
+                          min={0}
+                          value={rateInput}
+                          onChange={e => setRateInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") saveRate(s.id); if (e.key === "Escape") setRateEditing(null); }}
+                          onBlur={() => saveRate(s.id)}
+                          className="w-14 px-1 py-0.5 text-[11px] text-center rounded border border-violet-400 bg-background focus:outline-none"
+                        />
                       ) : (
                         <button
                           onClick={() => { setRateEditing(s.id); setRateInput(String(rate)); }}
                           className="text-[11px] tabular-nums text-muted-foreground hover:text-foreground transition-colors px-1"
                         >
                           {rate > 0 ? rate.toLocaleString("ru-RU") : "—"}
+                        </button>
+                      )}
+                    </td>
+                    <td className="border-b border-r border-border px-1 py-1 text-center">
+                      {commEditing === s.id ? (
+                        <input
+                          autoFocus
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.5}
+                          value={commInput}
+                          onChange={e => setCommInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") saveComm(s.id); if (e.key === "Escape") setCommEditing(null); }}
+                          onBlur={() => saveComm(s.id)}
+                          className="w-12 px-1 py-0.5 text-[11px] text-center rounded border border-emerald-400 bg-background focus:outline-none"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => { setCommEditing(s.id); setCommInput(String(pct)); }}
+                          className="text-[11px] tabular-nums text-muted-foreground hover:text-foreground transition-colors px-1"
+                        >
+                          {pct > 0 ? `${pct}%` : "—"}
                         </button>
                       )}
                     </td>
@@ -252,11 +306,17 @@ export default function AttendancePage() {
                         </td>
                       );
                     })}
-                    <td className="border-b border-border px-2 py-1 text-center text-[11px] font-bold tabular-nums">
+                    <td className="border-b border-r border-border px-2 py-1 text-center text-[11px] font-bold tabular-nums">
                       {presentDays}
                     </td>
-                    <td className="border-b border-border px-3 py-1 text-right text-[12px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                      {totalPay > 0 ? totalPay.toLocaleString("ru-RU") : "—"}
+                    <td className="border-b border-r border-border px-2 py-1 text-right text-[12px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {salary > 0 ? salary.toLocaleString("ru-RU") : "—"}
+                    </td>
+                    <td className="border-b border-r border-border px-2 py-1 text-right text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">
+                      {commission > 0 ? commission.toLocaleString("ru-RU") : "—"}
+                    </td>
+                    <td className="border-b border-border px-3 py-1 text-right text-[12px] font-bold tabular-nums text-foreground">
+                      {total > 0 ? total.toLocaleString("ru-RU") : "—"}
                     </td>
                   </tr>
                 );
@@ -264,7 +324,7 @@ export default function AttendancePage() {
             </tbody>
             <tfoot>
               <tr className="bg-muted/30">
-                <td className="sticky left-0 z-10 bg-muted/30 border-t border-r border-border px-3 py-2 text-[11px] font-semibold" colSpan={2}>
+                <td className="sticky left-0 z-10 bg-muted/30 border-t border-r border-border px-3 py-2 text-[11px] font-semibold" colSpan={3}>
                   Итого
                 </td>
                 {Array.from({ length: totalDays }, (_, i) => {
@@ -276,11 +336,20 @@ export default function AttendancePage() {
                     </td>
                   );
                 })}
-                <td className="border-t border-border px-2 py-2 text-center text-[11px] font-bold">
+                <td className="border-t border-r border-border px-2 py-2 text-center text-[11px] font-bold">
                   {staff.reduce((s, emp) => s + (presentMap.get(emp.id)?.size ?? 0), 0)}
                 </td>
-                <td className="border-t border-border px-3 py-2 text-right text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
+                <td className="border-t border-r border-border px-2 py-2 text-right text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
                   {staff.reduce((s, emp) => s + (presentMap.get(emp.id)?.size ?? 0) * (rates[emp.id] ?? 0), 0).toLocaleString("ru-RU")} ₸
+                </td>
+                <td className="border-t border-r border-border px-2 py-2 text-right text-[12px] font-bold text-violet-600 dark:text-violet-400">
+                  {staff.reduce((s, emp) => s + (commTotals[emp.id] ?? 0), 0).toLocaleString("ru-RU")} ₸
+                </td>
+                <td className="border-t border-border px-3 py-2 text-right text-[12px] font-bold">
+                  {staff.reduce((s, emp) => {
+                    const salary = (presentMap.get(emp.id)?.size ?? 0) * (rates[emp.id] ?? 0);
+                    return s + salary + (commTotals[emp.id] ?? 0);
+                  }, 0).toLocaleString("ru-RU")} ₸
                 </td>
               </tr>
             </tfoot>
