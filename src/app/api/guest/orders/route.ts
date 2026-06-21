@@ -16,8 +16,9 @@ export async function GET(req: NextRequest) {
   const guestId = searchParams.get("guestId");
   const restaurantId = searchParams.get("restaurantId");
 
-  if (!guestId || !restaurantId) {
-    return NextResponse.json({ error: "guestId and restaurantId required" }, { status: 400 });
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!guestId || !restaurantId || !UUID_RE.test(guestId) || !UUID_RE.test(restaurantId)) {
+    return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
   }
 
   const supabase = db();

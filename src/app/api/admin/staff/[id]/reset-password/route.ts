@@ -23,8 +23,8 @@ export async function POST(
   const { id } = await params;
   const { password } = await request.json();
 
-  if (!password || password.length < 4) {
-    return NextResponse.json({ error: "Пароль должен содержать минимум 4 символа" }, { status: 400 });
+  if (!password || password.length < 8) {
+    return NextResponse.json({ error: "Пароль должен содержать минимум 8 символов" }, { status: 400 });
   }
 
   const supabase = serverSupabase();

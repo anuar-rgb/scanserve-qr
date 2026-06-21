@@ -61,7 +61,7 @@ export default function AdminLogin() {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword !== confirmPwd) { setError("Пароли не совпадают"); return; }
-    if (newPassword.length < 6)    { setError("Минимум 6 символов"); return; }
+    if (newPassword.length < 8)    { setError("Минимум 8 символов"); return; }
 
     setChanging(true);
     setError("");

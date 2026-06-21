@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
   if (!phone?.trim() || !password || !restaurantId) {
     return NextResponse.json({ error: "Телефон, пароль и ID ресторана обязательны" }, { status: 400 });
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: "Пароль должен содержать не менее 6 символов" }, { status: 400 });
+  if (password.length < 8) {
+    return NextResponse.json({ error: "Пароль должен содержать не менее 8 символов" }, { status: 400 });
   }
 
   const supabase = db();

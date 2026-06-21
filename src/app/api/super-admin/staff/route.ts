@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
   if (!ADMIN_ROLES.includes(role)) {
     return NextResponse.json({ error: "Недопустимая роль" }, { status: 400 });
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: "Пароль минимум 6 символов" }, { status: 400 });
+  if (password.length < 8) {
+    return NextResponse.json({ error: "Пароль минимум 8 символов" }, { status: 400 });
   }
 
   const supabase = getSupabase();

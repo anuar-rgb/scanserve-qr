@@ -19,8 +19,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({})) as { orderId?: string; restaurantId?: string };
   const { orderId, restaurantId } = body;
 
-  if (!orderId || !restaurantId) {
-    return NextResponse.json({ error: "orderId and restaurantId required" }, { status: 400 });
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!orderId || !restaurantId || !UUID_RE.test(orderId) || !UUID_RE.test(restaurantId)) {
+    return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
   }
 
   const supabase = db();
