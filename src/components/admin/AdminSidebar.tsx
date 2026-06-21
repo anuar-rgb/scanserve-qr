@@ -156,7 +156,7 @@ export default function AdminSidebar() {
     if (result.ok) {
       toast.success("Смена завершена. До свидания!");
       await fetch("/api/admin/logout", { method: "POST" });
-      router.replace("/admin/login");
+      router.replace("/app/login");
     } else {
       toast.error(result.error ?? "Неверный QR-код");
     }
@@ -166,7 +166,7 @@ export default function AdminSidebar() {
 
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/admin/login");
+    router.replace("/app/login");
   }
 
   const visibleSections = NAV.filter((s) => {

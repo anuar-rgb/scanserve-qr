@@ -36,7 +36,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get("admin_session");
 
-  if (pathname === "/admin/login") {
+  if (pathname === "/app/login") {
     if (session?.value) {
       const dest = POS_ONLY_ROLES.includes(session.value) ? "/admin/hall" : "/admin/analytics";
       return NextResponse.redirect(new URL(dest, request.url));
@@ -45,7 +45,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (!session?.value) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return NextResponse.redirect(new URL("/app/login", request.url));
   }
 
   if (POS_ONLY_ROLES.includes(session.value)) {
@@ -64,5 +64,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  matcher: ["/admin", "/admin/:path*", "/app/login"],
 };

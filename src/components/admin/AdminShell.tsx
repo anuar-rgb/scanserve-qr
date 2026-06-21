@@ -14,8 +14,6 @@ import { WaiterCallProvider } from "@/lib/waiter-call-context";
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/admin/login") return <>{children}</>;
-
   return (
     <RoleProvider>
       <ShiftProvider>
