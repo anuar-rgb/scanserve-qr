@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Upload, Loader2, ImageIcon } from "lucide-react";
+import { Upload, Loader2, ImageIcon, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbRestaurant } from "@/lib/db-types";
@@ -257,6 +257,55 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Guest Links */}
+            {restaurant?.slug && (() => {
+              const base = typeof window !== "undefined" ? window.location.origin : "https://scanserve-qr-production-2cff.up.railway.app";
+              const menuUrl = `${base}/${restaurant.slug}`;
+              const qrUrl = `${base}/${restaurant.slug}/qr`;
+              function copyUrl(url: string) {
+                navigator.clipboard.writeText(url);
+                toast.success("Скопировано");
+              }
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ссылки для гостей</CardTitle>
+                    <CardDescription>Скопируйте и поделитесь с гостями</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label>Гостевое меню</Label>
+                      <div className="flex items-center gap-2">
+                        <Input readOnly value={menuUrl} className="text-xs font-mono" />
+                        <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => copyUrl(menuUrl)}>
+                          <Copy size={14} />
+                        </Button>
+                        <a href={menuUrl} target="_blank" rel="noopener noreferrer">
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <ExternalLink size={14} />
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>QR-страница для печати</Label>
+                      <div className="flex items-center gap-2">
+                        <Input readOnly value={qrUrl} className="text-xs font-mono" />
+                        <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => copyUrl(qrUrl)}>
+                          <Copy size={14} />
+                        </Button>
+                        <a href={qrUrl} target="_blank" rel="noopener noreferrer">
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <ExternalLink size={14} />
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </div>
 
           {/* Right: phone preview */}
