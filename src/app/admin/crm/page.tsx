@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useIsOwner } from "@/lib/role-context";
+import { useIsOwner, useIsStrictOwner } from "@/lib/role-context";
 import { RESTAURANT_ID } from "@/constants";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -41,6 +41,7 @@ function fmtDate(iso: string) {
 
 export default function CrmPage() {
   const isOwner = useIsOwner();
+  const isStrictOwner = useIsStrictOwner();
 
   const [clients, setClients]     = useState<CrmClient[]>([]);
   const [total, setTotal]         = useState(0);
@@ -442,7 +443,7 @@ export default function CrmPage() {
                                         <span className="text-sm font-bold text-violet-600 dark:text-violet-400 tabular-nums">
                                           {(bonus.bonusAmount ?? 0).toLocaleString("ru-RU")} ₸
                                         </span>
-                                        {isOwner && (
+                                        {isStrictOwner && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -455,7 +456,7 @@ export default function CrmPage() {
                                         )}
                                       </div>
                                     )}
-                                    {isOwner && !bonus?.loading && bonus?.guestId && bonus.editing && (
+                                    {isStrictOwner && !bonus?.loading && bonus?.guestId && bonus.editing && (
                                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                         <input
                                           type="number"
