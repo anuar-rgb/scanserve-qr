@@ -22,7 +22,7 @@ interface OrderRow {
   created_at: string;
   items_json: unknown;
   tips_amount: number | null;
-  bonuses_earned: number | null;
+  earned_bonuses: number | null;
   bonuses_deducted: number | null;
 }
 
@@ -406,7 +406,7 @@ export default function AnalyticsPage() {
 
     const [curRes, prevRes, revRes, promoRes, bonusRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
-        .select("total_price, status, type, created_at, items_json, tips_amount, bonuses_earned, bonuses_deducted")
+        .select("total_price, status, type, created_at, items_json, tips_amount, earned_bonuses, bonuses_deducted")
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("orders")
@@ -765,7 +765,7 @@ export default function AnalyticsPage() {
   const prevTotal    = prevOrders.length;
   const revDelta     = prevRevenue > 0 ? Math.round((totalRevenue - prevRevenue) / prevRevenue * 100) : null;
   const ordDelta     = prevTotal   > 0 ? Math.round((totalOrders  - prevTotal)   / prevTotal   * 100) : null;
-  const totalBonusesEarned   = orders.reduce((s, o) => s + (o.bonuses_earned ?? 0), 0);
+  const totalBonusesEarned   = orders.reduce((s, o) => s + (o.earned_bonuses ?? 0), 0);
   const totalBonusesDeducted = orders.reduce((s, o) => s + (o.bonuses_deducted ?? 0), 0);
 
   const bars     = buildBars(orders, period);
