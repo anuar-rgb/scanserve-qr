@@ -110,6 +110,7 @@ const DRAWER_NAV: DrawerSection[] = [
       { labelKey: "navDocuments",    icon: FilePen,     href: "/admin/documents",         ownerOnly: true },
       { labelKey: "navPaymentBanks", icon: CreditCard,  href: "/admin/payment-banks",     strictOwner: true },
       { labelKey: "navPrinters",     icon: PrinterIcon, href: "/admin/settings/printers", ownerOnly: true },
+      { labelKey: "navBilling",      icon: CreditCard,  href: "/admin/billing",           ownerOnly: true },
       { labelKey: "navProfile",      icon: Settings,    href: "/admin/settings",          ownerOnly: true },
     ],
   },

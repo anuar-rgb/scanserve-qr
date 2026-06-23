@@ -13,6 +13,8 @@ export interface DbRestaurant {
   address: string | null;
   working_hours: string | null;
   report_whatsapp: string | null;
+  monthly_payment_status: string | null;
+  payment_due_date: string | null;
 }
 
 export interface DbCategory {
