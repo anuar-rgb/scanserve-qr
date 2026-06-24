@@ -244,9 +244,9 @@ function Stats() {
   const { t } = useTranslations();
 
   const stats = [
-    { value: "2,400+", label: t.stats.restaurants },
-    { value: "18,000+", label: t.stats.activeMenus },
-    { value: "4.2M", label: t.stats.monthlyScans },
+    { value: "2", label: t.stats.restaurants },
+    { value: "12+", label: t.stats.activeMenus },
+    { value: "16", label: t.stats.monthlyScans },
     { value: "99.9%", label: t.stats.uptimeSla },
   ];
 
