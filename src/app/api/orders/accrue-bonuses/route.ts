@@ -16,6 +16,13 @@ function db() {
 // Credits orders.earned_bonuses (frozen at checkout) to guest_balances.
 // Idempotent: bonuses_accrued flag is set BEFORE balance update — prevents double-crediting even on concurrent calls.
 export async function POST(req: NextRequest) {
+  const session = req.cookies.get("admin_session")?.value;
+  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
+  const host = req.headers.get("host") || "";
+  if (!session && !origin.includes(host)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await req.json().catch(() => ({})) as { orderId?: string; restaurantId?: string };
   const { orderId, restaurantId } = body;
 

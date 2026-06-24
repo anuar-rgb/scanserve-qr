@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { signSession } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -25,8 +26,8 @@ export async function POST(request: NextRequest) {
   if (!username || !currentPassword || !newPassword) {
     return NextResponse.json({ error: "Все поля обязательны" }, { status: 400 });
   }
-  if (newPassword.length < 6) {
-    return NextResponse.json({ error: "Новый пароль — минимум 6 символов" }, { status: 400 });
+  if (newPassword.length < 8) {
+    return NextResponse.json({ error: "Новый пароль — минимум 8 символов" }, { status: 400 });
   }
   if (newPassword === currentPassword) {
     return NextResponse.json({ error: "Новый пароль должен отличаться от временного" }, { status: 400 });
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     sameSite: "lax" as const,
     secure:   process.env.NODE_ENV === "production",
   };
-  response.cookies.set("admin_session", user.role, cookieOpts);
+  response.cookies.set("admin_session", signSession(user.role), cookieOpts);
   response.cookies.set("admin_user_id", user.id, cookieOpts);
   return response;
 }

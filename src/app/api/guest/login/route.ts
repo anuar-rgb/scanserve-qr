@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function db() {
   return createClient(
@@ -24,6 +25,11 @@ function verifyPassword(password: string, stored: string): boolean {
 // POST /api/guest/login
 // Body: { phone, password, restaurantId }
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`guest:${ip}`, 10, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Подождите 15 минут." }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => ({})) as {
     phone?: string;
     password?: string;

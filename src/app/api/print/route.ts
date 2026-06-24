@@ -105,6 +105,9 @@ interface PrintRequestBody {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const session = req.cookies.get("admin_session")?.value;
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   let body: PrintRequestBody;
   try {
     body = (await req.json()) as PrintRequestBody;

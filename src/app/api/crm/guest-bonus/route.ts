@@ -13,6 +13,13 @@ function db() {
 // GET /api/crm/guest-bonus?phone=...&restaurantId=...
 // Returns { guestId, bonusAmount } or { guestId: null, bonusAmount: null } if not found
 export async function GET(req: NextRequest) {
+  const session = req.cookies.get("admin_session")?.value;
+  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
+  const host = req.headers.get("host") || "";
+  if (!session && !origin.includes(host)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const phone        = searchParams.get("phone");
   const restaurantId = searchParams.get("restaurantId");

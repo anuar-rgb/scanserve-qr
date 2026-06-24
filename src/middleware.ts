@@ -1,62 +1,71 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Blocked for cashier / waiter / chef
 const POS_BLOCKED: string[] = [
-  "/admin/analytics",
-  "/admin/owner-overview",
-  "/admin/orders",
-  "/admin/reviews",
-  "/admin/promotions",
-  "/admin/recommendations",
-  "/admin/dashboard",
-  "/admin/storefront",
-  "/admin/banners",
-  "/admin/hero-slider",
-  "/admin/info-showcase",
-  "/admin/qr",
-  "/admin/training",
-  "/admin/payment-banks",
-  "/admin/settings",
+  "/admin/analytics", "/admin/owner-overview", "/admin/orders", "/admin/reviews",
+  "/admin/promotions", "/admin/recommendations", "/admin/dashboard", "/admin/storefront",
+  "/admin/banners", "/admin/hero-slider", "/admin/info-showcase", "/admin/qr",
+  "/admin/training", "/admin/payment-banks", "/admin/settings",
 ];
 
-// Additionally blocked for manager (owner-exclusive)
-const OWNER_EXCLUSIVE: string[] = [
-  "/admin/owner-overview",
-  "/admin/payment-banks",
-];
+const OWNER_EXCLUSIVE: string[] = ["/admin/owner-overview", "/admin/payment-banks"];
 
 const POS_ONLY_ROLES = [
-  "cashier", "waiter", "chef",
-  "bartender", "hostess", "courier", "cleaner", "doorman",
-  "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+  "cashier", "waiter", "chef", "bartender", "hostess", "courier", "cleaner",
+  "doorman", "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
 ];
 
-export function middleware(request: NextRequest) {
+async function verifySession(signed: string): Promise<string | null> {
+  const dot = signed.lastIndexOf(".");
+  if (dot < 1) {
+    // Legacy unsigned cookie — treat value as plain role (backward compat)
+    const VALID_ROLES = new Set([...POS_ONLY_ROLES, "owner", "manager", "supervisor"]);
+    return VALID_ROLES.has(signed) ? signed : null;
+  }
+  const payload = signed.slice(0, dot);
+  const sig = signed.slice(dot + 1);
+
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "fallback-secret-key";
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const expected = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload))))
+    .map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+
+  return sig === expected ? payload : null;
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const session = request.cookies.get("admin_session");
+  const sessionCookie = request.cookies.get("admin_session")?.value;
 
   if (pathname === "/app/login") {
-    if (session?.value) {
-      const dest = POS_ONLY_ROLES.includes(session.value) ? "/admin/hall" : "/admin/analytics";
-      return NextResponse.redirect(new URL(dest, request.url));
+    if (sessionCookie) {
+      const role = await verifySession(sessionCookie);
+      if (role) {
+        const dest = POS_ONLY_ROLES.includes(role) ? "/admin/hall" : "/admin/analytics";
+        return NextResponse.redirect(new URL(dest, request.url));
+      }
     }
     return NextResponse.next();
   }
 
-  if (!session?.value) {
+  if (!sessionCookie) {
     return NextResponse.redirect(new URL("/app/login", request.url));
   }
 
-  if (POS_ONLY_ROLES.includes(session.value)) {
-    const blocked = POS_BLOCKED.some(
-      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
-    );
+  const role = await verifySession(sessionCookie);
+  if (!role) {
+    const resp = NextResponse.redirect(new URL("/app/login", request.url));
+    resp.cookies.delete("admin_session");
+    return resp;
+  }
+
+  if (POS_ONLY_ROLES.includes(role)) {
+    const blocked = POS_BLOCKED.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (blocked) return NextResponse.redirect(new URL("/admin/hall", request.url));
-  } else if (session.value === "manager") {
-    const blocked = OWNER_EXCLUSIVE.some(
-      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
-    );
+  } else if (role === "manager") {
+    const blocked = OWNER_EXCLUSIVE.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (blocked) return NextResponse.redirect(new URL("/admin/analytics", request.url));
   }
 

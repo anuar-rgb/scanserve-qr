@@ -16,6 +16,13 @@ function db() {
 // before admin confirms payment — so balance is updated right away and
 // cannot be double-spent on a concurrent order.
 export async function POST(req: NextRequest) {
+  const session = req.cookies.get("admin_session")?.value;
+  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
+  const host = req.headers.get("host") || "";
+  if (!session && !origin.includes(host)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await req.json().catch(() => ({})) as {
     guestId?: string;
     restaurantId?: string;

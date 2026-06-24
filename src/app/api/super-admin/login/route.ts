@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`super:${ip}`, 3, 30 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Подождите 30 минут." }, { status: 429 });
+  }
+
   const { username, password } = await request.json();
 
   const validUser = process.env.SUPER_ADMIN_USERNAME;

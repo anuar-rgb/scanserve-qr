@@ -11,6 +11,12 @@ function db() {
 }
 
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
+  const host = req.headers.get("host") || "";
+  if (!origin.includes(host)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { code, restaurantId } = await req.json().catch(() => ({})) as {
     code?: string;
     restaurantId?: string;

@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { signSession } from "@/lib/session";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Подождите 15 минут." }, { status: 429 });
+  }
+
   const { username, password } = await request.json();
 
   if (!username || !password) {
@@ -48,7 +55,7 @@ export async function POST(request: NextRequest) {
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
   };
-  response.cookies.set("admin_session",       user.role,          { ...cookieOpts, httpOnly: true });
+  response.cookies.set("admin_session",       signSession(user.role), { ...cookieOpts, httpOnly: true });
   response.cookies.set("admin_user_id",       user.id,            { ...cookieOpts, httpOnly: true });
   // non-httpOnly so client-side constants.ts can read it from document.cookie
   response.cookies.set("admin_restaurant_id", user.restaurant_id, { ...cookieOpts, httpOnly: false });
