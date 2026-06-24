@@ -80,25 +80,55 @@ function PhoneMockup() {
       {/* Phone frame */}
       <div
         className="relative w-full h-full rounded-[2.5rem] overflow-hidden glow-border"
-        style={{
-          background: "var(--surface)",
-          padding: "12px",
-        }}
+        style={{ background: "var(--surface)", padding: "12px" }}
       >
         {/* Notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 rounded-b-2xl" style={{ background: "var(--surface)" }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 rounded-b-2xl z-10" style={{ background: "var(--surface)" }} />
         {/* Screen */}
-        <div className="w-full h-full rounded-[2rem] overflow-hidden" style={{ background: "#111" }}>
-          <iframe
-            src="/as-tori"
-            className="w-[375px] h-[812px] border-0 pointer-events-none"
-            style={{
-              transform: "scale(0.665)",
-              transformOrigin: "top left",
-            }}
-            loading="lazy"
-            tabIndex={-1}
+        <div className="w-full h-full rounded-[2rem] overflow-hidden relative" style={{ background: "#111" }}>
+          {/* Hero image */}
+          <img
+            src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80"
+            alt="Restaurant"
+            className="w-full h-48 object-cover"
           />
+          {/* Fake menu UI overlay */}
+          <div className="px-4 pt-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">A</div>
+              <div>
+                <p className="text-[11px] font-bold text-white leading-tight">АС ТӨРІ</p>
+                <p className="text-[8px] text-zinc-500">QR-меню ресторана</p>
+              </div>
+            </div>
+            {/* Category pills */}
+            <div className="flex gap-1.5">
+              {["Салаты", "Горячее", "Напитки"].map((c) => (
+                <span key={c} className="text-[8px] font-semibold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300">{c}</span>
+              ))}
+            </div>
+            {/* Dish cards */}
+            {[
+              { name: "Цезарь с курицей", price: "2 800 ₸" },
+              { name: "Стейк Рибай", price: "7 500 ₸" },
+              { name: "Том Ям", price: "3 200 ₸" },
+            ].map((d) => (
+              <div key={d.name} className="flex items-center gap-2 p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div className="w-10 h-10 rounded-lg bg-zinc-800 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold text-white truncate">{d.name}</p>
+                  <p className="text-[9px] text-violet-400 font-bold">{d.price}</p>
+                </div>
+                <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px]">+</div>
+              </div>
+            ))}
+            {/* Bottom nav mock */}
+            <div className="flex justify-around pt-2 border-t border-zinc-800/50">
+              {["🏠", "📋", "🛒"].map((e, i) => (
+                <span key={i} className="text-sm opacity-60">{e}</span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       {/* Live badge */}
@@ -112,21 +142,6 @@ function PhoneMockup() {
       >
         ✓ Live
       </div>
-      {/* Demo link */}
-      <a
-        href="/as-tori"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute -bottom-3 -left-3 rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-        style={{
-          background: "var(--surface-2)",
-          border: "1px solid var(--border)",
-          color: "var(--accent)",
-        }}
-      >
-        <Smartphone size={12} />
-        Открыть демо-меню
-      </a>
     </div>
   );
 }
