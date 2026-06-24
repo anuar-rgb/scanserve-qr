@@ -11,7 +11,6 @@ import {
   Check,
   Star,
   ChevronRight,
-  Utensils,
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -67,76 +66,42 @@ function Navbar() {
 
 // ─── Hero ────────────────────────────────────────────────────────────────────
 
-function QrVisual() {
-  const { t } = useTranslations();
-
+function PhoneMockup() {
   return (
-    <div className="relative w-72 h-72 mx-auto">
+    <div className="relative w-[280px] h-[560px] mx-auto">
+      {/* Glow */}
       <div
-        className="absolute inset-0 rounded-3xl"
+        className="absolute inset-0 rounded-[3rem]"
         style={{
-          background:
-            "radial-gradient(circle, rgba(108,71,255,0.3) 0%, transparent 70%)",
-          filter: "blur(20px)",
+          background: "radial-gradient(circle, rgba(108,71,255,0.35) 0%, transparent 70%)",
+          filter: "blur(30px)",
         }}
       />
+      {/* Phone frame */}
       <div
-        className="relative rounded-3xl p-6 h-full glow-border"
-        style={{ background: "var(--surface)" }}
+        className="relative w-full h-full rounded-[2.5rem] overflow-hidden glow-border"
+        style={{
+          background: "var(--surface)",
+          padding: "12px",
+        }}
       >
-        <div className="flex items-center gap-3 mb-4">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "var(--accent)" }}
-          >
-            <Utensils size={18} color="#fff" />
-          </div>
-          <div>
-            <div className="font-semibold text-sm">Bella Italia</div>
-            <div className="text-xs" style={{ color: "var(--muted)" }}>
-              Digital Menu
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="rounded-xl p-4 mb-4"
-          style={{ background: "var(--surface-2)" }}
-        >
-          <svg viewBox="0 0 120 120" className="w-full h-auto" fill="none">
-            {[
-              [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],
-              [0,1],[6,1],[0,2],[2,2],[3,2],[4,2],[6,2],
-              [0,3],[2,3],[4,3],[6,3],[0,4],[2,4],[3,4],[4,4],[6,4],
-              [0,5],[6,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],
-              [8,0],[9,0],[10,0],[8,2],[9,2],[10,2],
-              [8,4],[10,4],[8,5],[9,5],[10,5],[11,5],
-              [0,8],[1,8],[2,8],[3,8],[4,8],[0,9],[4,9],[0,10],[2,10],[3,10],[4,10],
-              [6,8],[8,8],[9,8],[11,8],[6,9],[8,9],[6,10],[8,10],[9,10],[10,10],[11,10],
-            ].map(([cx, cy], i) => (
-              <rect
-                key={i}
-                x={cx * 10 + 2}
-                y={cy * 10 + 2}
-                width={8}
-                height={8}
-                rx={1}
-                fill={i < 7 ? "#6c47ff" : "rgba(255,255,255,0.7)"}
-              />
-            ))}
-            <rect x={48} y={48} width={24} height={24} rx={4} fill="var(--surface)" />
-            <rect x={52} y={52} width={16} height={16} rx={3} fill="#6c47ff" />
-          </svg>
-        </div>
-
-        <div className="flex items-center justify-center gap-2">
-          <Smartphone size={14} style={{ color: "var(--accent)" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-            Scan to view menu
-          </span>
+        {/* Notch */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 rounded-b-2xl" style={{ background: "var(--surface)" }} />
+        {/* Screen */}
+        <div className="w-full h-full rounded-[2rem] overflow-hidden" style={{ background: "#111" }}>
+          <iframe
+            src="/as-tori"
+            className="w-[375px] h-[812px] border-0 pointer-events-none"
+            style={{
+              transform: "scale(0.665)",
+              transformOrigin: "top left",
+            }}
+            loading="lazy"
+            tabIndex={-1}
+          />
         </div>
       </div>
-
+      {/* Live badge */}
       <div
         className="absolute -top-3 -right-3 rounded-xl px-3 py-2 text-xs font-semibold"
         style={{
@@ -147,16 +112,21 @@ function QrVisual() {
       >
         ✓ Live
       </div>
-      <div
-        className="absolute -bottom-3 -left-3 rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1"
+      {/* Demo link */}
+      <a
+        href="/as-tori"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute -bottom-3 -left-3 rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
         style={{
           background: "var(--surface-2)",
           border: "1px solid var(--border)",
+          color: "var(--accent)",
         }}
       >
-        <BarChart3 size={12} style={{ color: "var(--accent)" }} />
-        128 scans today
-      </div>
+        <Smartphone size={12} />
+        Открыть демо-меню
+      </a>
     </div>
   );
 }
@@ -231,7 +201,7 @@ function Hero() {
         </div>
 
         <div className="flex justify-center lg:justify-end">
-          <QrVisual />
+          <PhoneMockup />
         </div>
       </div>
     </section>
