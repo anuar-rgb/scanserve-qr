@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ImageIcon, X } from "lucide-react";
+import { ImageIcon, X, BarChart3, Eye, Smartphone, Monitor } from "lucide-react";
 
 type Ad = {
   id: string;
@@ -41,6 +41,69 @@ const PLACEMENT_LABELS: Record<string, string> = {
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_MB = 5;
+
+interface AdViewStat {
+  adId: string;
+  title: string;
+  imageUrl: string;
+  totalViews: number;
+  mobile: number;
+  desktop: number;
+  restaurantsReached: number;
+}
+
+function AdViewStats() {
+  const [data, setData] = useState<{ totalImpressions: number; ads: AdViewStat[] } | null>(null);
+  const [days, setDays] = useState(30);
+
+  useEffect(() => {
+    fetch(`/api/ads/view?days=${days}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setData(d); });
+  }, [days]);
+
+  if (!data || data.ads.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={16} className="text-violet-400" />
+          <h2 className="text-sm font-semibold text-zinc-300">Статистика просмотров</h2>
+        </div>
+        <div className="flex gap-1">
+          {[7, 30, 90].map(d => (
+            <button key={d} onClick={() => setDays(d)}
+              className={`px-2 py-1 text-[10px] font-semibold rounded-lg ${days === d ? "bg-violet-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            >{d}д</button>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-4 mb-4 px-1">
+        <div className="flex items-center gap-1.5">
+          <Eye size={12} className="text-emerald-400" />
+          <span className="text-xs text-zinc-400">Всего: <span className="font-bold text-zinc-200">{data.totalImpressions}</span></span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {data.ads.map(ad => (
+          <div key={ad.adId} className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-800/40">
+            <img src={ad.imageUrl} alt="" className="w-12 h-8 rounded-lg object-cover shrink-0 bg-zinc-700" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-zinc-200 truncate">{ad.title}</p>
+              <div className="flex items-center gap-3 mt-0.5">
+                <span className="text-[10px] text-zinc-500 flex items-center gap-1"><Eye size={10} /> {ad.totalViews}</span>
+                <span className="text-[10px] text-zinc-500 flex items-center gap-1"><Smartphone size={10} /> {ad.mobile}</span>
+                <span className="text-[10px] text-zinc-500 flex items-center gap-1"><Monitor size={10} /> {ad.desktop}</span>
+                <span className="text-[10px] text-zinc-500">{ad.restaurantsReached} рест.</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function SuperAdminAdsPage() {
   const [ads, setAds]               = useState<Ad[]>([]);
@@ -174,6 +237,9 @@ export default function SuperAdminAdsPage() {
         <h1 className="text-2xl font-bold text-zinc-100">Рекламные баннеры</h1>
         <p className="text-sm text-zinc-500 mt-1">Отображаются во всех ресторанах на платформе</p>
       </div>
+
+      {/* Статистика просмотров */}
+      <AdViewStats />
 
       {/* Форма добавления */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 mb-6">

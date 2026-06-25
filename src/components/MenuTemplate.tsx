@@ -1435,11 +1435,34 @@ function InfoShowcaseSection({
 
 // ── Platform Ad Banner Slider ─────────────────────────────────────────────────
 
-function AdBannerBlock({ ads }: { ads: AdItem[] }) {
+function AdBannerBlock({ ads, restaurantId }: { ads: AdItem[]; restaurantId?: string }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const trackRef  = useRef<HTMLDivElement>(null);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const pausedRef = useRef(false);
+  const trackedAds = useRef(new Set<string>());
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || ads.length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        const ad = ads[activeIdx];
+        if (ad && !trackedAds.current.has(ad.id)) {
+          trackedAds.current.add(ad.id);
+          const device = window.innerWidth < 768 ? "mobile" : "desktop";
+          fetch("/api/ads/view", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ adId: ad.id, restaurantId: restaurantId ?? "", device }),
+          }).catch(() => {});
+        }
+      }
+    }, { threshold: 0.5 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ads, activeIdx, restaurantId]);
 
   // Slide programmatically
   function slideTo(idx: number) {
@@ -1473,7 +1496,7 @@ function AdBannerBlock({ ads }: { ads: AdItem[] }) {
   }
 
   return (
-    <div style={{ marginTop: 16, marginBottom: 16, position: "relative" }}>
+    <div ref={containerRef} style={{ marginTop: 16, marginBottom: 16, position: "relative" }}>
       {/* Track */}
       <div
         ref={trackRef}
@@ -3162,7 +3185,7 @@ export function MenuTemplate({
 
             {/* 5. Platform ad banner */}
             {ads.length > 0 && (
-              <AdBannerBlock ads={ads} />
+              <AdBannerBlock ads={ads} restaurantId={restaurantId} />
             )}
 
             {/* 6. Info cards — reserve / contact */}
