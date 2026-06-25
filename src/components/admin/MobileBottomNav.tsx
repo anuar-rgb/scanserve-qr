@@ -160,7 +160,7 @@ export default function MobileBottomNav() {
 
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/app/login");
+    router.replace("/login");
   }
 
   async function handleCloseShift() {
@@ -185,7 +185,7 @@ export default function MobileBottomNav() {
     if (result.ok) {
       toast.success("Смена завершена. До свидания!");
       await fetch("/api/admin/logout", { method: "POST" });
-      router.replace("/app/login");
+      router.replace("/login");
     } else {
       toast.error(result.error ?? "Неверный QR-код");
     }

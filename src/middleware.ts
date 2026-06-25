@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("admin_session")?.value;
 
-  if (pathname === "/app/login") {
+  if (pathname === "/login") {
     if (sessionCookie) {
       const role = await verifySession(sessionCookie);
       if (role) {
@@ -51,12 +51,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!sessionCookie) {
-    return NextResponse.redirect(new URL("/app/login", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const role = await verifySession(sessionCookie);
   if (!role) {
-    const resp = NextResponse.redirect(new URL("/app/login", request.url));
+    const resp = NextResponse.redirect(new URL("/login", request.url));
     resp.cookies.delete("admin_session");
     return resp;
   }
@@ -73,5 +73,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/app/login"],
+  matcher: ["/admin", "/admin/:path*", "/login"],
 };

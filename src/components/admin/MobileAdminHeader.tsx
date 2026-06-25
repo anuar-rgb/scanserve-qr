@@ -40,7 +40,7 @@ export default function MobileAdminHeader() {
 
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/app/login");
+    router.replace("/login");
   }
 
   async function handleCheckoutScan(token: string) {

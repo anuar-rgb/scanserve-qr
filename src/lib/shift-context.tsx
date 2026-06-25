@@ -162,7 +162,7 @@ export function ShiftGate({ children }: { children: ReactNode }) {
 
   async function handleSignOut() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/app/login");
+    router.replace("/login");
   }
 
   // Manager and cashier can open the shift
