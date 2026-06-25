@@ -362,6 +362,25 @@ export default function SuperAdminRestaurantsPage() {
     setDeletingId(null);
   }
 
+  const [cloning, setCloning] = useState(false);
+
+  async function cloneMenu(sourceId: string, targetId: string) {
+    if (!confirm(`Клонировать меню? Все категории и блюда будут скопированы.`)) return;
+    setCloning(true);
+    const res = await fetch("/api/super-admin/clone-menu", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceRestaurantId: sourceId, targetRestaurantId: targetId }),
+    });
+    const data = await res.json();
+    setCloning(false);
+    if (res.ok) {
+      alert(`Готово! Скопировано: ${data.categoriesCloned} категорий, ${data.productsCloned} блюд`);
+    } else {
+      alert(`Ошибка: ${data.error}`);
+    }
+  }
+
   // ── Copy ──────────────────────────────────────────────────────────────────
 
   function copyText(text: string, key: string) {
@@ -496,6 +515,22 @@ export default function SuperAdminRestaurantsPage() {
                           {tab === "links" ? "Ссылки & QR" : "Доступ"}
                         </button>
                       ))}
+                      <div className="ml-auto flex items-center pr-1">
+                        <select
+                          className="text-[10px] bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg px-2 py-1 mr-1"
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) cloneMenu(e.target.value, r.id);
+                            e.target.value = "";
+                          }}
+                          disabled={cloning}
+                        >
+                          <option value="" disabled>{cloning ? "Копируем..." : "Копировать меню из..."}</option>
+                          {restaurants.filter(x => x.id !== r.id).map(x => (
+                            <option key={x.id} value={x.id}>{x.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div className="p-5">
