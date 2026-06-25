@@ -11,14 +11,19 @@ type Ad = {
   is_active: boolean;
   placement: string;
   display_order: number;
+  restaurant_ids: string[] | null;
   created_at: string;
 };
+
+type RestaurantOption = { id: string; name: string };
 
 type FormState = {
   image_url: string;
   target_url: string;
   title: string;
   placement: string;
+  target: "all" | "selected";
+  selectedRestaurants: string[];
 };
 
 const EMPTY_FORM: FormState = {
@@ -26,6 +31,8 @@ const EMPTY_FORM: FormState = {
   target_url: "",
   title:      "",
   placement:  "menu_middle",
+  target:     "all",
+  selectedRestaurants: [],
 };
 
 const PLACEMENT_LABELS: Record<string, string> = {
@@ -37,6 +44,7 @@ const MAX_MB = 5;
 
 export default function SuperAdminAdsPage() {
   const [ads, setAds]               = useState<Ad[]>([]);
+  const [restaurants, setRestaurants] = useState<RestaurantOption[]>([]);
   const [loading, setLoading]       = useState(true);
   const [form, setForm]             = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -51,8 +59,15 @@ export default function SuperAdminAdsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/super-admin/ads");
-    if (res.ok) setAds(await res.json());
+    const [adsRes, restRes] = await Promise.all([
+      fetch("/api/super-admin/ads"),
+      fetch("/api/super-admin/restaurants"),
+    ]);
+    if (adsRes.ok) setAds(await adsRes.json());
+    if (restRes.ok) {
+      const data = await restRes.json() as { id: string; name: string }[];
+      setRestaurants(data.map(r => ({ id: r.id, name: r.name })));
+    }
     setLoading(false);
   }, []);
 
@@ -113,6 +128,7 @@ export default function SuperAdminAdsPage() {
         target_url: form.target_url.trim() || null,
         title:      form.title.trim()      || null,
         placement:  form.placement,
+        restaurant_ids: form.target === "all" ? null : form.selectedRestaurants,
       }),
     });
     if (res.ok) {
@@ -263,9 +279,64 @@ export default function SuperAdminAdsPage() {
             </div>
           </div>
 
+          {/* Target selection */}
+          <div>
+            <label className="block text-xs text-zinc-500 mb-2">Показывать в ресторанах</label>
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, target: "all", selectedRestaurants: [] }))}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                  form.target === "all"
+                    ? "bg-violet-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-700"
+                }`}
+              >
+                Все рестораны
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, target: "selected" }))}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                  form.target === "selected"
+                    ? "bg-violet-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-700"
+                }`}
+              >
+                Выбрать
+              </button>
+            </div>
+            {form.target === "selected" && restaurants.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {restaurants.map(r => {
+                  const selected = form.selectedRestaurants.includes(r.id);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        selectedRestaurants: selected
+                          ? f.selectedRestaurants.filter(id => id !== r.id)
+                          : [...f.selectedRestaurants, r.id],
+                      }))}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+                        selected
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                          : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500"
+                      }`}
+                    >
+                      {r.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={submitting || !form.image_url.trim() || uploading}
+            disabled={submitting || !form.image_url.trim() || uploading || (form.target === "selected" && form.selectedRestaurants.length === 0)}
             className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
           >
             {submitting ? "Публикуем..." : "Опубликовать"}
@@ -314,6 +385,8 @@ export default function SuperAdminAdsPage() {
                 )}
                 <p className="text-xs text-zinc-600 mt-0.5">
                   {PLACEMENT_LABELS[ad.placement] ?? ad.placement}
+                  {" · "}
+                  {ad.restaurant_ids ? `${ad.restaurant_ids.length} рест.` : "Все рестораны"}
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">

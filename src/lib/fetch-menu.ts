@@ -172,13 +172,15 @@ export type DbAd = {
   display_order: number;
 };
 
-export async function fetchActiveAds(placement = "menu_middle"): Promise<DbAd[]> {
+export async function fetchActiveAds(placement = "menu_middle", restaurantId?: string): Promise<DbAd[]> {
   if (!isConfigured) return [];
   const { data } = await supabase
     .from("advertisements")
-    .select("id, image_url, target_url, title, placement, display_order")
+    .select("id, image_url, target_url, title, placement, display_order, restaurant_ids")
     .eq("is_active", true)
     .eq("placement", placement)
     .order("display_order");
-  return (data ?? []) as DbAd[];
+  const all = (data ?? []) as (DbAd & { restaurant_ids: string[] | null })[];
+  if (!restaurantId) return all;
+  return all.filter(ad => !ad.restaurant_ids || ad.restaurant_ids.includes(restaurantId));
 }

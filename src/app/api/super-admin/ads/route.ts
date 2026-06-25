@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { image_url, target_url, title, placement, display_order } = await request.json();
+  const { image_url, target_url, title, placement, display_order, restaurant_ids } = await request.json();
   if (!image_url) return NextResponse.json({ error: "image_url is required" }, { status: 400 });
 
   const supabase = getSupabase();
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       placement: placement || "menu_middle",
       display_order: display_order ?? 0,
       is_active: true,
+      restaurant_ids: restaurant_ids ?? null,
     })
     .select()
     .single();
@@ -64,7 +65,7 @@ export async function PATCH(request: NextRequest) {
   const { id, ...fields } = await request.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  const allowed = ["image_url", "target_url", "title", "is_active", "placement", "display_order"];
+  const allowed = ["image_url", "target_url", "title", "is_active", "placement", "display_order", "restaurant_ids"];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in fields) update[key] = fields[key];
