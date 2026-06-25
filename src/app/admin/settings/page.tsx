@@ -100,17 +100,15 @@ export default function SettingsPage() {
         setLogoFile(null);
       }
 
-      const { data, error: dbErr } = await supabase
-        .from("restaurants")
-        .update(updateData)
-        .eq("id", RESTAURANT_ID)
-        .select("id");
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
 
-      if (dbErr) {
-        throw new Error(`${dbErr.code}: ${dbErr.message} — ${dbErr.details ?? dbErr.hint ?? ""}`);
-      }
-      if (!data || data.length === 0) {
-        throw new Error("Запись не найдена или нет прав на изменение");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? "Ошибка сохранения");
       }
 
       setRestaurant((prev) => prev ? { ...prev, ...updateData } : null);
