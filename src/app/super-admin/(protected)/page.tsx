@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Eye, EyeOff, Pencil, Check, X } from "lucide-react";
+import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -61,6 +61,137 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const EMPTY_NEW_STAFF: NewStaffForm = { username: "", password: "", role: "manager", displayName: "" };
+
+// ── Landing Stats ───────────────────────────────────────────────────────────
+
+interface LandingData {
+  totalVisitors: number;
+  totalViews: number;
+  sections: { name: string; uniqueViews: number; totalViews: number }[];
+  devices: Record<string, number>;
+  daily: { date: string; visitors: number }[];
+}
+
+const SECTION_LABELS: Record<string, string> = {
+  page_view: "Открыли сайт",
+  hero: "Hero (главный экран)",
+  stats: "Статистика",
+  features: "Возможности",
+  "how-it-works": "Как это работает",
+  pricing: "Тарифы",
+  cta: "CTA (призыв)",
+  footer: "Футер (конец)",
+};
+
+function LandingStats() {
+  const [data, setData] = useState<LandingData | null>(null);
+  const [days, setDays] = useState(30);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/analytics/landing?days=${days}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setData(d); })
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  return (
+    <div className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={18} className="text-violet-400" />
+          <h2 className="text-base font-bold text-zinc-100">Аналитика лендинга</h2>
+        </div>
+        <div className="flex gap-1">
+          {[7, 30, 90].map(d => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
+                days === d ? "bg-violet-600 text-white" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+              }`}
+            >
+              {d}д
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="h-32 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
+        </div>
+      ) : data ? (
+        <div className="space-y-4">
+          {/* Top stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-zinc-800/50 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Users size={12} className="text-emerald-400" />
+                <span className="text-[10px] text-zinc-500 uppercase">Посетители</span>
+              </div>
+              <p className="text-xl font-bold text-zinc-100 tabular-nums">{data.totalVisitors}</p>
+            </div>
+            <div className="rounded-xl bg-zinc-800/50 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Smartphone size={12} className="text-blue-400" />
+                <span className="text-[10px] text-zinc-500 uppercase">Мобильных</span>
+              </div>
+              <p className="text-xl font-bold text-zinc-100 tabular-nums">{data.devices.mobile ?? 0}</p>
+            </div>
+            <div className="rounded-xl bg-zinc-800/50 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Monitor size={12} className="text-amber-400" />
+                <span className="text-[10px] text-zinc-500 uppercase">Десктоп</span>
+              </div>
+              <p className="text-xl font-bold text-zinc-100 tabular-nums">{data.devices.desktop ?? 0}</p>
+            </div>
+          </div>
+
+          {/* Section funnel */}
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Воронка по секциям</p>
+            <div className="space-y-1">
+              {data.sections.map(s => {
+                const pct = data.totalVisitors > 0 ? Math.round((s.uniqueViews / data.totalVisitors) * 100) : 0;
+                return (
+                  <div key={s.name} className="flex items-center gap-2">
+                    <span className="text-[11px] text-zinc-400 w-36 truncate">{SECTION_LABELS[s.name] ?? s.name}</span>
+                    <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className="h-full rounded-full bg-violet-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-[11px] text-zinc-400 tabular-nums w-16 text-right">{s.uniqueViews} ({pct}%)</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Daily chart (simple bars) */}
+          {data.daily.length > 0 && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">По дням</p>
+              <div className="flex items-end gap-0.5 h-16">
+                {data.daily.slice(-30).map(d => {
+                  const max = Math.max(...data.daily.map(x => x.visitors), 1);
+                  const h = Math.max(4, (d.visitors / max) * 64);
+                  return (
+                    <div key={d.date} className="flex-1 min-w-0" title={`${d.date}: ${d.visitors}`}>
+                      <div className="rounded-t bg-violet-500/60 hover:bg-violet-400 transition-colors mx-auto" style={{ height: h, maxWidth: 12 }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-zinc-500 text-center py-6">Нет данных</p>
+      )}
+    </div>
+  );
+}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -244,6 +375,8 @@ export default function SuperAdminRestaurantsPage() {
 
   return (
     <div>
+      <LandingStats />
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-zinc-100">Рестораны</h1>
         <p className="text-sm text-zinc-500 mt-1">Все заведения на платформе</p>

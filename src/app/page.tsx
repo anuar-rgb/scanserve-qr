@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   QrCode,
   Zap,
@@ -14,6 +15,43 @@ import {
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+
+function useTrackSections() {
+  const tracked = useRef(new Set<string>());
+  const sessionId = useRef("");
+
+  useEffect(() => {
+    sessionId.current = sessionStorage.getItem("landing_sid") ?? crypto.randomUUID();
+    sessionStorage.setItem("landing_sid", sessionId.current);
+
+    const device = window.innerWidth < 768 ? "mobile" : "desktop";
+    const referrer = document.referrer || "direct";
+
+    fetch("/api/analytics/landing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sessionId.current, section: "page_view", device, referrer }),
+    }).catch(() => {});
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && !tracked.current.has(entry.target.id)) {
+          tracked.current.add(entry.target.id);
+          fetch("/api/analytics/landing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: sessionId.current, section: entry.target.id, device, referrer }),
+          }).catch(() => {});
+        }
+      }
+    }, { threshold: 0.3 });
+
+    const sections = document.querySelectorAll("[data-track]");
+    sections.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+}
 
 // ─── Navbar ──────────────────────────────────────────────────────────────────
 
@@ -635,18 +673,20 @@ function Footer() {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  useTrackSections();
+
   return (
     <>
       <Navbar />
       <main>
-        <Hero />
-        <Stats />
-        <Features />
-        <HowItWorks />
-        <Pricing />
-        <FinalCta />
+        <div id="hero" data-track><Hero /></div>
+        <div id="stats" data-track><Stats /></div>
+        <div id="features" data-track><Features /></div>
+        <div id="how-it-works" data-track><HowItWorks /></div>
+        <div id="pricing" data-track><Pricing /></div>
+        <div id="cta" data-track><FinalCta /></div>
       </main>
-      <Footer />
+      <div id="footer" data-track><Footer /></div>
     </>
   );
 }
