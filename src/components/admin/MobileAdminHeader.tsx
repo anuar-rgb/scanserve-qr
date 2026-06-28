@@ -15,11 +15,12 @@ const QrScannerModal = dynamic(() => import("./QrScannerModal"), { ssr: false })
 const R_NAME = process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe";
 
 const ROLE_LABEL: Record<string, string> = {
-  owner:   "Owner Platform",
-  manager: "Manager Platform",
-  cashier: "Cashier Terminal",
-  waiter:  "Waiter Terminal",
-  chef:    "Chef Terminal",
+  owner:      "Owner Platform",
+  manager:    "Manager Platform",
+  supervisor: "Supervisor Platform",
+  cashier:    "Cashier Terminal",
+  waiter:     "Waiter Terminal",
+  chef:       "Chef Terminal",
 };
 
 export default function MobileAdminHeader() {

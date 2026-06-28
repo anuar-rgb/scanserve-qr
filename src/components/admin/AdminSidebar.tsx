@@ -111,11 +111,12 @@ export default function AdminSidebar() {
   const isStrictOwner = useIsStrictOwner();
 
   const roleLabel: Record<string, string> = {
-    owner:   "Owner Platform",
-    manager: "Manager Platform",
-    cashier: "Cashier Terminal",
-    waiter:  "Waiter Terminal",
-    chef:    "Chef Terminal",
+    owner:      "Owner Platform",
+    manager:    "Manager Platform",
+    supervisor: "Supervisor Platform",
+    cashier:    "Cashier Terminal",
+    waiter:     "Waiter Terminal",
+    chef:       "Chef Terminal",
   };
   const platformLabel = role ? (roleLabel[role] ?? "Staff Terminal") : "Staff Terminal";
   const { shift, closeShift } = useShift();
