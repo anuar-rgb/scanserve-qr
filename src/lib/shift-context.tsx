@@ -145,8 +145,8 @@ export function ShiftGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [opening, setOpening] = useState(false);
 
-  // Owner always passes through without a shift check
-  if (role === "owner") return <>{children}</>;
+  // Owner and supervisor always pass through without a shift check
+  if (role === "owner" || role === "supervisor") return <>{children}</>;
 
   // Waiting for role + shift to load
   if (role === null || isLoading) {

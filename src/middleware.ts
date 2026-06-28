@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
   if (POS_ONLY_ROLES.includes(role)) {
     const blocked = POS_BLOCKED.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (blocked) return NextResponse.redirect(new URL("/admin/hall", request.url));
-  } else if (role === "manager") {
+  } else if (role === "manager" || role === "supervisor") {
     const blocked = OWNER_EXCLUSIVE.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (blocked) return NextResponse.redirect(new URL("/admin/analytics", request.url));
   }
