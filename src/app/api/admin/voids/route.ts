@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { RESTAURANT_ID } from "@/constants";
+import { getSessionRole } from "@/lib/session";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,8 +11,7 @@ const supabaseAdmin = createClient(
 
 // POST /api/admin/voids — log a voided item
 export async function POST(request: NextRequest) {
-  const session = request.cookies.get("admin_session");
-  if (!session?.value) {
+  if (!getSessionRole(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -50,8 +50,7 @@ export async function POST(request: NextRequest) {
 
 // GET /api/admin/voids?from=ISO&to=ISO — fetch voids for analytics
 export async function GET(request: NextRequest) {
-  const session = request.cookies.get("admin_session");
-  if (!session?.value) {
+  if (!getSessionRole(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

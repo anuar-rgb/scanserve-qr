@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -12,15 +13,11 @@ function db() {
 
 const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
-function getRole(req: NextRequest) {
-  return req.cookies.get("admin_session")?.value ?? null;
-}
-
 // GET /api/admin/shift/report?shiftId=xxx
 // Returns shift summary + restaurant report_whatsapp for building WhatsApp report
 export async function GET(request: NextRequest) {
-  const role = getRole(request);
-  if (!role || (role !== "owner" && role !== "manager" && role !== "cashier")) {
+  const role = getSessionRole(request);
+  if (!role || (role !== "owner" && role !== "manager" && role !== "supervisor" && role !== "cashier")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

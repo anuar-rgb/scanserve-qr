@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -17,8 +18,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const role = req.cookies.get("admin_session")?.value;
-  if (!["owner", "manager"].includes(role ?? "")) {
+  const role = getSessionRole(req);
+  if (!["owner", "manager", "supervisor"].includes(role ?? "")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

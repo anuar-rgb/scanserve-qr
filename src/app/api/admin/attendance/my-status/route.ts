@@ -12,7 +12,8 @@ function db() {
 
 // GET — returns current employee's active attendance record (if any)
 export async function GET(request: NextRequest) {
-  const role = request.cookies.get("admin_session")?.value ?? null;
+  const { getSessionRole } = await import("@/lib/session");
+  const role = getSessionRole(request);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const staffUserId = request.cookies.get("admin_user_id")?.value ?? null;

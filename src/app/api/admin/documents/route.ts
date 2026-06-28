@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -13,7 +14,7 @@ const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? p
 
 // GET — list all documents for restaurant
 export async function GET(req: NextRequest) {
-  const role = req.cookies.get("admin_session")?.value;
+  const role = getSessionRole(req);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = db();
@@ -29,8 +30,8 @@ export async function GET(req: NextRequest) {
 
 // POST — create a new document
 export async function POST(req: NextRequest) {
-  const role = req.cookies.get("admin_session")?.value;
-  if (!["owner", "manager"].includes(role ?? "")) {
+  const role = getSessionRole(req);
+  if (!["owner", "manager", "supervisor"].includes(role ?? "")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

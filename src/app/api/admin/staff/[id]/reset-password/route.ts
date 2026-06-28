@@ -15,8 +15,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const sessionRole = request.cookies.get("admin_session")?.value;
-  if (sessionRole !== "owner" && sessionRole !== "manager") {
+  const sessionRole = (await import("@/lib/session")).getSessionRole(request);
+  if (sessionRole !== "owner" && sessionRole !== "manager" && sessionRole !== "supervisor") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

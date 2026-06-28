@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { RESTAURANT_ID } from "@/constants";
+import { getSessionRole } from "@/lib/session";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,8 +10,7 @@ const supabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get("admin_session");
-  if (!session?.value) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!getSessionRole(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { employeeId, date, present } = await req.json().catch(() => ({})) as {
     employeeId?: string; date?: string; present?: boolean;

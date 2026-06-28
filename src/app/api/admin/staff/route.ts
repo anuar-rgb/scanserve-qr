@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function serverSupabase() {
   return createClient(
@@ -14,13 +15,9 @@ function getRestaurantId(request: NextRequest) {
   return request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 }
 
-function getSessionRole(request: NextRequest) {
-  return request.cookies.get("admin_session")?.value ?? null;
-}
-
 function requireOwner(request: NextRequest) {
   const role = getSessionRole(request);
-  return role === "owner" || role === "manager";
+  return role === "owner" || role === "manager" || role === "supervisor";
 }
 
 // GET /api/admin/staff — list all staff for this restaurant

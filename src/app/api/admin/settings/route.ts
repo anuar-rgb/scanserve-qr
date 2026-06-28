@@ -13,7 +13,8 @@ function db() {
 const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
 export async function PUT(request: NextRequest) {
-  const role = request.cookies.get("admin_session")?.value;
+  const { getSessionRole } = await import("@/lib/session");
+  const role = getSessionRole(request);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;

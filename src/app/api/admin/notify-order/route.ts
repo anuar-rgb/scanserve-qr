@@ -14,7 +14,8 @@ function db() {
 const NOTIFIABLE_TYPES = new Set(["takeaway", "delivery", "pickup"]);
 
 export async function POST(request: NextRequest) {
-  const role = request.cookies.get("admin_session")?.value ?? null;
+  const { getSessionRole } = await import("@/lib/session");
+  const role = getSessionRole(request);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => null) as { orderId?: string } | null;

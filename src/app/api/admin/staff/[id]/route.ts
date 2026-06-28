@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function serverSupabase() {
   return createClient(
@@ -8,10 +9,6 @@ function serverSupabase() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
-}
-
-function getSessionRole(request: NextRequest) {
-  return request.cookies.get("admin_session")?.value ?? null;
 }
 
 // PATCH /api/admin/staff/[id] — update role, display_name, or is_active

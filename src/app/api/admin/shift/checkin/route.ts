@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -14,7 +15,7 @@ const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? p
 
 // POST — staff checks into the current active shift (requires QR token)
 export async function POST(request: NextRequest) {
-  const role = request.cookies.get("admin_session")?.value ?? null;
+  const role = getSessionRole(request);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const staffUserId = request.cookies.get("admin_user_id")?.value ?? null;

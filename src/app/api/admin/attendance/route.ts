@@ -12,12 +12,13 @@ function db() {
 
 const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
-const OWNER_ROLES = new Set(["owner", "manager"]);
+const OWNER_ROLES = new Set(["owner", "manager", "supervisor"]);
 
 // GET — paginated attendance list for managers/owners
 // ?startDate=ISO&endDate=ISO&employeeId=uuid&role=waiter
 export async function GET(request: NextRequest) {
-  const sessionRole = request.cookies.get("admin_session")?.value ?? null;
+  const { getSessionRole } = await import("@/lib/session");
+  const sessionRole = getSessionRole(request);
   if (!sessionRole || !OWNER_ROLES.has(sessionRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

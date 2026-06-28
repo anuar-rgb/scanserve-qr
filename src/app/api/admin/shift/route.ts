@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -11,10 +12,6 @@ function db() {
 }
 
 const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
-
-function getRole(req: NextRequest) {
-  return req.cookies.get("admin_session")?.value ?? null;
-}
 
 function getUserId(req: NextRequest) {
   return req.cookies.get("admin_user_id")?.value ?? null;
@@ -71,7 +68,7 @@ async function closeAttendanceForUser(supabase: ReturnType<typeof db>, userId: s
 
 // GET — current open shift + checked-in waiters
 export async function GET(request: NextRequest) {
-  if (!getRole(request)) {
+  if (!getSessionRole(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -99,8 +96,8 @@ export async function GET(request: NextRequest) {
 
 // POST — open a new shift (owner / manager / cashier)
 export async function POST(request: NextRequest) {
-  const role = getRole(request);
-  if (!role || (role !== "owner" && role !== "manager" && role !== "cashier")) {
+  const role = getSessionRole(request);
+  if (!role || (role !== "owner" && role !== "manager" && role !== "supervisor" && role !== "cashier")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -156,8 +153,8 @@ export async function POST(request: NextRequest) {
 
 // DELETE — close current shift (owner / manager / cashier)
 export async function DELETE(request: NextRequest) {
-  const role = getRole(request);
-  if (!role || (role !== "owner" && role !== "manager" && role !== "cashier")) {
+  const role = getSessionRole(request);
+  if (!role || (role !== "owner" && role !== "manager" && role !== "supervisor" && role !== "cashier")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
