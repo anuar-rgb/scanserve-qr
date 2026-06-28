@@ -202,7 +202,7 @@ export default function SuperAdminRestaurantsPage() {
   // which card is expanded ("manage" panel open)
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   // which tab inside expanded panel: "links" | "staff"
-  const [activeTab, setActiveTab]     = useState<"links" | "staff">("links");
+  const [activeTab, setActiveTab]     = useState<"links" | "staff" | "info">("links");
 
   // info edit state
   const [infoEdit, setInfoEdit]       = useState<InfoEdit>(null);
@@ -410,53 +410,11 @@ export default function SuperAdminRestaurantsPage() {
           {restaurants.map((r) => {
             const status    = STATUS_LABELS[r.monthly_payment_status ?? "unpaid"] ?? STATUS_LABELS.unpaid;
             const isExpanded = expandedId === r.id;
-            const isInfoEditing = infoEdit?.id === r.id;
 
             return (
               <div key={r.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
                 {/* ── Card header ── */}
                 <div className="p-5">
-                  {isInfoEditing ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-xs text-zinc-500 font-mono">#{r.numeric_id}</span>
-                        <span className="font-semibold text-zinc-100">{r.name}</span>
-                        <span className="text-xs text-zinc-600">/{r.slug}</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-zinc-500 mb-1">Имя владельца</label>
-                          <input value={infoEdit.owner_name} onChange={(e) => setInfoEdit({ ...infoEdit, owner_name: e.target.value })}
-                            className={INPUT_CLS} placeholder="ФИО" />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-zinc-500 mb-1">Телефон владельца</label>
-                          <input value={infoEdit.owner_phone} onChange={(e) => setInfoEdit({ ...infoEdit, owner_phone: e.target.value })}
-                            className={INPUT_CLS} placeholder="+7 700 000 00 00" />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-zinc-500 mb-1">Статус оплаты</label>
-                          <select value={infoEdit.monthly_payment_status} onChange={(e) => setInfoEdit({ ...infoEdit, monthly_payment_status: e.target.value })}
-                            className={INPUT_CLS}>
-                            <option value="paid">Оплачено</option>
-                            <option value="unpaid">Не оплачено</option>
-                            <option value="overdue">Просрочено</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
-                          <input type="date" value={infoEdit.payment_due_date} onChange={(e) => setInfoEdit({ ...infoEdit, payment_due_date: e.target.value })}
-                            className={INPUT_CLS} />
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={saveInfoEdit} disabled={infoSaving} className={BTN_PRIMARY}>
-                          {infoSaving ? "Сохранение..." : "Сохранить"}
-                        </button>
-                        <button onClick={() => setInfoEdit(null)} className={BTN_SECONDARY}>Отмена</button>
-                      </div>
-                    </div>
-                  ) : (
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-4 min-w-0">
                         {r.logo ? (
@@ -490,14 +448,12 @@ export default function SuperAdminRestaurantsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => startInfoEdit(r)} className={BTN_GHOST}>Изменить</button>
                         <button onClick={() => toggleExpand(r)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${isExpanded ? "bg-violet-600 text-white" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}>
                           {isExpanded ? "Закрыть" : "Управление"}
                         </button>
                       </div>
                     </div>
-                  )}
                 </div>
 
                 {/* ── Expanded panel ── */}
@@ -505,14 +461,14 @@ export default function SuperAdminRestaurantsPage() {
                   <div className="border-t border-zinc-800">
                     {/* Tabs */}
                     <div className="flex border-b border-zinc-800 px-5 pt-3 gap-1">
-                      {(["links", "staff"] as const).map((tab) => (
-                        <button key={tab} onClick={() => { setActiveTab(tab); if (tab === "staff") switchToStaff(r.id); }}
+                      {(["links", "staff", "info"] as const).map((tab) => (
+                        <button key={tab} onClick={() => { setActiveTab(tab); if (tab === "staff") switchToStaff(r.id); if (tab === "info") startInfoEdit(r); }}
                           className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors ${
                             activeTab === tab
                               ? "bg-zinc-800 text-zinc-100"
                               : "text-zinc-500 hover:text-zinc-300"
                           }`}>
-                          {tab === "links" ? "Ссылки & QR" : "Доступ"}
+                          {tab === "links" ? "Ссылки & QR" : tab === "staff" ? "Доступ" : "Инфо"}
                         </button>
                       ))}
                       <div className="ml-auto flex items-center pr-1">
@@ -535,6 +491,41 @@ export default function SuperAdminRestaurantsPage() {
 
                     <div className="p-5">
                       {activeTab === "links" && <LinksTab restaurant={r} copied={copied} onCopy={copyText} />}
+                      {activeTab === "info" && infoEdit?.id === r.id && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-zinc-500 mb-1">Имя владельца</label>
+                              <input value={infoEdit.owner_name} onChange={(e) => setInfoEdit({ ...infoEdit, owner_name: e.target.value })}
+                                className={INPUT_CLS} placeholder="ФИО" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-zinc-500 mb-1">Телефон владельца</label>
+                              <input value={infoEdit.owner_phone} onChange={(e) => setInfoEdit({ ...infoEdit, owner_phone: e.target.value })}
+                                className={INPUT_CLS} placeholder="+7 700 000 00 00" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-zinc-500 mb-1">Статус оплаты</label>
+                              <select value={infoEdit.monthly_payment_status} onChange={(e) => setInfoEdit({ ...infoEdit, monthly_payment_status: e.target.value })}
+                                className={INPUT_CLS}>
+                                <option value="paid">Оплачено</option>
+                                <option value="unpaid">Не оплачено</option>
+                                <option value="overdue">Просрочено</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
+                              <input type="date" value={infoEdit.payment_due_date} onChange={(e) => setInfoEdit({ ...infoEdit, payment_due_date: e.target.value })}
+                                className={INPUT_CLS} />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={saveInfoEdit} disabled={infoSaving} className={BTN_PRIMARY}>
+                              {infoSaving ? "Сохранение..." : "Сохранить"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {activeTab === "staff" && (
                         <StaffTab
                           restaurant={r}
