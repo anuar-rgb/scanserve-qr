@@ -1566,39 +1566,21 @@ function AdBannerBlock({ ads, restaurantId }: { ads: AdItem[]; restaurantId?: st
         })}
       </div>
 
-      {/* Nav arrows + dots */}
+      {/* Tap zones + dots */}
       {ads.length > 1 && (<>
-        <button
-          onClick={() => slideTo((activeIdx - 1 + ads.length) % ads.length)}
-          style={{
-            position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", zIndex: 10,
-            width: 30, height: 30, borderRadius: 99, border: "none", cursor: "pointer",
-            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-            color: "#fff", fontSize: 16, fontWeight: 700,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >‹</button>
-        <button
-          onClick={() => slideTo((activeIdx + 1) % ads.length)}
-          style={{
-            position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: 10,
-            width: 30, height: 30, borderRadius: 99, border: "none", cursor: "pointer",
-            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-            color: "#fff", fontSize: 16, fontWeight: 700,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >›</button>
+        <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex" }}>
+          <div style={{ flex: 1 }} onClick={() => slideTo((activeIdx - 1 + ads.length) % ads.length)} />
+          <div style={{ flex: 1 }} onClick={() => slideTo((activeIdx + 1) % ads.length)} />
+        </div>
         <div style={{
           position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10,
-          display: "flex", gap: 6,
+          display: "flex", gap: 6, pointerEvents: "none",
         } as React.CSSProperties}>
           {ads.map((_, i) => (
-            <button
+            <div
               key={i}
-              onClick={() => slideTo(i)}
               style={{
                 width: i === activeIdx ? 20 : 6, height: 6, borderRadius: 99,
-                border: "none", padding: 0, cursor: "pointer",
                 background: i === activeIdx ? "#ffffff" : "rgba(255,255,255,0.5)",
                 transition: "width 0.3s ease, background 0.3s ease",
               }}
