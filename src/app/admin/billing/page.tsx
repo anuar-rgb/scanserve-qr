@@ -126,9 +126,8 @@ export default function BillingPage() {
         {/* ── Usage ── */}
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
           <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Использование</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <UsageBar icon={Users} label="Сотрудники" used={data.usage.staff} max={plan.max_staff} pct={staffPct} />
-            <UsageBar icon={ShoppingBag} label="Заказы (мес)" used={data.usage.ordersThisMonth} max={plan.max_orders_month} pct={ordersPct} />
           </div>
         </div>
 

@@ -456,6 +456,8 @@ function Pricing() {
     {
       name: p.starterName,
       price: p.starterPrice,
+      oldPrice: null as string | null,
+      badge: null as string | null,
       period: p.starterPeriod,
       desc: p.starterDesc,
       cta: p.starterCta,
@@ -465,6 +467,8 @@ function Pricing() {
     {
       name: p.proName,
       price: p.proPrice,
+      oldPrice: null as string | null,
+      badge: null as string | null,
       period: p.proPeriod,
       desc: p.proDesc,
       cta: p.proCta,
@@ -474,6 +478,8 @@ function Pricing() {
     {
       name: p.entName,
       price: p.entPrice,
+      oldPrice: "15 780 ₸",
+      badge: "-17%",
       period: p.entPeriod,
       desc: p.entDesc,
       cta: p.entCta,
@@ -506,7 +512,7 @@ function Pricing() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 items-start">
-          {plans.map(({ name, price, period, desc, cta, highlight, features }) => (
+          {plans.map(({ name, price, oldPrice, badge, period, desc, cta, highlight, features }) => (
             <div
               key={name}
               className={`rounded-2xl p-8 relative ${
@@ -522,6 +528,14 @@ function Pricing() {
                   {p.mostPopular}
                 </div>
               )}
+              {badge && (
+                <div
+                  className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
+                  style={{ background: "#10B981", color: "#fff" }}
+                >
+                  {badge}
+                </div>
+              )}
 
               <div className="mb-6">
                 <div
@@ -530,7 +544,12 @@ function Pricing() {
                 >
                   {name}
                 </div>
-                <div className="flex items-baseline gap-1 mb-2">
+                <div className="flex items-baseline gap-2 mb-2">
+                  {oldPrice && (
+                    <span className="text-lg line-through" style={{ color: "var(--muted)" }}>
+                      {oldPrice}
+                    </span>
+                  )}
                   <span
                     className="text-4xl font-bold"
                     style={{ color: "var(--foreground)" }}

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     name: restRes.data?.name ?? "",
     status: restRes.data?.monthly_payment_status ?? "unpaid",
     dueDate: restRes.data?.payment_due_date ?? null,
-    plan: plan ?? { name: "Стандарт", monthly_price: 30000, max_staff: 15, max_orders_month: 2000, features: [] },
+    plan: plan ?? { name: "Стандарт", monthly_price: 15780, max_staff: 15, max_orders_month: 999999, features: [] },
     payments: histRes.data ?? [],
     usage: {
       staff: staffRes.count ?? 0,
