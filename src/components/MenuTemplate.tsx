@@ -552,8 +552,14 @@ function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
         </div>
       ))}
 
+      {/* Tap zones */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex" }}>
+        <div style={{ flex: 1 }} onClick={() => goTo(cur - 1)} />
+        <div style={{ flex: 1 }} onClick={() => goTo(cur + 1)} />
+      </div>
+
       <div style={{
-        position: "absolute", bottom: 8, left: 0, right: 0,
+        position: "absolute", bottom: 8, left: 0, right: 0, zIndex: 3,
         display: "flex", justifyContent: "center", gap: 5, pointerEvents: "none",
       }}>
         {PROMO_SLIDES.map((_, i) => (
@@ -2388,10 +2394,26 @@ function HeroSliderInner({ slides }: { slides: HeroSlide[] }) {
       </AnimatePresence>
 
       {/* Tap zones: left 40% = prev, right 60% = next */}
-      <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex" }}>
-        <div style={{ flex: 4 }} onClick={() => go(idx - 1)} />
-        <div style={{ flex: 6 }} onClick={() => go(idx + 1)} />
-      </div>
+      {slides.length > 1 && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex" }}>
+          <div style={{ flex: 4, display: "flex", alignItems: "center", paddingLeft: 6 }} onClick={() => go(idx - 1)}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 99,
+              background: "rgba(0,0,0,0.35)", backdropFilter: "blur(6px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 14, fontWeight: 700,
+            }}>‹</div>
+          </div>
+          <div style={{ flex: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }} onClick={() => go(idx + 1)}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 99,
+              background: "rgba(0,0,0,0.35)", backdropFilter: "blur(6px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 14, fontWeight: 700,
+            }}>›</div>
+          </div>
+        </div>
+      )}
 
       {/* Text overlay — content sits directly on the clean image */}
       <div
