@@ -22,14 +22,16 @@ export async function GET(request: NextRequest) {
   const restaurantId = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID ?? null;
 
   let display_name: string | null = null;
+  let plan_id: string | null = null;
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
 
   if (id) {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } },
-      );
       const { data } = await supabase
         .from("staff_users")
         .select("display_name, username, role")
@@ -48,5 +50,16 @@ export async function GET(request: NextRequest) {
     } catch {}
   }
 
-  return NextResponse.json({ role, id, display_name, restaurant_id: restaurantId });
+  if (restaurantId) {
+    try {
+      const { data: rest } = await supabase
+        .from("restaurants")
+        .select("plan_id")
+        .eq("id", restaurantId)
+        .single();
+      plan_id = rest?.plan_id ?? "standard";
+    } catch {}
+  }
+
+  return NextResponse.json({ role, id, display_name, restaurant_id: restaurantId, plan_id });
 }

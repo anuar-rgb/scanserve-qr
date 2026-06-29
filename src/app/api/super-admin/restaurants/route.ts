@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, monthly_payment_status, payment_due_date, created_at")
+    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, monthly_payment_status, payment_due_date, plan_id, created_at")
     .order("numeric_id", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

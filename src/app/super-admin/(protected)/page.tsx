@@ -16,6 +16,7 @@ type Restaurant = {
   owner_phone: string | null;
   monthly_payment_status: "paid" | "unpaid" | "overdue" | null;
   payment_due_date: string | null;
+  plan_id: string | null;
   created_at: string;
 };
 
@@ -35,6 +36,7 @@ type InfoEdit = {
   owner_phone: string;
   monthly_payment_status: string;
   payment_due_date: string;
+  plan_id: string;
 } | null;
 
 type NewStaffForm = {
@@ -240,6 +242,7 @@ export default function SuperAdminRestaurantsPage() {
       owner_phone:            r.owner_phone            ?? "",
       monthly_payment_status: r.monthly_payment_status ?? "unpaid",
       payment_due_date:       r.payment_due_date       ?? "",
+      plan_id:                r.plan_id                ?? "standard",
     });
   }
 
@@ -517,6 +520,15 @@ export default function SuperAdminRestaurantsPage() {
                               <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
                               <input type="date" value={infoEdit.payment_due_date} onChange={(e) => setInfoEdit({ ...infoEdit, payment_due_date: e.target.value })}
                                 className={INPUT_CLS} />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-zinc-500 mb-1">Тариф</label>
+                              <select value={infoEdit.plan_id} onChange={(e) => setInfoEdit({ ...infoEdit, plan_id: e.target.value })}
+                                className={INPUT_CLS}>
+                                <option value="starter">Стартовый — 5 780 ₸</option>
+                                <option value="standard">Стандарт — 15 780 ₸</option>
+                                <option value="annual">Годовой — 157 170 ₸/год</option>
+                              </select>
                             </div>
                           </div>
                           <div className="flex gap-2 pt-1">

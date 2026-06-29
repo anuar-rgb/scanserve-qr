@@ -6,11 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays, Lock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
-import { useIsOwner, useIsStrictOwner, useRole } from "@/lib/role-context";
+import { useIsOwner, useIsStrictOwner, useRole, usePlanId } from "@/lib/role-context";
 import { useShift } from "@/lib/shift-context";
 import { useCheckin } from "@/lib/checkin-context";
 import { WaiterCallBell } from "./WaiterCallBell";
@@ -25,7 +25,7 @@ type NavSection = {
   titleKey: AdminKey;
   ownerOnly?: true;
   strictOwner?: true;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true }[];
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; planFeature?: string }[];
 };
 
 const NAV: NavSection[] = [
@@ -33,7 +33,7 @@ const NAV: NavSection[] = [
     titleKey: "sectionCRM",
     ownerOnly: true,
     items: [
-      { labelKey: "navCRM", icon: MessageSquare, href: "/admin/crm", ownerOnly: true },
+      { labelKey: "navCRM", icon: MessageSquare, href: "/admin/crm", ownerOnly: true, planFeature: "crm" },
     ],
   },
   {
@@ -50,7 +50,7 @@ const NAV: NavSection[] = [
       { labelKey: "navOverview",   icon: BarChart2,   href: "/admin/analytics",  ownerOnly: true },
       { labelKey: "navOrders",     icon: ShoppingBag, href: "/admin/orders",     ownerOnly: true },
       { labelKey: "navReviews",    icon: Star,        href: "/admin/reviews",    ownerOnly: true },
-      { labelKey: "navPromotions", icon: Tag,         href: "/admin/promotions", ownerOnly: true },
+      { labelKey: "navPromotions", icon: Tag,         href: "/admin/promotions", ownerOnly: true, planFeature: "promotions" },
     ],
   },
   {
@@ -109,6 +109,8 @@ export default function AdminSidebar() {
   const role = useRole();
   const isOwner = useIsOwner();
   const isStrictOwner = useIsStrictOwner();
+  const planId = usePlanId();
+  const isStarter = planId === "starter";
 
   const roleLabel: Record<string, string> = {
     owner:      "Owner Platform",
@@ -222,6 +224,24 @@ export default function AdminSidebar() {
                 {visibleItems.map((item) => {
                   const isActive = pathname === item.href;
                   const Icon = item.icon;
+                  const locked = isStarter && !!item.planFeature;
+                  if (locked) {
+                    return (
+                      <button
+                        key={item.href}
+                        title={expanded ? undefined : String(t.admin[item.labelKey])}
+                        onClick={() => toast.info("Доступно в тарифе Стандарт", { description: "Обновите подписку для доступа к этой функции" })}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap opacity-50 cursor-not-allowed ${
+                          expanded ? "" : "justify-center"
+                        } text-zinc-500 dark:text-zinc-600`}
+                      >
+                        <Lock size={16} className="shrink-0 text-zinc-400 dark:text-zinc-600" />
+                        <span className={`transition-opacity duration-200 ${expanded ? "opacity-100" : "opacity-0 w-0 overflow-hidden"}`}>
+                          {t.admin[item.labelKey]}
+                        </span>
+                      </button>
+                    );
+                  }
                   return (
                     <Link
                       key={item.href}
