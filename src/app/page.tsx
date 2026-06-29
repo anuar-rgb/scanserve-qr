@@ -462,7 +462,7 @@ function Pricing() {
       desc: p.starterDesc,
       cta: p.starterCta,
       highlight: false,
-      features: [p.starterF1, p.starterF2, p.starterF3, p.starterF4, p.starterF5],
+      features: [p.starterF1, p.starterF2, p.starterF3, p.starterF4, p.starterF5, p.starterF6, p.starterF7, p.starterF8, p.starterF9],
     },
     {
       name: p.proName,
@@ -473,7 +473,7 @@ function Pricing() {
       desc: p.proDesc,
       cta: p.proCta,
       highlight: true,
-      features: [p.proF1, p.proF2, p.proF3, p.proF4, p.proF5, p.proF6],
+      features: [p.proF1, p.proF2, p.proF3, p.proF4, p.proF5, p.proF6, p.proF7, p.proF8, p.proF9],
     },
     {
       name: p.entName,
