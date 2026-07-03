@@ -131,6 +131,7 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
   const [status, setStatus] = useState<"hint" | "geocoding" | "found" | "error" | "nokey">("hint");
   const [foundAddress, setFoundAddress] = useState("");
   const [foundCityId, setFoundCityId] = useState("");
+  const [tipDismissed, setTipDismissed] = useState(false);
   const apiKey = process.env.NEXT_PUBLIC_2GIS_API_KEY ?? "";
 
   const handleMapClick = useCallback(async (lng: number, lat: number) => {
@@ -304,6 +305,36 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
             <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
           )}
         </div>
+
+        {/* Tip banner */}
+        {status === "found" && !tipDismissed && (
+          <div style={{
+            margin: "8px 12px 0",
+            padding: "9px 12px",
+            borderRadius: 12,
+            background: "rgba(139,92,246,0.1)",
+            border: "1px solid rgba(139,92,246,0.25)",
+            display: "flex", alignItems: "flex-start", gap: 8,
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>💡</span>
+            <span style={{ fontSize: 12, lineHeight: 1.5, color: "var(--text-color, #333)", flex: 1 }}>
+              {lang === "kz"
+                ? "Мекенжай дұрыс анықталмаса — картада дұрыс нүктені басыңыз."
+                : lang === "en"
+                ? "If the address is wrong — tap the correct spot on the map."
+                : "Если адрес определился неверно — нажмите на нужную точку на карте."}
+            </span>
+            <button
+              onClick={() => setTipDismissed(true)}
+              style={{
+                flexShrink: 0, background: "none", border: "none",
+                cursor: "pointer", padding: 2, lineHeight: 1,
+                color: "rgba(139,92,246,0.7)", fontSize: 16, fontWeight: 700,
+              }}
+            >✕</button>
+          </div>
+        )}
 
         {/* Bottom result strip */}
         <div style={{
