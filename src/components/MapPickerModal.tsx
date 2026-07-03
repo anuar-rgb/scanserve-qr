@@ -196,9 +196,9 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
       const mapglLoaded = await M.load();
       if (destroyed || !mapContainerRef.current) return;
 
-      const center = (cityId && CITY_COORDS[cityId]) ? CITY_COORDS[cityId] : DEFAULT_CENTER;
+      const fallbackCenter = (cityId && CITY_COORDS[cityId]) ? CITY_COORDS[cityId] : DEFAULT_CENTER;
       map = new mapglLoaded.Map(mapContainerRef.current, {
-        center,
+        center: fallbackCenter,
         zoom: 13,
         key: apiKey,
       });
@@ -209,6 +209,23 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
         const [lng, lat] = e.lngLat;
         handleMapClick(lng, lat);
       });
+
+      // Request geolocation after map is ready
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (destroyed) return;
+            const { longitude, latitude } = pos.coords;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (mapRef.current as any)?.setCenter([longitude, latitude]);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (mapRef.current as any)?.setZoom(16);
+            handleMapClick(longitude, latitude);
+          },
+          () => { /* denied — stay on city center */ },
+          { timeout: 8000, maximumAge: 60000 },
+        );
+      }
     }).catch(() => setStatus("error"));
 
     return () => {
