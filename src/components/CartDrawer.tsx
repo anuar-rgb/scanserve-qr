@@ -1630,8 +1630,22 @@ export function CartDrawer({
                 <MapPickerModal
                   lang={lang}
                   cityId={city || undefined}
-                  onConfirm={({ cityId, address }) => {
-                    if (cityId) setCity(cityId);
+                  onConfirm={({ cityId, address, cityName }) => {
+                    if (cityId) {
+                      setCity(cityId);
+                    } else if (cityName) {
+                      // Try to match raw city name against full KZ_CITIES list
+                      const lower = cityName.toLowerCase().trim();
+                      const matched = KZ_CITIES.find((c) =>
+                        c.ru.toLowerCase().includes(lower) ||
+                        lower.includes(c.ru.toLowerCase()) ||
+                        c.en.toLowerCase().includes(lower) ||
+                        lower.includes(c.en.toLowerCase()) ||
+                        c.kz.toLowerCase().includes(lower) ||
+                        lower.includes(c.kz.toLowerCase()),
+                      );
+                      if (matched) setCity(matched.id);
+                    }
                     setDeliveryAddress(address);
                     setMapOpen(false);
                   }}

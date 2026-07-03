@@ -92,7 +92,7 @@ function matchCity(cityName: string): string {
 interface MapPickerModalProps {
   lang: Lang;
   cityId?: string;
-  onConfirm: (result: { cityId: string; address: string }) => void;
+  onConfirm: (result: { cityId: string; address: string; cityName: string }) => void;
   onClose: () => void;
 }
 
@@ -131,6 +131,7 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
   const [status, setStatus] = useState<"hint" | "geocoding" | "found" | "error" | "nokey">("hint");
   const [foundAddress, setFoundAddress] = useState("");
   const [foundCityId, setFoundCityId] = useState("");
+  const [foundCityName, setFoundCityName] = useState("");
   const [tipDismissed, setTipDismissed] = useState(false);
   const apiKey = process.env.NEXT_PUBLIC_2GIS_API_KEY ?? "";
 
@@ -174,6 +175,7 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
 
       setFoundAddress(street);
       setFoundCityId(cityId);
+      setFoundCityName(cityName);
       setStatus("found");
     } catch {
       setStatus("error");
@@ -241,7 +243,7 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
 
   const handleConfirm = () => {
     if (!foundAddress) return;
-    onConfirm({ cityId: foundCityId, address: foundAddress });
+    onConfirm({ cityId: foundCityId, address: foundAddress, cityName: foundCityName });
   };
 
   return (
