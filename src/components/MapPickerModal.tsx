@@ -102,7 +102,8 @@ export function MapPickerModal({ lang, onConfirm, onClose }: MapPickerModalProps
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapgl = (await import("@2gis/mapgl")) as any;
+      const mapglModule = (await import("@2gis/mapgl")) as any;
+      const mapgl = await mapglModule.load();
 
       // Update or create marker
       if (markerRef.current) {
@@ -148,13 +149,18 @@ export function MapPickerModal({ lang, onConfirm, onClose }: MapPickerModalProps
     let map: unknown;
     let destroyed = false;
 
-    import("@2gis/mapgl").then((mapgl) => {
+    import("@2gis/mapgl").then(async (mapgl) => {
       if (destroyed || !mapContainerRef.current) return;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const M = mapgl as any;
-      map = new M.Map(mapContainerRef.current, {
-        center: [76.889709, 43.238293], // Almaty default
+
+      // load() must be called before creating Map to init WebGL renderer
+      const mapglLoaded = await M.load();
+      if (destroyed || !mapContainerRef.current) return;
+
+      map = new mapglLoaded.Map(mapContainerRef.current, {
+        center: [76.889709, 43.238293],
         zoom: 12,
         key: apiKey,
       });
@@ -165,7 +171,7 @@ export function MapPickerModal({ lang, onConfirm, onClose }: MapPickerModalProps
         const [lng, lat] = e.lngLat;
         handleMapClick(lng, lat);
       });
-    });
+    }).catch(() => setStatus("error"));
 
     return () => {
       destroyed = true;
