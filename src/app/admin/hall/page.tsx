@@ -2097,7 +2097,9 @@ function OrderSlotPanel({
   activeWaiters?: { id: string; name: string }[];
   restaurantName?: string;
 }) {
-  const isWaiter   = useRole() === "waiter";
+  const role_      = useRole();
+  const isWaiter   = role_ === "waiter";
+  const isChef     = role_ === "chef";
   const userId     = useUserId();
   const displayName = useDisplayName();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -2588,6 +2590,7 @@ function OrderSlotPanel({
                               </div>
                             )}
                           </div>
+                          {!isChef && (
                           <div className="flex flex-col items-end shrink-0">
                             {item.original_price != null && (
                               <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
@@ -2598,6 +2601,7 @@ function OrderSlotPanel({
                               {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
                             </span>
                           </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2698,7 +2702,7 @@ function OrderSlotPanel({
             </>
           )}
 
-          <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
+          {!isChef && <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Итого</span>
               <span className={`text-xs font-semibold tabular-nums ${prepaid > 0 ? "text-muted-foreground/50 line-through" : ""}`}>
@@ -2759,9 +2763,9 @@ function OrderSlotPanel({
                 {(prepaid > 0 ? balanceDue : total).toLocaleString("ru-RU")} ₸
               </span>
             </div>
-          </div>
+          </div>}
 
-          {!isWaiter && (
+          {!isWaiter && !isChef && (
             <>
               <button onClick={() => setShowPaymentModal(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
                 <Check size={15} />
