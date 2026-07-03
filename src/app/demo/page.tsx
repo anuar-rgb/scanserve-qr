@@ -162,7 +162,7 @@ const CATEGORIES: MenuCategory[] = [
         id: "d12", emoji: "☕",
         name: { en: "Tiramisu", ru: "Тирамису", kz: "Тирамису" },
         desc: { en: "Italian classic with mascarpone and espresso", ru: "Итальянская классика с маскарпоне и эспрессо", kz: "Маскарпоне мен эспрессомен итальяндық классика" },
-        price: 1800, imageUrl: "https://images.unsplash.com/photo-1542124937-6a50da0c4a19?w=600&h=400&fit=crop&q=80",
+        price: 1800, imageUrl: "https://images.unsplash.com/photo-1568051243851-f9b136146e97?w=600&h=400&fit=crop&q=80",
       },
     ],
   },
