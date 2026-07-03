@@ -744,8 +744,8 @@ function FinalCta() {
             {t.cta.primary}
             <ArrowRight size={16} />
           </a>
-          <a href="#how-it-works" className="btn-ghost">
-            {t.cta.secondary}
+          <a href="/demo" target="_blank" rel="noopener noreferrer" className="btn-ghost">
+            Смотреть демо меню →
           </a>
         </div>
       </Reveal>
