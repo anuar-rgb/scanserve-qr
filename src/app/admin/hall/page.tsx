@@ -2497,8 +2497,8 @@ function OrderSlotPanel({
             </button>
           )}
 
-          {/* Notify courier — only for delivery orders */}
-          {order.type === "delivery" && order.status === "ready" && (
+          {/* Notify courier — only for delivery orders, not for waiter */}
+          {order.type === "delivery" && order.status === "ready" && !isWaiter && (
             <button
               onClick={handleNotifyCourier}
               disabled={notifyingCourier || courierNotified}
