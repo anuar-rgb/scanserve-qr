@@ -106,6 +106,7 @@ const KZ_CITIES: { id: string; en: string; ru: string; kz: string }[] = [
   { id: "esik",            en: "Esik",            ru: "Есик",            kz: "Есік"           },
   { id: "fort_shevchenko", en: "Fort Shevchenko", ru: "Форт-Шевченко",   kz: "Форт-Шевченко" },
   { id: "kandyagash",      en: "Kandyagash",      ru: "Кандыагаш",       kz: "Қандыағаш"      },
+  { id: "kulsary",         en: "Kulsary",         ru: "Кульсары",        kz: "Құлсары"        },
   { id: "karagandy",       en: "Karagandy",       ru: "Қарағанды",       kz: "Қарағанды"      },
   { id: "kaskelen",        en: "Kaskelen",        ru: "Каскелен",        kz: "Қаскелен"       },
   { id: "kentau",          en: "Kentau",          ru: "Кентау",          kz: "Кентау"         },
