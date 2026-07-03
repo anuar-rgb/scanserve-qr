@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import {
   QrCode,
   Zap,
@@ -15,6 +16,84 @@ import {
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+
+// ─── Scroll-reveal helper ──────────────────────────────────────────────────────
+
+const fadeUp = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.6, ease: [0.21, 0.47, 0.32, 0.98] as const },
+};
+
+function Reveal({
+  children,
+  delay = 0,
+  className,
+  style,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <motion.div
+      initial={fadeUp.initial}
+      whileInView={fadeUp.whileInView}
+      viewport={fadeUp.viewport}
+      transition={{ ...fadeUp.transition, delay }}
+      className={className}
+      style={style}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ─── Aurora background ──────────────────────────────────────────────────────────
+
+function AuroraBackground() {
+  return (
+    <div
+      className="fixed inset-0 pointer-events-none overflow-hidden"
+      style={{ zIndex: 0 }}
+      aria-hidden
+    >
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: 520, height: 520, top: "-8%", left: "-8%",
+          background: "radial-gradient(circle, rgba(108,71,255,0.22) 0%, transparent 70%)",
+          filter: "blur(50px)",
+        }}
+        animate={{ x: [0, 60, 0], y: [0, 40, 0] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: 480, height: 480, top: "20%", right: "-10%",
+          background: "radial-gradient(circle, rgba(14,165,233,0.16) 0%, transparent 70%)",
+          filter: "blur(50px)",
+        }}
+        animate={{ x: [0, -50, 0], y: [0, 50, 0] }}
+        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: 420, height: 420, bottom: "-5%", left: "30%",
+          background: "radial-gradient(circle, rgba(168,85,247,0.14) 0%, transparent 70%)",
+          filter: "blur(50px)",
+        }}
+        animate={{ x: [0, 40, 0], y: [0, -30, 0] }}
+        transition={{ duration: 19, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </div>
+  );
+}
 
 function useTrackSections() {
   const tracked = useRef(new Set<string>());
@@ -60,11 +139,10 @@ function Navbar() {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[rgba(245,245,247,0.78)] dark:bg-[rgba(8,8,15,0.85)]"
       style={{
-        background: "rgba(8,8,15,0.85)",
         backdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: "1px solid var(--border)",
       }}
     >
       <div className="flex items-center gap-2">
@@ -93,6 +171,7 @@ function Navbar() {
         >
           {t.nav.signIn}
         </a>
+        <ThemeSwitcher />
         <LanguageSwitcher />
         <a href="#pricing" className="btn-primary text-sm py-2 px-4">
           {t.nav.getStarted}
@@ -201,8 +280,15 @@ function Hero() {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center py-20">
-        <div>
-          <div
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium mb-8"
             style={{
               background: "rgba(108,71,255,0.12)",
@@ -212,24 +298,37 @@ function Hero() {
           >
             <Star size={14} fill="currentColor" />
             {t.hero.badge}
-          </div>
+          </motion.div>
 
-          <h1 className="text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-6">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.12 }}
+            className="text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-6"
+          >
             <span className="text-gradient">{t.hero.title1}</span>
             <br />
             <span style={{ color: "var(--foreground)" }}>{t.hero.title2}</span>
             <br />
             <span style={{ color: "var(--foreground)" }}>{t.hero.title3}</span>
-          </h1>
+          </motion.h1>
 
-          <p
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg leading-relaxed mb-10"
             style={{ color: "var(--muted)", maxWidth: "480px" }}
           >
             {t.hero.subtitle}
-          </p>
+          </motion.p>
 
-          <div className="flex flex-wrap gap-4 mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.28 }}
+            className="flex flex-wrap gap-4 mb-12"
+          >
             <a href="#pricing" className="btn-primary">
               {t.hero.ctaPrimary}
               <ArrowRight size={16} />
@@ -237,9 +336,14 @@ function Hero() {
             <a href="#features" className="btn-ghost">
               {t.hero.ctaSecondary}
             </a>
-          </div>
+          </motion.div>
 
-          <div className="flex flex-wrap items-center gap-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.36 }}
+            className="flex flex-wrap items-center gap-6"
+          >
             {[t.hero.trust1, t.hero.trust2, t.hero.trust3].map((label) => (
               <div
                 key={label}
@@ -250,12 +354,22 @@ function Hero() {
                 {label}
               </div>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        <div className="flex justify-center lg:justify-end">
-          <PhoneMockup />
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, delay: 0.15, ease: [0.21, 0.47, 0.32, 0.98] }}
+          className="flex justify-center lg:justify-end"
+        >
+          <motion.div
+            animate={{ y: [0, -14, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <PhoneMockup />
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
@@ -282,13 +396,13 @@ function Stats() {
       }}
     >
       <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
-        {stats.map(({ value, label }) => (
-          <div key={label} className="text-center">
+        {stats.map(({ value, label }, i) => (
+          <Reveal key={label} delay={i * 0.08} className="text-center">
             <div className="text-3xl font-bold mb-1 text-gradient">{value}</div>
             <div className="text-sm" style={{ color: "var(--muted)" }}>
               {label}
             </div>
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -312,7 +426,7 @@ function Features() {
   return (
     <section id="features" className="py-28 px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        <Reveal className="text-center mb-16">
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
@@ -330,11 +444,11 @@ function Features() {
           >
             {t.features.subtitle}
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map(({ icon, title, desc }) => (
-            <div key={title} className="card-base p-6">
+          {items.map(({ icon, title, desc }, i) => (
+            <Reveal key={title} delay={(i % 3) * 0.08} className="card-base p-6">
               <div
                 className="w-11 h-11 rounded-xl flex items-center justify-center mb-5"
                 style={{
@@ -356,7 +470,7 @@ function Features() {
               >
                 {desc}
               </p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -385,7 +499,7 @@ function HowItWorks() {
       className="py-28 px-6"
     >
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        <Reveal className="text-center mb-16">
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
@@ -403,7 +517,7 @@ function HowItWorks() {
           >
             {t.howItWorks.subtitle}
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid md:grid-cols-3 gap-6 relative">
           <div
@@ -413,8 +527,8 @@ function HowItWorks() {
                 "linear-gradient(90deg, transparent, rgba(108,71,255,0.4), transparent)",
             }}
           />
-          {steps.map(({ step, title, desc }) => (
-            <div key={step} className="card-base p-8 text-center">
+          {steps.map(({ step, title, desc }, i) => (
+            <Reveal key={step} delay={i * 0.12} className="card-base p-8 text-center">
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 glow-border"
                 style={{ background: "rgba(108,71,255,0.1)" }}
@@ -438,7 +552,7 @@ function HowItWorks() {
               >
                 {desc}
               </p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -491,7 +605,7 @@ function Pricing() {
   return (
     <section id="pricing" className="py-28 px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        <Reveal className="text-center mb-16">
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
@@ -509,12 +623,13 @@ function Pricing() {
           >
             {p.subtitle}
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid md:grid-cols-3 gap-6 items-start">
-          {plans.map(({ name, price, oldPrice, badge, period, desc, cta, highlight, features }) => (
-            <div
+          {plans.map(({ name, price, oldPrice, badge, period, desc, cta, highlight, features }, i) => (
+            <Reveal
               key={name}
+              delay={i * 0.1}
               className={`rounded-2xl p-8 relative ${
                 highlight ? "glow-border" : "card-base"
               }`}
@@ -593,7 +708,7 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -611,13 +726,15 @@ function FinalCta() {
       className="py-28 px-6"
       style={{ borderTop: "1px solid var(--border)" }}
     >
-      <div className="max-w-3xl mx-auto text-center">
-        <div
+      <Reveal className="max-w-3xl mx-auto text-center">
+        <motion.div
           className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-8"
           style={{ background: "var(--accent)" }}
+          animate={{ y: [0, -8, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
           <QrCode size={32} color="#fff" />
-        </div>
+        </motion.div>
         <h2 className="text-4xl font-bold mb-5 text-gradient">{t.cta.title}</h2>
         <p className="text-lg mb-10" style={{ color: "var(--muted)" }}>
           {t.cta.subtitle}
@@ -631,7 +748,7 @@ function FinalCta() {
             {t.cta.secondary}
           </a>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -696,16 +813,19 @@ export default function LandingPage() {
 
   return (
     <>
-      <Navbar />
-      <main>
-        <div id="hero" data-track><Hero /></div>
-        <div id="stats" data-track><Stats /></div>
-        <div id="features" data-track><Features /></div>
-        <div id="how-it-works" data-track><HowItWorks /></div>
-        <div id="pricing" data-track><Pricing /></div>
-        <div id="cta" data-track><FinalCta /></div>
-      </main>
-      <div id="footer" data-track><Footer /></div>
+      <AuroraBackground />
+      <div className="relative" style={{ zIndex: 1 }}>
+        <Navbar />
+        <main>
+          <div id="hero" data-track><Hero /></div>
+          <div id="stats" data-track><Stats /></div>
+          <div id="features" data-track><Features /></div>
+          <div id="how-it-works" data-track><HowItWorks /></div>
+          <div id="pricing" data-track><Pricing /></div>
+          <div id="cta" data-track><FinalCta /></div>
+        </main>
+        <div id="footer" data-track><Footer /></div>
+      </div>
     </>
   );
 }
