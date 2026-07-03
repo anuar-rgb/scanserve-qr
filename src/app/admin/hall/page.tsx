@@ -355,6 +355,7 @@ export default function HallPage() {
   const role                        = useRole();
   const userId                      = useUserId();
   const isWaiter                    = role === "waiter";
+  const isChef                      = role === "chef";
   const [waiterNewOrderPicker, setWaiterNewOrderPicker] = useState(false);
   const [waiterAutoOrder, setWaiterAutoOrder]           = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
@@ -719,12 +720,15 @@ export default function HallPage() {
   }
 
   // Waiters see only their tables: assigned to them OR with an active order opened by them
+  // Chefs see only occupied tables (with active orders)
   const displayedTables = isWaiter
     ? tablesWithStatus.filter(
         (tws) =>
           tws.table.assigned_waiter_id === userId ||
           (tws.status === "occupied" && tws.order?.opened_by === userId),
       )
+    : isChef
+    ? tablesWithStatus.filter((tws) => tws.status === "occupied")
     : tablesWithStatus;
 
   const physicalTWS    = tablesWithStatus.filter((t) => !t.table.id.startsWith("sub:"));
@@ -827,7 +831,7 @@ export default function HallPage() {
           </button>
         )}
 
-        {!isWaiter && activeTab === "dine-in" && editMode && (
+        {!isWaiter && !isChef && activeTab === "dine-in" && editMode && (
           <button
             onClick={() => setAddOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors shrink-0"
@@ -837,7 +841,7 @@ export default function HallPage() {
           </button>
         )}
 
-        {!isWaiter && activeTab === "dine-in" && (
+        {!isWaiter && !isChef && activeTab === "dine-in" && (
           <button
             onClick={editMode ? exitEditMode : enterEditMode}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
@@ -858,10 +862,11 @@ export default function HallPage() {
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
           { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
-          { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true },
-          { id: "rotation", icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true },
-        ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean }>)
+          { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true, chefHide: false },
+          { id: "rotation", icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true, chefHide: true  },
+        ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean; chefHide?: boolean }>)
         .filter((t) => !(isWaiter && t.waiterHide))
+        .filter((t) => !(isChef && t.chefHide))
         .map(({ id, icon: Icon, label, count }) => (
           <button
             key={id}
@@ -1066,6 +1071,7 @@ export default function HallPage() {
           waiterNames={waiterNames}
           activeWaiters={activeWaiters}
           restaurantName={restaurant?.name ?? ""}
+          readOnly={isChef}
         />
       )}
 
@@ -1082,6 +1088,7 @@ export default function HallPage() {
           waiterNames={waiterNames}
           activeWaiters={activeWaiters}
           restaurantName={restaurant?.name ?? ""}
+          readOnly={isChef}
         />
       )}
 
@@ -2838,6 +2845,7 @@ function PickupDeliveryGrid({
   waiterNames = {},
   activeWaiters = [],
   restaurantName = "",
+  readOnly = false,
 }: {
   orders: DbOrder[];
   loading: boolean;
@@ -2849,6 +2857,7 @@ function PickupDeliveryGrid({
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
   restaurantName?: string;
+  readOnly?: boolean;
 }) {
   const [selected, setSelected]     = useState<string | null>(null);
   const [creating, setCreating]     = useState(false);
@@ -2880,6 +2889,7 @@ function PickupDeliveryGrid({
           </div>
         ) : (
           <>
+            {!readOnly && (
             <button
               onClick={() => setCreating(true)}
               className="mb-5 w-full flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-700 hover:border-violet-500 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 text-sm font-semibold text-violet-600 dark:text-violet-400 transition-colors"
@@ -2887,6 +2897,7 @@ function PickupDeliveryGrid({
               <Plus size={16} />
               Новый заказ
             </button>
+            )}
 
             {orders.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
