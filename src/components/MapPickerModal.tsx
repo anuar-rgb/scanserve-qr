@@ -3,6 +3,42 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Lang } from "./MenuTemplate";
 
+const CITY_COORDS: Record<string, [number, number]> = {
+  abai:          [72.856, 49.636],
+  aksai:         [53.003, 51.173],
+  aksu:          [82.455, 52.037],
+  aktau:         [51.166, 43.650],
+  aktobe:        [57.207, 50.278],
+  almaty:        [76.889, 43.238],
+  altay:         [84.975, 49.960],
+  aral:          [61.667, 46.800],
+  arkalyk:       [66.908, 50.248],
+  astana:        [71.430, 51.181],
+  atbasar:       [68.359, 51.823],
+  atyrau:        [51.904, 47.113],
+  baikonur:      [63.306, 45.630],
+  balkhash:      [74.985, 46.849],
+  ekibastuz:     [75.318, 51.726],
+  karagandy:     [73.086, 49.806],
+  kokshetau:     [69.395, 53.285],
+  kostanay:      [63.626, 53.215],
+  kyzylorda:     [65.502, 44.852],
+  oral:          [51.228, 51.235],
+  oskemen:       [82.628, 49.948],
+  pavlodar:      [76.940, 52.285],
+  petropavl:     [69.134, 54.866],
+  qonayev:       [78.025, 43.870],
+  semey:         [80.228, 50.411],
+  shymkent:      [69.598, 42.317],
+  taldykorgan:   [78.374, 45.015],
+  taraz:         [71.366, 42.900],
+  temirtau:      [72.963, 50.058],
+  turkestan:     [68.193, 43.300],
+  zhezkazgan:    [67.714, 47.796],
+};
+
+const DEFAULT_CENTER: [number, number] = [76.889, 43.238]; // Almaty
+
 const KZ_CITIES: { id: string; ru: string; en: string; kz: string }[] = [
   { id: "abai", ru: "Абай", en: "Abai", kz: "Абай" },
   { id: "aksai", ru: "Аксай", en: "Aksai", kz: "Ақсай" },
@@ -55,6 +91,7 @@ function matchCity(cityName: string): string {
 
 interface MapPickerModalProps {
   lang: Lang;
+  cityId?: string;
   onConfirm: (result: { cityId: string; address: string }) => void;
   onClose: () => void;
 }
@@ -86,7 +123,7 @@ const UI = {
   },
 };
 
-export function MapPickerModal({ lang, onConfirm, onClose }: MapPickerModalProps) {
+export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerModalProps) {
   const t = UI[lang] ?? UI.ru;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<unknown>(null);
@@ -159,9 +196,10 @@ export function MapPickerModal({ lang, onConfirm, onClose }: MapPickerModalProps
       const mapglLoaded = await M.load();
       if (destroyed || !mapContainerRef.current) return;
 
+      const center = (cityId && CITY_COORDS[cityId]) ? CITY_COORDS[cityId] : DEFAULT_CENTER;
       map = new mapglLoaded.Map(mapContainerRef.current, {
-        center: [76.889709, 43.238293],
-        zoom: 12,
+        center,
+        zoom: 13,
         key: apiKey,
       });
       mapRef.current = map;

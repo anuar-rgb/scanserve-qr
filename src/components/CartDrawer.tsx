@@ -1616,6 +1616,7 @@ export function CartDrawer({
               {mapOpen && (
                 <MapPickerModal
                   lang={lang}
+                  cityId={city || undefined}
                   onConfirm={({ cityId, address }) => {
                     if (cityId) setCity(cityId);
                     setDeliveryAddress(address);
