@@ -2115,6 +2115,8 @@ function OrderSlotPanel({
   const [reassigning, setReassigning]             = useState(false);
   const [notifying, setNotifying]                 = useState(false);
   const [notifyDone, setNotifyDone]               = useState(false);
+  const [notifyingCourier, setNotifyingCourier]   = useState(false);
+  const [courierNotified, setCourierNotified]     = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
@@ -2179,6 +2181,28 @@ function OrderSlotPanel({
       toast.error("Ошибка при отправке уведомления");
     } finally {
       setNotifying(false);
+    }
+  }
+
+  async function handleNotifyCourier() {
+    if (notifyingCourier) return;
+    setNotifyingCourier(true);
+    try {
+      await fetch("/api/admin/courier-push?action=notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId: RESTAURANT_ID,
+          address: order.delivery_address ?? "",
+          orderId: order.id,
+        }),
+      });
+      setCourierNotified(true);
+      toast.success("Курьер уведомлён о готовности заказа");
+    } catch {
+      toast.error("Ошибка при уведомлении курьера");
+    } finally {
+      setNotifyingCourier(false);
     }
   }
 
@@ -2470,6 +2494,22 @@ function OrderSlotPanel({
             >
               <Bell size={15} />
               {notifyDone ? "Уведомление отправлено" : notifying ? "Отправка…" : "Уведомить о готовности"}
+            </button>
+          )}
+
+          {/* Notify courier — only for delivery orders */}
+          {order.type === "delivery" && order.status === "ready" && (
+            <button
+              onClick={handleNotifyCourier}
+              disabled={notifyingCourier || courierNotified}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                courierNotified
+                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 cursor-default"
+                  : "bg-blue-600 hover:bg-blue-700 active:scale-95 text-white disabled:opacity-60"
+              }`}
+            >
+              🛵
+              {courierNotified ? "Курьер уведомлён" : notifyingCourier ? "Отправка…" : "Уведомить курьера о готовности"}
             </button>
           )}
 
