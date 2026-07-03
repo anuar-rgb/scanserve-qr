@@ -8,6 +8,7 @@ import { fetchPaymentBanks } from "@/lib/fetch-menu";
 import type { DbPaymentBank } from "@/lib/db-types";
 import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
+import { MapPickerModal } from "./MapPickerModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -426,6 +427,7 @@ export function CartDrawer({
   const [preorderTime, setPreorderTime]       = useState("");
   const [tableNumber, setTableNumber]         = useState(initialTableNumber ?? "");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [mapOpen, setMapOpen]                 = useState(false);
   const [notes, setNotes]                     = useState("");
   const [payment, setPayment]                 = useState<PaymentMethod | null>(isTableLocked ? "pay-at-restaurant" : null);
   const [cardBankIdx, setCardBankIdx]         = useState<number | null>(null);
@@ -1583,8 +1585,24 @@ export function CartDrawer({
               )}
 
               {orderType === "delivery" && (
-                <label style={{ display: "block", marginBottom: SP.lg }}>
-                  <span style={labelSectionStyle}>{tn("deliveryAddr", lang)}</span>
+                <div style={{ marginBottom: SP.lg }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={labelSectionStyle}>{tn("deliveryAddr", lang)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setMapOpen(true)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 5,
+                        padding: "4px 10px", borderRadius: 10,
+                        border: "1px solid rgba(139,92,246,0.4)",
+                        background: "rgba(139,92,246,0.08)",
+                        color: "#8B5CF6", fontSize: 12, fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      🗺️ {lang === "ru" ? "На карте" : lang === "kz" ? "Картада" : "On map"}
+                    </button>
+                  </div>
                   <textarea
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
@@ -1592,7 +1610,19 @@ export function CartDrawer({
                     rows={3}
                     style={textareaStyle(deliveryAddress.trim().length > 0)}
                   />
-                </label>
+                </div>
+              )}
+
+              {mapOpen && (
+                <MapPickerModal
+                  lang={lang}
+                  onConfirm={({ cityId, address }) => {
+                    if (cityId) setCity(cityId);
+                    setDeliveryAddress(address);
+                    setMapOpen(false);
+                  }}
+                  onClose={() => setMapOpen(false)}
+                />
               )}
 
               {orderType === "pickup" && (
