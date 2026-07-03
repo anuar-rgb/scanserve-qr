@@ -598,7 +598,7 @@ function Pricing() {
       desc: p.entDesc,
       cta: p.entCta,
       highlight: false,
-      features: [p.entF1, p.entF2, p.entF3, p.entF4, p.entF5, p.entF6],
+      features: [p.entF1, p.entF2, p.entF3, p.entF4, p.entF5, p.entF6, p.entF7, p.entF8, p.entF9],
     },
   ];
 
