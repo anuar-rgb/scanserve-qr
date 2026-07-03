@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays, Lock,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays, Lock, Truck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -25,7 +25,8 @@ type NavSection = {
   titleKey: AdminKey;
   ownerOnly?: true;
   strictOwner?: true;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; planFeature?: string }[];
+  courierSection?: true;
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; planFeature?: string; courierAccess?: true }[];
 };
 
 const NAV: NavSection[] = [
@@ -51,6 +52,13 @@ const NAV: NavSection[] = [
       { labelKey: "navOrders",     icon: ShoppingBag, href: "/admin/orders",     ownerOnly: true },
       { labelKey: "navReviews",    icon: Star,        href: "/admin/reviews",    ownerOnly: true },
       { labelKey: "navPromotions", icon: Tag,         href: "/admin/promotions", ownerOnly: true, planFeature: "promotions" },
+    ],
+  },
+  {
+    titleKey: "sectionDelivery",
+    courierSection: true,
+    items: [
+      { labelKey: "navDelivery", icon: Truck, href: "/admin/delivery", courierAccess: true },
     ],
   },
   {
@@ -173,9 +181,12 @@ export default function AdminSidebar() {
     router.replace("/login");
   }
 
+  const isCourier = role === "courier";
   const visibleSections = NAV.filter((s) => {
     if (s.strictOwner && !isStrictOwner) return false;
     if (s.ownerOnly && !isOwner) return false;
+    // Delivery section: visible for courier + owner/manager/supervisor
+    if (s.courierSection) return isCourier || isOwner;
     return true;
   });
 
@@ -212,6 +223,7 @@ export default function AdminSidebar() {
             if (item.strictOwner && !isStrictOwner) return false;
             if (item.ownerOnly && !isOwner) return false;
             if (item.noWaiter && role === "waiter") return false;
+            if (item.courierAccess) return isCourier || isOwner;
             return true;
           });
           if (visibleItems.length === 0) return null;

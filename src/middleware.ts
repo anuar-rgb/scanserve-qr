@@ -43,7 +43,9 @@ export async function middleware(request: NextRequest) {
     if (sessionCookie) {
       const role = await verifySession(sessionCookie);
       if (role) {
-        const dest = POS_ONLY_ROLES.includes(role) ? "/admin/hall" : "/admin/analytics";
+        const dest = role === "courier"
+          ? "/admin/delivery"
+          : POS_ONLY_ROLES.includes(role) ? "/admin/hall" : "/admin/analytics";
         return NextResponse.redirect(new URL(dest, request.url));
       }
     }
@@ -62,8 +64,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (POS_ONLY_ROLES.includes(role)) {
+    // Courier can access /admin/delivery
+    if (role === "courier" && (pathname === "/admin/delivery" || pathname.startsWith("/admin/delivery/"))) {
+      return NextResponse.next();
+    }
     const blocked = POS_BLOCKED.some((p) => pathname === p || pathname.startsWith(p + "/"));
-    if (blocked) return NextResponse.redirect(new URL("/admin/hall", request.url));
+    if (blocked) return NextResponse.redirect(new URL(role === "courier" ? "/admin/delivery" : "/admin/hall", request.url));
   } else if (role === "manager" || role === "supervisor") {
     const blocked = OWNER_EXCLUSIVE.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (blocked) return NextResponse.redirect(new URL("/admin/analytics", request.url));

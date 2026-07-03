@@ -270,6 +270,8 @@
     "showcaseCardDescLabel": "Description (popup text)",
     "showcaseCardDescPlaceholder": "E.g. Wi-Fi password: mypassword123",
     "showcaseCardActive": "Active",
+    "sectionDelivery": "Delivery",
+    "navDelivery": "Deliveries",
     "sectionPOS": "POS Terminal",
     "navHall": "Hall Plan",
     "descHall": "Interactive table map with live order status.",

@@ -869,6 +869,19 @@ export function CartDrawer({
     clearPromo();
     setPlacedOrder(order);
     setStep("success");
+
+    // Notify couriers if this is a delivery order
+    if (orderType === "delivery" && deliveryAddress) {
+      fetch("/api/admin/courier-push?action=notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId: RESTAURANT_ID,
+          address: deliveryAddress,
+          orderId,
+        }),
+      }).catch(() => {});
+    }
     setLoading(false);
     onOrderPlaced?.({
       id: orderId,

@@ -619,6 +619,24 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
             </button>
           )}
 
+          {/* Close delivery check — manager action after courier delivers */}
+          {order.type === "delivery" && (order as DbOrder & { delivery_status?: string }).delivery_status === "delivered" && order.status !== "closed" && (
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/admin/delivery-orders", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ orderId: order.id }),
+                });
+                if (res.ok) { toast.success("Чек закрыт"); onClose(); }
+                else toast.error("Ошибка");
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-all"
+            >
+              ✓ Закрыть чек (доставлено)
+            </button>
+          )}
+
           {/* Comment */}
           {order.customer_comments && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
