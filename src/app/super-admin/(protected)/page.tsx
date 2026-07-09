@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor } from "lucide-react";
+import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor, Bell, BellOff, ChevronDown, ChevronUp } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,17 @@ type NewStaffForm = {
 };
 
 type ResetForm = { userId: string; newPassword: string } | null;
+
+type GuestProfile = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  guest_id: string | null;
+  push_subscription: boolean;
+  created_at: string;
+  last_visit: string | null;
+  bonus_amount: number;
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -227,6 +238,21 @@ export default function SuperAdminRestaurantsPage() {
   const [resetSaving, setResetSaving] = useState(false);
   const [resetErr, setResetErr]       = useState<string | null>(null);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
+
+  // guests list per restaurant
+  const [guestListId, setGuestListId]       = useState<string | null>(null);
+  const [guests, setGuests]                 = useState<GuestProfile[]>([]);
+  const [guestsLoading, setGuestsLoading]   = useState(false);
+
+  async function loadGuests(restaurantId: string) {
+    if (guestListId === restaurantId) { setGuestListId(null); return; }
+    setGuestListId(restaurantId);
+    setGuests([]);
+    setGuestsLoading(true);
+    const res = await fetch(`/api/super-admin/restaurant-guests?restaurantId=${restaurantId}`);
+    if (res.ok) setGuests(await res.json());
+    setGuestsLoading(false);
+  }
 
   // copy feedback
   const [copied, setCopied]           = useState<string | null>(null);
@@ -507,14 +533,87 @@ export default function SuperAdminRestaurantsPage() {
                       {activeTab === "links" && <LinksTab restaurant={r} copied={copied} onCopy={copyText} />}
                       {activeTab === "info" && infoEdit?.id === r.id && (
                         <div className="space-y-5">
-                          {/* Staff count badge */}
-                          <div className="flex items-center gap-2">
-                            <Users size={14} className="text-violet-400" />
-                            <span className="text-xs text-zinc-400">Зарегистрированных гостей:</span>
-                            <span className="px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20 text-xs font-semibold tabular-nums">
-                              {r.guest_count}
-                            </span>
+                          {/* Guest count + button */}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <Users size={14} className="text-violet-400" />
+                              <span className="text-xs text-zinc-400">Зарегистрированных гостей:</span>
+                              <span className="px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20 text-xs font-semibold tabular-nums">
+                                {r.guest_count}
+                              </span>
+                            </div>
+                            {r.guest_count > 0 && (
+                              <button
+                                onClick={() => loadGuests(r.id)}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors"
+                              >
+                                {guestListId === r.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                {guestListId === r.id ? "Скрыть" : "Показать список"}
+                              </button>
+                            )}
                           </div>
+
+                          {/* Guest list */}
+                          {guestListId === r.id && (
+                            <div className="rounded-xl border border-zinc-800 overflow-hidden">
+                              {guestsLoading ? (
+                                <div className="h-16 flex items-center justify-center">
+                                  <div className="w-4 h-4 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
+                                </div>
+                              ) : guests.length === 0 ? (
+                                <p className="text-xs text-zinc-600 p-4 text-center">Нет данных</p>
+                              ) : (
+                                <div className="divide-y divide-zinc-800">
+                                  {guests.map((g, i) => (
+                                    <div key={g.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
+                                      {/* Index */}
+                                      <span className="text-xs text-zinc-600 tabular-nums w-5 flex-shrink-0">{i + 1}</span>
+                                      {/* Avatar */}
+                                      <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                                        <Users size={14} className="text-zinc-500" />
+                                      </div>
+                                      {/* Info */}
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-sm font-medium text-zinc-200 truncate">
+                                            {g.name ?? "Без имени"}
+                                          </span>
+                                          {g.guest_id && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 text-[10px] font-medium">
+                                              ПРОФИЛЬ
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                          {g.phone && (
+                                            <a href={`tel:${g.phone}`} className="text-xs text-zinc-400 hover:text-violet-400 transition-colors font-mono">
+                                              {g.phone}
+                                            </a>
+                                          )}
+                                          <span className="text-xs text-zinc-600">
+                                            {new Date(g.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {/* Push + Bonus */}
+                                      <div className="flex items-center gap-3 flex-shrink-0">
+                                        <div title={g.push_subscription ? "Push активна" : "Push нет"}>
+                                          {g.push_subscription
+                                            ? <Bell size={13} className="text-emerald-400" />
+                                            : <BellOff size={13} className="text-zinc-600" />
+                                          }
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-sm font-semibold text-amber-400 tabular-nums">{g.bonus_amount} ₸</span>
+                                          <p className="text-[10px] text-zinc-600">бонусы</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Owner */}
                           <div>
