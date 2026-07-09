@@ -23,11 +23,17 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, monthly_payment_status, payment_due_date, plan_id, created_at")
+    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, admin_name, admin_phone, restaurant_phone, monthly_payment_status, payment_due_date, plan_id, created_at, staff_users(count)")
     .order("numeric_id", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+
+  const mapped = (data ?? []).map((r) => {
+    const { staff_users, ...rest } = r as typeof r & { staff_users: { count: number }[] };
+    return { ...rest, staff_count: staff_users?.[0]?.count ?? 0 };
+  });
+
+  return NextResponse.json(mapped);
 }
 
 export async function PATCH(request: NextRequest) {
@@ -38,7 +44,11 @@ export async function PATCH(request: NextRequest) {
   const { id, ...fields } = await request.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  const allowed = ["owner_name", "owner_phone", "monthly_payment_status", "payment_due_date", "plan_id"];
+  const allowed = [
+    "owner_name", "owner_phone",
+    "admin_name", "admin_phone", "restaurant_phone",
+    "monthly_payment_status", "payment_due_date", "plan_id",
+  ];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in fields) update[key] = fields[key];

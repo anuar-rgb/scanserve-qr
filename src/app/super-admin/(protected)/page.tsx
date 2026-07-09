@@ -14,10 +14,14 @@ type Restaurant = {
   logo: string | null;
   owner_name: string | null;
   owner_phone: string | null;
+  admin_name: string | null;
+  admin_phone: string | null;
+  restaurant_phone: string | null;
   monthly_payment_status: "paid" | "unpaid" | "overdue" | null;
   payment_due_date: string | null;
   plan_id: string | null;
   created_at: string;
+  staff_count: number;
 };
 
 type StaffUser = {
@@ -34,6 +38,9 @@ type InfoEdit = {
   id: string;
   owner_name: string;
   owner_phone: string;
+  admin_name: string;
+  admin_phone: string;
+  restaurant_phone: string;
   monthly_payment_status: string;
   payment_due_date: string;
   plan_id: string;
@@ -240,6 +247,9 @@ export default function SuperAdminRestaurantsPage() {
       id: r.id,
       owner_name:             r.owner_name             ?? "",
       owner_phone:            r.owner_phone            ?? "",
+      admin_name:             r.admin_name             ?? "",
+      admin_phone:            r.admin_phone            ?? "",
+      restaurant_phone:       r.restaurant_phone       ?? "",
       monthly_payment_status: r.monthly_payment_status ?? "unpaid",
       payment_due_date:       r.payment_due_date       ?? "",
       plan_id:                r.plan_id                ?? "standard",
@@ -496,42 +506,92 @@ export default function SuperAdminRestaurantsPage() {
                     <div className="p-5">
                       {activeTab === "links" && <LinksTab restaurant={r} copied={copied} onCopy={copyText} />}
                       {activeTab === "info" && infoEdit?.id === r.id && (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs text-zinc-500 mb-1">Имя владельца</label>
-                              <input value={infoEdit.owner_name} onChange={(e) => setInfoEdit({ ...infoEdit, owner_name: e.target.value })}
-                                className={INPUT_CLS} placeholder="ФИО" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-zinc-500 mb-1">Телефон владельца</label>
-                              <input value={infoEdit.owner_phone} onChange={(e) => setInfoEdit({ ...infoEdit, owner_phone: e.target.value })}
-                                className={INPUT_CLS} placeholder="+7 700 000 00 00" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-zinc-500 mb-1">Статус оплаты</label>
-                              <select value={infoEdit.monthly_payment_status} onChange={(e) => setInfoEdit({ ...infoEdit, monthly_payment_status: e.target.value })}
-                                className={INPUT_CLS}>
-                                <option value="paid">Оплачено</option>
-                                <option value="unpaid">Не оплачено</option>
-                                <option value="overdue">Просрочено</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
-                              <input type="date" value={infoEdit.payment_due_date} onChange={(e) => setInfoEdit({ ...infoEdit, payment_due_date: e.target.value })}
-                                className={INPUT_CLS} />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-zinc-500 mb-1">Тариф</label>
-                              <select value={infoEdit.plan_id} onChange={(e) => setInfoEdit({ ...infoEdit, plan_id: e.target.value })}
-                                className={INPUT_CLS}>
-                                <option value="starter">Стартовый — 5 780 ₸</option>
-                                <option value="standard">Стандарт — 15 780 ₸</option>
-                                <option value="annual">Годовой — 157 170 ₸/год</option>
-                              </select>
+                        <div className="space-y-5">
+                          {/* Staff count badge */}
+                          <div className="flex items-center gap-2">
+                            <Users size={14} className="text-violet-400" />
+                            <span className="text-xs text-zinc-400">Профилей в системе:</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20 text-xs font-semibold tabular-nums">
+                              {r.staff_count}
+                            </span>
+                          </div>
+
+                          {/* Owner */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Владелец</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Имя</label>
+                                <input value={infoEdit.owner_name} onChange={(e) => setInfoEdit({ ...infoEdit, owner_name: e.target.value })}
+                                  className={INPUT_CLS} placeholder="ФИО владельца" />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Телефон</label>
+                                <input value={infoEdit.owner_phone} onChange={(e) => setInfoEdit({ ...infoEdit, owner_phone: e.target.value })}
+                                  className={INPUT_CLS} placeholder="+7 700 000 00 00" />
+                              </div>
                             </div>
                           </div>
+
+                          {/* Admin */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Администратор</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Имя</label>
+                                <input value={infoEdit.admin_name} onChange={(e) => setInfoEdit({ ...infoEdit, admin_name: e.target.value })}
+                                  className={INPUT_CLS} placeholder="ФИО администратора" />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Телефон</label>
+                                <input value={infoEdit.admin_phone} onChange={(e) => setInfoEdit({ ...infoEdit, admin_phone: e.target.value })}
+                                  className={INPUT_CLS} placeholder="+7 700 000 00 00" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Restaurant phone */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Заведение</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Номер заведения</label>
+                                <input value={infoEdit.restaurant_phone} onChange={(e) => setInfoEdit({ ...infoEdit, restaurant_phone: e.target.value })}
+                                  className={INPUT_CLS} placeholder="+7 700 000 00 00" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Payment & Plan */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Подписка</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Статус оплаты</label>
+                                <select value={infoEdit.monthly_payment_status} onChange={(e) => setInfoEdit({ ...infoEdit, monthly_payment_status: e.target.value })}
+                                  className={INPUT_CLS}>
+                                  <option value="paid">Оплачено</option>
+                                  <option value="unpaid">Не оплачено</option>
+                                  <option value="overdue">Просрочено</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Дата следующего платежа</label>
+                                <input type="date" value={infoEdit.payment_due_date} onChange={(e) => setInfoEdit({ ...infoEdit, payment_due_date: e.target.value })}
+                                  className={INPUT_CLS} />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Тариф</label>
+                                <select value={infoEdit.plan_id} onChange={(e) => setInfoEdit({ ...infoEdit, plan_id: e.target.value })}
+                                  className={INPUT_CLS}>
+                                  <option value="starter">Стартовый — 5 780 ₸</option>
+                                  <option value="standard">Стандарт — 15 780 ₸</option>
+                                  <option value="annual">Годовой — 157 170 ₸/год</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
                           <div className="flex gap-2 pt-1">
                             <button onClick={saveInfoEdit} disabled={infoSaving} className={BTN_PRIMARY}>
                               {infoSaving ? "Сохранение..." : "Сохранить"}
