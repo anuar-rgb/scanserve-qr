@@ -21,7 +21,7 @@ type Restaurant = {
   payment_due_date: string | null;
   plan_id: string | null;
   created_at: string;
-  staff_count: number;
+  guest_count: number;
 };
 
 type StaffUser = {
@@ -510,9 +510,9 @@ export default function SuperAdminRestaurantsPage() {
                           {/* Staff count badge */}
                           <div className="flex items-center gap-2">
                             <Users size={14} className="text-violet-400" />
-                            <span className="text-xs text-zinc-400">Профилей в системе:</span>
+                            <span className="text-xs text-zinc-400">Зарегистрированных гостей:</span>
                             <span className="px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20 text-xs font-semibold tabular-nums">
-                              {r.staff_count}
+                              {r.guest_count}
                             </span>
                           </div>
 

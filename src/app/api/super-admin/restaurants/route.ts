@@ -23,14 +23,14 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, admin_name, admin_phone, restaurant_phone, monthly_payment_status, payment_due_date, plan_id, created_at, staff_users(count)")
+    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, admin_name, admin_phone, restaurant_phone, monthly_payment_status, payment_due_date, plan_id, created_at, guest_balances(count)")
     .order("numeric_id", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const mapped = (data ?? []).map((r) => {
-    const { staff_users, ...rest } = r as typeof r & { staff_users: { count: number }[] };
-    return { ...rest, staff_count: staff_users?.[0]?.count ?? 0 };
+    const { guest_balances, ...rest } = r as typeof r & { guest_balances: { count: number }[] };
+    return { ...rest, guest_count: guest_balances?.[0]?.count ?? 0 };
   });
 
   return NextResponse.json(mapped);
