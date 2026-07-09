@@ -294,10 +294,10 @@ export default function SuperAdminRestaurantsPage() {
 
   // ── Staff CRUD ─────────────────────────────────────────────────────────────
 
-  async function createStaff(restaurantId: string) {
+  async function createStaff(restaurantId: string): Promise<boolean> {
     if (!newStaff.username || !newStaff.password) {
       setNewStaffErr("Логин и пароль обязательны");
-      return;
+      return false;
     }
     setNewStaffSaving(true);
     setNewStaffErr(null);
@@ -309,13 +309,14 @@ export default function SuperAdminRestaurantsPage() {
     const d = await res.json().catch(() => ({})) as { error?: string; id?: string };
     if (!res.ok) {
       setNewStaffErr(d.error ?? "Ошибка создания");
-    } else {
-      setNewStaff(EMPTY_NEW_STAFF);
-      // reload staff list
-      const r2 = await fetch(`/api/super-admin/staff?restaurantId=${restaurantId}`);
-      if (r2.ok) setStaff(await r2.json());
+      setNewStaffSaving(false);
+      return false;
     }
+    setNewStaff(EMPTY_NEW_STAFF);
+    const r2 = await fetch(`/api/super-admin/staff?restaurantId=${restaurantId}`);
+    if (r2.ok) setStaff(await r2.json());
     setNewStaffSaving(false);
+    return true;
   }
 
   async function resetPassword(restaurantId: string) {
@@ -687,7 +688,7 @@ function StaffTab({
   setNewStaff: (f: NewStaffForm) => void;
   newStaffErr: string | null;
   newStaffSaving: boolean;
-  onCreateStaff: () => void;
+  onCreateStaff: () => Promise<boolean>;
   resetForm: ResetForm;
   setResetForm: (f: ResetForm) => void;
   resetSaving: boolean;
@@ -701,6 +702,7 @@ function StaffTab({
   const [copiedPwd, setCopiedPwd] = useState<string | null>(null);
   const [editingPwd, setEditingPwd] = useState<{ userId: string; value: string } | null>(null);
   const [savingPwd, setSavingPwd] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   function togglePwd(userId: string) {
     setVisiblePasswords((prev) => {
@@ -845,47 +847,76 @@ function StaffTab({
 
       {/* Create new staff */}
       <div className="border-t border-zinc-800 pt-4">
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Добавить администратора</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {!showCreateForm ? (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+          >
+            <span className="text-base leading-none">+</span>
+            Создать пользователя
+          </button>
+        ) : (
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Логин</label>
-            <input value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })}
-              className={INPUT_CLS} placeholder="manager_astori" autoComplete="off" />
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Добавить администратора</p>
+              <button
+                onClick={() => { setShowCreateForm(false); setNewStaff(EMPTY_NEW_STAFF); }}
+                className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                title="Закрыть"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Логин</label>
+                <input value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })}
+                  className={INPUT_CLS} placeholder="manager_astori" autoComplete="off" />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Пароль <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newStaff.password}
+                  onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+                  className={INPUT_CLS}
+                  placeholder="минимум 6 символов"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Роль</label>
+                <select value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
+                  className={INPUT_CLS}>
+                  <option value="owner">Владелец</option>
+                  <option value="manager">Менеджер</option>
+                  <option value="supervisor">Управляющий</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Имя (необязательно)</label>
+                <input value={newStaff.displayName} onChange={(e) => setNewStaff({ ...newStaff, displayName: e.target.value })}
+                  className={INPUT_CLS} placeholder="Имя Фамилия" />
+              </div>
+            </div>
+            {newStaffErr && <p className="text-xs text-red-400 mt-2">{newStaffErr}</p>}
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={async () => { const ok = await onCreateStaff(); if (ok) setShowCreateForm(false); }}
+                disabled={newStaffSaving || !newStaff.username || !newStaff.password}
+                className={BTN_PRIMARY}>
+                {newStaffSaving ? "Создание..." : "Создать"}
+              </button>
+              <button onClick={() => { setShowCreateForm(false); setNewStaff(EMPTY_NEW_STAFF); }}
+                className={BTN_SECONDARY}>
+                Отмена
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">
-              Пароль <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={newStaff.password}
-              onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
-              className={INPUT_CLS}
-              placeholder="минимум 6 символов"
-              autoComplete="off"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">Роль</label>
-            <select value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
-              className={INPUT_CLS}>
-              <option value="owner">Владелец</option>
-              <option value="manager">Менеджер</option>
-              <option value="supervisor">Управляющий</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">Имя (необязательно)</label>
-            <input value={newStaff.displayName} onChange={(e) => setNewStaff({ ...newStaff, displayName: e.target.value })}
-              className={INPUT_CLS} placeholder="Имя Фамилия" />
-          </div>
-        </div>
-        {newStaffErr && <p className="text-xs text-red-400 mt-2">{newStaffErr}</p>}
-        <button onClick={onCreateStaff} disabled={newStaffSaving || !newStaff.username || !newStaff.password}
-          className={`mt-3 ${BTN_PRIMARY}`}>
-          {newStaffSaving ? "Создание..." : "Создать пользователя"}
-        </button>
+        )}
       </div>
     </div>
   );
