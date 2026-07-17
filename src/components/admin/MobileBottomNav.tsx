@@ -9,7 +9,7 @@ import {
   BarChart2, TrendingUp, Package, Monitor, Star, Tag,
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
-  Clock, LogIn, AlertTriangle, CalendarDays,
+  Clock, LogIn, AlertTriangle, CalendarDays, Truck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -31,11 +31,14 @@ type TabItem = {
   strictOwner?: boolean;
   noWaiter?: boolean;
   staffOnly?: boolean;
+  noCourier?: boolean;
+  courierAccess?: boolean;
 };
 type DrawerSection = {
   titleKey: AdminKey;
   ownerOnly?: boolean;
   strictOwner?: boolean;
+  courierSection?: boolean;
   items: {
     labelKey: AdminKey;
     icon: LucideIcon;
@@ -47,13 +50,21 @@ type DrawerSection = {
 };
 
 const BOTTOM_TABS: TabItem[] = [
-  { labelKey: "navHall",         icon: LayoutGrid,  href: "/admin/hall" },
+  { labelKey: "navDelivery",     icon: Truck,       href: "/admin/delivery",       courierAccess: true },
+  { labelKey: "navHall",         icon: LayoutGrid,  href: "/admin/hall",           noCourier: true },
   { labelKey: "navOrders",       icon: ShoppingBag, href: "/admin/orders",         ownerOnly: true },
   { labelKey: "navCatalog",      icon: Package,     href: "/admin/dashboard",      ownerOnly: true },
   { labelKey: "navMyAttendance", icon: Clock,       href: "/admin/my-attendance",  staffOnly: true },
 ];
 
 const DRAWER_NAV: DrawerSection[] = [
+  {
+    titleKey: "sectionDelivery",
+    courierSection: true,
+    items: [
+      { labelKey: "navDelivery", icon: Truck, href: "/admin/delivery" },
+    ],
+  },
   {
     titleKey: "sectionOwner",
     strictOwner: true,
@@ -136,6 +147,7 @@ export default function MobileBottomNav() {
 
   const STAFF_ROLES = new Set(["waiter","chef","bartender","hostess","courier","cleaner","doorman","sommelier","senior_waiter","runner","storekeeper","accountant"]);
   const isStaff = role !== null && STAFF_ROLES.has(role);
+  const isCourier = role === "courier";
 
   useEffect(() => setMounted(true), []);
 
@@ -192,10 +204,12 @@ export default function MobileBottomNav() {
   }
 
   const visibleTabs = BOTTOM_TABS.filter((tab) => {
-    if (tab.strictOwner && !isStrictOwner) return false;
-    if (tab.ownerOnly  && !isOwner)        return false;
-    if (tab.noWaiter   && role === "waiter") return false;
-    if (tab.staffOnly  && isOwner)         return false;
+    if (tab.strictOwner  && !isStrictOwner)   return false;
+    if (tab.ownerOnly    && !isOwner)          return false;
+    if (tab.noWaiter     && role === "waiter") return false;
+    if (tab.staffOnly    && isOwner)           return false;
+    if (tab.noCourier    && isCourier)         return false;
+    if (tab.courierAccess) return isCourier || isOwner;
     return true;
   });
 
@@ -269,6 +283,7 @@ export default function MobileBottomNav() {
             {DRAWER_NAV.map((section) => {
               if (section.strictOwner && !isStrictOwner) return null;
               if (section.ownerOnly && !isOwner) return null;
+              if (section.courierSection) { if (!isCourier && !isOwner) return null; }
 
               const visibleItems = section.items.filter((item) => {
                 if (item.strictOwner && !isStrictOwner) return false;
