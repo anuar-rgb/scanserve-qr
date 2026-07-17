@@ -399,6 +399,7 @@ export interface CartDrawerProps {
   clientId?: string;
   initialTableNumber?: string;
   happyHours?: HappyHourInfo[];
+  restaurantOpen?: boolean;
 }
 
 export function CartDrawer({
@@ -418,6 +419,7 @@ export function CartDrawer({
   clientId = "anon",
   initialTableNumber,
   happyHours = [],
+  restaurantOpen = true,
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
   const [step, setStep]                       = useState<Step>("cart");
@@ -2176,10 +2178,25 @@ export function CartDrawer({
             </div>
 
             <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0 }}>
+              {!restaurantOpen && (
+                <p style={{
+                  margin: `0 0 ${SP.sm}px`,
+                  textAlign: "center",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#F59E0B",
+                }}>
+                  {lang === "kz"
+                    ? "Мекеме қазір жабық. Тапсырыс беру мүмкін емес."
+                    : lang === "ru"
+                    ? "Заведение сейчас закрыто. Заказы не принимаются."
+                    : "Restaurant is currently closed. Orders not accepted."}
+                </p>
+              )}
               <button
                 onClick={handlePlaceOrder}
-                disabled={!canPlaceOrder || loading}
-                style={primaryBtn(!canPlaceOrder || loading)}
+                disabled={!canPlaceOrder || loading || !restaurantOpen}
+                style={primaryBtn(!canPlaceOrder || loading || !restaurantOpen)}
               >
                 {loading ? "…" : orderType === "dine-in" ? tn("sendOrder", lang) : tn("placeOrder", lang)}
               </button>

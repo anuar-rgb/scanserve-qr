@@ -49,6 +49,24 @@ export function isHappyHourActive(hh: HappyHourInfo): boolean {
   return t >= hh.startTime && t < hh.endTime;
 }
 
+function parseWorkingHours(wh: string | LS | undefined): { openMins: number; closeMins: number } | null {
+  if (!wh) return null;
+  const str = typeof wh === "string" ? wh : (wh.ru ?? wh.en);
+  const m = str.match(/(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return { openMins: parseInt(m[1]) * 60 + parseInt(m[2]), closeMins: parseInt(m[3]) * 60 + parseInt(m[4]) };
+}
+
+function checkIsOpen(wh: string | LS | undefined): boolean {
+  const parsed = parseWorkingHours(wh);
+  if (!parsed) return true;
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const { openMins, closeMins } = parsed;
+  if (closeMins <= openMins) return nowMins >= openMins || nowMins < closeMins;
+  return nowMins >= openMins && nowMins < closeMins;
+}
+
 export function getHappyHourDiscount(categoryId: string | undefined, happyHours: HappyHourInfo[]): number {
   if (!categoryId) return 0;
   let max = 0;
@@ -2882,6 +2900,7 @@ export function MenuTemplate({
   } as React.CSSProperties;
 
   const onImage  = !!heroBanner?.imageUrl;
+  const isRestaurantOpen = checkIsOpen(restaurant.workingHours);
 
   return (
     <div
@@ -3128,6 +3147,27 @@ export function MenuTemplate({
           padding: `${SP.lg}px ${SP.md}px ${view === "menu" ? 190 : 140}px`,
         }}
       >
+        {/* ── CLOSED BANNER ───────────────────────────────────────────────── */}
+        {!isRestaurantOpen && restaurant.workingHours && (
+          <div style={{
+            backgroundColor: "#F59E0B",
+            color: "#1C0F00",
+            borderRadius: R.lg,
+            padding: "12px 16px",
+            marginBottom: SP.md,
+            textAlign: "center",
+            fontSize: 13,
+            fontWeight: 700,
+            lineHeight: 1.5,
+          }}>
+            {lang === "kz"
+              ? `Мекеме қазір жабық. Жұмыс уақыты: ${typeof restaurant.workingHours === "string" ? restaurant.workingHours : restaurant.workingHours.kz ?? restaurant.workingHours.ru ?? restaurant.workingHours.en}`
+              : lang === "ru"
+              ? `Заведение сейчас закрыто. Режим работы: ${typeof restaurant.workingHours === "string" ? restaurant.workingHours : restaurant.workingHours.ru ?? restaurant.workingHours.en}`
+              : `Restaurant is currently closed. Working hours: ${typeof restaurant.workingHours === "string" ? restaurant.workingHours : restaurant.workingHours.en}`
+            }
+          </div>
+        )}
         {/* ── SEARCH RESULTS ─────────────────────────────────────────────── */}
         {isSearching && (
           filteredDishes.length === 0 ? (
@@ -3413,6 +3453,7 @@ export function MenuTemplate({
         onOrderPlaced={saveOrder}
         initialTableNumber={initialTableNumber}
         happyHours={happyHours}
+        restaurantOpen={isRestaurantOpen}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}
