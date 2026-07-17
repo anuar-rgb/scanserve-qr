@@ -26,6 +26,7 @@ type NavSection = {
   ownerOnly?: true;
   strictOwner?: true;
   courierSection?: true;
+  noCourier?: true;
   items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; planFeature?: string; courierAccess?: true }[];
 };
 
@@ -63,6 +64,7 @@ const NAV: NavSection[] = [
   },
   {
     titleKey: "sectionPOS",
+    noCourier: true,
     items: [
       { labelKey: "navHall",     icon: LayoutGrid, href: "/admin/hall"                },
       { labelKey: "navInvoices", icon: FileText,   href: "/admin/invoices", noWaiter: true },
@@ -185,6 +187,7 @@ export default function AdminSidebar() {
   const visibleSections = NAV.filter((s) => {
     if (s.strictOwner && !isStrictOwner) return false;
     if (s.ownerOnly && !isOwner) return false;
+    if (s.noCourier && isCourier) return false;
     // Delivery section: visible for courier + owner/manager/supervisor
     if (s.courierSection) return isCourier || isOwner;
     return true;
