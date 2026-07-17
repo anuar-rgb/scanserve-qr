@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
 // Body: { guestId, restaurantId, newAmount }
 // Owner-only: sets the balance to a specific value
 export async function PUT(req: NextRequest) {
-  const role = req.cookies.get("admin_session")?.value;
+  const role = getSessionRole(req);
   if (role !== "owner") {
     return NextResponse.json({ error: "Недостаточно прав. Только владелец может изменять бонусный баланс." }, { status: 403 });
   }

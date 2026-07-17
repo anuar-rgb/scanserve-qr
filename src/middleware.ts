@@ -17,20 +17,17 @@ const POS_ONLY_ROLES = [
 
 async function verifySession(signed: string): Promise<string | null> {
   const dot = signed.lastIndexOf(".");
-  if (dot < 1) {
-    // Legacy unsigned cookie — treat value as plain role (backward compat)
-    const VALID_ROLES = new Set([...POS_ONLY_ROLES, "owner", "manager", "supervisor"]);
-    return VALID_ROLES.has(signed) ? signed : null;
-  }
+  if (dot < 1) return null; // reject unsigned cookies
   const payload = signed.slice(0, dot);
-  const sig = signed.slice(dot + 1);
+  const sig     = signed.slice(dot + 1);
 
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "fallback-secret-key";
+  const s = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!s) return null;
   const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+    "raw", new TextEncoder().encode(s), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
   const expected = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload))))
-    .map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+    .map(b => b.toString(16).padStart(2, "0")).join("");
 
   return sig === expected ? payload : null;
 }

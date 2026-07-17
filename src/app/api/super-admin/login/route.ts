@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { signSuperAdminSession } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set("super_admin_session", "authenticated", {
+  response.cookies.set("super_admin_session", signSuperAdminSession(), {
     httpOnly: true,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,

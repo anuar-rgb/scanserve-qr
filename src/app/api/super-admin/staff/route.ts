@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifySuperAdminSession } from "@/lib/session";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,7 +12,7 @@ function getSupabase() {
 }
 
 function requireAuth(request: NextRequest) {
-  return request.cookies.get("super_admin_session")?.value === "authenticated";
+  return verifySuperAdminSession(request.cookies.get("super_admin_session")?.value ?? "");
 }
 
 const ADMIN_ROLES = ["owner", "manager", "supervisor"];
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("staff_users")
-    .select("id, username, role, display_name, is_active, created_at, plain_password")
+    .select("id, username, role, display_name, is_active, created_at")
     .eq("restaurant_id", restaurantId)
     .in("role", ADMIN_ROLES)
     .order("created_at", { ascending: true });
@@ -67,17 +68,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  // Store plain-text password so super-admin can distribute credentials
-  if (data) {
-    await supabase.from("staff_users").update({ plain_password: password }).eq("id", data);
-  }
-
   return NextResponse.json({ id: data }, { status: 201 });
 }
 
 // PATCH /api/super-admin/staff
-// Case A: { userId, restaurantId, newPassword } → full password reset (hash + plain_password)
-// Case B: { userId, plainPassword }             → update only the displayed plain_password (no hash change)
+// { userId, restaurantId, newPassword } → reset password
 export async function PATCH(request: NextRequest) {
   if (!requireAuth(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -87,18 +82,6 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = getSupabase();
 
-  // Case B: only update the plain_password display field
-  if ("plainPassword" in body) {
-    const { plainPassword } = body as { userId: string; plainPassword: string };
-    const { error } = await supabase
-      .from("staff_users")
-      .update({ plain_password: plainPassword || null })
-      .eq("id", userId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
-  }
-
-  // Case A: full password reset
   const { restaurantId, newPassword } = body as { restaurantId: string; newPassword: string };
   if (!restaurantId || !newPassword) {
     return NextResponse.json({ error: "restaurantId и newPassword обязательны" }, { status: 400 });
@@ -116,7 +99,7 @@ export async function PATCH(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await supabase.from("staff_users")
-    .update({ must_change_password: false, plain_password: newPassword })
+    .update({ must_change_password: false })
     .eq("id", userId);
 
   return NextResponse.json({ ok: true });

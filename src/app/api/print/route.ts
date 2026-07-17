@@ -6,6 +6,7 @@ import net from "net";
 import { createClient } from "@supabase/supabase-js";
 import { buildKitchenTicket, buildPreCheck, buildTestPage } from "@/lib/escpos";
 import type { EscPosItem } from "@/lib/escpos";
+import { getSessionRole } from "@/lib/session";
 
 // ── Supabase (server-side, uses service role if available) ────────────────────
 
@@ -105,8 +106,7 @@ interface PrintRequestBody {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get("admin_session")?.value;
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!getSessionRole(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: PrintRequestBody;
   try {

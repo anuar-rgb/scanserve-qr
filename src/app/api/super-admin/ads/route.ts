@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifySuperAdminSession } from "@/lib/session";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,8 +12,7 @@ function getSupabase() {
 }
 
 function requireAuth(request: NextRequest) {
-  const session = request.cookies.get("super_admin_session");
-  return session?.value === "authenticated";
+  return verifySuperAdminSession(request.cookies.get("super_admin_session")?.value ?? "");
 }
 
 export async function GET(request: NextRequest) {

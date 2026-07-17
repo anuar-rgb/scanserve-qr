@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import webpush from "web-push";
+import { getSessionRole } from "@/lib/session";
 
 // Body: { title: string, body: string, url?: string }
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const session = cookieStore.get("admin_session")?.value;
-  if (!session) {
+  if (!getSessionRole(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

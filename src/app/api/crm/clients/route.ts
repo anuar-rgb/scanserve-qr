@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { getSessionRole } from "@/lib/session";
 
 type GuestRow = { id: string; name: string | null; phone: string };
 
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  const session = cookieStore.get("admin_session")?.value;
-  if (!session) {
+  if (!getSessionRole(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
