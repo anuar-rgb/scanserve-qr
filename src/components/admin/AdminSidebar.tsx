@@ -26,7 +26,9 @@ type NavSection = {
   ownerOnly?: true;
   strictOwner?: true;
   courierSection?: true;
-  noCourier?: true;
+  noPOS?: true;
+  storekeeperAccess?: true;
+  accountantAccess?: true;
   items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; planFeature?: string; courierAccess?: true }[];
 };
 
@@ -63,8 +65,22 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    titleKey: "sectionWarehouse",
+    storekeeperAccess: true,
+    items: [
+      { labelKey: "navWarehouse", icon: Boxes, href: "/admin/warehouse" },
+    ],
+  },
+  {
+    titleKey: "sectionFinance",
+    accountantAccess: true,
+    items: [
+      { labelKey: "navBilling", icon: CreditCard, href: "/admin/billing" },
+    ],
+  },
+  {
     titleKey: "sectionPOS",
-    noCourier: true,
+    noPOS: true,
     items: [
       { labelKey: "navHall",     icon: LayoutGrid, href: "/admin/hall"                },
       { labelKey: "navInvoices", icon: FileText,   href: "/admin/invoices", noWaiter: true },
@@ -76,7 +92,6 @@ const NAV: NavSection[] = [
     items: [
       { labelKey: "navCatalog",    icon: Package,      href: "/admin/dashboard",  ownerOnly: true },
       { labelKey: "navModifiers", icon: Settings,     href: "/admin/modifiers",  ownerOnly: true },
-      { labelKey: "navWarehouse",  icon: Boxes,        href: "/admin/warehouse",  ownerOnly: true },
       { labelKey: "navAttendance", icon: CalendarDays, href: "/admin/attendance", ownerOnly: true },
     ],
   },
@@ -103,7 +118,6 @@ const NAV: NavSection[] = [
       { labelKey: "navDocuments",    icon: FilePen,      href: "/admin/documents",          ownerOnly: true },
       { labelKey: "navPaymentBanks", icon: CreditCard,  href: "/admin/payment-banks",      strictOwner: true },
       { labelKey: "navPrinters",     icon: PrinterIcon, href: "/admin/settings/printers",  ownerOnly: true },
-      { labelKey: "navBilling",      icon: CreditCard,  href: "/admin/billing",             ownerOnly: true },
       { labelKey: "navProfile",      icon: Settings,    href: "/admin/settings",            ownerOnly: true },
     ],
   },
@@ -184,12 +198,14 @@ export default function AdminSidebar() {
   }
 
   const isCourier = role === "courier";
+  const NO_POS_ROLES = new Set(["courier", "storekeeper", "cleaner", "doorman"]);
   const visibleSections = NAV.filter((s) => {
     if (s.strictOwner && !isStrictOwner) return false;
     if (s.ownerOnly && !isOwner) return false;
-    if (s.noCourier && isCourier) return false;
-    // Delivery section: visible for courier + owner/manager/supervisor
+    if (s.noPOS && NO_POS_ROLES.has(role ?? "")) return false;
     if (s.courierSection) return isCourier || isOwner;
+    if (s.storekeeperAccess) return role === "storekeeper" || isOwner;
+    if (s.accountantAccess) return role === "accountant" || isOwner;
     return true;
   });
 

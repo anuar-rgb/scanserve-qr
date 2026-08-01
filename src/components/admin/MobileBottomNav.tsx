@@ -31,7 +31,7 @@ type TabItem = {
   strictOwner?: boolean;
   noWaiter?: boolean;
   staffOnly?: boolean;
-  noCourier?: boolean;
+  noPOS?: boolean;
   courierAccess?: boolean;
 };
 type DrawerSection = {
@@ -39,6 +39,8 @@ type DrawerSection = {
   ownerOnly?: boolean;
   strictOwner?: boolean;
   courierSection?: boolean;
+  storekeeperAccess?: boolean;
+  accountantAccess?: boolean;
   items: {
     labelKey: AdminKey;
     icon: LucideIcon;
@@ -51,7 +53,7 @@ type DrawerSection = {
 
 const BOTTOM_TABS: TabItem[] = [
   { labelKey: "navDelivery",     icon: Truck,       href: "/admin/delivery",       courierAccess: true },
-  { labelKey: "navHall",         icon: LayoutGrid,  href: "/admin/hall",           noCourier: true },
+  { labelKey: "navHall",         icon: LayoutGrid,  href: "/admin/hall",           noPOS: true },
   { labelKey: "navOrders",       icon: ShoppingBag, href: "/admin/orders",         ownerOnly: true },
   { labelKey: "navCatalog",      icon: Package,     href: "/admin/dashboard",      ownerOnly: true },
   { labelKey: "navMyAttendance", icon: Clock,       href: "/admin/my-attendance",  staffOnly: true },
@@ -63,6 +65,20 @@ const DRAWER_NAV: DrawerSection[] = [
     courierSection: true,
     items: [
       { labelKey: "navDelivery", icon: Truck, href: "/admin/delivery" },
+    ],
+  },
+  {
+    titleKey: "sectionWarehouse",
+    storekeeperAccess: true,
+    items: [
+      { labelKey: "navWarehouse", icon: Boxes, href: "/admin/warehouse" },
+    ],
+  },
+  {
+    titleKey: "sectionFinance",
+    accountantAccess: true,
+    items: [
+      { labelKey: "navBilling", icon: CreditCard, href: "/admin/billing" },
     ],
   },
   {
@@ -93,7 +109,6 @@ const DRAWER_NAV: DrawerSection[] = [
     ownerOnly: true,
     items: [
       { labelKey: "navModifiers",  icon: Settings,     href: "/admin/modifiers",  ownerOnly: true },
-      { labelKey: "navWarehouse",  icon: Boxes,        href: "/admin/warehouse",  ownerOnly: true },
       { labelKey: "navInvoices",   icon: FileText,     href: "/admin/invoices",   ownerOnly: true },
       { labelKey: "navAttendance", icon: CalendarDays, href: "/admin/attendance", ownerOnly: true },
     ],
@@ -121,7 +136,6 @@ const DRAWER_NAV: DrawerSection[] = [
       { labelKey: "navDocuments",    icon: FilePen,     href: "/admin/documents",         ownerOnly: true },
       { labelKey: "navPaymentBanks", icon: CreditCard,  href: "/admin/payment-banks",     strictOwner: true },
       { labelKey: "navPrinters",     icon: PrinterIcon, href: "/admin/settings/printers", ownerOnly: true },
-      { labelKey: "navBilling",      icon: CreditCard,  href: "/admin/billing",           ownerOnly: true },
       { labelKey: "navProfile",      icon: Settings,    href: "/admin/settings",          ownerOnly: true },
     ],
   },
@@ -148,6 +162,7 @@ export default function MobileBottomNav() {
   const STAFF_ROLES = new Set(["waiter","chef","bartender","hostess","courier","cleaner","doorman","sommelier","senior_waiter","runner","storekeeper","accountant"]);
   const isStaff = role !== null && STAFF_ROLES.has(role);
   const isCourier = role === "courier";
+  const NO_POS_ROLES = new Set(["courier", "storekeeper", "cleaner", "doorman"]);
 
   useEffect(() => setMounted(true), []);
 
@@ -204,11 +219,11 @@ export default function MobileBottomNav() {
   }
 
   const visibleTabs = BOTTOM_TABS.filter((tab) => {
-    if (tab.strictOwner  && !isStrictOwner)   return false;
-    if (tab.ownerOnly    && !isOwner)          return false;
-    if (tab.noWaiter     && role === "waiter") return false;
-    if (tab.staffOnly    && isOwner)           return false;
-    if (tab.noCourier    && isCourier)         return false;
+    if (tab.strictOwner  && !isStrictOwner)          return false;
+    if (tab.ownerOnly    && !isOwner)                return false;
+    if (tab.noWaiter     && role === "waiter")        return false;
+    if (tab.staffOnly    && isOwner)                  return false;
+    if (tab.noPOS        && NO_POS_ROLES.has(role ?? "")) return false;
     if (tab.courierAccess) return isCourier || isOwner;
     return true;
   });
@@ -283,7 +298,9 @@ export default function MobileBottomNav() {
             {DRAWER_NAV.map((section) => {
               if (section.strictOwner && !isStrictOwner) return null;
               if (section.ownerOnly && !isOwner) return null;
-              if (section.courierSection) { if (!isCourier && !isOwner) return null; }
+              if (section.courierSection && !isCourier && !isOwner) return null;
+              if (section.storekeeperAccess && role !== "storekeeper" && !isOwner) return null;
+              if (section.accountantAccess  && role !== "accountant"  && !isOwner) return null;
 
               const visibleItems = section.items.filter((item) => {
                 if (item.strictOwner && !isStrictOwner) return false;

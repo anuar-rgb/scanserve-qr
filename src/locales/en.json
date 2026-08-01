@@ -272,6 +272,8 @@
     "showcaseCardActive": "Active",
     "sectionDelivery": "Delivery",
     "navDelivery": "Deliveries",
+    "sectionWarehouse": "Warehouse",
+    "sectionFinance": "Finance",
     "sectionPOS": "POS Terminal",
     "navHall": "Hall Plan",
     "descHall": "Interactive table map with live order status.",

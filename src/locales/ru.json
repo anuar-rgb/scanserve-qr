@@ -272,6 +272,8 @@
     "showcaseCardActive": "Активна",
     "sectionDelivery": "Доставка",
     "navDelivery": "Доставки",
+    "sectionWarehouse": "Склад",
+    "sectionFinance": "Финансы",
     "sectionPOS": "POS Терминал",
     "navHall": "План зала",
     "descHall": "Интерактивная карта столов с актуальным статусом заказов.",

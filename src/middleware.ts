@@ -36,13 +36,20 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("admin_session")?.value;
 
+  const ROLE_HOME: Partial<Record<string, string>> = {
+    courier:     "/admin/delivery",
+    storekeeper: "/admin/warehouse",
+    accountant:  "/admin/billing",
+    cashier:     "/admin/invoices",
+    cleaner:     "/admin/my-attendance",
+    doorman:     "/admin/my-attendance",
+  };
+
   if (pathname === "/login") {
     if (sessionCookie) {
       const role = await verifySession(sessionCookie);
       if (role) {
-        const dest = role === "courier"
-          ? "/admin/delivery"
-          : POS_ONLY_ROLES.includes(role) ? "/admin/hall" : "/admin/analytics";
+        const dest = ROLE_HOME[role] ?? (POS_ONLY_ROLES.includes(role) ? "/admin/hall" : "/admin/analytics");
         return NextResponse.redirect(new URL(dest, request.url));
       }
     }
@@ -61,12 +68,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (POS_ONLY_ROLES.includes(role)) {
-    // Courier can access /admin/delivery
-    if (role === "courier" && (pathname === "/admin/delivery" || pathname.startsWith("/admin/delivery/"))) {
+    const allowedHome = ROLE_HOME[role];
+    if (allowedHome && (pathname === allowedHome || pathname.startsWith(allowedHome + "/"))) {
       return NextResponse.next();
     }
     const blocked = POS_BLOCKED.some((p) => pathname === p || pathname.startsWith(p + "/"));
-    if (blocked) return NextResponse.redirect(new URL(role === "courier" ? "/admin/delivery" : "/admin/hall", request.url));
+    if (blocked) return NextResponse.redirect(new URL(allowedHome ?? "/admin/hall", request.url));
   } else if (role === "manager" || role === "supervisor") {
     const blocked = OWNER_EXCLUSIVE.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (blocked) return NextResponse.redirect(new URL("/admin/analytics", request.url));
