@@ -589,8 +589,11 @@ export function CartDrawer({
     : true;
 
   const bankOk =
-    payment !== "remote-payment" ||
-    (remoteBank !== null && invoicePhone.trim().replace(/\D/g, "").length >= 10);
+    (payment !== "remote-payment" ||
+      (remoteBank !== null && invoicePhone.trim().replace(/\D/g, "").length >= 10)) &&
+    (payment !== "card-transfer" ||
+      cardBankIdx !== null ||
+      paymentBanks.length === 0);
 
   const preorderOk =
     timingMode === "asap" ||
@@ -826,7 +829,8 @@ export function CartDrawer({
           customer_phone: order.phoneNumber ?? null,
           customer_city: order.cityName ?? null,
           delivery_address: order.deliveryAddress ?? null,
-          payment_bank: order.remoteBank ?? null,
+          payment_bank: order.remoteBank
+            ?? (order.selectedBankIdx != null ? (paymentBanks[order.selectedBankIdx]?.bank_name ?? null) : null),
           payment_phone: order.invoicePhone ?? null,
           guest_id: guestSession?.id ?? null,
           used_bonuses: bonusesApplied > 0,
@@ -1734,62 +1738,106 @@ export function CartDrawer({
                     ))
                   )}
 
-                  {/* Card transfer: all banks with copy buttons */}
+                  {/* Card transfer: selectable bank cards */}
                   {payment === "card-transfer" && paymentBanks.length > 0 && (
                     <div style={{ marginBottom: SP.md }}>
                       <p style={{ fontSize: 12, color: muted, margin: `0 0 ${SP.sm}px`, lineHeight: 1.5 }}>
                         {lang === "en"
-                          ? "Please transfer the order amount to one of the cards below:"
+                          ? "Select a card to transfer to:"
                           : lang === "kz"
-                          ? "Тапсырыс сомасын төмендегі карталардың біріне аударыңыз:"
-                          : "Пожалуйста, переведите сумму заказа или предоплаты на одну из указанных карт:"}
+                          ? "Аудару үшін картаны таңдаңыз:"
+                          : "Выберите карту для перевода:"}
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {paymentBanks.map((bank, i) => (
-                          <div key={bank.id} style={{ borderRadius: R.md, border: `1.5px solid ${isDark ? "#3A3A3A" : "#D0D4D9"}`, overflow: "hidden" }}>
-                            <div style={{ padding: "8px 14px", background: isDark ? "#252525" : "#ECEEF0", borderBottom: `1px solid ${border}` }}>
-                              <p style={{ fontSize: 11, fontWeight: 700, color: muted, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                                💳 {bank.bank_name}
-                              </p>
-                            </div>
-                            <div style={{ padding: "10px 14px", background: surface }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: SP.sm }}>
-                                <p style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: "0.03em", fontVariantNumeric: "tabular-nums", flex: 1 }}>
-                                  {bank.phone}
+                        {paymentBanks.map((bank, i) => {
+                          const isSelected = cardBankIdx === i;
+                          const accentClr = isDark ? "#f59e0b" : "#d97706";
+                          const selBorder = accentClr;
+                          const selBg     = isDark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.05)";
+                          return (
+                            <div
+                              key={bank.id}
+                              onClick={() => setCardBankIdx(i)}
+                              style={{
+                                borderRadius: R.md,
+                                border: `2px solid ${isSelected ? selBorder : (isDark ? "#3A3A3A" : "#D0D4D9")}`,
+                                overflow: "hidden",
+                                cursor: "pointer",
+                                background: isSelected ? selBg : "transparent",
+                                transition: "border-color 0.15s, background 0.15s",
+                              }}
+                            >
+                              {/* Bank header with radio indicator */}
+                              <div style={{
+                                padding: "8px 14px",
+                                background: isSelected
+                                  ? (isDark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.10)")
+                                  : (isDark ? "#252525" : "#ECEEF0"),
+                                borderBottom: `1px solid ${isSelected ? "rgba(245,158,11,0.25)" : border}`,
+                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                              }}>
+                                <p style={{ fontSize: 11, fontWeight: 700, color: isSelected ? accentClr : muted, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                                  💳 {bank.bank_name}
                                 </p>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(bank.phone).then(() => {
-                                      setCopiedIdx(i);
-                                      setTimeout(() => setCopiedIdx(null), 2000);
-                                    });
-                                  }}
-                                  style={{
-                                    display: "flex", alignItems: "center", gap: 4,
-                                    padding: "5px 10px", borderRadius: R.full,
-                                    border: `1.5px solid ${copiedIdx === i ? (isDark ? "#6DB86D" : "#2E7D32") : border}`,
-                                    background: copiedIdx === i ? (isDark ? "rgba(109,184,109,0.15)" : "rgba(46,125,50,0.08)") : surface,
-                                    color: copiedIdx === i ? (isDark ? "#6DB86D" : "#2E7D32") : muted,
-                                    fontSize: 11, fontWeight: 700, cursor: "pointer",
-                                    transition: "all 0.2s", flexShrink: 0,
-                                  } as React.CSSProperties}
-                                >
-                                  {copiedIdx === i ? <Check size={11} /> : <Copy size={11} />}
-                                  {copiedIdx === i
-                                    ? (lang === "en" ? "Copied!" : lang === "kz" ? "Көшірілді!" : "Скопировано!")
-                                    : (lang === "en" ? "Copy" : lang === "kz" ? "Көшіру" : "Копировать")}
-                                </button>
+                                {/* Radio circle */}
+                                <span style={{
+                                  width: 16, height: 16, borderRadius: "50%",
+                                  border: `2px solid ${isSelected ? accentClr : (isDark ? "#555" : "#bbb")}`,
+                                  background: isSelected ? accentClr : "transparent",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  flexShrink: 0, transition: "all 0.15s",
+                                }}>
+                                  {isSelected && (
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", display: "block" }} />
+                                  )}
+                                </span>
                               </div>
-                              {bank.recipient_name && (
-                                <p style={{ fontSize: 13, color: textClr, margin: "4px 0 0", fontWeight: 500 }}>
-                                  {tn("recipient", lang)}: <strong>{bank.recipient_name}</strong>
-                                </p>
-                              )}
+                              <div style={{ padding: "10px 14px", background: "transparent" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: SP.sm }}>
+                                  <p style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: "0.03em", fontVariantNumeric: "tabular-nums", flex: 1 }}>
+                                    {bank.phone}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(bank.phone).then(() => {
+                                        setCopiedIdx(i);
+                                        setTimeout(() => setCopiedIdx(null), 2000);
+                                      });
+                                    }}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 4,
+                                      padding: "5px 10px", borderRadius: R.full,
+                                      border: `1.5px solid ${copiedIdx === i ? (isDark ? "#6DB86D" : "#2E7D32") : border}`,
+                                      background: copiedIdx === i ? (isDark ? "rgba(109,184,109,0.15)" : "rgba(46,125,50,0.08)") : surface,
+                                      color: copiedIdx === i ? (isDark ? "#6DB86D" : "#2E7D32") : muted,
+                                      fontSize: 11, fontWeight: 700, cursor: "pointer",
+                                      transition: "all 0.2s", flexShrink: 0,
+                                    } as React.CSSProperties}
+                                  >
+                                    {copiedIdx === i ? <Check size={11} /> : <Copy size={11} />}
+                                    {copiedIdx === i
+                                      ? (lang === "en" ? "Copied!" : lang === "kz" ? "Көшірілді!" : "Скопировано!")
+                                      : (lang === "en" ? "Copy" : lang === "kz" ? "Көшіру" : "Копировать")}
+                                  </button>
+                                </div>
+                                {bank.recipient_name && (
+                                  <p style={{ fontSize: 13, color: textClr, margin: "4px 0 0", fontWeight: 500 }}>
+                                    {tn("recipient", lang)}: <strong>{bank.recipient_name}</strong>
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
+                      {/* Hint when no bank selected yet */}
+                      {cardBankIdx === null && (
+                        <p style={{ fontSize: 11, color: isDark ? "#f97316" : "#c2410c", margin: `${SP.sm}px 0 0`, textAlign: "center" }}>
+                          {lang === "en" ? "Please select a bank to continue" : lang === "kz" ? "Жалғастыру үшін банкті таңдаңыз" : "Выберите банк для перевода"}
+                        </p>
+                      )}
                     </div>
                   )}
 
