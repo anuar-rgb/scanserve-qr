@@ -1767,6 +1767,22 @@ function OrderSlotCard({
         {items.length > 0 && (
           <p className="text-[11px] text-muted-foreground mt-1">{items.length} позиц.</p>
         )}
+
+        {/* Delivery status badge */}
+        {order.type === "delivery" && (() => {
+          const ds = order.delivery_status ?? "new";
+          const DS_LABEL: Record<string, { label: string; color: string }> = {
+            new:        { label: "🟠 В обработке",    color: "text-orange-500" },
+            ready:      { label: "🟡 Готов к выдаче", color: "text-amber-500" },
+            accepted:   { label: "🔵 Принят",         color: "text-blue-500" },
+            in_transit: { label: "🛵 В пути",         color: "text-violet-500" },
+            delivered:  { label: "✅ Доставлен",      color: "text-emerald-500" },
+          };
+          const cfg = DS_LABEL[ds] ?? DS_LABEL.new;
+          return (
+            <p className={`text-[10px] font-semibold mt-1 ${cfg.color}`}>{cfg.label}</p>
+          );
+        })()}
       </div>
 
       {!isWaiter && (
@@ -2127,6 +2143,7 @@ function OrderSlotPanel({
   const [notifyingCourier, setNotifyingCourier]   = useState(false);
   const [courierNotified, setCourierNotified]     = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
+  const [markingReady, setMarkingReady]           = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -2213,6 +2230,20 @@ function OrderSlotPanel({
     } finally {
       setNotifyingCourier(false);
     }
+  }
+
+  async function handleMarkDeliveryReady() {
+    setMarkingReady(true);
+    try {
+      const res = await fetch("/api/admin/delivery-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, deliveryStatus: "ready" }),
+      });
+      if (res.ok) { toast.success("Заказ помечен как готов к выдаче"); onRefresh(); }
+      else toast.error("Не удалось обновить статус");
+    } catch { toast.error("Ошибка сети"); }
+    finally { setMarkingReady(false); }
   }
 
   async function copyId(id: string) {
@@ -2503,6 +2534,17 @@ function OrderSlotPanel({
             >
               <Bell size={15} />
               {notifyDone ? "Уведомление отправлено" : notifying ? "Отправка…" : "Уведомить о готовности"}
+            </button>
+          )}
+
+          {/* Mark delivery as ready for courier — only when delivery_status is new/null */}
+          {order.type === "delivery" && (!order.delivery_status || order.delivery_status === "new") && !isWaiter && (
+            <button
+              onClick={handleMarkDeliveryReady}
+              disabled={markingReady}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all bg-amber-500 hover:bg-amber-600 active:scale-95 text-white disabled:opacity-60"
+            >
+              🟡 {markingReady ? "Обновляем…" : "Готов к выдаче"}
             </button>
           )}
 

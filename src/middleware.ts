@@ -67,6 +67,11 @@ export async function middleware(request: NextRequest) {
     return resp;
   }
 
+  // Non-courier accessing /admin/delivery → redirect to hall (delivery tab is inside hall now)
+  if (role !== "courier" && (pathname === "/admin/delivery" || pathname.startsWith("/admin/delivery/"))) {
+    return NextResponse.redirect(new URL("/admin/hall", request.url));
+  }
+
   if (POS_ONLY_ROLES.includes(role)) {
     const allowedHome = ROLE_HOME[role];
     if (allowedHome && (pathname === allowedHome || pathname.startsWith(allowedHome + "/"))) {

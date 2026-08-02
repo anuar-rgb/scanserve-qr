@@ -52,7 +52,6 @@ type DrawerSection = {
 };
 
 const BOTTOM_TABS: TabItem[] = [
-  { labelKey: "navDelivery",     icon: Truck,       href: "/admin/delivery",       courierAccess: true },
   { labelKey: "navHall",         icon: LayoutGrid,  href: "/admin/hall",           noPOS: true },
   { labelKey: "navOrders",       icon: ShoppingBag, href: "/admin/orders",         ownerOnly: true },
   { labelKey: "navCatalog",      icon: Package,     href: "/admin/dashboard",      ownerOnly: true },
