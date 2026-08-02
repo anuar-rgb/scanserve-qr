@@ -5,7 +5,7 @@ const POS_BLOCKED: string[] = [
   "/admin/analytics", "/admin/owner-overview", "/admin/orders", "/admin/reviews",
   "/admin/promotions", "/admin/recommendations", "/admin/dashboard", "/admin/storefront",
   "/admin/banners", "/admin/hero-slider", "/admin/info-showcase", "/admin/qr",
-  "/admin/training", "/admin/payment-banks", "/admin/settings", "/admin/preview",
+  "/admin/training", "/admin/payment-banks", "/admin/settings",
 ];
 
 const OWNER_EXCLUSIVE: string[] = ["/admin/owner-overview", "/admin/payment-banks"];

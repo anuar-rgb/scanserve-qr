@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  BarChart2, Star, Tag, Package, Monitor, Smartphone,
+  BarChart2, Star, Tag, Package, Monitor,
   QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays, Lock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -92,8 +92,7 @@ const NAV: NavSection[] = [
     titleKey: "sectionStorefront",
     ownerOnly: true,
     items: [
-      { labelKey: "navMainScreen", icon: Monitor,    href: "/admin/storefront", ownerOnly: true },
-      { labelKey: "navPreview",    icon: Smartphone, href: "/admin/preview",    ownerOnly: true },
+      { labelKey: "navMainScreen", icon: Monitor, href: "/admin/storefront", ownerOnly: true },
     ],
   },
   {
