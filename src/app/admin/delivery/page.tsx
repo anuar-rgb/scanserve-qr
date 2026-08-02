@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MapPin, Phone, Clock, Package, CheckCircle2, Truck, Navigation } from "lucide-react";
+import { MapPin, Phone, Clock, Package, CheckCircle2, Truck, Navigation, ChevronDown } from "lucide-react";
 import { useRole } from "@/lib/role-context";
 import type { DbOrder } from "@/lib/db-types";
 
@@ -50,10 +50,19 @@ function fmtTime(iso: string) {
 
 export default function DeliveryPage() {
   const role = useRole();
-  const [orders, setOrders]   = useState<DeliveryOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter]   = useState<"active" | "delivered">("active");
-  const [busy, setBusy]       = useState<string | null>(null);
+  const [orders, setOrders]       = useState<DeliveryOrder[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState<"active" | "delivered">("active");
+  const [busy, setBusy]           = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
   const prevIdsRef            = useRef<Set<string>>(new Set());
   const audioRef              = useRef<AudioContext | null>(null);
 
@@ -275,57 +284,85 @@ export default function DeliveryPage() {
                     )}
                   </div>
 
-                  {/* Items — full list with prices */}
+                  {/* Items — accordion */}
                   {items.length > 0 && (() => {
+                    const isExpanded = expandedIds.has(order.id);
                     const itemsSubtotal = items.reduce((s, it) => s + (it?.price ?? 0) * (it?.qty ?? 1), 0);
                     const tips = order.tips_amount ?? 0;
                     const derivedFee = Math.round((order.total_price ?? 0) - itemsSubtotal - tips);
+                    const hiddenCount = items.length - 2;
                     return (
-                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3 space-y-1.5">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                        {/* Header row — clickable toggle */}
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(order.id)}
+                          className="w-full flex items-center gap-2 mb-2"
+                        >
                           <Package size={13} className="text-zinc-400" />
                           <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
                             Состав · {items.length} позиц.
                           </span>
-                          <span className="text-[10px] text-zinc-400 dark:text-zinc-600 ml-auto">
-                            Заказ · {fmtTime(order.created_at)}
-                          </span>
-                        </div>
-                        {items.map((it, idx) => {
-                          const name = it?.name ?? "Блюдо";
-                          const qty  = it?.qty ?? 1;
-                          const price = it?.price ?? 0;
-                          return (
-                            <div key={idx} className="flex items-baseline justify-between gap-2">
-                              <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1 leading-snug">{name} ×{qty}</span>
-                              <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 shrink-0 tabular-nums">
-                                {fmtPrice(price * qty)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {(derivedFee > 0 || tips > 0) && (
-                          <div className="pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700 space-y-1">
-                            {derivedFee > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-zinc-500 dark:text-zinc-400">🚚 Доставка</span>
-                                <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(derivedFee)}</span>
+                          <ChevronDown
+                            size={14}
+                            className={`ml-auto text-zinc-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </button>
+
+                        {!isExpanded ? (
+                          /* Collapsed: first 2 items, no prices */
+                          <div className="space-y-1">
+                            {items.slice(0, 2).map((it, idx) => (
+                              <div key={idx} className="flex items-baseline gap-2">
+                                <span className="text-sm text-zinc-700 dark:text-zinc-300 leading-snug">
+                                  {it?.name ?? "Блюдо"} ×{it?.qty ?? 1}
+                                </span>
                               </div>
-                            )}
-                            {tips > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-zinc-500 dark:text-zinc-400">💝 Чаевые</span>
-                                <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(tips)}</span>
-                              </div>
+                            ))}
+                            {hiddenCount > 0 && (
+                              <p className="text-xs text-zinc-400 dark:text-zinc-600">+ ещё {hiddenCount}...</p>
                             )}
                           </div>
+                        ) : (
+                          /* Expanded: full list with prices + fees + total */
+                          <div className="space-y-1.5">
+                            {items.map((it, idx) => {
+                              const name  = it?.name ?? "Блюдо";
+                              const qty   = it?.qty ?? 1;
+                              const price = it?.price ?? 0;
+                              return (
+                                <div key={idx} className="flex items-baseline justify-between gap-2">
+                                  <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1 leading-snug">{name} ×{qty}</span>
+                                  <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 shrink-0 tabular-nums">
+                                    {fmtPrice(price * qty)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {(derivedFee > 0 || tips > 0) && (
+                              <div className="pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700 space-y-1">
+                                {derivedFee > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm text-zinc-500 dark:text-zinc-400">🚚 Доставка</span>
+                                    <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(derivedFee)}</span>
+                                  </div>
+                                )}
+                                {tips > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm text-zinc-500 dark:text-zinc-400">💝 Чаевые</span>
+                                    <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(tips)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                              <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">Итого</span>
+                              <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                {fmtPrice(order.total_price ?? 0)}
+                              </span>
+                            </div>
+                          </div>
                         )}
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                          <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">Итого</span>
-                          <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
-                            {fmtPrice(order.total_price ?? 0)}
-                          </span>
-                        </div>
                       </div>
                     );
                   })()}
