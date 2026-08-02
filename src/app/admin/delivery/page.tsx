@@ -5,7 +5,7 @@ import { MapPin, Phone, Clock, Package, CheckCircle2, Truck, Navigation } from "
 import { useRole } from "@/lib/role-context";
 import type { DbOrder } from "@/lib/db-types";
 
-type DeliveryStatus = "new" | "accepted" | "in_transit" | "delivered";
+type DeliveryStatus = "new" | "ready" | "accepted" | "in_transit" | "delivered";
 
 type DeliveryOrder = DbOrder & {
   delivery_status: DeliveryStatus | null;
@@ -13,14 +13,26 @@ type DeliveryOrder = DbOrder & {
 };
 
 const STATUS_CFG: Record<DeliveryStatus, { label: string; color: string; bg: string; icon: string }> = {
-  new:        { label: "Готов к выдаче", color: "#f59e0b", bg: "rgba(245,158,11,0.12)", icon: "🟡" },
+  new:        { label: "Новый",          color: "#f97316", bg: "rgba(249,115,22,0.12)",  icon: "🟠" },
+  ready:      { label: "Готов к выдаче", color: "#f59e0b", bg: "rgba(245,158,11,0.12)", icon: "🟡" },
   accepted:   { label: "Принят",         color: "#3b82f6", bg: "rgba(59,130,246,0.12)", icon: "🔵" },
   in_transit: { label: "В пути",         color: "#8b5cf6", bg: "rgba(139,92,246,0.12)", icon: "🛵" },
   delivered:  { label: "Доставлен",      color: "#10b981", bg: "rgba(16,185,129,0.12)", icon: "✅" },
 };
 
-const NEXT_ACTION: Record<DeliveryStatus, { label: string; next: DeliveryStatus } | null> = {
-  new:        { label: "Принять заказ", next: "accepted"   },
+// Admin/manager action: marks order as ready for courier pickup
+const ADMIN_ACTION: Record<DeliveryStatus, { label: string; next: DeliveryStatus } | null> = {
+  new:        { label: "✓ Готов к выдаче", next: "ready" },
+  ready:      null,
+  accepted:   null,
+  in_transit: null,
+  delivered:  null,
+};
+
+// Courier action: progresses the order after pickup
+const COURIER_ACTION: Record<DeliveryStatus, { label: string; next: DeliveryStatus } | null> = {
+  new:        null,
+  ready:      { label: "Принять заказ", next: "accepted"   },
   accepted:   { label: "В пути →",      next: "in_transit" },
   in_transit: { label: "Доставлен ✓",   next: "delivered"  },
   delivered:  null,
@@ -77,7 +89,7 @@ export default function DeliveryPage() {
     const json = await res.json() as { orders: DeliveryOrder[] };
     const fetched = json.orders ?? [];
 
-    // Play sound if new orders appeared
+    // Play sound if new orders appeared (status null or "new" = just arrived)
     const newIds = new Set(fetched.filter(o => !o.delivery_status || o.delivery_status === "new").map(o => o.id));
     const isFirst = prevIdsRef.current.size === 0 && loading;
     if (!isFirst) {
@@ -189,7 +201,8 @@ export default function DeliveryPage() {
           displayed.map((order) => {
             const ds = (order.delivery_status ?? "new") as DeliveryStatus;
             const cfg = STATUS_CFG[ds];
-            const nextAction = NEXT_ACTION[ds];
+            const isAdmin = role === "owner" || role === "manager" || role === "supervisor";
+            const action = isAdmin ? ADMIN_ACTION[ds] : COURIER_ACTION[ds];
             const isBusy = busy === order.id;
             const items = Array.isArray(order.items_json) ? order.items_json as DeliveryOrder["items_json"] : [];
             const address2gis = order.delivery_address
@@ -287,24 +300,23 @@ export default function DeliveryPage() {
                   )}
 
                   {/* Action button */}
-                  {nextAction && role !== "manager" && role !== "owner" && role !== "supervisor" ? (
+                  {action && (
                     <button
                       disabled={isBusy}
-                      onClick={() => updateStatus(order.id, nextAction.next)}
+                      onClick={() => updateStatus(order.id, action.next)}
                       className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-50"
-                      style={{ background: cfg.color }}
+                      style={{ background: STATUS_CFG[action.next].color }}
                     >
-                      {isBusy ? "..." : nextAction.label}
+                      {isBusy ? "..." : action.label}
                     </button>
-                  ) : nextAction && (
-                    <button
-                      disabled={isBusy}
-                      onClick={() => updateStatus(order.id, nextAction.next)}
-                      className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-50"
-                      style={{ background: cfg.color }}
-                    >
-                      {isBusy ? "..." : nextAction.label}
-                    </button>
+                  )}
+
+                  {/* Courier hint when order is not ready yet */}
+                  {!isAdmin && ds === "new" && (
+                    <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 text-sm">
+                      <Clock size={14} />
+                      Ожидайте готовности заказа
+                    </div>
                   )}
 
                   {/* Delivered badge */}

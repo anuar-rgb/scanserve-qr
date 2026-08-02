@@ -54,9 +54,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "orderId and deliveryStatus required" }, { status: 400 });
   }
 
-  const VALID_STATUSES = ["accepted", "in_transit", "delivered"];
+  const VALID_STATUSES = ["ready", "accepted", "in_transit", "delivered"];
   if (!VALID_STATUSES.includes(body.deliveryStatus)) {
     return NextResponse.json({ error: "Invalid deliveryStatus" }, { status: 400 });
+  }
+
+  // Only owner/manager/supervisor can mark as ready (kitchen done)
+  if (body.deliveryStatus === "ready" && !["owner", "manager", "supervisor"].includes(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = db();

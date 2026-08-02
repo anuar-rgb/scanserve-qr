@@ -111,7 +111,7 @@ export interface DbOrder {
   bonuses_accrued: boolean | null;
   promo_code: string | null;
   promo_discount: number | null;
-  delivery_status: "new" | "accepted" | "in_transit" | "delivered" | null;
+  delivery_status: "new" | "ready" | "accepted" | "in_transit" | "delivered" | null;
 }
 
 export interface DbPromoCode {

@@ -1,0 +1,15 @@
+-- Add "ready" delivery_status value
+-- Flow: new → ready → accepted → in_transit → delivered
+--
+-- "new"        = order just placed, kitchen is preparing
+-- "ready"      = kitchen done, waiting for courier pickup (set by admin/manager)
+-- "accepted"   = courier has taken the order (set by courier)
+-- "in_transit" = courier en route (set by courier)
+-- "delivered"  = order delivered (set by courier)
+--
+-- If there is a CHECK constraint on delivery_status, run:
+-- ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_delivery_status_check;
+-- ALTER TABLE orders ADD CONSTRAINT orders_delivery_status_check
+--   CHECK (delivery_status IN ('new', 'ready', 'accepted', 'in_transit', 'delivered'));
+--
+-- If delivery_status is a plain text column with no constraint, no action needed.
