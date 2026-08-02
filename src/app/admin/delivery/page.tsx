@@ -47,14 +47,6 @@ function fmtTime(iso: string) {
   return d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
 }
 
-function getItemsText(items: DeliveryOrder["items_json"]): string {
-  if (!Array.isArray(items) || items.length === 0) return "";
-  return items.slice(0, 3).map((it) => {
-    const name = it?.name ?? (it?.dish as { name?: string })?.name ?? "Блюдо";
-    const qty  = it?.qty ?? 1;
-    return `${name} ×${qty}`;
-  }).join(", ") + (items.length > 3 ? ` +${items.length - 3}` : "");
-}
 
 export default function DeliveryPage() {
   const role = useRole();
@@ -229,68 +221,114 @@ export default function DeliveryPage() {
                 </div>
 
                 <div className="p-4 space-y-3">
-                  {/* Address */}
-                  {order.delivery_address && (
-                    <div className="flex items-start gap-3">
-                      <MapPin size={16} className="text-violet-500 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 leading-tight">
-                          {order.delivery_address}
-                          {order.customer_city && (
-                            <span className="text-zinc-400 dark:text-zinc-600">, {order.customer_city}</span>
-                          )}
-                        </p>
-                        {address2gis && (
+                  {/* Phone + Address */}
+                  <div className="space-y-1.5">
+                    {order.customer_phone && (
+                      <div className="flex items-center gap-3">
+                        <Phone size={14} className="text-emerald-500 shrink-0" />
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
+                            {order.customer_name ? <span className="font-medium">{order.customer_name} — </span> : null}
+                            {order.customer_phone}
+                          </span>
                           <a
-                            href={address2gis}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-1 text-xs text-violet-500 hover:text-violet-700"
+                            href={`tel:${order.customer_phone}`}
+                            className="shrink-0 text-xs px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
                           >
-                            <Navigation size={11} />
-                            Открыть в 2GIS
+                            Позвонить
                           </a>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Phone */}
-                  {order.customer_phone && (
-                    <div className="flex items-center gap-3">
-                      <Phone size={15} className="text-emerald-500 shrink-0" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                          {order.customer_name && <span className="font-medium">{order.customer_name} — </span>}
-                          {order.customer_phone}
-                        </span>
-                        <a
-                          href={`tel:${order.customer_phone}`}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
-                        >
-                          Позвонить
-                        </a>
+                    )}
+                    {order.customer_city && (
+                      <div className="flex items-center gap-3">
+                        <MapPin size={14} className="text-violet-400 shrink-0" />
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400">{order.customer_city}</span>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Items */}
-                  {items.length > 0 && (
-                    <div className="flex items-start gap-3">
-                      <Package size={15} className="text-zinc-400 shrink-0 mt-0.5" />
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        {getItemsText(items)}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Total */}
-                  <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600">{order.payment_method ?? "Оплата"}</span>
-                    <span className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                      {fmtPrice(order.total_price ?? 0)}
-                    </span>
+                    )}
+                    {order.delivery_address && (
+                      <div className="flex items-start gap-3">
+                        <MapPin size={14} className="text-violet-500 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 leading-tight">
+                            {order.delivery_address}
+                          </p>
+                          {address2gis && (
+                            <a
+                              href={address2gis}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-0.5 text-xs text-violet-500 hover:text-violet-700"
+                            >
+                              <Navigation size={10} />
+                              Открыть в 2GIS
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {order.payment_method && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🏦</span>
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400">{order.payment_method}</span>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Items — full list with prices */}
+                  {items.length > 0 && (() => {
+                    const itemsSubtotal = items.reduce((s, it) => s + (it?.price ?? 0) * (it?.qty ?? 1), 0);
+                    const tips = order.tips_amount ?? 0;
+                    const derivedFee = Math.round((order.total_price ?? 0) - itemsSubtotal - tips);
+                    return (
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3 space-y-1.5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Package size={13} className="text-zinc-400" />
+                          <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
+                            Состав · {items.length} позиц.
+                          </span>
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-600 ml-auto">
+                            Заказ · {fmtTime(order.created_at)}
+                          </span>
+                        </div>
+                        {items.map((it, idx) => {
+                          const name = it?.name ?? "Блюдо";
+                          const qty  = it?.qty ?? 1;
+                          const price = it?.price ?? 0;
+                          return (
+                            <div key={idx} className="flex items-baseline justify-between gap-2">
+                              <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1 leading-snug">{name} ×{qty}</span>
+                              <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 shrink-0 tabular-nums">
+                                {fmtPrice(price * qty)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {(derivedFee > 0 || tips > 0) && (
+                          <div className="pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700 space-y-1">
+                            {derivedFee > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-zinc-500 dark:text-zinc-400">🚚 Доставка</span>
+                                <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(derivedFee)}</span>
+                              </div>
+                            )}
+                            {tips > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-zinc-500 dark:text-zinc-400">💝 Чаевые</span>
+                                <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(tips)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                          <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">Итого</span>
+                          <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                            {fmtPrice(order.total_price ?? 0)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Comments */}
                   {order.customer_comments && (
