@@ -148,9 +148,9 @@ export default function DeliveryPage() {
   const activeCount = orders.filter(o => o.delivery_status !== "delivered").length;
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3">
+      <div className="px-5 pt-5 pb-3 shrink-0">
         <div className="flex items-center gap-3 mb-4">
           <Truck size={22} className="text-violet-500" />
           <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -185,7 +185,7 @@ export default function DeliveryPage() {
       </div>
 
       {/* Orders */}
-      <div className="px-4 pb-6 space-y-3">
+      <div className="px-4 pb-6 flex flex-col gap-3">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-zinc-400 text-sm">
             Загрузка...
@@ -212,7 +212,7 @@ export default function DeliveryPage() {
             return (
               <div
                 key={order.id}
-                className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden"
+                className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden"
               >
                 {/* Status header */}
                 <div
