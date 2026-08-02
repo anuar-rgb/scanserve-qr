@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   LayoutGrid, ShoppingBag, FileText, AlignJustify, X,
-  BarChart2, TrendingUp, Package, Monitor, Star, Tag,
+  BarChart2, TrendingUp, Package, Monitor, Smartphone, Star, Tag,
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
   Clock, LogIn, AlertTriangle, CalendarDays, Truck,
@@ -116,7 +116,8 @@ const DRAWER_NAV: DrawerSection[] = [
     titleKey: "sectionStorefront",
     ownerOnly: true,
     items: [
-      { labelKey: "navMainScreen", icon: Monitor, href: "/admin/storefront", ownerOnly: true },
+      { labelKey: "navMainScreen", icon: Monitor,    href: "/admin/storefront", ownerOnly: true },
+      { labelKey: "navPreview",    icon: Smartphone, href: "/admin/preview",    ownerOnly: true },
     ],
   },
   {
