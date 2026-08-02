@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Download, RefreshCw, QrCode } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
@@ -10,6 +13,8 @@ export default function QrPage() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [qrCheckinEnabled, setQrCheckinEnabled] = useState<boolean>(true);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     load();
@@ -19,18 +24,44 @@ export default function QrPage() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch("/api/admin/qr-token");
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({})) as { error?: string };
+      const [tokenRes, shiftRes] = await Promise.all([
+        fetch("/api/admin/qr-token"),
+        fetch("/api/admin/shift"),
+      ]);
+      if (!tokenRes.ok) {
+        const d = await tokenRes.json().catch(() => ({})) as { error?: string };
         setError(d.error ?? "Нет доступа");
       } else {
-        const d = await r.json() as { token: string };
+        const d = await tokenRes.json() as { token: string };
         setToken(d.token);
+      }
+      if (shiftRes.ok) {
+        const sd = await shiftRes.json() as { qrCheckinEnabled?: boolean };
+        setQrCheckinEnabled(sd.qrCheckinEnabled ?? true);
       }
     } catch {
       setError("Ошибка загрузки");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleToggle(value: boolean) {
+    setQrCheckinEnabled(value);
+    setToggling(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qr_checkin_enabled: value }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(value ? "QR-сканирование включено" : "QR-сканирование отключено");
+    } catch {
+      setQrCheckinEnabled(!value);
+      toast.error("Не удалось сохранить");
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -102,6 +133,26 @@ export default function QrPage() {
               </div>
             </>
           )}
+        </div>
+
+        {/* QR Checkin Toggle */}
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="qr-checkin-toggle" className="text-sm font-medium">
+                Вход/уход по QR-коду
+              </Label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Если включено — сотрудники обязаны сканировать этот QR-код при входе, чтобы начать работу. Если выключено — экран сканирования пропускается.
+              </p>
+            </div>
+            <Switch
+              id="qr-checkin-toggle"
+              checked={qrCheckinEnabled}
+              onCheckedChange={handleToggle}
+              disabled={toggling}
+            />
+          </div>
         </div>
 
         {/* Instructions */}

@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
 
 export default function SettingsPage() {
@@ -28,8 +27,6 @@ export default function SettingsPage() {
   const [phone, setPhone]           = useState("");
   const [address, setAddress]       = useState("");
   const [workingHours, setWorkingHours] = useState("");
-
-  const [qrCheckinEnabled, setQrCheckinEnabled] = useState<boolean>(true);
 
   const [logoFile, setLogoFile]     = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -54,7 +51,6 @@ export default function SettingsPage() {
       setPhone(r.phone ?? "");
       setAddress(r.address ?? "");
       setWorkingHours(r.working_hours ?? "");
-      setQrCheckinEnabled(r.qr_checkin_enabled ?? true);
     }
     setLoading(false);
   }, []);
@@ -87,7 +83,6 @@ export default function SettingsPage() {
         phone: string | null;
         address: string | null;
         working_hours: string | null;
-        qr_checkin_enabled: boolean;
         logo?: string | null;
       } = {
         name: name.trim(),
@@ -97,7 +92,6 @@ export default function SettingsPage() {
         phone: phone.trim() || null,
         address: address.trim() || null,
         working_hours: workingHours.trim() || null,
-        qr_checkin_enabled: qrCheckinEnabled,
       };
 
       if (logoFile) {
@@ -257,31 +251,6 @@ export default function SettingsPage() {
                     value={workingHours}
                     onChange={(e) => setWorkingHours(e.target.value)}
                     placeholder="10:00 – 22:00"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Staff Access */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Доступ сотрудников</CardTitle>
-                <CardDescription>Управление обязательными проверками при входе персонала</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="qr-checkin-toggle" className="text-sm font-medium">
-                      Вход/уход по QR-коду
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Если включено — сотрудники обязаны сканировать QR-код у входа, чтобы начать работу. Если выключено — экран сканирования пропускается.
-                    </p>
-                  </div>
-                  <Switch
-                    id="qr-checkin-toggle"
-                    checked={qrCheckinEnabled}
-                    onCheckedChange={setQrCheckinEnabled}
                   />
                 </div>
               </CardContent>
