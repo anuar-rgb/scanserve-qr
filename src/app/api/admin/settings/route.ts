@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
 
-  const allowed = ["name", "wa_number", "report_whatsapp", "instagram_url", "phone", "address", "working_hours", "logo"];
+  const allowed = ["name", "wa_number", "report_whatsapp", "instagram_url", "phone", "address", "working_hours", "logo", "qr_checkin_enabled"];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];

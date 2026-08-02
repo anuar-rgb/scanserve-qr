@@ -15,6 +15,7 @@ export interface DbRestaurant {
   report_whatsapp: string | null;
   monthly_payment_status: string | null;
   payment_due_date: string | null;
+  qr_checkin_enabled: boolean | null;
 }
 
 export interface DbCategory {

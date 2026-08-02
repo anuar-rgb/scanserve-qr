@@ -25,6 +25,7 @@ export type CloseShiftResult =
 type ShiftCtx = {
   shift: ShiftData;
   isLoading: boolean;
+  qrCheckinEnabled: boolean;
   openShift: () => Promise<boolean>;
   closeShift: () => Promise<CloseShiftResult>;
 };
@@ -32,6 +33,7 @@ type ShiftCtx = {
 const ShiftContext = createContext<ShiftCtx>({
   shift: null,
   isLoading: true,
+  qrCheckinEnabled: true,
   openShift: async () => false,
   closeShift: async () => ({ blocked: false }),
 });
@@ -42,11 +44,15 @@ export function useShift() {
 
 export function ShiftProvider({ children }: { children: ReactNode }) {
   const [shift, setShift] = useState<ShiftData | undefined>(undefined);
+  const [qrCheckinEnabled, setQrCheckinEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     fetch("/api/admin/shift")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setShift(d?.shift ?? null))
+      .then((d) => {
+        setShift(d?.shift ?? null);
+        setQrCheckinEnabled(d?.qrCheckinEnabled ?? true);
+      })
       .catch(() => setShift(null));
   }, []);
 
@@ -129,6 +135,7 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       value={{
         shift: shift ?? null,
         isLoading: shift === undefined,
+        qrCheckinEnabled,
         openShift,
         closeShift,
       }}
@@ -245,6 +252,7 @@ export function ShiftGate({ children }: { children: ReactNode }) {
 export function CheckinGate({ children }: { children: ReactNode }) {
   const role = useRole();
   const { isCheckedIn, isLoading, checkin } = useCheckin();
+  const { qrCheckinEnabled } = useShift();
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -269,6 +277,9 @@ export function CheckinGate({ children }: { children: ReactNode }) {
   if (role === null || NON_GATED.has(role)) {
     return <>{children}</>;
   }
+
+  // QR checkin disabled for this restaurant — bypass gate entirely
+  if (!qrCheckinEnabled) return <>{children}</>;
 
   if (isLoading || docsLoading) {
     return (

@@ -66,23 +66,35 @@ async function closeAttendanceForUser(supabase: ReturnType<typeof db>, userId: s
   }
 }
 
-// GET — current open shift + checked-in waiters
+// GET — current open shift + checked-in waiters + restaurant settings
 export async function GET(request: NextRequest) {
   if (!getSessionRole(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const supabase = db();
-  const { data: shift } = await supabase
-    .from("shifts")
-    .select("id, opened_at")
-    .eq("restaurant_id", RID(request))
-    .eq("status", "open")
-    .order("opened_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const rid = RID(request);
 
-  if (!shift) return NextResponse.json({ shift: null, checkins: [] });
+  const [shiftResult, restResult] = await Promise.all([
+    supabase
+      .from("shifts")
+      .select("id, opened_at")
+      .eq("restaurant_id", rid)
+      .eq("status", "open")
+      .order("opened_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("restaurants")
+      .select("qr_checkin_enabled")
+      .eq("id", rid)
+      .single(),
+  ]);
+
+  const shift = shiftResult.data ?? null;
+  const qrCheckinEnabled = restResult.data?.qr_checkin_enabled ?? true;
+
+  if (!shift) return NextResponse.json({ shift: null, checkins: [], qrCheckinEnabled });
 
   const { data: checkins } = await supabase
     .from("shift_checkins")
@@ -91,7 +103,7 @@ export async function GET(request: NextRequest) {
     .is("checked_out_at", null)
     .order("checked_in_at", { ascending: true });
 
-  return NextResponse.json({ shift, checkins: checkins ?? [] });
+  return NextResponse.json({ shift, checkins: checkins ?? [], qrCheckinEnabled });
 }
 
 // POST — open a new shift (owner / manager / cashier)
