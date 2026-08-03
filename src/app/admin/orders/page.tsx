@@ -500,10 +500,21 @@ function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onCl
     (s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s,
     0,
   );
+  const itemsSubtotal   = items.reduce((s, it) => s + it.price * it.qty, 0);
+  const tipsAmt         = order.tips_amount ?? 0;
+  const bonusesDeducted = order.bonuses_deducted ?? 0;
+  const promoDiscount   = order.promo_discount ?? 0;
+  const earnedBonuses   = order.earned_bonuses ?? 0;
+  // Delivery fee is not stored separately — derive it from total_price
+  const derivedDeliveryFee = order.type === "delivery"
+    ? Math.max(0, (order.total_price ?? 0) - itemsSubtotal - tipsAmt + bonusesDeducted + promoDiscount)
+    : 0;
+
   const isPreorder = order.order_type === "preorder";
   const typeLabel  =
     order.type === "dine-in"  ? "В заведении" :
     order.type === "delivery" ? "Доставка"    : "С собой";
+  const hasCustomerInfo = !!(order.customer_name || order.customer_phone || order.delivery_address);
 
   const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
     order.status === "preparing" &&
@@ -637,6 +648,37 @@ function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onCl
             </button>
           )}
 
+          {/* Customer info — for takeaway / delivery orders */}
+          {hasCustomerInfo && (
+            <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Клиент</p>
+              {order.customer_name && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground shrink-0">Имя:</span>
+                  <span className="font-medium">{order.customer_name}</span>
+                </div>
+              )}
+              {order.customer_phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone size={11} className="text-muted-foreground shrink-0" />
+                  <button
+                    onClick={() => void navigator.clipboard.writeText(order.customer_phone!)}
+                    className="flex items-center gap-1 font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+                  >
+                    {order.customer_phone}
+                    <Copy size={10} className="text-muted-foreground shrink-0" />
+                  </button>
+                </div>
+              )}
+              {order.delivery_address && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="text-muted-foreground shrink-0 mt-0.5">Адрес:</span>
+                  <span className="font-medium leading-snug">{order.delivery_address}{order.customer_city ? `, ${order.customer_city}` : ""}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Comment */}
           {order.customer_comments && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
@@ -707,19 +749,58 @@ function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onCl
           )}
         </div>
 
-        {/* Drawer footer: total + payment */}
+        {/* Drawer footer: financial summary + payment */}
         <div className="border-t border-border px-5 py-4 space-y-3 shrink-0">
-          {savedAmount > 0 && (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-              Скидка: {savedAmount.toLocaleString("ru-RU")} ₸
-            </p>
-          )}
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground font-medium">Итого</p>
-            <p className="text-xl font-black tabular-nums">{(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</p>
+
+          {/* Financial breakdown */}
+          <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
+            {savedAmount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-emerald-600 dark:text-emerald-400">Скидка на блюда</span>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">−{savedAmount.toLocaleString("ru-RU")} ₸</span>
+              </div>
+            )}
+            {derivedDeliveryFee > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">🚚 Доставка</span>
+                <span className="text-xs text-muted-foreground tabular-nums font-semibold">+{derivedDeliveryFee.toLocaleString("ru-RU")} ₸</span>
+              </div>
+            )}
+            {bonusesDeducted > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-emerald-600 dark:text-emerald-400">🌟 Оплата бонусами</span>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-semibold">−{bonusesDeducted.toLocaleString("ru-RU")} ₸</span>
+              </div>
+            )}
+            {promoDiscount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-violet-600 dark:text-violet-400">🏷️ {order.promo_code ?? "Промокод"}</span>
+                <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">−{promoDiscount.toLocaleString("ru-RU")} ₸</span>
+              </div>
+            )}
+            {tipsAmt > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-violet-600 dark:text-violet-400">💝 Чаевые</span>
+                <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">+{tipsAmt.toLocaleString("ru-RU")} ₸</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-1.5 border-t border-border/60">
+              <span className="text-sm font-bold">Итого</span>
+              <span className="text-xl font-black tabular-nums">{(order.total_price ?? 0).toLocaleString("ru-RU")} ₸</span>
+            </div>
+            {earnedBonuses > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                  ⭐ Начислено бонусов
+                </span>
+                <span className="text-xs text-amber-500 dark:text-amber-400 tabular-nums font-semibold">+{earnedBonuses.toLocaleString("ru-RU")} б</span>
+              </div>
+            )}
           </div>
+
+          {/* Payment method */}
           {order.payment_method && (
-            <div className="pt-2.5 border-t border-border space-y-1.5">
+            <div className="pt-1 space-y-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Оплата</p>
               {order.payment_method !== "mixed" ? (
                 <div className="flex items-center gap-2 text-sm">
