@@ -35,22 +35,32 @@ export async function POST(request: NextRequest) {
     auth: { persistSession: false },
   });
 
-  // Fetch all clients with push subscriptions for this restaurant
-  const { data: clients, error } = await supabase
-    .from("crm_clients")
-    .select("id,push_subscription")
-    .eq("restaurant_id", restaurantId)
-    .not("push_subscription", "is", null);
+  // Fetch clients and restaurant logo in parallel
+  const [{ data: clients, error }, { data: restaurant }] = await Promise.all([
+    supabase
+      .from("crm_clients")
+      .select("id,push_subscription")
+      .eq("restaurant_id", restaurantId)
+      .not("push_subscription", "is", null),
+    supabase
+      .from("restaurants")
+      .select("logo")
+      .eq("id", restaurantId)
+      .single(),
+  ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!clients || clients.length === 0) {
     return NextResponse.json({ ok: true, sent: 0, failed: 0 });
   }
 
+  const restaurantLogo = (restaurant as { logo?: string | null } | null)?.logo ?? null;
+
   const payload = JSON.stringify({
     title: body.title,
     body:  body.body,
     url:   body.url ?? null,
+    icon:  restaurantLogo,
   });
 
   let sent   = 0;

@@ -12,8 +12,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "АС ТӨРІ";
   const options = {
     body: data.body || "",
-    icon: data.icon || "/next.svg",
-    badge: data.badge || "/next.svg",
+    icon: data.icon || "/favicon.ico",
+    badge: data.badge || "/favicon.ico",
     data: data.url ? { url: data.url } : undefined,
     vibrate: [200, 100, 200],
   };

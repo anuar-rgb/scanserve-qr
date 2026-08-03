@@ -25,16 +25,28 @@ export async function POST(request: NextRequest) {
   const supabase = db();
   const rid = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
-  const { data: order, error: orderErr } = await supabase
-    .from("orders")
-    .select("id, type, status, guest_id, customer_phone, customer_name")
-    .eq("id", orderId)
-    .eq("restaurant_id", rid)
-    .single();
+  const [{ data: order, error: orderErr }, { data: restaurant }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, type, status, guest_id, customer_phone, customer_name")
+      .eq("id", orderId)
+      .eq("restaurant_id", rid)
+      .single(),
+    supabase
+      .from("restaurants")
+      .select("logo, name")
+      .eq("id", rid)
+      .single(),
+  ]);
 
   if (orderErr || !order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
+
+  const restaurantLogo = (restaurant as { logo?: string | null } | null)?.logo ?? null;
+  const restaurantName = (restaurant as { name?: string | null } | null)?.name
+    ?? process.env.NEXT_PUBLIC_RESTAURANT_NAME
+    ?? "Ресторан";
 
   if (!NOTIFIABLE_TYPES.has(order.type as string)) {
     return NextResponse.json({ error: "Order not eligible for notification" }, { status: 400 });
@@ -60,7 +72,6 @@ export async function POST(request: NextRequest) {
         const vapidPublic  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
         const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
         const vapidSubject = process.env.VAPID_SUBJECT ?? "mailto:admin@example.com";
-        const restaurantName = process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "Ресторан";
 
         if (vapidPublic && vapidPrivate) {
           webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
@@ -70,6 +81,7 @@ export async function POST(request: NextRequest) {
               JSON.stringify({
                 title: "🛍️ Ваш заказ готов!",
                 body:  `Ваш заказ готов к выдаче! Ждем вас в ${restaurantName}.`,
+                icon:  restaurantLogo,
               }),
             );
             pushSent = true;

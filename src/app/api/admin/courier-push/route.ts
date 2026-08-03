@@ -63,22 +63,32 @@ export async function POST(request: NextRequest) {
 
   const supabase = db();
 
-  // Fetch all couriers for this restaurant that have push subscriptions
-  const { data: couriers } = await supabase
-    .from("staff_users")
-    .select("id, push_subscription")
-    .eq("restaurant_id", restaurantId)
-    .eq("role", "courier")
-    .not("push_subscription", "is", null);
+  // Fetch couriers and restaurant logo in parallel
+  const [{ data: couriers }, { data: restaurant }] = await Promise.all([
+    supabase
+      .from("staff_users")
+      .select("id, push_subscription")
+      .eq("restaurant_id", restaurantId)
+      .eq("role", "courier")
+      .not("push_subscription", "is", null),
+    supabase
+      .from("restaurants")
+      .select("logo")
+      .eq("id", restaurantId)
+      .single(),
+  ]);
 
   if (!couriers || couriers.length === 0) {
     return NextResponse.json({ ok: true, sent: 0 });
   }
 
+  const restaurantLogo = (restaurant as { logo?: string | null } | null)?.logo ?? null;
+
   const payload = JSON.stringify({
     title: "🛵 Новый заказ доставки!",
     body: body?.address ? `📍 ${body.address}` : "Новый заказ ожидает принятия",
     url: "/admin/delivery",
+    icon: restaurantLogo,
   });
 
   let sent = 0;
