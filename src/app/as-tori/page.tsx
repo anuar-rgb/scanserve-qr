@@ -19,10 +19,11 @@ const FALLBACK_HERO: HeroBanner = {
 export default async function AsToriPage({
   searchParams,
 }: {
-  searchParams: Promise<{ table?: string }>;
+  searchParams: Promise<{ table?: string; order?: string }>;
 }) {
   const params = await searchParams;
   const initialTableNumber = params.table?.trim() || undefined;
+  const initialOrderId = params.order?.trim() || undefined;
   const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
   const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables, dbAds, dbHappyHours] = await Promise.all([
@@ -92,6 +93,7 @@ export default async function AsToriPage({
         banners={banners}
         showcaseItems={showcaseItems}
         initialTableNumber={initialTableNumber}
+        initialOrderId={initialOrderId}
         restaurantTables={dbTables.map(t => ({ id: t.id, label: t.label }))}
         restaurantId={restaurantId}
         ads={dbAds}

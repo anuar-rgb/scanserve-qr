@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
                 title: "🛍️ Ваш заказ готов!",
                 body:  `Ваш заказ готов к выдаче! Ждем вас в ${restaurantName}.`,
                 icon:  restaurantLogo,
+                url:   `/as-tori?order=${order.id}`,
               }),
             );
             pushSent = true;

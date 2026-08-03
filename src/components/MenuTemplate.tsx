@@ -197,6 +197,7 @@ export interface MenuTemplateProps {
   restaurantId?: string;
   ads?: AdItem[];
   happyHours?: HappyHourInfo[];
+  initialOrderId?: string;
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -2554,6 +2555,7 @@ export function MenuTemplate({
   restaurantId = "",
   ads = [],
   happyHours = [],
+  initialOrderId,
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -2625,6 +2627,12 @@ export function MenuTemplate({
   useEffect(() => {
     fetchGuestOrders();
   }, [fetchGuestOrders]);
+
+  // Open orders modal on deep-link from push notification (?order=ORDER_ID)
+  useEffect(() => {
+    if (!initialOrderId || orders.length === 0) return;
+    setOrdersOpen(true);
+  }, [initialOrderId, orders]);
 
   const saveOrder = (_order: StoredOrder) => {
     setHasUnseenOrder(true);
@@ -3466,6 +3474,7 @@ export function MenuTemplate({
         whatsappPhone={restaurant.whatsappPhone}
         onRefundRequest={handleRefundRequest}
         onPartialRefund={handlePartialRefund}
+        highlightOrderId={initialOrderId}
       />
 
       {/* ── Guest profile sheet ────────────────────────────────────────────── */}

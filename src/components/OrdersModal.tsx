@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, ChevronLeft, Download, Share2, Minus, Plus, Copy, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import type { Lang } from "./MenuTemplate";
@@ -22,10 +22,12 @@ export interface OrdersModalProps {
   whatsappPhone?: string;
   onRefundRequest: (orderId: string) => void;
   onPartialRefund: (orderId: string, itemIndex: number, qtyReturned: number) => void;
+  highlightOrderId?: string;
 }
 
 export function OrdersModal({
   open, onClose, orders, lang, theme, whatsappPhone, onRefundRequest, onPartialRefund,
+  highlightOrderId,
 }: OrdersModalProps) {
   const [pdfLoading, setPdfLoading]             = useState<string | null>(null);
   const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
@@ -43,6 +45,18 @@ export function OrdersModal({
   const [partialConfirmed, setPartialConfirmed] = useState(false);
   const [refundSent,       setRefundSent]       = useState(false);
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to highlighted order when modal opens
+  useEffect(() => {
+    if (!open || !highlightOrderId) return;
+    const timer = setTimeout(() => {
+      const el = scrollRef.current?.querySelector(`[data-order-id="${highlightOrderId}"]`) as HTMLElement | null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 380); // wait for slide-up animation
+    return () => clearTimeout(timer);
+  }, [open, highlightOrderId]);
 
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -328,7 +342,7 @@ export function OrdersModal({
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: `0 ${SP.md}px ${SP.xl}px` }}>
+        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: `0 ${SP.md}px ${SP.xl}px` }}>
           {refundingOrder ? (
             /* ── Full-order Refund Form ── */
             <div style={{ paddingTop: SP.sm }}>
@@ -436,10 +450,25 @@ export function OrdersModal({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                 {sorted.map((order) => {
-                  const isRequested = order.status === "refund-requested";
-                  const isExpired   = !isRequested && !canRefund(order.timestamp);
+                  const isRequested  = order.status === "refund-requested";
+                  const isExpired    = !isRequested && !canRefund(order.timestamp);
+                  const isHighlighted = order.id === highlightOrderId;
                   return (
-                    <div key={order.id} style={{ background: card, borderRadius: R.md, border: `1px solid ${border}`, overflow: "hidden" }}>
+                    <div
+                      key={order.id}
+                      data-order-id={order.id}
+                      style={{
+                        background: card,
+                        borderRadius: R.md,
+                        border: isHighlighted
+                          ? `2px solid #10B981`
+                          : `1px solid ${border}`,
+                        overflow: "hidden",
+                        boxShadow: isHighlighted
+                          ? "0 0 0 3px rgba(16,185,129,0.18)"
+                          : undefined,
+                      }}
+                    >
                       {/* Order meta */}
                       <div style={{
                         display: "flex", alignItems: "center", justifyContent: "space-between",
