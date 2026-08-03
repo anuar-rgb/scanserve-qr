@@ -459,6 +459,7 @@ export function CartDrawer({
   const [tipsEnabled, setTipsEnabled]                 = useState(false);
   const [tipsInput, setTipsInput]                     = useState("");
   const [tipsAmount, setTipsAmount]                   = useState(0);
+  const [tipsApplied, setTipsApplied]                 = useState(false);
   const [guestSession, setGuestSession]               = useState<{id: string; name: string|null; phone: string|null; email?: string; bonusAmount: number} | null>(null);
   const [useBonuses, setUseBonuses]                   = useState(false);
   const [promoInput, setPromoInput]                   = useState("");
@@ -667,6 +668,7 @@ export function CartDrawer({
     setTipsEnabled(false);
     setTipsInput("");
     setTipsAmount(0);
+    setTipsApplied(false);
     setUseBonuses(false);
     setPromoInput("");
     setPromoCode(null);
@@ -1947,7 +1949,7 @@ export function CartDrawer({
                   onClick={() => {
                     const next = !tipsEnabled;
                     setTipsEnabled(next);
-                    if (!next) { setTipsInput(""); setTipsAmount(0); }
+                    if (!next) { setTipsInput(""); setTipsAmount(0); setTipsApplied(false); }
                   }}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -1987,65 +1989,98 @@ export function CartDrawer({
                     borderTop: "none",
                     borderRadius: `0 0 ${R.md}px ${R.md}px`,
                   }}>
-                    {/* Quick amounts */}
-                    <div style={{ display: "flex", gap: SP.sm, marginBottom: SP.sm }}>
-                      {[300, 500, 1000].map((amt) => (
+                    {tipsApplied ? (
+                      /* ── Confirmed state ── */
+                      <div style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "10px 12px", borderRadius: R.sm,
+                        background: isDark ? "rgba(124,58,237,0.18)" : "rgba(124,58,237,0.10)",
+                        border: `1.5px solid rgba(124,58,237,0.45)`,
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 18 }}>✅</span>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#7C3AED" }}>
+                              {tn("tipsLabel", lang)}: {tipsAmount.toLocaleString()} ₸
+                            </p>
+                            <p style={{ margin: 0, fontSize: 11, color: muted }}>
+                              {lang === "kz" ? "Чек сомасына қосылды" : lang === "ru" ? "Добавлено к сумме чека" : "Added to order total"}
+                            </p>
+                          </div>
+                        </div>
                         <button
-                          key={amt}
-                          onClick={() => { setTipsInput(String(amt)); setTipsAmount(amt); }}
+                          onClick={() => { setTipsApplied(false); setTipsAmount(0); setTipsInput(""); }}
                           style={{
-                            flex: 1, padding: "8px 0", borderRadius: R.sm,
-                            border: `1.5px solid ${tipsAmount === amt ? "#7C3AED" : border}`,
-                            background: tipsAmount === amt
-                              ? (isDark ? "rgba(124,58,237,0.25)" : "rgba(124,58,237,0.12)")
-                              : surface,
-                            color: tipsAmount === amt ? "#7C3AED" : textClr,
-                            fontSize: 13, fontWeight: 700, cursor: "pointer",
-                            transition: "all 0.15s",
-                          } as React.CSSProperties}
+                            padding: "6px 12px", borderRadius: R.sm,
+                            border: `1px solid rgba(124,58,237,0.4)`,
+                            background: "transparent", color: "#7C3AED",
+                            fontSize: 12, fontWeight: 600, cursor: "pointer",
+                            flexShrink: 0,
+                          }}
                         >
-                          {amt.toLocaleString()} ₸
+                          {lang === "kz" ? "Өзгерту" : lang === "ru" ? "Изменить" : "Change"}
                         </button>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Quick amounts */}
+                        <div style={{ display: "flex", gap: SP.sm, marginBottom: SP.sm }}>
+                          {[300, 500, 1000].map((amt) => (
+                            <button
+                              key={amt}
+                              onClick={() => { setTipsInput(String(amt)); setTipsAmount(amt); setTipsApplied(true); }}
+                              style={{
+                                flex: 1, padding: "8px 0", borderRadius: R.sm,
+                                border: `1.5px solid ${tipsAmount === amt ? "#7C3AED" : border}`,
+                                background: tipsAmount === amt
+                                  ? (isDark ? "rgba(124,58,237,0.25)" : "rgba(124,58,237,0.12)")
+                                  : surface,
+                                color: tipsAmount === amt ? "#7C3AED" : textClr,
+                                fontSize: 13, fontWeight: 700, cursor: "pointer",
+                                transition: "all 0.15s",
+                              } as React.CSSProperties}
+                            >
+                              {amt.toLocaleString()} ₸
+                            </button>
+                          ))}
+                        </div>
 
-                    {/* Custom amount input + Apply */}
-                    <div style={{ display: "flex", gap: SP.sm }}>
-                      <input
-                        type="number"
-                        min="0"
-                        value={tipsInput}
-                        onChange={(e) => setTipsInput(e.target.value)}
-                        placeholder={tn("tipsPlaceholder", lang)}
-                        style={{
-                          flex: 1, padding: "10px 12px",
-                          background: surface,
-                          border: `1.5px solid ${tipsInput ? "#7C3AED" : border}`,
-                          borderRadius: R.sm, color: textClr, fontSize: 14,
-                          outline: "none", boxSizing: "border-box",
-                          fontFamily: "inherit",
-                        } as React.CSSProperties}
-                      />
-                      <button
-                        onClick={() => {
-                          const v = parseInt(tipsInput, 10);
-                          setTipsAmount(isNaN(v) || v < 0 ? 0 : v);
-                        }}
-                        style={{
-                          padding: "10px 16px", borderRadius: R.sm, border: "none",
-                          background: "#7C3AED", color: "#FFFFFF",
-                          fontSize: 13, fontWeight: 700, cursor: "pointer",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {tn("tipsApply", lang)}
-                      </button>
-                    </div>
-
-                    {tipsAmount > 0 && (
-                      <p style={{ fontSize: 12, color: "#7C3AED", marginTop: 8, fontWeight: 600 }}>
-                        ✓ {tn("tipsLabel", lang)}: {tipsAmount.toLocaleString()} ₸
-                      </p>
+                        {/* Custom amount input + Apply */}
+                        <div style={{ display: "flex", gap: SP.sm }}>
+                          <input
+                            type="number"
+                            min="0"
+                            value={tipsInput}
+                            onChange={(e) => setTipsInput(e.target.value)}
+                            placeholder={tn("tipsPlaceholder", lang)}
+                            style={{
+                              flex: 1, padding: "10px 12px",
+                              background: surface,
+                              border: `1.5px solid ${tipsInput ? "#7C3AED" : border}`,
+                              borderRadius: R.sm, color: textClr, fontSize: 14,
+                              outline: "none", boxSizing: "border-box",
+                              fontFamily: "inherit",
+                            } as React.CSSProperties}
+                          />
+                          <button
+                            onClick={() => {
+                              const v = parseInt(tipsInput, 10);
+                              const amount = isNaN(v) || v < 0 ? 0 : v;
+                              setTipsAmount(amount);
+                              if (amount > 0) setTipsApplied(true);
+                            }}
+                            style={{
+                              padding: "10px 16px", borderRadius: R.sm, border: "none",
+                              background: tipsInput ? "#7C3AED" : (isDark ? "#3A3A3A" : "#D1D5DB"),
+                              color: tipsInput ? "#FFFFFF" : muted,
+                              fontSize: 13, fontWeight: 700, cursor: tipsInput ? "pointer" : "default",
+                              flexShrink: 0, transition: "all 0.2s",
+                            } as React.CSSProperties}
+                          >
+                            {tn("tipsApply", lang)}
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                 )}
