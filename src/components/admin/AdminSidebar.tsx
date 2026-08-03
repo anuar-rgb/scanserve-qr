@@ -191,6 +191,9 @@ export default function AdminSidebar() {
   }
 
   const isCourier = role === "courier";
+  // Couriers get a mobile-style full-screen layout — no desktop sidebar needed
+  if (isCourier) return null;
+
   const NO_POS_ROLES = new Set(["courier", "storekeeper", "cleaner", "doorman"]);
   const visibleSections = NAV.filter((s) => {
     if (s.strictOwner && !isStrictOwner) return false;

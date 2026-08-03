@@ -58,7 +58,7 @@ export default function MobileAdminHeader() {
 
   return (
     <>
-      <div className="md:hidden shrink-0 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-950 flex items-center gap-3">
+      <div className={`${role !== "courier" ? "md:hidden" : ""} shrink-0 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-950 flex items-center gap-3`}>
         <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0 select-none">
           А
         </div>

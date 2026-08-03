@@ -230,7 +230,7 @@ export default function MobileBottomNav() {
   return (
     <>
       {/* ── Bottom tab bar ────────────────────────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800/60 flex items-stretch h-16" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav className={`${isCourier ? "" : "md:hidden"} fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800/60 flex items-stretch h-16`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         {visibleTabs.slice(0, 3).map((tab) => {
           const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
           const Icon = tab.icon;
@@ -263,7 +263,7 @@ export default function MobileBottomNav() {
       {/* ── Drawer backdrop ───────────────────────────────────────────────── */}
       {drawerOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200"
+          className={`${isCourier ? "" : "md:hidden"} fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200`}
           style={{ opacity: drawerVisible ? 1 : 0 }}
           onClick={() => setDrawerOpen(false)}
         />
@@ -272,7 +272,7 @@ export default function MobileBottomNav() {
       {/* ── Drawer panel ─────────────────────────────────────────────────── */}
       {drawerOpen && (
         <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[82dvh] flex flex-col transition-transform duration-300 ease-out"
+          className={`${isCourier ? "" : "md:hidden"} fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[82dvh] flex flex-col transition-transform duration-300 ease-out`}
           style={{ transform: drawerVisible ? "translateY(0)" : "translateY(100%)", paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {/* Drawer header */}
