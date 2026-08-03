@@ -476,7 +476,11 @@ export function OrdersModal({
                       }}>
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                            <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>{order.id}</p>
+                            <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
+                              {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order.id)
+                                ? order.id.substring(0, 8).toUpperCase()
+                                : order.id}
+                            </p>
                             <button
                               onClick={() => handleCopyId(order.id)}
                               title="Copy order ID"
@@ -570,6 +574,11 @@ export function OrdersModal({
 
                       {/* Items — each with a per-item partial refund button */}
                       <div style={{ padding: "10px 14px 6px" }}>
+                        {order.items.length === 0 && (
+                          <p style={{ fontSize: 12, color: muted, margin: "0 0 8px", fontStyle: "italic" }}>
+                            {lang === "kz" ? "Тауарлар жоқ" : lang === "ru" ? "Нет позиций" : "No items"}
+                          </p>
+                        )}
                         {order.items.map((item, i) => (
                           <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: SP.xs }}>
                             <span style={{ color: muted, fontSize: 13, flex: 1, minWidth: 0 }}>
