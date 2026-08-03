@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  if (!NOTIFIABLE_TYPES.has(order.type as string) || order.status !== "preparing") {
+  if (!NOTIFIABLE_TYPES.has(order.type as string)) {
     return NextResponse.json({ error: "Order not eligible for notification" }, { status: 400 });
   }
 

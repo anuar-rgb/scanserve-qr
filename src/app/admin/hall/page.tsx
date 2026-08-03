@@ -465,9 +465,12 @@ export default function HallPage() {
         { event: "UPDATE", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` },
         (payload) => {
           const updated = payload.new as DbOrder;
-          if (updated.status === "completed") {
+          if (updated.status === "completed" || updated.status === "cancelled") {
             knownOrderIds.current.delete(updated.id);
             setOrders((prev) => prev.filter((o) => o.id !== updated.id));
+          } else if (updated.status === "ready") {
+            // Update in-place — load() only fetches "pending" so ready orders would disappear
+            setOrders((prev) => prev.map((o) => o.id === updated.id ? { ...o, ...updated } : o));
           } else {
             load();
           }
@@ -2255,26 +2258,28 @@ function OrderSlotPanel({
     if (markingTakeawayReady) return;
     setMarkingTakeawayReady(true);
     try {
-      const { error } = await supabase
-        .from(DB_TABLES.orders)
-        .update({ status: "ready" })
-        .eq("id", order.id)
-        .eq("restaurant_id", RESTAURANT_ID);
-      if (error) { toast.error(`Ошибка: ${error.message}`); return; }
-      const phone = order.customer_phone;
-      const displayId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8).toUpperCase()}`;
-      const name = order.customer_name ?? "";
-      const text = `Здравствуйте${name ? `, ${name}` : ""}! Ваш заказ ${displayId} готов к выдаче. Ждём вас! С уважением, ${restaurantName || "Ресторан"}.`;
-      if (phone) {
+      const res  = await fetch("/api/admin/notify-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const data = await res.json() as { pushSent?: boolean; phone?: string | null; name?: string | null };
+      const phone = data.phone ?? order.customer_phone;
+      if (data.pushSent) {
+        toast.success("Push-уведомление отправлено гостю");
+      } else if (phone) {
+        const displayId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8).toUpperCase()}`;
+        const name = data.name ?? order.customer_name ?? "";
+        const text = `Здравствуйте${name ? `, ${name}` : ""}! Ваш заказ ${displayId} готов к выдаче. Ждём вас! С уважением, ${restaurantName || "Ресторан"}.`;
         window.open(`https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(text)}`, "_blank");
         toast.success("WhatsApp открыт для уведомления гостя");
       } else {
-        toast.success("Заказ помечен как готов к выдаче");
+        toast.success("Заказ готов к выдаче");
       }
       setNotifyDone(true);
-      onRefresh();
+      // Do not call onRefresh — panel must stay open; status is unchanged
     } catch {
-      toast.error("Ошибка при обновлении статуса");
+      toast.error("Ошибка при отправке уведомления");
     } finally {
       setMarkingTakeawayReady(false);
     }
