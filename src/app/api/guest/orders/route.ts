@@ -39,7 +39,14 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const mapped = (orders ?? []).map((o) => {
+  const mapped = (orders ?? [])
+    .filter((o) => {
+      // Exclude ghost orders left by item transfers (empty items + zero total)
+      const items = Array.isArray(o.items_json) ? o.items_json : [];
+      if (items.length === 0 && o.total_price === 0) return false;
+      return true;
+    })
+    .map((o) => {
     const itemsRaw = Array.isArray(o.items_json) ? o.items_json as { name?: string; qty?: number; price?: number; original_price?: number; discountPct?: number }[] : [];
     return {
       id: o.id,

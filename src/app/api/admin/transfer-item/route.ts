@@ -137,22 +137,17 @@ export async function POST(request: NextRequest) {
     targetOrderId = newOrder.id;
   }
 
-  // 3. Update source order — recalculate bonuses + auto-close if empty
+  // 3. Update source order — delete if empty (so it doesn't pollute guest history),
+  //    otherwise recalculate bonuses/total.
   if (updatedSourceItems.length === 0) {
-    const { error: closeErr } = await supabaseAdmin
+    const { error: deleteErr } = await supabaseAdmin
       .from("orders")
-      .update({
-        items_json: [],
-        total_price: 0,
-        earned_bonuses: null,
-        status: "completed",
-        closed_at: new Date().toISOString(),
-      })
+      .delete()
       .eq("id", source_order_id)
       .eq("restaurant_id", RESTAURANT_ID);
 
-    if (closeErr) {
-      return NextResponse.json({ error: closeErr.message }, { status: 500 });
+    if (deleteErr) {
+      return NextResponse.json({ error: deleteErr.message }, { status: 500 });
     }
   } else {
     const { error: sourceUpdateError } = await supabaseAdmin
