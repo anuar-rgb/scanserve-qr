@@ -2499,7 +2499,7 @@ function OrderSlotPanel({
                   <span className="text-sm text-muted-foreground">{METHOD_META[order.payment_method]?.label ?? order.payment_method}</span>
                 </div>
               )}
-              {order.payment_method === "remote-payment" && order.payment_bank && (
+              {(order.payment_method === "remote-payment" || order.payment_method === "card-transfer") && order.payment_bank && (
                 <div className="flex items-center gap-2 mt-1">
                   <Landmark size={12} className="text-muted-foreground shrink-0" />
                   <span className="text-sm text-muted-foreground">Банк:</span>

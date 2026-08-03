@@ -820,7 +820,7 @@ function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onCl
                   ))}
                 </div>
               )}
-              {order.payment_method === "remote-payment" && order.payment_bank && (
+              {(order.payment_method === "remote-payment" || order.payment_method === "card-transfer") && order.payment_bank && (
                 <div className="flex items-center gap-2 text-sm">
                   <Landmark size={13} className="text-muted-foreground shrink-0" />
                   <span className="text-muted-foreground">Банк:</span>
