@@ -2144,6 +2144,7 @@ function OrderSlotPanel({
   const [courierNotified, setCourierNotified]     = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [markingReady, setMarkingReady]           = useState(false);
+  const [markingTakeawayReady, setMarkingTakeawayReady] = useState(false);
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce((s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s, 0);
@@ -2177,9 +2178,13 @@ function OrderSlotPanel({
     }, 0)
   );
 
-  const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
+  const canNotify = (order.type === "delivery" || order.type === "pickup") &&
     order.status === "preparing" &&
     !!(order.guest_id || order.customer_phone);
+
+  const canMarkTakeawayReady = order.type === "takeaway" &&
+    order.status !== "ready" && order.status !== "completed" &&
+    !isWaiter && !notifyDone;
 
   async function handleNotify() {
     if (notifying) return;
@@ -2244,6 +2249,35 @@ function OrderSlotPanel({
       else toast.error("Не удалось обновить статус");
     } catch { toast.error("Ошибка сети"); }
     finally { setMarkingReady(false); }
+  }
+
+  async function handleMarkTakeawayReady() {
+    if (markingTakeawayReady) return;
+    setMarkingTakeawayReady(true);
+    try {
+      const { error } = await supabase
+        .from(DB_TABLES.orders)
+        .update({ status: "ready" })
+        .eq("id", order.id)
+        .eq("restaurant_id", RESTAURANT_ID);
+      if (error) { toast.error(`Ошибка: ${error.message}`); return; }
+      const phone = order.customer_phone;
+      const displayId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8).toUpperCase()}`;
+      const name = order.customer_name ?? "";
+      const text = `Здравствуйте${name ? `, ${name}` : ""}! Ваш заказ ${displayId} готов к выдаче. Ждём вас! С уважением, ${restaurantName || "Ресторан"}.`;
+      if (phone) {
+        window.open(`https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(text)}`, "_blank");
+        toast.success("WhatsApp открыт для уведомления гостя");
+      } else {
+        toast.success("Заказ помечен как готов к выдаче");
+      }
+      setNotifyDone(true);
+      onRefresh();
+    } catch {
+      toast.error("Ошибка при обновлении статуса");
+    } finally {
+      setMarkingTakeawayReady(false);
+    }
   }
 
   async function copyId(id: string) {
@@ -2522,6 +2556,24 @@ function OrderSlotPanel({
             </div>
           </div>
 
+          {canMarkTakeawayReady && (
+            <button
+              onClick={handleMarkTakeawayReady}
+              disabled={markingTakeawayReady}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white disabled:opacity-60"
+            >
+              <Bell size={15} />
+              {markingTakeawayReady ? "Обновляем…" : "Готов к выдаче — уведомить гостя"}
+            </button>
+          )}
+
+          {notifyDone && order.type === "takeaway" && (
+            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+              <Bell size={15} />
+              Уведомление отправлено
+            </div>
+          )}
+
           {canNotify && (
             <button
               onClick={handleNotify}
@@ -2779,6 +2831,14 @@ function OrderSlotPanel({
                 <span className="text-xs text-violet-600 dark:text-violet-400">🏷️ {order.promo_code}</span>
                 <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">
                   −{(order.promo_discount ?? 0).toLocaleString("ru-RU")} ₸
+                </span>
+              </div>
+            )}
+            {(order.tips_amount ?? 0) > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-violet-600 dark:text-violet-400">💝 Чаевые</span>
+                <span className="text-xs text-violet-600 dark:text-violet-400 tabular-nums font-semibold">
+                  +{(order.tips_amount ?? 0).toLocaleString("ru-RU")} ₸
                 </span>
               </div>
             )}

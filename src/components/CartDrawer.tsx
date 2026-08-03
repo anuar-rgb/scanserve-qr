@@ -281,6 +281,7 @@ function buildWhatsAppUrl(
     preorderTimeLabel:    { en: "Time",                        ru: "Время",                                kz: "Уақыт"                                },
     commentsLabel:        { en: "Comments",                    ru: "Пожелания",                            kz: "Ескертулер"                           },
     tipsLabel:            { en: "Tips",                        ru: "Чаевые",                               kz: "Чаевые"                               },
+    bonusesUsedLabel:     { en: "Bonuses used",                ru: "Списано бонусов",                      kz: "Пайдаланылған бонустар"               },
   };
 
   const m = (key: string): string => MSG[key]?.[lang] ?? MSG[key]?.en ?? key;
@@ -350,6 +351,7 @@ function buildWhatsAppUrl(
     ),
     ...(order.deliveryFee ? [`• 🚚 ${m("deliveryFeeLabel")}: ${order.deliveryFee.toLocaleString("ru-RU")} ${order.currency}`] : []),
     ...((tipsAmount && tipsAmount > 0) ? [`• 💝 ${m("tipsLabel")}: ${tipsAmount.toLocaleString("ru-RU")} ${order.currency}`] : []),
+    ...((order.bonusesDeducted && order.bonusesDeducted > 0) ? [`• 🌟 ${m("bonusesUsedLabel")}: -${order.bonusesDeducted.toLocaleString("ru-RU")} ₸`] : []),
     `---`,
     `>> *${m("totalLabel")}: ${order.total.toLocaleString("ru-RU")} ${order.currency}*`,
     ...(order.timingMode === "preorder" ? [
