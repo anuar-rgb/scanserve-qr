@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   User, X, Star, LogOut, ChevronRight,
   Mail, Phone, Receipt, ShieldCheck, ArrowLeft, RefreshCw,
+  Bell, BellOff, CheckCircle2,
 } from "lucide-react";
 import { OrdersModal } from "./OrdersModal";
 import type { Lang, Theme } from "./MenuTemplate";
@@ -45,6 +46,17 @@ function fmtCurrency(n: number, cur: string) {
 }
 
 const LS_KEY = "menu-guest-session";
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw     = window.atob(base64);
+  const output  = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+  return output.buffer as ArrayBuffer;
+}
 
 function loadSession(): GuestSession | null {
   try {
@@ -692,6 +704,36 @@ function LoggedInView({
   const initials     = displayName.slice(0, 2).toUpperCase();
   const recentOrders = orders.slice(0, 3);
 
+  const [pushPerm, setPushPerm] = useState<NotificationPermission | "unsupported">("default");
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    if (!("Notification" in window)) { setPushPerm("unsupported"); return; }
+    setPushPerm(Notification.permission);
+  }, []);
+
+  async function handleEnablePush() {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
+    setPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      setPushPerm(permission);
+      if (permission === "granted" && VAPID_PUBLIC_KEY) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToArrayBuffer(VAPID_PUBLIC_KEY),
+        });
+        await fetch("/api/crm/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub.toJSON(), guestId: session.id }),
+        }).catch(() => {});
+      }
+    } catch { /* ignore */ }
+    finally { setPushLoading(false); }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Avatar + greeting */}
@@ -747,6 +789,72 @@ function LoggedInView({
         </div>
         <ShieldCheck size={18} color={isDark ? "#A78BFA" : "#7C3AED"} style={{ marginLeft: "auto" }} />
       </div>
+
+      {/* Push notifications status */}
+      {pushPerm !== "unsupported" && (
+        pushPerm === "granted" ? (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            background: isDark ? "#0D2B1F" : "#F0FDF4",
+            border: `1px solid ${isDark ? "#1A4D35" : "#BBF7D0"}`,
+            borderRadius: 14, padding: "12px 16px",
+          }}>
+            <CheckCircle2 size={18} color="#10B981" />
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDark ? "#6EE7B7" : "#065F46" }}>
+              {isRu ? "Уведомления о заказах включены" : "Order notifications enabled"}
+            </p>
+          </div>
+        ) : pushPerm === "denied" ? (
+          <div style={{
+            background: isDark ? "#2B1D0A" : "#FFFBEB",
+            border: `1px solid ${isDark ? "#4D3210" : "#FDE68A"}`,
+            borderRadius: 14, padding: "14px 16px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <BellOff size={16} color={isDark ? "#FCD34D" : "#D97706"} />
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isDark ? "#FCD34D" : "#92400E" }}>
+                {isRu ? "Уведомления отключены" : "Notifications blocked"}
+              </p>
+            </div>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: isDark ? "#FDE68A" : "#78350F", lineHeight: 1.5 }}>
+              {isRu
+                ? "Вы ранее отказали. Чтобы включить — разрешите вручную в настройках браузера:"
+                : "You previously denied. To enable — allow manually in browser settings:"}
+            </p>
+            <ol style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+              {(isRu
+                ? ["Нажмите на значок 🔒 в адресной строке", "Выберите «Настройки сайта»", "В строке «Уведомления» выберите «Разрешить»", "Перезагрузите страницу"]
+                : ["Tap the 🔒 icon in the address bar", "Select \"Site settings\"", "Set \"Notifications\" to \"Allow\"", "Reload the page"]
+              ).map((step, i) => (
+                <li key={i} style={{ fontSize: 12, color: isDark ? "#FDE68A" : "#78350F", lineHeight: 1.4 }}>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          <button
+            onClick={handleEnablePush}
+            disabled={pushLoading}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              width: "100%", padding: "13px",
+              borderRadius: 14, border: "none",
+              background: isDark ? "#1E1030" : "#EDE9FE",
+              color: isDark ? "#A78BFA" : "#5B21B6",
+              fontSize: 14, fontWeight: 700,
+              cursor: pushLoading ? "default" : "pointer",
+              opacity: pushLoading ? 0.7 : 1,
+              fontFamily: "inherit",
+            }}
+          >
+            <Bell size={15} />
+            {pushLoading
+              ? (isRu ? "Подключаем…" : "Enabling…")
+              : (isRu ? "Включить уведомления о заказах" : "Enable order notifications")}
+          </button>
+        )
+      )}
 
       {/* Order history */}
       <div>
