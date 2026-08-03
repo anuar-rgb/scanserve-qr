@@ -79,7 +79,7 @@ export default function MobileAdminHeader() {
             </>
           )}
         </div>
-        <WaiterCallBell />
+        {role !== "courier" && <WaiterCallBell />}
 
         {/* Завершить работу — waiter / chef only */}
         {isStaff && isCheckedIn && (
