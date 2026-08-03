@@ -2182,7 +2182,7 @@ function OrderSlotPanel({
     order.status === "preparing" &&
     !!(order.guest_id || order.customer_phone);
 
-  const canMarkTakeawayReady = order.type === "takeaway" &&
+  const canMarkTakeawayReady = (order.type === "takeaway" || order.type === "pickup") &&
     order.status !== "ready" && order.status !== "completed" &&
     !isWaiter && !notifyDone;
 
@@ -2567,7 +2567,7 @@ function OrderSlotPanel({
             </button>
           )}
 
-          {notifyDone && order.type === "takeaway" && (
+          {notifyDone && (order.type === "takeaway" || order.type === "pickup") && (
             <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
               <Bell size={15} />
               Уведомление отправлено
