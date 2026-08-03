@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       .single(),
     supabase
       .from("restaurants")
-      .select("logo, name")
+      .select("logo, name, slug")
       .eq("id", rid)
       .single(),
   ]);
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
   const restaurantName = (restaurant as { name?: string | null } | null)?.name
     ?? process.env.NEXT_PUBLIC_RESTAURANT_NAME
     ?? "Ресторан";
+  const restaurantSlug = (restaurant as { slug?: string | null } | null)?.slug ?? "as-tori";
 
   if (!NOTIFIABLE_TYPES.has(order.type as string)) {
     return NextResponse.json({ error: "Order not eligible for notification" }, { status: 400 });
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
                 title: "🛍️ Ваш заказ готов!",
                 body:  `Ваш заказ готов к выдаче! Ждем вас в ${restaurantName}.`,
                 icon:  restaurantLogo,
-                url:   `/as-tori?order=${order.id}`,
+                url:   `/${restaurantSlug}?order=${order.id}`,
               }),
             );
             pushSent = true;
