@@ -44,6 +44,7 @@ interface PlacedOrder {
   savings?: number;
   tipsAmount?: number;
   bonusesDeducted?: number;
+  earnedBonuses?: number;
   promoCode?: string;
   promoDiscount?: number;
 }
@@ -746,6 +747,7 @@ export function CartDrawer({
       savings: totalSavings || undefined,
       tipsAmount: tipsAmount || undefined,
       bonusesDeducted: bonusesApplied > 0 ? bonusesApplied : undefined,
+      earnedBonuses: totalBonusesEarned > 0 ? totalBonusesEarned : undefined,
       promoCode: promoCode ?? undefined,
       promoDiscount: promoDiscount > 0 ? promoDiscount : undefined,
     };
@@ -2441,10 +2443,10 @@ export function CartDrawer({
                   <span>{tn("total", lang)}</span>
                   <span>{placedOrder.total.toLocaleString()} {placedOrder.currency}</span>
                 </div>
-                {totalBonusesEarned > 0 && (
+                {(placedOrder.earnedBonuses ?? 0) > 0 && (
                   <div style={{ marginTop: SP.sm, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#10B981" }}>
                     <span>⭐</span>
-                    <span>{lang === "kz" ? "Сізге" : "Вам начислено"} +{totalBonusesEarned.toLocaleString()} {lang === "en" ? "bonuses" : "бонусов"}</span>
+                    <span>{lang === "kz" ? "Сізге" : "Вам начислено"} +{placedOrder.earnedBonuses!.toLocaleString()} {lang === "en" ? "bonuses" : "бонусов"}</span>
                   </div>
                 )}
               </div>
