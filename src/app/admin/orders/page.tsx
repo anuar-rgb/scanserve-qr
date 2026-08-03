@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Loader2, RefreshCw, Search, UtensilsCrossed, Package, Bike,
   ShoppingBag, Clock, Calendar, CalendarDays, MessageSquare,
-  ChevronLeft, ChevronRight, X, Landmark, Phone, Copy, Bell,
+  ChevronLeft, ChevronRight, X, Landmark, Phone, Copy, Bell, RotateCcw, Check,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
@@ -403,7 +403,12 @@ export default function OrderHistoryPage() {
       </div>
 
       {/* ── Detail Drawer ────────────────────────────────────────────────── */}
-      <OrderDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} readOnly />
+      <OrderDrawer
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onRefresh={() => load(selectedDate)}
+        readOnly
+      />
     </div>
   );
 }
@@ -489,9 +494,14 @@ function CompactCard({
 
 // ── OrderDrawer ───────────────────────────────────────────────────────────────
 
-function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onClose: () => void; readOnly?: boolean }) {
+function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder | null; onClose: () => void; onRefresh?: () => void; readOnly?: boolean }) {
   const [notifying, setNotifying] = useState(false);
   const [notifyDone, setNotifyDone] = useState(false);
+  const [refundMode, setRefundMode] = useState<"full" | "partial">("full");
+  const [showRefund, setShowRefund] = useState(false);
+  const [checkedRefundIdx, setCheckedRefundIdx] = useState<Set<number>>(new Set());
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [bonusMap, setBonusMap] = useState<Record<string, number>>({});
 
   if (!order) return null;
 
@@ -519,6 +529,76 @@ function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onCl
   const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
     order.status === "preparing" &&
     !!(order.guest_id || order.customer_phone);
+
+  const canRefund = order.status === "completed" && !order.refund_status;
+
+  // Fetch bonus_percent for refund hint (lazy — only when refund panel opens)
+  useEffect(() => {
+    if (!showRefund) return;
+    const ids = [...new Set(items.filter((it) => (it as unknown as { product_id?: string }).product_id).map((it) => (it as unknown as { product_id: string }).product_id))];
+    if (!ids.length) return;
+    supabase.from("products").select("id, bonus_percent").in("id", ids).then(({ data }) => {
+      const map: Record<string, number> = {};
+      for (const p of data ?? []) { if (p.bonus_percent) map[p.id] = Number(p.bonus_percent); }
+      setBonusMap(map);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRefund]);
+
+  const { refundReturnBonuses, refundReverseEarned } = useMemo(() => {
+    const bonusesAccrued = order.bonuses_accrued ?? false;
+    const totalPrice     = order.total_price ?? 0;
+    if (refundMode === "full") {
+      return {
+        refundReturnBonuses: bonusesDeducted,
+        refundReverseEarned: bonusesAccrued ? earnedBonuses : 0,
+      };
+    }
+    const selected = [...checkedRefundIdx].map((i) => items[i] as { product_id?: string; price: number; qty: number }).filter(Boolean);
+    const refundAmt = selected.reduce((s, it) => s + it.price * it.qty, 0);
+    const ret = totalPrice > 0 ? Math.round((refundAmt / totalPrice) * bonusesDeducted) : 0;
+    let rev = 0;
+    if (bonusesAccrued) {
+      for (const item of selected) {
+        if (!item.product_id || !bonusMap[item.product_id]) continue;
+        rev += Math.round(item.qty * item.price * bonusMap[item.product_id] / 100);
+      }
+    }
+    return { refundReturnBonuses: ret, refundReverseEarned: rev };
+  }, [refundMode, checkedRefundIdx, bonusMap, items, bonusesDeducted, earnedBonuses, order.bonuses_accrued, order.total_price]);
+
+  const refundNetChange = refundReturnBonuses - refundReverseEarned;
+
+  async function handleRefundConfirm() {
+    if (refundSaving) return;
+    if (refundMode === "partial" && checkedRefundIdx.size === 0) {
+      toast.error("Выберите хотя бы одну позицию для возврата");
+      return;
+    }
+    setRefundSaving(true);
+    const refundItems = refundMode === "partial"
+      ? [...checkedRefundIdx].map((i) => {
+          const it = items[i] as { product_id?: string; name: string; qty: number; price: number };
+          return { product_id: it.product_id, name: it.name, qty: it.qty, price: it.price };
+        })
+      : undefined;
+
+    const res = await fetch("/api/admin/refund", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order!.id, restaurantId: RESTAURANT_ID, refundType: refundMode, refundItems }),
+    });
+    setRefundSaving(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({})) as { error?: string };
+      toast.error(d.error === "already_refunded" ? "Заказ уже возвращён" : "Ошибка оформления возврата");
+      return;
+    }
+    toast.success("Возврат оформлен");
+    setShowRefund(false);
+    onRefresh?.();
+    onClose();
+  }
 
   async function handleNotify() {
     if (notifying) return;
@@ -840,6 +920,110 @@ function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onCl
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Refund section */}
+          {canRefund && (
+            <div className="pt-3 border-t border-border">
+              {!showRefund ? (
+                <button
+                  onClick={() => setShowRefund(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
+                >
+                  <RotateCcw size={14} />
+                  Оформить возврат
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Возврат</p>
+                    <button onClick={() => setShowRefund(false)} className="p-1 rounded hover:bg-accent text-muted-foreground">
+                      <X size={13} />
+                    </button>
+                  </div>
+                  {/* Mode toggle */}
+                  <div className="flex gap-2">
+                    {(["full", "partial"] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => { setRefundMode(m); setCheckedRefundIdx(new Set()); }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${refundMode === m ? "bg-red-600 text-white" : "bg-accent hover:bg-accent/80"}`}
+                      >
+                        {m === "full" ? "Полный" : "Частичный"}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Item list (partial) */}
+                  {refundMode === "partial" && (
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {items.map((item, i) => {
+                        const it = item as { product_id?: string; name: string; qty: number; price: number };
+                        const checked = checkedRefundIdx.has(i);
+                        const bp = it.product_id ? (bonusMap[it.product_id] ?? 0) : 0;
+                        const ib = bp > 0 ? Math.round(it.qty * it.price * bp / 100) : 0;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setCheckedRefundIdx((prev) => { const n = new Set(prev); if (checked) n.delete(i); else n.add(i); return n; })}
+                            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors ${checked ? "border-red-500 bg-red-50 dark:bg-red-900/20" : "border-border hover:bg-accent/50"}`}
+                          >
+                            <div className={`w-3.5 h-3.5 shrink-0 rounded flex items-center justify-center border-2 ${checked ? "bg-red-500 border-red-500" : "border-muted-foreground/40"}`}>
+                              {checked && <Check size={8} className="text-white" />}
+                            </div>
+                            <span className="flex-1 truncate font-medium">{it.name}</span>
+                            <span className="text-muted-foreground shrink-0">{it.qty}×</span>
+                            <span className="font-semibold tabular-nums shrink-0">{(it.price * it.qty).toLocaleString("ru-RU")} ₸</span>
+                            {ib > 0 && <span className="text-amber-600 dark:text-amber-400 shrink-0">{ib}б</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Bonus hint */}
+                  {!!order.guest_id && (refundReturnBonuses > 0 || refundReverseEarned > 0) && (
+                    <div className="px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs space-y-0.5">
+                      {refundReturnBonuses > 0 && (
+                        <div className="flex justify-between text-amber-700 dark:text-amber-300">
+                          <span>Вернётся клиенту</span><span className="font-bold">+{refundReturnBonuses} б</span>
+                        </div>
+                      )}
+                      {refundReverseEarned > 0 && (
+                        <div className="flex justify-between text-red-600 dark:text-red-400">
+                          <span>Аннулируется кешбэк</span><span className="font-bold">−{refundReverseEarned} б</span>
+                        </div>
+                      )}
+                      {refundReturnBonuses > 0 && refundReverseEarned > 0 && (
+                        <div className="flex justify-between font-bold pt-1 border-t border-amber-200 dark:border-amber-700">
+                          <span>Итого к балансу</span>
+                          <span className={refundNetChange >= 0 ? "text-emerald-600" : "text-red-600"}>
+                            {refundNetChange > 0 ? "+" : ""}{refundNetChange} б
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleRefundConfirm}
+                    disabled={refundSaving || (refundMode === "partial" && checkedRefundIdx.size === 0)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-40 transition-colors"
+                  >
+                    {refundSaving ? <><Loader2 size={13} className="animate-spin" /> Оформление…</> : <><RotateCcw size={13} /> Подтвердить возврат</>}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {order.refund_status && (
+            <div className="pt-3 border-t border-border">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RotateCcw size={14} />
+                <span>Возвращён ({order.refund_status === "full" ? "полный" : "частичный"})</span>
+                {order.refund_bonuses_ret != null && order.refund_bonuses_ret > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400">· +{order.refund_bonuses_ret} б гостю</span>
+                )}
+              </div>
             </div>
           )}
         </div>

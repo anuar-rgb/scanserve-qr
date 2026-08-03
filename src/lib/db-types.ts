@@ -109,6 +109,10 @@ export interface DbOrder {
   bonuses_deducted: number | null;
   earned_bonuses: number | null;
   bonuses_accrued: boolean | null;
+  refund_status: string | null;
+  refunded_at: string | null;
+  refund_bonuses_ret: number | null;
+  refund_earned_rev: number | null;
   promo_code: string | null;
   promo_discount: number | null;
   delivery_status: "new" | "ready" | "accepted" | "in_transit" | "delivered" | null;
@@ -284,6 +288,17 @@ export interface DbRecipeItem {
   ingredient_id: string;
   weight_gross: number;
   weight_net: number;
+  created_at: string;
+}
+
+export interface DbBonusTransaction {
+  id: string;
+  guest_id: string;
+  restaurant_id: string;
+  order_id: string | null;
+  type: "earned" | "spent" | "refund_spent" | "refund_earned" | "manual";
+  amount: number;
+  description: string | null;
   created_at: string;
 }
 
