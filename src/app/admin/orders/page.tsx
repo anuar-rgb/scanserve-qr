@@ -403,7 +403,7 @@ export default function OrderHistoryPage() {
       </div>
 
       {/* ── Detail Drawer ────────────────────────────────────────────────── */}
-      <OrderDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      <OrderDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} readOnly />
     </div>
   );
 }
@@ -489,7 +489,7 @@ function CompactCard({
 
 // ── OrderDrawer ───────────────────────────────────────────────────────────────
 
-function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () => void }) {
+function OrderDrawer({ order, onClose, readOnly }: { order: DbOrder | null; onClose: () => void; readOnly?: boolean }) {
   const [notifying, setNotifying] = useState(false);
   const [notifyDone, setNotifyDone] = useState(false);
 
@@ -604,7 +604,7 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
           </div>
 
           {/* Notify guest */}
-          {canNotify && (
+          {!readOnly && canNotify && (
             <button
               onClick={() => void handleNotify()}
               disabled={notifying || notifyDone}
@@ -620,7 +620,7 @@ function OrderDrawer({ order, onClose }: { order: DbOrder | null; onClose: () =>
           )}
 
           {/* Close delivery check — manager action after courier delivers */}
-          {order.type === "delivery" && (order as DbOrder & { delivery_status?: string }).delivery_status === "delivered" && order.status !== "closed" && (
+          {!readOnly && order.type === "delivery" && (order as DbOrder & { delivery_status?: string }).delivery_status === "delivered" && order.status !== "closed" && (
             <button
               onClick={async () => {
                 const res = await fetch("/api/admin/delivery-orders", {
