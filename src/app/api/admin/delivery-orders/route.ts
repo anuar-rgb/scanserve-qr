@@ -16,18 +16,42 @@ const RID = (r: NextRequest) =>
 
 const ALLOWED_ROLES = new Set(["owner", "manager", "supervisor", "courier"]);
 
+const SELECT_COLS = "id, status, delivery_status, delivery_address, customer_phone, customer_name, customer_city, customer_comments, items_json, total_price, payment_method, created_at, order_type, tips_amount";
+
 // GET /api/admin/delivery-orders
-// Returns active delivery orders for the restaurant
+// Active orders (default) or history for a date range (?from=ISO&to=ISO)
 export async function GET(request: NextRequest) {
   const role = getSessionRole(request);
   if (!role || !ALLOWED_ROLES.has(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const url     = new URL(request.url);
+  const fromISO = url.searchParams.get("from");
+  const toISO   = url.searchParams.get("to");
+
   const supabase = db();
+
+  // History mode: all delivered orders in the given UTC date range (includes closed)
+  if (fromISO && toISO) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(SELECT_COLS)
+      .eq("restaurant_id", RID(request))
+      .eq("type", "delivery")
+      .eq("delivery_status", "delivered")
+      .gte("created_at", fromISO)
+      .lte("created_at", toISO)
+      .order("created_at", { ascending: false });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ orders: data ?? [] });
+  }
+
+  // Default: active (non-closed/cancelled) delivery orders
   const { data, error } = await supabase
     .from("orders")
-    .select("id, status, delivery_status, delivery_address, customer_phone, customer_name, customer_city, customer_comments, items_json, total_price, payment_method, created_at, order_type, tips_amount")
+    .select(SELECT_COLS)
     .eq("restaurant_id", RID(request))
     .eq("type", "delivery")
     .not("status", "in", '("closed","cancelled")')
