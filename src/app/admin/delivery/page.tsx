@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { MapPin, Phone, Clock, Package, CheckCircle2, Truck, Navigation, ChevronDown, History } from "lucide-react";
 import { useRole } from "@/lib/role-context";
 import type { DbOrder } from "@/lib/db-types";
+import { supabase, isConfigured } from "@/lib/supabase";
+import { RESTAURANT_ID } from "@/constants";
 
 type DeliveryStatus = "new" | "ready" | "accepted" | "in_transit" | "delivered";
 
@@ -101,38 +103,39 @@ export default function DeliveryPage() {
     });
   }
 
-  const prevIdsRef = useRef<Set<string>>(new Set());
-  const audioRef   = useRef<AudioContext | null>(null);
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  const audioRef    = useRef<AudioContext | null>(null);
 
-  function playBell() {
+  const playBell = useCallback(() => {
     try {
       const ctx = audioRef.current ?? new AudioContext();
       audioRef.current = ctx;
-      const osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.4);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.6);
+      if (ctx.state === "suspended") void ctx.resume();
+      const ping = (freq: number, t: number) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.4, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.start(t); osc.stop(t + 0.5);
+      };
+      const t = ctx.currentTime;
+      ping(880, t);
+      ping(1108, t + 0.28);
     } catch { /* audio not available */ }
-  }
+  }, []);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/delivery-orders");
     if (!res.ok) return;
     const json = await res.json() as { orders: DeliveryOrder[] };
     const fetched = json.orders ?? [];
-    const newIds = new Set(fetched.filter(o => !o.delivery_status || o.delivery_status === "new").map(o => o.id));
-    const isFirst = prevIdsRef.current.size === 0 && loading;
-    if (!isFirst) {
-      for (const id of newIds) { if (!prevIdsRef.current.has(id)) { playBell(); break; } }
-    }
-    prevIdsRef.current = newIds;
+    knownIdsRef.current = new Set(fetched.map(o => o.id));
     setOrders(fetched);
     setLoading(false);
-  }, [loading]);
+  }, []);
 
   const loadHistory = useCallback(async (date: string) => {
     setHistoryLoading(true);
@@ -166,14 +169,49 @@ export default function DeliveryPage() {
     });
   }, []);
 
+  // Supabase Realtime — instant new-order notifications for all couriers
+  useEffect(() => {
+    if (!isConfigured) return;
+    const channel = supabase
+      .channel("delivery-orders-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        (payload) => {
+          const order = payload.new as DeliveryOrder;
+          if (order.type !== "delivery") return;
+          if (knownIdsRef.current.has(order.id)) return; // already in list (race dedup)
+          knownIdsRef.current.add(order.id);
+          setOrders(prev => [order, ...prev]);
+          setNewOrderIds(prev => new Set([...prev, order.id]));
+          playBell();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        (payload) => {
+          const updated = payload.new as DeliveryOrder;
+          if (updated.type !== "delivery") return;
+          setOrders(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o));
+          // Clear "new" badge when order moves past "new" status
+          if (updated.delivery_status && updated.delivery_status !== "new") {
+            setNewOrderIds(prev => { const s = new Set(prev); s.delete(updated.id); return s; });
+          }
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [playBell]);
+
   async function updateStatus(orderId: string, deliveryStatus: DeliveryStatus) {
     setBusy(orderId);
+    setNewOrderIds(prev => { const s = new Set(prev); s.delete(orderId); return s; });
     await fetch("/api/admin/delivery-orders", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId, deliveryStatus }),
     });
     await load();
-    // Refresh history if today is selected
     if (filter === "history" && historyDate === todayISO()) loadHistory(historyDate);
     setBusy(null);
   }
@@ -191,6 +229,7 @@ export default function DeliveryPage() {
     const isAdmin = role === "owner" || role === "manager" || role === "supervisor";
     const action  = isAdmin ? ADMIN_ACTION[ds] : COURIER_ACTION[ds];
     const isBusy  = busy === order.id;
+    const isNew   = newOrderIds.has(order.id);
     const items   = Array.isArray(order.items_json) ? order.items_json as DeliveryOrder["items_json"] : [];
     const address2gis = order.delivery_address
       ? `https://2gis.kz/search/${encodeURIComponent(order.delivery_address)}`
@@ -198,12 +237,26 @@ export default function DeliveryPage() {
     const isExpanded = expandedIds.has(order.id);
 
     return (
-      <div key={order.id} className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+      <div
+        key={order.id}
+        className={`w-full rounded-2xl border bg-white dark:bg-zinc-900 overflow-hidden transition-shadow ${
+          isNew
+            ? "border-orange-400 dark:border-orange-500 shadow-[0_0_0_3px_rgba(251,146,60,0.18)]"
+            : "border-zinc-200 dark:border-zinc-800"
+        }`}
+      >
         {/* Status header */}
-        <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: cfg.bg }}>
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ background: cfg.bg }}>
           <span className="text-sm font-semibold" style={{ color: cfg.color }}>{cfg.icon} {cfg.label}</span>
-          <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <Clock size={12} />{fmtTime(order.created_at)}
+          <div className="flex items-center gap-2 ml-auto">
+            {isNew && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white animate-pulse">
+                Новый
+              </span>
+            )}
+            <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <Clock size={12} />{fmtTime(order.created_at)}
+            </span>
           </div>
         </div>
 
