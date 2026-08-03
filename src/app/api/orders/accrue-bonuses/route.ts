@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, bonusesEarned: 0, alreadyAccrued: true });
   }
 
-  // Mark as processed FIRST — prevents race condition if admin clicks pay twice
+  const bonusesEarned = order.earned_bonuses ?? 0;
+
+  // Set flag first to block race (two admins clicking simultaneously)
   await supabase
     .from("orders")
     .update({ bonuses_accrued: true })
     .eq("id", orderId);
-
-  const bonusesEarned = order.earned_bonuses ?? 0;
 
   if (bonusesEarned <= 0) {
     return NextResponse.json({ ok: true, bonusesEarned: 0 });
@@ -74,13 +74,19 @@ export async function POST(req: NextRequest) {
   const oldBalance = (balance?.bonus_amount ?? 0) as number;
   const newBalance = oldBalance + bonusesEarned;
 
-
-  await supabase
+  const { error: upsertErr } = await supabase
     .from("guest_balances")
     .upsert(
       { guest_id: order.guest_id, restaurant_id: restaurantId, bonus_amount: newBalance },
       { onConflict: "guest_id,restaurant_id" },
     );
+
+  if (upsertErr) {
+    // Roll back the flag so a retry can succeed
+    await supabase.from("orders").update({ bonuses_accrued: false }).eq("id", orderId);
+    console.error("[accrue-bonuses] upsert failed:", upsertErr.message, "order=", orderId);
+    return NextResponse.json({ error: "balance_update_failed", detail: upsertErr.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, bonusesEarned, oldBalance, newBalance });
 }

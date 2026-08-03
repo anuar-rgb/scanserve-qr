@@ -3156,6 +3156,14 @@ function PaymentModal({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId: order.id, restaurantId: RESTAURANT_ID }),
+    }).then(async (r) => {
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({})) as { error?: string; detail?: string };
+        console.error("[accrue-bonuses] failed", r.status, d);
+        if (d.error === "balance_update_failed") {
+          toast.error("Бонусы не начислены — ошибка БД. Попробуйте закрыть и открыть заказ снова.");
+        }
+      }
     }).catch(() => {});
 
     // Deduct ingredients from warehouse stock (non-blocking)
