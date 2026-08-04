@@ -187,6 +187,8 @@ export async function POST(req: NextRequest) {
   if (refundType === "partial" && newItemsJson !== null) {
     orderUpdate.items_json  = newItemsJson;
     orderUpdate.total_price = newTotalPrice;
+    // Update earned_bonuses to reflect the reversed cashback on returned items
+    orderUpdate.earned_bonuses = Math.max(0, earnedBonuses - reverseEarned);
   }
 
   const { error: updateErr } = await supabase

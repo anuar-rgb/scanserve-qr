@@ -20,13 +20,14 @@ export interface OrdersModalProps {
   lang: Lang;
   theme: "dark" | "light";
   whatsappPhone?: string;
+  restaurantId?: string;
   onRefundRequest: (orderId: string) => void;
   onPartialRefund: (orderId: string, itemIndex: number, qtyReturned: number) => void;
   highlightOrderId?: string;
 }
 
 export function OrdersModal({
-  open, onClose, orders, lang, theme, whatsappPhone, onRefundRequest, onPartialRefund,
+  open, onClose, orders, lang, theme, whatsappPhone, restaurantId, onRefundRequest, onPartialRefund,
   highlightOrderId,
 }: OrdersModalProps) {
   const [pdfLoading, setPdfLoading]             = useState<string | null>(null);
@@ -96,6 +97,11 @@ export function OrdersModal({
     closeBtn:        lang === "kz" ? "Жабу"                                     : lang === "ru" ? "Закрыть"                                  : "Close",
     backBtn:         lang === "kz" ? "Тапсырыстарға оралу"                      : lang === "ru" ? "Вернуться к заказам"                       : "Back to Orders",
     refundConfirmed: lang === "kz" ? "Өтінім расталды ✓"                        : lang === "ru" ? "Возврат подтверждён ✓"                     : "Refund Confirmed ✓",
+    requestSent:     lang === "kz" ? "Сұраным жіберілді ✓"                      : lang === "ru" ? "Запрос отправлен ✓"                         : "Request sent ✓",
+    requestHint:     lang === "kz" ? "Әкімші растаудан кейін өзгерістер қолданылады" : lang === "ru" ? "Изменения применятся после подтверждения администратором" : "Changes will apply after admin confirmation",
+    requestBtn:      lang === "kz" ? "↩ Отмена позиции"                         : lang === "ru" ? "↩ Запрос на отмену"                         : "↩ Cancel item",
+    requestFullBtn:  lang === "kz" ? "🔄 Отмена заказа"                         : lang === "ru" ? "🔄 Запрос на отмену заказа"                  : "🔄 Cancel order",
+    requestPending:  lang === "kz" ? "⏳ Ожидает"                                : lang === "ru" ? "⏳ Ожидает"                                  : "⏳ Pending",
     refundExpired:   lang === "kz" ? "⏱ Қайтару мерзімі аяқталды"               : lang === "ru" ? "⏱ Время возврата истекло"                   : "⏱ Refund window expired",
     idCopied:        lang === "kz" ? "Тапсырыс нөмірі көшірілді"                : lang === "ru" ? "Номер заказа скопирован"                     : "Order ID copied",
     preorderLabel:   lang === "kz" ? "Алдын ала тапсырыс уақыты"                : lang === "ru" ? "Дата и время выдачи"                        : "Scheduled for",
@@ -162,7 +168,7 @@ export function OrdersModal({
   };
 
   // ── Partial qty-picker confirm ─────────────────────────────────────────────
-  const handlePartialConfirm = () => {
+  const handlePartialConfirm = async () => {
     if (!partialDialog) return;
     const { order, itemIndex, qty } = partialDialog;
     if (!canRefund(order.timestamp)) {
@@ -173,6 +179,50 @@ export function OrdersModal({
     const item = order.items[itemIndex];
     if (!item) { setPartialDialog(null); return; }
 
+    // Active (pending) order → submit a refund request for admin approval
+    if (order.isActive) {
+      try {
+        const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
+        const session = raw ? JSON.parse(raw) as { id?: string } : null;
+        const guestId = session?.id;
+
+        if (!guestId || !restaurantId) {
+          toast.error("Необходима авторизация");
+          return;
+        }
+
+        const res = await fetch("/api/guest/refund-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: order.id,
+            restaurantId,
+            guestId,
+            itemName: item.name,
+            itemPrice: item.price,
+            itemQty: qty,
+            refundType: "partial",
+          }),
+        });
+
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        if (!res.ok) {
+          if (data.error === "already_requested") {
+            toast.error(lang === "ru" ? "Запрос уже отправлен" : lang === "kz" ? "Өтінім жіберілген" : "Request already sent");
+          } else {
+            toast.error(data.error ?? "Ошибка отправки запроса");
+          }
+          return;
+        }
+
+        setPartialConfirmed(true);
+      } catch {
+        toast.error("Ошибка сети");
+      }
+      return;
+    }
+
+    // Completed order → old WhatsApp flow
     const refundAmountVal = item.price * qty;
     const newTotal = Math.max(0, order.total - refundAmountVal);
 
@@ -607,7 +657,7 @@ export function OrdersModal({
                                   letterSpacing: "0.01em", whiteSpace: "nowrap",
                                 }}
                               >
-                                {t.refundItem}
+                                {order.isActive ? t.requestBtn : t.refundItem}
                               </button>
                             )}
                           </div>
@@ -636,23 +686,60 @@ export function OrdersModal({
                         )}
                       </div>
 
-                      {/* Full-order refund button */}
+                      {/* Full-order refund / request button */}
                       <div style={{ padding: "6px 14px 12px" }}>
-                        <button
-                          onClick={() => openRefundForm(order)}
-                          disabled={isRequested || isExpired}
-                          style={{
-                            width: "100%", padding: "8px 0", borderRadius: R.full,
-                            border: `1px solid ${(isRequested || isExpired) ? border : "#E05555"}`,
-                            background: "transparent",
-                            color: (isRequested || isExpired) ? muted : "#E05555",
-                            fontSize: 12, fontWeight: 700,
-                            cursor: (isRequested || isExpired) ? "default" : "pointer",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          {isRequested ? `✓ ${t.requested}` : isExpired ? t.refundExpired : t.refundAll}
-                        </button>
+                        {order.isActive ? (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
+                                const session = raw ? JSON.parse(raw) as { id?: string } : null;
+                                const guestId = session?.id;
+                                if (!guestId || !restaurantId) { toast.error("Необходима авторизация"); return; }
+
+                                const res = await fetch("/api/guest/refund-request", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ orderId: order.id, restaurantId, guestId, itemName: "ПОЛНЫЙ ВОЗВРАТ", itemPrice: order.total, itemQty: 1, refundType: "full" }),
+                                });
+                                const data = await res.json().catch(() => ({})) as { error?: string };
+                                if (!res.ok) {
+                                  toast.error(data.error === "already_requested" ? (lang === "ru" ? "Запрос уже отправлен" : "Request already sent") : (data.error ?? "Ошибка"));
+                                  return;
+                                }
+                                toast.success(lang === "ru" ? "Запрос на отмену отправлен" : lang === "kz" ? "Болдырмау сұранысы жіберілді" : "Cancellation request sent");
+                              } catch { toast.error("Ошибка сети"); }
+                            }}
+                            disabled={isRequested}
+                            style={{
+                              width: "100%", padding: "8px 0", borderRadius: R.full,
+                              border: `1px solid ${isRequested ? border : "#E05555"}`,
+                              background: "transparent",
+                              color: isRequested ? muted : "#E05555",
+                              fontSize: 12, fontWeight: 700,
+                              cursor: isRequested ? "default" : "pointer",
+                              letterSpacing: "0.02em",
+                            }}
+                          >
+                            {isRequested ? `✓ ${t.requested}` : t.requestFullBtn}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openRefundForm(order)}
+                            disabled={isRequested || isExpired}
+                            style={{
+                              width: "100%", padding: "8px 0", borderRadius: R.full,
+                              border: `1px solid ${(isRequested || isExpired) ? border : "#E05555"}`,
+                              background: "transparent",
+                              color: (isRequested || isExpired) ? muted : "#E05555",
+                              fontSize: 12, fontWeight: 700,
+                              cursor: (isRequested || isExpired) ? "default" : "pointer",
+                              letterSpacing: "0.02em",
+                            }}
+                          >
+                            {isRequested ? `✓ ${t.requested}` : isExpired ? t.refundExpired : t.refundAll}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -752,8 +839,13 @@ export function OrdersModal({
               {partialConfirmed ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#6DB86D" : "#2E7D32", textAlign: "center", margin: `0 0 ${SP.xs}px` }}>
-                    {t.refundConfirmed}
+                    {partialDialog?.order.isActive ? t.requestSent : t.refundConfirmed}
                   </p>
+                  {partialDialog?.order.isActive && (
+                    <p style={{ fontSize: 11, color: muted, textAlign: "center", margin: `0 0 ${SP.xs}px` }}>
+                      {t.requestHint}
+                    </p>
+                  )}
                   <button
                     onClick={closePartialDialog}
                     style={{

@@ -3472,6 +3472,7 @@ export function MenuTemplate({
         lang={lang}
         theme={theme}
         whatsappPhone={restaurant.whatsappPhone}
+        restaurantId={restaurantId}
         onRefundRequest={handleRefundRequest}
         onPartialRefund={handlePartialRefund}
         highlightOrderId={initialOrderId}

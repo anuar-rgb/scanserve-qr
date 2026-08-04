@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, type, order_type, preorder_date, preorder_time, table_number, items_json, total_price, status, created_at, earned_bonuses, bonuses_deducted, promo_code, promo_discount")
+    .select("id, type, order_type, preorder_date, preorder_time, table_number, items_json, total_price, status, created_at, earned_bonuses, bonuses_deducted, promo_code, promo_discount, refund_status")
     .eq("guest_id", guestId)
     .eq("restaurant_id", restaurantId)
     .order("created_at", { ascending: false })
@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
       total: o.total_price,
       currency: "₸",
       status: o.status === "refund-requested" ? "refund-requested" as const : "pending" as const,
+      isActive: o.status === "pending",
       earnedBonuses: o.earned_bonuses ?? undefined,
       bonusesDeducted: o.bonuses_deducted ?? undefined,
       promoCode: o.promo_code ?? undefined,

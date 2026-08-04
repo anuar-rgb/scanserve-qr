@@ -63,6 +63,7 @@ export interface StoredOrder {
   total: number;
   currency: string;
   status: "pending" | "refund-requested";
+  isActive?: boolean;
   earnedBonuses?: number;
   bonusesDeducted?: number;
   promoCode?: string;

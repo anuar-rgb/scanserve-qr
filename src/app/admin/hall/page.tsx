@@ -16,6 +16,18 @@ import { useUserId, useRole, useDisplayName } from "@/lib/role-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type RefundRequest = {
+  id: string;
+  order_id: string;
+  item_name: string;
+  item_price: number;
+  item_qty: number;
+  product_id: string | null;
+  refund_type: "full" | "partial";
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
 type TableStatus = "free" | "occupied" | "preorder";
 type ModifierEntry = { name: string; price: number };
 type OrderItem = { name: string; qty: number; price: number; currency: string; product_id?: string; original_price?: number; created_at?: string; note?: string; added_by?: string; added_by_role?: string; added_by_name?: string; modifiers?: ModifierEntry[] };
@@ -360,6 +372,7 @@ export default function HallPage() {
   const [waiterAutoOrder, setWaiterAutoOrder]           = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
   const [waiterNames, setWaiterNames] = useState<Record<string, string>>({});
+  const [pendingRequests, setPendingRequests] = useState<Record<string, RefundRequest[]>>({});
   const [activeShift,   setActiveShift]   = useState<{ id: string; opened_at: string } | null | undefined>(undefined);
   const [shiftCheckins, setShiftCheckins] = useState<{ staff_user_id: string; checked_in_at: string }[]>([]);
   const [myCheckin,     setMyCheckin]     = useState(false);
@@ -387,6 +400,21 @@ export default function HallPage() {
   const handleOrderClosed = useCallback((orderId: string) => {
     knownOrderIds.current.delete(orderId);
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
+  }, []);
+
+  const loadRequests = useCallback(async () => {
+    const { data } = await supabase
+      .from("refund_requests")
+      .select("id, order_id, item_name, item_price, item_qty, product_id, refund_type, status, created_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("status", "pending");
+    if (!data) return;
+    const grouped: Record<string, RefundRequest[]> = {};
+    for (const r of data as RefundRequest[]) {
+      if (!grouped[r.order_id]) grouped[r.order_id] = [];
+      grouped[r.order_id].push(r);
+    }
+    setPendingRequests(grouped);
   }, []);
 
   const load = useCallback(async () => {
@@ -432,6 +460,7 @@ export default function HallPage() {
     knownOrderIds.current = new Set(newOrders.map((o) => o.id));
     setTables((tablesRes.data as DbRestaurantTable[]) ?? []);
     setOrders(newOrders);
+    void loadRequests();
     setLoading(false);
   }, []);
 
@@ -478,10 +507,16 @@ export default function HallPage() {
       )
       .on("postgres_changes", { event: "DELETE", schema: "public", table: DB_TABLES.orders }, () => load())
       .on("postgres_changes", { event: "*",      schema: "public", table: DB_TABLES.restaurantTables }, () => load())
+      .on("postgres_changes", { event: "*",      schema: "public", table: "refund_requests", filter: `restaurant_id=eq.${RESTAURANT_ID}` }, () => {
+        void loadRequests();
+        const sound = new Audio();
+        sound.src = ""; // just trigger loadRequests; no sound for requests
+        toast("Запрос гостя на возврат", { icon: "⚠️", duration: 5000 });
+      })
       .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
 
     return () => { supabase.removeChannel(channel); };
-  }, [load]);
+  }, [load, loadRequests]);
 
   const loadPreordersForMonth = useCallback(async (year: number, month: number) => {
     if (!isConfigured) return;
@@ -1040,8 +1075,10 @@ export default function HallPage() {
                   activeWaiters={activeWaiters}
                   allStaffUsers={allStaffUsers}
                   restaurantName={restaurant?.name ?? ""}
+                  pendingRequests={selectedData.order ? (pendingRequests[selectedData.order.id] ?? []) : []}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
+                  onRequestsRefresh={loadRequests}
                   onOrderClosed={(id) => { handleOrderClosed(id); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onOrderTransferred={(orderId, newTableNumber) => {
                     setOrders((prev) =>
@@ -2100,28 +2137,100 @@ function VoidItemModal({
   );
 }
 
+// ── GuestRefundRequestsBlock ──────────────────────────────────────────────────
+
+function GuestRefundRequestsBlock({
+  requests,
+  onRefresh,
+}: {
+  requests: RefundRequest[];
+  onRefresh: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function resolve(requestId: string, action: "approve" | "reject") {
+    setBusy(requestId + action);
+    try {
+      const res = await fetch("/api/admin/refund-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action }),
+      });
+      const d = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) {
+        toast.error(d.error ?? "Ошибка");
+        return;
+      }
+      toast.success(action === "approve" ? "Возврат одобрен" : "Запрос отклонён");
+      onRefresh();
+    } catch {
+      toast.error("Ошибка сети");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-400/50 bg-amber-50/60 dark:bg-amber-900/10 p-3 space-y-2">
+      <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+        <Bell size={12} /> Запросы гостя
+      </p>
+      {requests.map((rr) => (
+        <div key={rr.id} className="rounded-lg bg-white/70 dark:bg-white/5 border border-border px-3 py-2 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold truncate">
+              {rr.refund_type === "full" ? "🔄 Полный возврат заказа" : `↩ ${rr.item_name} × ${rr.item_qty}`}
+            </p>
+            {rr.refund_type === "partial" && (
+              <p className="text-[11px] text-muted-foreground">{(rr.item_price * rr.item_qty).toLocaleString("ru-RU")} ₸</p>
+            )}
+          </div>
+          <button
+            onClick={() => resolve(rr.id, "approve")}
+            disabled={busy !== null}
+            className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          >
+            {busy === rr.id + "approve" ? "…" : "✓"}
+          </button>
+          <button
+            onClick={() => resolve(rr.id, "reject")}
+            disabled={busy !== null}
+            className="px-2.5 py-1 rounded-lg border border-border text-xs font-semibold hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {busy === rr.id + "reject" ? "…" : "✕"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── OrderSlotPanel ────────────────────────────────────────────────────────────
 
 function OrderSlotPanel({
   order,
   onClose,
   onRefresh,
+  onRequestsRefresh,
   onOrderClosed,
   allTables,
   width,
   waiterNames = {},
   activeWaiters = [],
   restaurantName = "",
+  pendingRequests = [],
 }: {
   order: DbOrder;
   onClose: () => void;
   onRefresh: () => void;
+  onRequestsRefresh?: () => void;
   onOrderClosed: (orderId: string) => void;
   allTables: TableWithStatus[];
   width?: number;
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
   restaurantName?: string;
+  pendingRequests?: RefundRequest[];
 }) {
   const role_      = useRole();
   const isWaiter   = role_ === "waiter";
@@ -2879,6 +2988,13 @@ function OrderSlotPanel({
               </span>
             </div>
           </div>}
+
+          {!isWaiter && !isChef && pendingRequests.length > 0 && (
+            <GuestRefundRequestsBlock
+              requests={pendingRequests}
+              onRefresh={() => { onRefresh(); onRequestsRefresh?.(); }}
+            />
+          )}
 
           {!isWaiter && !isChef && order.status !== "completed" && (
             <>
@@ -3918,6 +4034,7 @@ function TablePanel({
   data,
   onClose,
   onRefresh,
+  onRequestsRefresh,
   onOrderClosed,
   onOrderTransferred,
   allTables,
@@ -3928,12 +4045,14 @@ function TablePanel({
   activeWaiters = [],
   allStaffUsers = [],
   restaurantName = "",
+  pendingRequests = [],
   onEnterOrderMode,
   onExitOrderMode,
 }: {
   data: TableWithStatus;
   onClose: () => void;
   onRefresh: () => void;
+  onRequestsRefresh?: () => void;
   onOrderClosed: (orderId: string) => void;
   onOrderTransferred: (orderId: string, newTableNumber: string) => void;
   allTables: TableWithStatus[];
@@ -3944,6 +4063,7 @@ function TablePanel({
   activeWaiters?: { id: string; name: string }[];
   allStaffUsers?: { id: string; name: string }[];
   restaurantName?: string;
+  pendingRequests?: RefundRequest[];
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
@@ -4718,6 +4838,14 @@ function TablePanel({
                 </span>
               </div>
             </div>
+
+            {/* Guest refund requests */}
+            {!isWaiter && pendingRequests.length > 0 && (
+              <GuestRefundRequestsBlock
+                requests={pendingRequests}
+                onRefresh={() => { onRefresh(); onRequestsRefresh?.(); }}
+              />
+            )}
 
             {/* Close order */}
             {!isWaiter && status === "occupied" && (
