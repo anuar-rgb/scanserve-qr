@@ -249,11 +249,11 @@ export async function POST(req: NextRequest) {
         orderUpdate.earned_bonuses = newEarnedBonuses;
       }
     }
-    // If all items removed, mark as completed
+    // All items removed via partial refunds — treat as full cancellation
     if (newItemsJson !== null && newItemsJson.length === 0) {
       orderUpdate.refund_status = "full";
       orderUpdate.refunded_at   = new Date().toISOString();
-      orderUpdate.status        = "completed";
+      orderUpdate.status        = "cancelled";
       orderUpdate.closed_at     = new Date().toISOString();
     }
   }

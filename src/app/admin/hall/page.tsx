@@ -507,11 +507,11 @@ export default function HallPage() {
       )
       .on("postgres_changes", { event: "DELETE", schema: "public", table: DB_TABLES.orders }, () => load())
       .on("postgres_changes", { event: "*",      schema: "public", table: DB_TABLES.restaurantTables }, () => load())
-      .on("postgres_changes", { event: "*",      schema: "public", table: "refund_requests", filter: `restaurant_id=eq.${RESTAURANT_ID}` }, () => {
+      .on("postgres_changes", { event: "*",      schema: "public", table: "refund_requests", filter: `restaurant_id=eq.${RESTAURANT_ID}` }, (payload) => {
         void loadRequests();
-        const sound = new Audio();
-        sound.src = ""; // just trigger loadRequests; no sound for requests
-        toast("Запрос гостя на возврат", { icon: "⚠️", duration: 5000 });
+        if ((payload as { eventType?: string }).eventType === "INSERT") {
+          toast("Запрос гостя на возврат", { icon: "⚠️", duration: 5000 });
+        }
       })
       .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
 
@@ -1106,12 +1106,14 @@ export default function HallPage() {
           loading={loading}
           orderType="takeaway"
           onRefresh={load}
+          onRequestsRefresh={loadRequests}
           onOrderClosed={handleOrderClosed}
           allTables={tablesWithStatus}
           activatedPreorderIds={activatedPreorderIds}
           waiterNames={waiterNames}
           activeWaiters={activeWaiters}
           restaurantName={restaurant?.name ?? ""}
+          pendingRequests={pendingRequests}
           readOnly={isChef}
         />
       )}
@@ -1123,12 +1125,14 @@ export default function HallPage() {
           loading={loading}
           orderType="delivery"
           onRefresh={load}
+          onRequestsRefresh={loadRequests}
           onOrderClosed={handleOrderClosed}
           allTables={tablesWithStatus}
           activatedPreorderIds={activatedPreorderIds}
           waiterNames={waiterNames}
           activeWaiters={activeWaiters}
           restaurantName={restaurant?.name ?? ""}
+          pendingRequests={pendingRequests}
           readOnly={isChef}
         />
       )}
@@ -3106,24 +3110,28 @@ function PickupDeliveryGrid({
   loading,
   orderType,
   onRefresh,
+  onRequestsRefresh,
   onOrderClosed,
   allTables,
   activatedPreorderIds,
   waiterNames = {},
   activeWaiters = [],
   restaurantName = "",
+  pendingRequests = {},
   readOnly = false,
 }: {
   orders: DbOrder[];
   loading: boolean;
   orderType: "takeaway" | "delivery";
   onRefresh: () => void;
+  onRequestsRefresh?: () => void;
   onOrderClosed: (orderId: string) => void;
   allTables: TableWithStatus[];
   activatedPreorderIds?: Set<string>;
   waiterNames?: Record<string, string>;
   activeWaiters?: { id: string; name: string }[];
   restaurantName?: string;
+  pendingRequests?: Record<string, RefundRequest[]>;
   readOnly?: boolean;
 }) {
   const [selected, setSelected]     = useState<string | null>(null);
@@ -3199,11 +3207,13 @@ function PickupDeliveryGrid({
             width={slotPanelW}
             onClose={() => setSelected(null)}
             onRefresh={onRefresh}
+            onRequestsRefresh={onRequestsRefresh}
             onOrderClosed={onOrderClosed}
             allTables={allTables}
             waiterNames={waiterNames}
             activeWaiters={activeWaiters}
             restaurantName={restaurantName}
+            pendingRequests={pendingRequests[selectedOrder.id] ?? []}
           />
         </>
       )}
