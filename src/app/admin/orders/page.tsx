@@ -503,38 +503,13 @@ function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder |
   const [refundSaving, setRefundSaving] = useState(false);
   const [bonusMap, setBonusMap] = useState<Record<string, number>>({});
 
-  if (!order) return null;
+  // These must be before the early return to avoid a hooks-order violation
+  const items: OrderItem[] = Array.isArray(order?.items_json) ? (order!.items_json as OrderItem[]) : [];
+  const bonusesDeducted = order?.bonuses_deducted ?? 0;
+  const earnedBonuses   = order?.earned_bonuses ?? 0;
 
-  const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
-  const savedAmount = items.reduce(
-    (s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s,
-    0,
-  );
-  const itemsSubtotal   = items.reduce((s, it) => s + it.price * it.qty, 0);
-  const tipsAmt         = order.tips_amount ?? 0;
-  const bonusesDeducted = order.bonuses_deducted ?? 0;
-  const promoDiscount   = order.promo_discount ?? 0;
-  const earnedBonuses   = order.earned_bonuses ?? 0;
-  // Delivery fee is not stored separately — derive it from total_price
-  const derivedDeliveryFee = order.type === "delivery"
-    ? Math.max(0, (order.total_price ?? 0) - itemsSubtotal - tipsAmt + bonusesDeducted + promoDiscount)
-    : 0;
-
-  const isPreorder = order.order_type === "preorder";
-  const typeLabel  =
-    order.type === "dine-in"  ? "В заведении" :
-    order.type === "delivery" ? "Доставка"    : "С собой";
-  const hasCustomerInfo = !!(order.customer_name || order.customer_phone || order.delivery_address);
-
-  const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
-    order.status === "preparing" &&
-    !!(order.guest_id || order.customer_phone);
-
-  const canRefund = order.status === "completed" && !order.refund_status;
-
-  // Fetch bonus_percent for refund hint (lazy — only when refund panel opens)
   useEffect(() => {
-    if (!showRefund) return;
+    if (!showRefund || !order) return;
     const ids = [...new Set(items.filter((it) => (it as unknown as { product_id?: string }).product_id).map((it) => (it as unknown as { product_id: string }).product_id))];
     if (!ids.length) return;
     supabase.from("products").select("id, bonus_percent").in("id", ids).then(({ data }) => {
@@ -546,6 +521,7 @@ function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder |
   }, [showRefund]);
 
   const { refundReturnBonuses, refundReverseEarned } = useMemo(() => {
+    if (!order) return { refundReturnBonuses: 0, refundReverseEarned: 0 };
     const bonusesAccrued = order.bonuses_accrued ?? false;
     const totalPrice     = order.total_price ?? 0;
     if (refundMode === "full") {
@@ -565,7 +541,32 @@ function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder |
       }
     }
     return { refundReturnBonuses: ret, refundReverseEarned: rev };
-  }, [refundMode, checkedRefundIdx, bonusMap, items, bonusesDeducted, earnedBonuses, order.bonuses_accrued, order.total_price]);
+  }, [refundMode, checkedRefundIdx, bonusMap, items, bonusesDeducted, earnedBonuses, order?.bonuses_accrued, order?.total_price]);
+
+  if (!order) return null;
+
+  const savedAmount = items.reduce(
+    (s, it) => it.original_price != null ? s + (it.original_price - it.price) * it.qty : s,
+    0,
+  );
+  const itemsSubtotal      = items.reduce((s, it) => s + it.price * it.qty, 0);
+  const tipsAmt            = order.tips_amount ?? 0;
+  const promoDiscount      = order.promo_discount ?? 0;
+  const derivedDeliveryFee = order.type === "delivery"
+    ? Math.max(0, (order.total_price ?? 0) - itemsSubtotal - tipsAmt + bonusesDeducted + promoDiscount)
+    : 0;
+
+  const isPreorder = order.order_type === "preorder";
+  const typeLabel  =
+    order.type === "dine-in"  ? "В заведении" :
+    order.type === "delivery" ? "Доставка"    : "С собой";
+  const hasCustomerInfo = !!(order.customer_name || order.customer_phone || order.delivery_address);
+
+  const canNotify = (order.type === "takeaway" || order.type === "delivery" || order.type === "pickup") &&
+    order.status === "preparing" &&
+    !!(order.guest_id || order.customer_phone);
+
+  const canRefund = order.status === "completed" && !order.refund_status;
 
   const refundNetChange = refundReturnBonuses - refundReverseEarned;
 
