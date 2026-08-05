@@ -410,8 +410,9 @@ export default function AnalyticsPage() {
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("orders")
-        .select("total_price, tips_amount")
+        .select("total_price, tips_amount, status")
         .eq("restaurant_id", RESTAURANT_ID)
+        .neq("status", "cancelled")
         .gte("created_at", prevFrom).lt("created_at", from),
       supabase.from("reviews")
         .select("rating").eq("restaurant_id", RESTAURANT_ID),
@@ -757,16 +758,21 @@ export default function AnalyticsPage() {
   };
 
   // ── derived analytics ──
-  const totalRevenue = orders.reduce((s, o) => s + (o.total_price ?? 0), 0);
-  const totalTips    = orders.reduce((s, o) => s + (o.tips_amount ?? 0), 0);
-  const totalOrders  = orders.length;
+  // Exclude cancelled orders and fully-voided orders (status=completed, empty items, zero total)
+  const countableOrders = orders.filter(o =>
+    o.status !== "cancelled" &&
+    !(o.total_price === 0 && Array.isArray(o.items_json) && o.items_json.length === 0)
+  );
+  const totalRevenue = countableOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
+  const totalTips    = countableOrders.reduce((s, o) => s + (o.tips_amount ?? 0), 0);
+  const totalOrders  = countableOrders.length;
   const avgCheck     = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
   const prevRevenue  = prevOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
   const prevTotal    = prevOrders.length;
   const revDelta     = prevRevenue > 0 ? Math.round((totalRevenue - prevRevenue) / prevRevenue * 100) : null;
   const ordDelta     = prevTotal   > 0 ? Math.round((totalOrders  - prevTotal)   / prevTotal   * 100) : null;
-  const totalBonusesEarned   = orders.reduce((s, o) => s + (o.earned_bonuses ?? 0), 0);
-  const totalBonusesDeducted = orders.reduce((s, o) => s + (o.bonuses_deducted ?? 0), 0);
+  const totalBonusesEarned   = countableOrders.reduce((s, o) => s + (o.earned_bonuses ?? 0), 0);
+  const totalBonusesDeducted = countableOrders.reduce((s, o) => s + (o.bonuses_deducted ?? 0), 0);
 
   const bars     = buildBars(orders, period);
   const dishes   = buildTopDishes(orders);
