@@ -1076,7 +1076,7 @@ export default function HallPage() {
                   activeWaiters={activeWaiters}
                   allStaffUsers={allStaffUsers}
                   restaurantName={restaurant?.name ?? ""}
-                  pendingRequests={selectedData.order ? (pendingRequests[selectedData.order.id] ?? []) : []}
+                  pendingRequests={selectedData.orders.flatMap(o => pendingRequests[o.id] ?? [])}
                   onClose={() => { setSelected(null); setTableCreatingOrder(false); setWaiterAutoOrder(false); }}
                   onRefresh={load}
                   onRequestsRefresh={loadRequests}
@@ -2781,6 +2781,11 @@ function OrderSlotPanel({
                                 {capFirst(item.name)}
                                 <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                               </span>
+                              {pendingRequests.some(r => r.item_name === item.name && r.refund_type === "partial") && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 leading-none animate-pulse">
+                                  ⚠ Отмена
+                                </span>
+                              )}
                             </div>
                             {item.modifiers?.map((mod, mi) => (
                               <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
@@ -4572,6 +4577,11 @@ function TablePanel({
                                   {capFirst(item.name)}
                                   <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
                                 </span>
+                                {pendingRequests.some(r => r.item_name === item.name && r.refund_type === "partial") && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 leading-none animate-pulse">
+                                    ⚠ Отмена
+                                  </span>
+                                )}
                               </div>
                               {item.modifiers?.map((mod, mi) => (
                                 <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>

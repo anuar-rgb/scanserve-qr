@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   // Fetch the order
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, restaurant_id, guest_id, bonuses_deducted, earned_bonuses, bonuses_accrued, total_price, items_json, refund_status")
+    .select("id, restaurant_id, guest_id, bonuses_deducted, earned_bonuses, bonuses_accrued, total_price, items_json, refund_status, status")
     .eq("id", rr.order_id)
     .single();
 
@@ -135,6 +135,8 @@ export async function POST(req: NextRequest) {
   let newItemsJson: ItemRow[] | null = null;
   let newTotalPrice: number | null = null;
   let newEarnedBonuses: number | null = null;
+
+  const orderStatus = (order.status as string) ?? "pending";
 
   if (rr.refund_type === "full") {
     returnBonuses = bonusesDeducted;
@@ -229,10 +231,15 @@ export async function POST(req: NextRequest) {
   const orderUpdate: Record<string, unknown> = {};
 
   if (rr.refund_type === "full") {
-    orderUpdate.refund_status     = "full";
-    orderUpdate.refunded_at       = new Date().toISOString();
+    orderUpdate.refund_status      = "full";
+    orderUpdate.refunded_at        = new Date().toISOString();
     orderUpdate.refund_bonuses_ret = returnBonuses;
     orderUpdate.refund_earned_rev  = reverseEarned;
+    // Active (unpaid) order — cancel it so the table frees up immediately
+    if (orderStatus === "pending") {
+      orderUpdate.status     = "cancelled";
+      orderUpdate.closed_at  = new Date().toISOString();
+    }
   } else {
     // For partial from active order: update items, total, earned_bonuses
     if (newItemsJson !== null) {
