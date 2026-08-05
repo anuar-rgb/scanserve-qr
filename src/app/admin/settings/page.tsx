@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Upload, Loader2, ImageIcon, Copy, ExternalLink } from "lucide-react";
+import { Upload, Loader2, ImageIcon, Copy, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbRestaurant } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
+import { useIsStrictOwner } from "@/lib/role-context";
 import { uploadImage } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { ImageCropModal } from "@/components/admin/ImageCropModal";
 
 export default function SettingsPage() {
   const { t } = useTranslations();
+  const isStrictOwner = useIsStrictOwner();
   const logoRef = useRef<HTMLInputElement>(null);
 
   const [restaurant, setRestaurant] = useState<DbRestaurant | null>(null);
@@ -33,6 +35,8 @@ export default function SettingsPage() {
   const [saving, setSaving]         = useState(false);
 
   const [cropSrc, setCropSrc]       = useState<string | null>(null);
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetting, setResetting]   = useState(false);
 
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
@@ -118,6 +122,23 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleTestReset() {
+    setResetting(true);
+    try {
+      const res = await fetch("/api/admin/test-reset-all", { method: "POST" });
+      if (res.ok) {
+        toast.success("Тестовые данные сброшены — заказы, бонусы и чаевые удалены");
+      } else {
+        const json = await res.json() as { error?: string };
+        toast.error(`Ошибка: ${json.error ?? "неизвестно"}`);
+      }
+    } catch {
+      toast.error("Сетевая ошибка");
+    }
+    setResetting(false);
+    setResetConfirm(false);
   }
 
   if (loading) {
@@ -304,6 +325,56 @@ export default function SettingsPage() {
                 </Card>
               );
             })()}
+            {/* Test data reset — strict owner only */}
+            {isStrictOwner && (
+              <Card className="border-red-200 dark:border-red-900/40">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={15} className="text-red-500 shrink-0" />
+                    <CardTitle className="text-red-600 dark:text-red-400">Сброс тестовых данных</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Удаляет все заказы, бонусные балансы и историю бонусов ресторана. Только для тестирования.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {!resetConfirm ? (
+                    <Button
+                      variant="outline"
+                      className="border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      onClick={() => setResetConfirm(true)}
+                    >
+                      <Trash2 size={14} />
+                      Очистить все тестовые данные
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                        Удалить все заказы и бонусы?
+                      </span>
+                      <Button
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                        disabled={resetting}
+                        onClick={handleTestReset}
+                      >
+                        {resetting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        Да, сбросить
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={resetting}
+                        onClick={() => setResetConfirm(false)}
+                      >
+                        Отмена
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
           </div>
 
           {/* Right: phone preview */}
