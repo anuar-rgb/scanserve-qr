@@ -47,6 +47,11 @@ export function OrdersModal({
   const [refundSent,       setRefundSent]       = useState(false);
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
 
+  // Track in-flight and already-sent requests locally (until orders prop refreshes)
+  const [fullCancelLoadingId, setFullCancelLoadingId] = useState<string | null>(null);
+  const [sentFullRequests, setSentFullRequests]       = useState<Set<string>>(new Set());
+  const [sentItemRequests, setSentItemRequests]       = useState<Set<string>>(new Set());
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to highlighted order when modal opens
@@ -215,6 +220,7 @@ export function OrdersModal({
           return;
         }
 
+        setSentItemRequests(prev => { const n = new Set(prev); n.add(`${order.id}-${itemIndex}`); return n; });
         setPartialConfirmed(true);
       } catch {
         toast.error("Ошибка сети");
@@ -500,7 +506,7 @@ export function OrdersModal({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                 {sorted.map((order) => {
-                  const isRequested  = order.status === "refund-requested";
+                  const isRequested  = order.status === "refund-requested" || sentFullRequests.has(order.id);
                   const isExpired    = !isRequested && !canRefund(order.timestamp);
                   const isHighlighted = order.id === highlightOrderId;
                   return (
@@ -629,7 +635,9 @@ export function OrdersModal({
                             {lang === "kz" ? "Тауарлар жоқ" : lang === "ru" ? "Нет позиций" : "No items"}
                           </p>
                         )}
-                        {order.items.map((item, i) => (
+                        {order.items.map((item, i) => {
+                          const itemSent = sentItemRequests.has(`${order.id}-${i}`);
+                          return (
                           <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: SP.xs }}>
                             <span style={{ color: muted, fontSize: 13, flex: 1, minWidth: 0 }}>
                               {item.name} × {item.qty}
@@ -644,24 +652,31 @@ export function OrdersModal({
                               {(item.price * item.qty).toLocaleString()} {item.currency}
                             </span>
                             {!isRequested && !isExpired && (
-                              <button
-                                onClick={() => setPartialDialog({ order, itemIndex: i, qty: 1 })}
-                                style={{
-                                  flexShrink: 0,
-                                  padding: "2px 8px",
-                                  borderRadius: R.full,
-                                  border: `1px solid ${isDark ? "rgba(251,191,36,0.45)" : "rgba(217,119,6,0.45)"}`,
-                                  background: isDark ? "rgba(251,191,36,0.08)" : "rgba(217,119,6,0.07)",
-                                  color: isDark ? "#FCD34D" : "#B45309",
-                                  fontSize: 11, fontWeight: 600, cursor: "pointer",
-                                  letterSpacing: "0.01em", whiteSpace: "nowrap",
-                                }}
-                              >
-                                {order.isActive ? t.requestBtn : t.refundItem}
-                              </button>
+                              itemSent ? (
+                                <span style={{ flexShrink: 0, padding: "2px 8px", borderRadius: R.full, fontSize: 11, fontWeight: 600, color: muted, whiteSpace: "nowrap" }}>
+                                  ⏳ {t.requestPending}
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setPartialDialog({ order, itemIndex: i, qty: 1 })}
+                                  style={{
+                                    flexShrink: 0,
+                                    padding: "2px 8px",
+                                    borderRadius: R.full,
+                                    border: `1px solid ${isDark ? "rgba(251,191,36,0.45)" : "rgba(217,119,6,0.45)"}`,
+                                    background: isDark ? "rgba(251,191,36,0.08)" : "rgba(217,119,6,0.07)",
+                                    color: isDark ? "#FCD34D" : "#B45309",
+                                    fontSize: 11, fontWeight: 600, cursor: "pointer",
+                                    letterSpacing: "0.01em", whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {order.isActive ? t.requestBtn : t.refundItem}
+                                </button>
+                              )
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                         {(order.bonusesDeducted ?? 0) > 0 && (
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 4, color: "#10B981" }}>
                             <span>🌟 Бонусы</span>
@@ -691,6 +706,8 @@ export function OrdersModal({
                         {order.isActive ? (
                           <button
                             onClick={async () => {
+                              if (fullCancelLoadingId === order.id || isRequested) return;
+                              setFullCancelLoadingId(order.id);
                               try {
                                 const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
                                 const session = raw ? JSON.parse(raw) as { id?: string } : null;
@@ -704,24 +721,29 @@ export function OrdersModal({
                                 });
                                 const data = await res.json().catch(() => ({})) as { error?: string };
                                 if (!res.ok) {
+                                  if (data.error === "already_requested") {
+                                    setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
+                                  }
                                   toast.error(data.error === "already_requested" ? (lang === "ru" ? "Запрос уже отправлен" : "Request already sent") : (data.error ?? "Ошибка"));
                                   return;
                                 }
+                                setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
                                 toast.success(lang === "ru" ? "Запрос на отмену отправлен" : lang === "kz" ? "Болдырмау сұранысы жіберілді" : "Cancellation request sent");
                               } catch { toast.error("Ошибка сети"); }
+                              finally { setFullCancelLoadingId(null); }
                             }}
-                            disabled={isRequested}
+                            disabled={isRequested || fullCancelLoadingId === order.id}
                             style={{
                               width: "100%", padding: "8px 0", borderRadius: R.full,
-                              border: `1px solid ${isRequested ? border : "#E05555"}`,
+                              border: `1px solid ${(isRequested || fullCancelLoadingId === order.id) ? border : "#E05555"}`,
                               background: "transparent",
-                              color: isRequested ? muted : "#E05555",
+                              color: (isRequested || fullCancelLoadingId === order.id) ? muted : "#E05555",
                               fontSize: 12, fontWeight: 700,
-                              cursor: isRequested ? "default" : "pointer",
+                              cursor: (isRequested || fullCancelLoadingId === order.id) ? "default" : "pointer",
                               letterSpacing: "0.02em",
                             }}
                           >
-                            {isRequested ? `✓ ${t.requested}` : t.requestFullBtn}
+                            {isRequested ? `✓ ${t.requested}` : fullCancelLoadingId === order.id ? "⏳ Отправка..." : t.requestFullBtn}
                           </button>
                         ) : (
                           <button
