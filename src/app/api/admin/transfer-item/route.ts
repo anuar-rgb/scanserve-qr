@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         total_price: transferredItem.price * transferredItem.qty,
         earned_bonuses: itemBonuses > 0 ? itemBonuses : null,
         opened_by: (user_id as string) ?? null,
-        guest_id: sourceOrder.guest_id ?? null,
+        guest_id: null,
       })
       .select("id")
       .single();
