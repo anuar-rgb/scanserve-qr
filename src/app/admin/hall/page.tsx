@@ -1055,6 +1055,7 @@ export default function HallPage() {
                         onDelete={() => deleteTable(tws)}
                         preorderCount={preordersByTableLabel[tws.table.label] ?? 0}
                         isActivatedPreorder={tws.order ? activatedPreorderIds.has(tws.order.id) : false}
+                        hasPendingRefund={tws.orders.some(o => (pendingRequests[o.id]?.length ?? 0) > 0)}
                       />
                     ))}
                   </div>
@@ -1511,6 +1512,7 @@ function TableCard({
   onDelete,
   preorderCount = 0,
   isActivatedPreorder = false,
+  hasPendingRefund = false,
 }: {
   tws: TableWithStatus;
   isSelected: boolean;
@@ -1523,6 +1525,7 @@ function TableCard({
   onDelete: () => void;
   preorderCount?: number;
   isActivatedPreorder?: boolean;
+  hasPendingRefund?: boolean;
 }) {
   const { table, status, order, preorderOrder, elapsed } = tws;
   const isLocked = status !== "free";
@@ -1570,6 +1573,9 @@ function TableCard({
         `}
       >
         <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
+        {hasPendingRefund && (
+          <div className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Запрос на возврат" />
+        )}
         <p className="text-xs font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
         {isMyTable && (
           <span className="hidden md:inline mt-0.5 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
@@ -1602,6 +1608,13 @@ function TableCard({
       {isActivatedPreorder && !editMode && (
         <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-600 text-white text-[9px] font-bold shadow-sm z-10">
           🔔 Новый предзаказ
+        </div>
+      )}
+
+      {/* Refund request badge */}
+      {hasPendingRefund && !editMode && !isActivatedPreorder && (
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
+          ⚠️ Возврат
         </div>
       )}
 
