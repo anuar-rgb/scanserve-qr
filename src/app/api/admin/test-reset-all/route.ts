@@ -17,8 +17,9 @@ function db() {
 // Только для владельца. Используется исключительно для тестирования.
 export async function POST(req: NextRequest) {
   const role = getSessionRole(req);
+  const ALLOWED = new Set(["owner", "manager", "supervisor"]);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!role.startsWith("owner")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!ALLOWED.has(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const supabase = db();
   const rid = RESTAURANT_ID;

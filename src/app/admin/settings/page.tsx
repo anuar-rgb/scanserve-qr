@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbRestaurant } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
-import { useIsStrictOwner } from "@/lib/role-context";
+import { useIsOwner } from "@/lib/role-context";
 import { uploadImage } from "@/services/storage";
 import { RESTAURANT_ID } from "@/constants";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { ImageCropModal } from "@/components/admin/ImageCropModal";
 
 export default function SettingsPage() {
   const { t } = useTranslations();
-  const isStrictOwner = useIsStrictOwner();
+  const isOwner = useIsOwner();
   const logoRef = useRef<HTMLInputElement>(null);
 
   const [restaurant, setRestaurant] = useState<DbRestaurant | null>(null);
@@ -325,8 +325,8 @@ export default function SettingsPage() {
                 </Card>
               );
             })()}
-            {/* Test data reset — strict owner only */}
-            {isStrictOwner && (
+            {/* Test data reset — owner / manager / supervisor */}
+            {isOwner && (
               <Card className="border-red-200 dark:border-red-900/40">
                 <CardHeader>
                   <div className="flex items-center gap-2">
