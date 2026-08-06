@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase, isConfigured } from "@/lib/supabase";
 import type { SlideTag } from "@/lib/db-types";
 import { capFirst } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -1831,14 +1832,6 @@ function CategoryGrid({
   );
 }
 
-// ── Like seed ─────────────────────────────────────────────────────────────────
-
-function seedLikes(dishId: string): number {
-  let h = 5381;
-  for (const c of dishId) h = ((h << 5) + h) ^ c.charCodeAt(0);
-  return 8 + (Math.abs(h) % 28);
-}
-
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
 type BadgeItem = { text: string; bg: string; fg: string };
@@ -2571,6 +2564,8 @@ export function MenuTemplate({
   const [waiterOpen, setWaiterOpen] = useState(false);
   const [langOpen, setLangOpen]     = useState(false);
   const [liked, setLiked]           = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [sessionId, setSessionId]   = useState<string>("");
   const [searchOpen, setSearchOpen]   = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [ordersOpen, setOrdersOpen]     = useState(false);
@@ -2600,8 +2595,13 @@ export function MenuTemplate({
     if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
     const savedLang = localStorage.getItem("menu-lang") as Lang | null;
     if (savedLang === "en" || savedLang === "ru" || savedLang === "kz") setLang(savedLang);
-    const savedLiked = localStorage.getItem("menu-liked");
-    if (savedLiked) { try { setLiked(JSON.parse(savedLiked)); } catch {} }
+    // Session ID for likes (anonymous, per-device)
+    let sid = localStorage.getItem("scanserve-like-session");
+    if (!sid) {
+      sid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem("scanserve-like-session", sid);
+    }
+    setSessionId(sid);
 
     // Client ID
     let cid = localStorage.getItem("menu-client-id");
@@ -2630,6 +2630,45 @@ export function MenuTemplate({
   useEffect(() => {
     fetchGuestOrders();
   }, [fetchGuestOrders]);
+
+  // Fetch initial like counts + session's own likes from DB
+  useEffect(() => {
+    if (!restaurantId || !sessionId) return;
+    fetch(`/api/likes?restaurantId=${encodeURIComponent(restaurantId)}&sessionId=${encodeURIComponent(sessionId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { counts: Record<string, number>; sessionLikes: string[] } | null) => {
+        if (!data) return;
+        setLikeCounts(data.counts ?? {});
+        const map: Record<string, boolean> = {};
+        for (const id of data.sessionLikes ?? []) map[id] = true;
+        setLiked(map);
+      })
+      .catch(() => {});
+  }, [restaurantId, sessionId]);
+
+  // Realtime: update like counts for all users on INSERT/DELETE
+  useEffect(() => {
+    if (!isConfigured || !restaurantId) return;
+    let ch = supabase.channel(`likes-${restaurantId}`);
+    ch = ch.on(
+      "postgres_changes" as Parameters<typeof ch.on>[0],
+      { event: "INSERT", schema: "public", table: "dish_likes", filter: `restaurant_id=eq.${restaurantId}` },
+      (payload) => {
+        const dishId = (payload as { new: { dish_id?: string } }).new?.dish_id;
+        if (dishId) setLikeCounts(prev => ({ ...prev, [dishId]: (prev[dishId] ?? 0) + 1 }));
+      },
+    );
+    ch = ch.on(
+      "postgres_changes" as Parameters<typeof ch.on>[0],
+      { event: "DELETE", schema: "public", table: "dish_likes", filter: `restaurant_id=eq.${restaurantId}` },
+      (payload) => {
+        const dishId = (payload as { old: { dish_id?: string } }).old?.dish_id;
+        if (dishId) setLikeCounts(prev => ({ ...prev, [dishId]: Math.max(0, (prev[dishId] ?? 0) - 1) }));
+      },
+    );
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [restaurantId]);
 
   // Open orders modal on deep-link from push notification (?order=ORDER_ID)
   useEffect(() => {
@@ -2723,16 +2762,23 @@ export function MenuTemplate({
     setSearchOpen(false);
   };
 
-  // Like helpers
-  const toggleLike = (dishId: string) => {
-    setLiked((prev) => {
-      const next = { ...prev, [dishId]: !prev[dishId] };
-      localStorage.setItem("menu-liked", JSON.stringify(next));
-      return next;
-    });
+  // Like helpers — optimistic heart flip, count follows realtime
+  const toggleLike = async (dishId: string) => {
+    if (!sessionId || !restaurantId) return;
+    const wasLiked = liked[dishId] ?? false;
+    setLiked(prev => ({ ...prev, [dishId]: !wasLiked }));
+    try {
+      await fetch("/api/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dishId, restaurantId, sessionId }),
+      });
+    } catch {
+      setLiked(prev => ({ ...prev, [dishId]: wasLiked }));
+    }
   };
 
-  const getLikeCount = (dishId: string) => seedLikes(dishId) + (liked[dishId] ? 1 : 0);
+  const getLikeCount = (dishId: string) => likeCounts[dishId] ?? 0;
 
   // Cart helpers
   const cartCount = Object.values(cart).reduce((s, { qty }) => s + qty, 0);
