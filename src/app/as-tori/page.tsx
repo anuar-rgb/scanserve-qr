@@ -24,8 +24,8 @@ export default async function AsToriPage({
   const params = await searchParams;
   const initialTableNumber = params.table?.trim() || undefined;
   const initialOrderId = params.order?.trim() || undefined;
-  // ?source=qr → пришёл по QR в зале; любой другой source или отсутствие → из дома/интернета
-  const isInRestaurant = params.source === "qr" ? true : params.source !== undefined ? false : undefined;
+  // ?source=qr → пришёл по QR в зале; всё остальное (включая отсутствие параметра) → из дома
+  const isInRestaurant = params.source === "qr";
   const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
   const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables, dbAds, dbHappyHours] = await Promise.all([
