@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor, Bell, BellOff, ChevronDown, ChevronUp, Mail } from "lucide-react";
+import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor, Bell, BellOff, ChevronDown, ChevronUp, Mail, TrendingUp, TrendingDown, RotateCcw, Coins, ChevronRight } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -67,6 +67,24 @@ type GuestProfile = {
   push_subscription: boolean;
   created_at: string;
   last_visit: string | null;
+  bonus_amount: number;
+};
+
+type BonusTx = {
+  id: string;
+  type: "earned" | "spent" | "refund_spent" | "refund_earned" | "manual";
+  amount: number;
+  description: string | null;
+  created_at: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  order_id: string | null;
+  balance_after: number;
+};
+
+type GuestBalance = {
+  restaurant_id: string;
+  restaurant_name: string;
   bonus_amount: number;
 };
 
@@ -248,6 +266,27 @@ export default function SuperAdminRestaurantsPage() {
   const [guestListId, setGuestListId]       = useState<string | null>(null);
   const [guests, setGuests]                 = useState<GuestProfile[]>([]);
   const [guestsLoading, setGuestsLoading]   = useState(false);
+
+  // guest detail modal
+  const [selectedGuest, setSelectedGuest]       = useState<GuestProfile | null>(null);
+  const [guestTxs, setGuestTxs]                 = useState<BonusTx[]>([]);
+  const [guestBalances, setGuestBalances]       = useState<GuestBalance[]>([]);
+  const [guestTxLoading, setGuestTxLoading]     = useState(false);
+
+  async function openGuestModal(g: GuestProfile) {
+    if (!g.guest_id) return;
+    setSelectedGuest(g);
+    setGuestTxs([]);
+    setGuestBalances([]);
+    setGuestTxLoading(true);
+    const res = await fetch(`/api/super-admin/guest-transactions?guestId=${g.guest_id}`);
+    if (res.ok) {
+      const data = await res.json() as { transactions: BonusTx[]; balances: GuestBalance[] };
+      setGuestTxs(data.transactions ?? []);
+      setGuestBalances(data.balances ?? []);
+    }
+    setGuestTxLoading(false);
+  }
 
   async function loadGuests(restaurantId: string) {
     if (guestListId === restaurantId) { setGuestListId(null); return; }
@@ -572,7 +611,11 @@ export default function SuperAdminRestaurantsPage() {
                               ) : (
                                 <div className="divide-y divide-zinc-800">
                                   {guests.map((g, i) => (
-                                    <div key={g.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
+                                    <div
+                                      key={g.id}
+                                      onClick={() => openGuestModal(g)}
+                                      className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                                    >
                                       {/* Index */}
                                       <span className="text-xs text-zinc-600 tabular-nums w-5 flex-shrink-0">{i + 1}</span>
                                       {/* Avatar */}
@@ -582,15 +625,15 @@ export default function SuperAdminRestaurantsPage() {
                                       {/* Info */}
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-sm font-medium text-zinc-200 truncate">
+                                          <span className="text-sm font-medium text-zinc-200 truncate group-hover:text-violet-300 transition-colors">
                                             {g.name ?? "Без имени"}
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                                           {g.phone && (
-                                            <a href={`tel:${g.phone}`} className="text-xs text-zinc-400 hover:text-violet-400 transition-colors font-mono">
+                                            <span className="text-xs text-zinc-400 font-mono">
                                               {g.phone}
-                                            </a>
+                                            </span>
                                           )}
                                           {g.email && (
                                             <span className="flex items-center gap-1 text-xs text-zinc-500">
@@ -603,7 +646,7 @@ export default function SuperAdminRestaurantsPage() {
                                           </span>
                                         </div>
                                       </div>
-                                      {/* Push + Bonus */}
+                                      {/* Push + Bonus + Arrow */}
                                       <div className="flex items-center gap-3 flex-shrink-0">
                                         <div title={g.push_subscription ? "Push активна" : "Push нет"}>
                                           {g.push_subscription
@@ -615,6 +658,7 @@ export default function SuperAdminRestaurantsPage() {
                                           <span className="text-sm font-semibold text-amber-400 tabular-nums">{g.bonus_amount} ₸</span>
                                           <p className="text-[10px] text-zinc-600">бонусы</p>
                                         </div>
+                                        <ChevronRight size={14} className="text-zinc-600 group-hover:text-violet-400 transition-colors" />
                                       </div>
                                     </div>
                                   ))}
@@ -778,6 +822,17 @@ export default function SuperAdminRestaurantsPage() {
       )}
 
       <p className="text-xs text-zinc-600 mt-6 text-center">{restaurants.length} заведений на платформе</p>
+
+      {/* Guest detail modal */}
+      {selectedGuest && (
+        <GuestDetailModal
+          guest={selectedGuest}
+          transactions={guestTxs}
+          balances={guestBalances}
+          loading={guestTxLoading}
+          onClose={() => setSelectedGuest(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1044,6 +1099,169 @@ function StaffTab({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── GuestDetailModal ───────────────────────────────────────────────────────────
+
+const TX_ICONS: Record<string, React.ReactNode> = {
+  earned:       <TrendingUp  size={13} className="text-emerald-400" />,
+  spent:        <TrendingDown size={13} className="text-red-400"     />,
+  refund_spent: <RotateCcw   size={13} className="text-blue-400"     />,
+  refund_earned:<RotateCcw   size={13} className="text-orange-400"   />,
+  manual:       <Coins       size={13} className="text-violet-400"   />,
+};
+
+const TX_TYPE_LABELS: Record<string, string> = {
+  earned:       "Начисление",
+  spent:        "Списание",
+  refund_spent: "Возврат бонусов",
+  refund_earned:"Аннул. кешбэка",
+  manual:       "Вручную",
+};
+
+function GuestDetailModal({
+  guest,
+  transactions,
+  balances,
+  loading,
+  onClose,
+}: {
+  guest: GuestProfile;
+  transactions: BonusTx[];
+  balances: GuestBalance[];
+  loading: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-4 px-5 py-4 border-b border-zinc-800 flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
+            <Users size={18} className="text-violet-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-bold text-zinc-100 truncate">{guest.name ?? "Без имени"}</h2>
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+              {guest.phone && <span className="text-xs text-zinc-400 font-mono">{guest.phone}</span>}
+              {guest.email && (
+                <span className="flex items-center gap-1 text-xs text-zinc-500">
+                  <Mail size={10} className="text-zinc-600" />
+                  {guest.email}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors flex-shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Current balances */}
+        {balances.length > 0 && (
+          <div className="px-5 py-3 border-b border-zinc-800 flex-shrink-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Текущий баланс</p>
+            <div className="flex flex-wrap gap-2">
+              {balances.map(b => (
+                <div key={b.restaurant_id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700">
+                  <span className="text-xs text-zinc-400 truncate max-w-[120px]">{b.restaurant_name}</span>
+                  <span className={`text-sm font-bold tabular-nums ${b.bonus_amount >= 0 ? "text-amber-400" : "text-red-400"}`}>
+                    {b.bonus_amount >= 0 ? "+" : ""}{b.bonus_amount} ₸
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Transactions */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="h-40 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="h-40 flex items-center justify-center">
+              <p className="text-sm text-zinc-600">История транзакций пуста</p>
+            </div>
+          ) : (
+            <>
+              {/* Column headers */}
+              <div className="flex items-center gap-2 px-5 py-2 border-b border-zinc-800/60 sticky top-0 bg-zinc-900">
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-32 flex-shrink-0">Дата</span>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider flex-1">Ресторан / Причина</span>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-20 text-right flex-shrink-0">Сумма</span>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-20 text-right flex-shrink-0">Баланс</span>
+              </div>
+              <div className="divide-y divide-zinc-800/60">
+                {transactions.map((tx) => {
+                  const isPositive = tx.amount > 0;
+                  const dt = new Date(tx.created_at);
+                  return (
+                    <div key={tx.id} className="flex items-center gap-2 px-5 py-3 hover:bg-zinc-800/30 transition-colors">
+                      {/* Icon */}
+                      <div className="flex-shrink-0">
+                        {TX_ICONS[tx.type] ?? TX_ICONS.manual}
+                      </div>
+                      {/* Date */}
+                      <div className="w-28 flex-shrink-0">
+                        <p className="text-xs text-zinc-300 tabular-nums">
+                          {dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                        </p>
+                        <p className="text-[10px] text-zinc-600 tabular-nums">
+                          {dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      {/* Restaurant + description */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-zinc-300 truncate">{tx.restaurant_name}</p>
+                        <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                          {tx.description ?? TX_TYPE_LABELS[tx.type] ?? tx.type}
+                          {tx.order_id && (
+                            <span className="ml-1.5 text-zinc-700 font-mono">
+                              #{tx.order_id.slice(0, 8)}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {/* Amount */}
+                      <div className="w-20 text-right flex-shrink-0">
+                        <span className={`text-sm font-bold tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                          {isPositive ? "+" : ""}{tx.amount}
+                        </span>
+                      </div>
+                      {/* Balance after */}
+                      <div className="w-20 text-right flex-shrink-0">
+                        <span className={`text-sm tabular-nums ${tx.balance_after >= 0 ? "text-zinc-300" : "text-red-400"}`}>
+                          {tx.balance_after}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-zinc-800 flex-shrink-0 flex items-center justify-between">
+          <span className="text-xs text-zinc-600">{transactions.length} транзакций</span>
+          <button onClick={onClose} className={BTN_GHOST}>Закрыть</button>
+        </div>
       </div>
     </div>
   );
