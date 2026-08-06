@@ -163,7 +163,7 @@ export default function AsToriQrPage() {
       {/* Side 1 — Kazakh */}
       <QrCard
         title="МӘЗІР"
-        subtitle="Қазақстандық дәмдер"
+        subtitle=""
         cta="QR-кодты сканерлеңіз"
         ctaSub="мәзірді телефонда ашу үшін"
       />
