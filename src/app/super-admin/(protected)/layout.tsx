@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { verifySuperAdminSession } from "@/lib/session";
 import SuperAdminNav from "./SuperAdminNav";
 
 export default async function SuperAdminProtectedLayout({ children }: { children: ReactNode }) {
   const cookieStore = await cookies();
   const session = cookieStore.get("super_admin_session");
-  if (session?.value !== "authenticated") {
+  if (!session?.value || !verifySuperAdminSession(session.value)) {
     redirect("/super-admin/login");
   }
 
