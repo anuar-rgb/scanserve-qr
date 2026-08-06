@@ -230,6 +230,7 @@ export default function SuperAdminRestaurantsPage() {
   // info edit state
   const [infoEdit, setInfoEdit]       = useState<InfoEdit>(null);
   const [infoSaving, setInfoSaving]   = useState(false);
+  const [infoError, setInfoError]     = useState<string | null>(null);
 
   // staff state per restaurant
   const [staff, setStaff]             = useState<StaffUser[]>([]);
@@ -272,6 +273,7 @@ export default function SuperAdminRestaurantsPage() {
   // ── Info edit ──────────────────────────────────────────────────────────────
 
   function startInfoEdit(r: Restaurant) {
+    setInfoError(null);
     setInfoEdit({
       id: r.id,
       owner_name:             r.owner_name             ?? "",
@@ -290,17 +292,28 @@ export default function SuperAdminRestaurantsPage() {
   async function saveInfoEdit() {
     if (!infoEdit) return;
     setInfoSaving(true);
-    const res = await fetch("/api/super-admin/restaurants", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(infoEdit),
-    });
-    if (res.ok) {
-      const updated: Restaurant = await res.json();
-      setRestaurants((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      setInfoEdit(null);
+    setInfoError(null);
+    try {
+      const res = await fetch("/api/super-admin/restaurants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(infoEdit),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setInfoError((json as { error?: string }).error ?? `Ошибка ${res.status}`);
+      } else {
+        const updated = json as Restaurant;
+        setRestaurants((prev) =>
+          prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+        );
+        setInfoEdit(null);
+      }
+    } catch {
+      setInfoError("Сетевая ошибка — проверьте соединение");
+    } finally {
+      setInfoSaving(false);
     }
-    setInfoSaving(false);
   }
 
   // ── Expand / tabs ──────────────────────────────────────────────────────────
@@ -722,10 +735,15 @@ export default function SuperAdminRestaurantsPage() {
                             </div>
                           </div>
 
-                          <div className="flex gap-2 pt-1">
-                            <button onClick={saveInfoEdit} disabled={infoSaving} className={BTN_PRIMARY}>
-                              {infoSaving ? "Сохранение..." : "Сохранить"}
-                            </button>
+                          <div className="space-y-2 pt-1">
+                            <div className="flex gap-2">
+                              <button onClick={saveInfoEdit} disabled={infoSaving} className={BTN_PRIMARY}>
+                                {infoSaving ? "Сохранение..." : "Сохранить"}
+                              </button>
+                            </div>
+                            {infoError && (
+                              <p className="text-xs text-red-400">{infoError}</p>
+                            )}
                           </div>
                         </div>
                       )}

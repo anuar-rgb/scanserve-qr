@@ -52,7 +52,11 @@ export async function PATCH(request: NextRequest) {
   ];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
-    if (key in fields) update[key] = fields[key];
+    if (key in fields) {
+      // Convert empty strings to null for nullable fields (prevents Postgres type errors)
+      const v = fields[key];
+      update[key] = v === "" ? null : v;
+    }
   }
 
   const supabase = getSupabase();
