@@ -152,7 +152,10 @@ export async function POST(req: NextRequest) {
       ? Math.round((refundAmount / totalPrice) * bonusesDeducted)
       : 0;
 
-    if (bonusesAccrued && rr.product_id && UUID_RE.test(rr.product_id as string)) {
+    // Always recalculate reverseEarned for earned_bonuses update on the order.
+    // If bonuses aren't accrued yet, we still need to reduce earned_bonuses so
+    // the correct amount is credited when the order is eventually paid.
+    if (rr.product_id && UUID_RE.test(rr.product_id as string)) {
       const { data: product } = await supabase
         .from("products")
         .select("bonus_percent")
@@ -182,7 +185,11 @@ export async function POST(req: NextRequest) {
     newEarnedBonuses = Math.max(0, earnedBonuses - reverseEarned);
   }
 
-  const netBonusChange = returnBonuses - reverseEarned;
+  // Only reverse accrued bonuses from guest_balances if they were actually credited.
+  // earned_bonuses on the order is always recalculated (see above), but the balance
+  // should only change if bonuses_accrued is true.
+  const reverseEarnedForBalance = (rr.refund_type === "partial" && !bonusesAccrued) ? 0 : reverseEarned;
+  const netBonusChange = returnBonuses - reverseEarnedForBalance;
 
   // Update guest_balances
   if (guestId && UUID_RE.test(guestId) && netBonusChange !== 0) {
@@ -215,10 +222,10 @@ export async function POST(req: NextRequest) {
         description: `Возврат по запросу гостя (${rr.refund_type})`,
       });
     }
-    if (reverseEarned > 0) {
+    if (reverseEarnedForBalance > 0) {
       txRows.push({
         guest_id: guestId, restaurant_id: restaurantId, order_id: rr.order_id,
-        type: "refund_earned", amount: -reverseEarned,
+        type: "refund_earned", amount: -reverseEarnedForBalance,
         description: `Аннулирование кешбэка по запросу гостя (${rr.refund_type})`,
       });
     }
