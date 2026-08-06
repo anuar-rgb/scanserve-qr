@@ -22,6 +22,8 @@ type Restaurant = {
   plan_id: string | null;
   created_at: string;
   guest_count: number;
+  is_2gis_enabled: boolean | null;
+  custom_2gis_api_key: string | null;
 };
 
 type StaffUser = {
@@ -43,6 +45,8 @@ type InfoEdit = {
   monthly_payment_status: string;
   payment_due_date: string;
   plan_id: string;
+  is_2gis_enabled: boolean;
+  custom_2gis_api_key: string;
 } | null;
 
 type NewStaffForm = {
@@ -278,6 +282,8 @@ export default function SuperAdminRestaurantsPage() {
       monthly_payment_status: r.monthly_payment_status ?? "unpaid",
       payment_due_date:       r.payment_due_date       ?? "",
       plan_id:                r.plan_id                ?? "standard",
+      is_2gis_enabled:        r.is_2gis_enabled        ?? false,
+      custom_2gis_api_key:    r.custom_2gis_api_key    ?? "",
     });
   }
 
@@ -674,6 +680,44 @@ export default function SuperAdminRestaurantsPage() {
                                   <option value="standard">Стандарт — 15 780 ₸</option>
                                   <option value="annual">Годовой — 157 170 ₸/год</option>
                                 </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2GIS Integration */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Интеграции и карты</p>
+                            <div className="space-y-3">
+                              {/* Toggle */}
+                              <div className="flex items-center justify-between rounded-xl bg-zinc-800/60 px-4 py-3 border border-zinc-700/60">
+                                <div>
+                                  <p className="text-sm font-medium text-zinc-200">Карты 2GIS</p>
+                                  <p className="text-xs text-zinc-500 mt-0.5">Интерактивная карта при оформлении доставки</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setInfoEdit({ ...infoEdit!, is_2gis_enabled: !infoEdit!.is_2gis_enabled })}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                                    infoEdit.is_2gis_enabled ? "bg-violet-600" : "bg-zinc-700"
+                                  }`}
+                                >
+                                  <span
+                                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                                      infoEdit.is_2gis_enabled ? "translate-x-6" : "translate-x-1"
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                              {/* API Key */}
+                              <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Индивидуальный API-ключ 2GIS</label>
+                                <input
+                                  value={infoEdit.custom_2gis_api_key}
+                                  onChange={(e) => setInfoEdit({ ...infoEdit!, custom_2gis_api_key: e.target.value })}
+                                  className={INPUT_CLS}
+                                  placeholder="Оставьте пустым — будет использован системный ключ"
+                                />
+                                <p className="text-[11px] text-zinc-600 mt-1">Если ресторан оплатил собственный ключ — введите его здесь. Иначе используется дефолтный ключ платформы.</p>
                               </div>
                             </div>
                           </div>

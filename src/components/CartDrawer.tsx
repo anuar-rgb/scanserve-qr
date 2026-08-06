@@ -407,6 +407,8 @@ export interface CartDrawerProps {
   happyHours?: HappyHourInfo[];
   restaurantOpen?: boolean;
   deliveryFee?: number;
+  is2gisEnabled?: boolean;
+  twoGisApiKey?: string;
 }
 
 export function CartDrawer({
@@ -428,6 +430,8 @@ export function CartDrawer({
   happyHours = [],
   restaurantOpen = true,
   deliveryFee: deliveryFeeProp,
+  is2gisEnabled,
+  twoGisApiKey,
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
   const [step, setStep]                       = useState<Step>("cart");
@@ -1620,20 +1624,22 @@ export function CartDrawer({
                 <div style={{ marginBottom: SP.lg }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                     <span style={labelSectionStyle}>{tn("deliveryAddr", lang)}</span>
-                    <button
-                      type="button"
-                      onClick={() => setMapOpen(true)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 5,
-                        padding: "4px 10px", borderRadius: 10,
-                        border: "1px solid rgba(139,92,246,0.4)",
-                        background: "rgba(139,92,246,0.08)",
-                        color: "#8B5CF6", fontSize: 12, fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      🗺️ {lang === "ru" ? "На карте" : lang === "kz" ? "Картада" : "On map"}
-                    </button>
+                    {is2gisEnabled !== false && (
+                      <button
+                        type="button"
+                        onClick={() => setMapOpen(true)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          padding: "4px 10px", borderRadius: 10,
+                          border: "1px solid rgba(139,92,246,0.4)",
+                          background: "rgba(139,92,246,0.08)",
+                          color: "#8B5CF6", fontSize: 12, fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        🗺️ {lang === "ru" ? "На карте" : lang === "kz" ? "Картада" : "On map"}
+                      </button>
+                    )}
                   </div>
                   <textarea
                     value={deliveryAddress}
@@ -1645,10 +1651,11 @@ export function CartDrawer({
                 </div>
               )}
 
-              {mapOpen && (
+              {mapOpen && is2gisEnabled !== false && (
                 <MapPickerModal
                   lang={lang}
                   cityId={city || undefined}
+                  apiKey={twoGisApiKey || undefined}
                   onConfirm={({ cityId, address, cityName }) => {
                     if (cityId) {
                       setCity(cityId);

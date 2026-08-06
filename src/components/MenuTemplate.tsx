@@ -139,6 +139,8 @@ export interface RestaurantInfo {
   serviceCharge?: string;
   workingHours?: string | LS;
   deliveryFee?: number;
+  is2gisEnabled?: boolean;
+  twoGisApiKey?: string;
 }
 
 export interface HeroBanner {
@@ -3464,6 +3466,8 @@ export function MenuTemplate({
         happyHours={happyHours}
         restaurantOpen={isRestaurantOpen}
         deliveryFee={restaurant.deliveryFee}
+        is2gisEnabled={restaurant.is2gisEnabled}
+        twoGisApiKey={restaurant.twoGisApiKey}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}

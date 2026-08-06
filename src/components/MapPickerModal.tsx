@@ -94,6 +94,7 @@ interface MapPickerModalProps {
   cityId?: string;
   onConfirm: (result: { cityId: string; address: string; cityName: string }) => void;
   onClose: () => void;
+  apiKey?: string;
 }
 
 const UI = {
@@ -123,7 +124,7 @@ const UI = {
   },
 };
 
-export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerModalProps) {
+export function MapPickerModal({ lang, cityId, onConfirm, onClose, apiKey: apiKeyProp }: MapPickerModalProps) {
   const t = UI[lang] ?? UI.ru;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<unknown>(null);
@@ -133,7 +134,7 @@ export function MapPickerModal({ lang, cityId, onConfirm, onClose }: MapPickerMo
   const [foundCityId, setFoundCityId] = useState("");
   const [foundCityName, setFoundCityName] = useState("");
   const [tipDismissed, setTipDismissed] = useState(false);
-  const apiKey = process.env.NEXT_PUBLIC_2GIS_API_KEY ?? "";
+  const apiKey = apiKeyProp ?? process.env.NEXT_PUBLIC_2GIS_API_KEY ?? "";
 
   const handleMapClick = useCallback(async (lng: number, lat: number) => {
     setStatus("geocoding");

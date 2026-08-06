@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, admin_name, admin_phone, restaurant_phone, monthly_payment_status, payment_due_date, plan_id, created_at, guest_balances(count)")
+    .select("id, numeric_id, name, slug, logo, owner_name, owner_phone, admin_name, admin_phone, restaurant_phone, monthly_payment_status, payment_due_date, plan_id, created_at, is_2gis_enabled, custom_2gis_api_key, guest_balances(count)")
     .order("numeric_id", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -48,6 +48,7 @@ export async function PATCH(request: NextRequest) {
     "owner_name", "owner_phone",
     "admin_name", "admin_phone", "restaurant_phone",
     "monthly_payment_status", "payment_due_date", "plan_id",
+    "is_2gis_enabled", "custom_2gis_api_key",
   ];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {

@@ -86,6 +86,8 @@ export default async function AsToriPage({
           workingHours: dbRestaurant?.working_hours ?? restaurant.workingHours,
           cardTransferOptions,
           deliveryFee: dbRestaurant?.delivery_fee ?? 600,
+          is2gisEnabled: dbRestaurant?.is_2gis_enabled ?? false,
+          twoGisApiKey: dbRestaurant?.custom_2gis_api_key ?? undefined,
         }}
         categories={categories}
         lang="kz"

@@ -103,6 +103,8 @@ export default async function TenantMenuPage({
           workingHours: dbRestaurant.working_hours ?? undefined,
           cardTransferOptions,
           deliveryFee: dbRestaurant.delivery_fee ?? 600,
+          is2gisEnabled: dbRestaurant.is_2gis_enabled ?? false,
+          twoGisApiKey: dbRestaurant.custom_2gis_api_key ?? undefined,
         }}
         categories={categories}
         banners={banners}

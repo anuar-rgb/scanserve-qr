@@ -17,6 +17,8 @@ export interface DbRestaurant {
   payment_due_date: string | null;
   qr_checkin_enabled: boolean | null;
   delivery_fee: number | null;
+  is_2gis_enabled: boolean | null;
+  custom_2gis_api_key: string | null;
 }
 
 export interface DbCategory {
