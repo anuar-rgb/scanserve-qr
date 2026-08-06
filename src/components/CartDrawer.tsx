@@ -574,7 +574,8 @@ export function CartDrawer({
   const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers, happyHours) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
   // Bonuses can cover food + delivery but not tips (tips go to staff in cash)
-  const maxBonuses   = guestSession ? Math.min(guestSession.bonusAmount, total + deliveryFee) : 0;
+  // Clamp to 0 — prevents negative bonusAmount from inflating grandTotal
+  const maxBonuses   = guestSession ? Math.max(0, Math.min(guestSession.bonusAmount, total + deliveryFee)) : 0;
   const bonusesApplied = useBonuses ? maxBonuses : 0;
   const grandTotal   = Math.max(0, total + deliveryFee + tipsAmount - bonusesApplied - promoDiscount);
   const totalBonusesEarned = items.reduce((s, { dish, qty, selectedModifiers }) => {
@@ -2143,6 +2144,26 @@ export function CartDrawer({
                   <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{promoError}</p>
                 )}
               </div>}
+
+              {/* ── Bonus overdraft notice ── */}
+              {guestSession && guestSession.bonusAmount < 0 && (
+                <div style={{
+                  marginBottom: SP.lg, padding: "11px 14px",
+                  background: isDark ? "rgba(239,68,68,0.10)" : "rgba(239,68,68,0.06)",
+                  border: `1.5px solid rgba(239,68,68,0.35)`,
+                  borderRadius: R.md,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#EF4444" }}>
+                    ⚠️ {lang === "kz" ? "Бонус қарызы" : "Задолженность по бонусам"}:{" "}
+                    {Math.abs(guestSession.bonusAmount).toLocaleString()} ₸
+                  </div>
+                  <div style={{ fontSize: 12, marginTop: 3, color: muted }}>
+                    {lang === "kz"
+                      ? "Келесі тапсырыста кешбэк есептелгенде автоматты түрде өтеледі"
+                      : "Погасится автоматически при начислении кешбэка за следующий заказ"}
+                  </div>
+                </div>
+              )}
 
               {/* ── Bonus points ── */}
               {guestSession && maxBonuses > 0 && (
