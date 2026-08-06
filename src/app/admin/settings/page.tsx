@@ -310,12 +310,32 @@ export default function SettingsPage() {
             {/* Guest Links */}
             {restaurant?.slug && (() => {
               const base = typeof window !== "undefined" ? window.location.origin : "https://scanserve-qr-production-2cff.up.railway.app";
-              const menuUrl = `${base}/${restaurant.slug}`;
-              const qrUrl = `${base}/${restaurant.slug}/qr`;
+              const menuUrl    = `${base}/${restaurant.slug}`;
+              const dineInUrl  = `${base}/${restaurant.slug}?source=qr`;
+              const qrUrl      = `${base}/${restaurant.slug}/qr`;
               function copyUrl(url: string) {
                 navigator.clipboard.writeText(url);
                 toast.success("Скопировано");
               }
+              const LinkRow = ({ label, desc, url }: { label: string; desc: string; url: string }) => (
+                <div className="space-y-1.5">
+                  <div>
+                    <Label>{label}</Label>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{desc}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input readOnly value={url} className="text-xs font-mono" />
+                    <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => copyUrl(url)}>
+                      <Copy size={14} />
+                    </Button>
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      <Button type="button" variant="outline" size="icon" className="shrink-0">
+                        <ExternalLink size={14} />
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              );
               return (
                 <Card>
                   <CardHeader>
@@ -323,34 +343,21 @@ export default function SettingsPage() {
                     <CardDescription>Скопируйте и поделитесь с гостями</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Гостевое меню</Label>
-                      <div className="flex items-center gap-2">
-                        <Input readOnly value={menuUrl} className="text-xs font-mono" />
-                        <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => copyUrl(menuUrl)}>
-                          <Copy size={14} />
-                        </Button>
-                        <a href={menuUrl} target="_blank" rel="noopener noreferrer">
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <ExternalLink size={14} />
-                          </Button>
-                        </a>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>QR-страница для печати</Label>
-                      <div className="flex items-center gap-2">
-                        <Input readOnly value={qrUrl} className="text-xs font-mono" />
-                        <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => copyUrl(qrUrl)}>
-                          <Copy size={14} />
-                        </Button>
-                        <a href={qrUrl} target="_blank" rel="noopener noreferrer">
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <ExternalLink size={14} />
-                          </Button>
-                        </a>
-                      </div>
-                    </div>
+                    <LinkRow
+                      label="Меню для соцсетей / интернета"
+                      desc="Для Instagram, WhatsApp, 2GIS — гость видит доставку и самовывоз"
+                      url={menuUrl}
+                    />
+                    <LinkRow
+                      label="Меню для гостей в зале"
+                      desc="Вставьте в цифровую вывеску или отправьте гостю в зале — показывает только «В заведении» и «С собой»"
+                      url={dineInUrl}
+                    />
+                    <LinkRow
+                      label="QR-страница для печати"
+                      desc="Откройте, распечатайте и разместите на столах — QR уже содержит контекст зала"
+                      url={qrUrl}
+                    />
                   </CardContent>
                 </Card>
               );
