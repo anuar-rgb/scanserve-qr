@@ -24,6 +24,8 @@ interface OrderRow {
   tips_amount: number | null;
   earned_bonuses: number | null;
   bonuses_deducted: number | null;
+  promo_discount: number | null;
+  promo_code: string | null;
 }
 
 interface ShiftOrderRow {
@@ -406,7 +408,7 @@ export default function AnalyticsPage() {
 
     const [curRes, prevRes, revRes, promoRes, bonusRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
-        .select("total_price, status, type, created_at, items_json, tips_amount, earned_bonuses, bonuses_deducted")
+        .select("total_price, status, type, created_at, items_json, tips_amount, earned_bonuses, bonuses_deducted, promo_discount, promo_code")
         .eq("restaurant_id", RESTAURANT_ID)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("orders")
@@ -773,6 +775,20 @@ export default function AnalyticsPage() {
   const ordDelta     = prevTotal   > 0 ? Math.round((totalOrders  - prevTotal)   / prevTotal   * 100) : null;
   const totalBonusesEarned   = countableOrders.reduce((s, o) => s + (o.earned_bonuses ?? 0), 0);
   const totalBonusesDeducted = countableOrders.reduce((s, o) => s + (o.bonuses_deducted ?? 0), 0);
+  const totalPromoDiscount   = countableOrders.reduce((s, o) => s + (o.promo_discount ?? 0), 0);
+  const promoCodeBreakdown: { code: string; total: number; count: number }[] = (() => {
+    const map = new Map<string, { total: number; count: number }>();
+    for (const o of countableOrders) {
+      if (!o.promo_code || !(o.promo_discount ?? 0)) continue;
+      const entry = map.get(o.promo_code) ?? { total: 0, count: 0 };
+      entry.total += o.promo_discount ?? 0;
+      entry.count += 1;
+      map.set(o.promo_code, entry);
+    }
+    return [...map.entries()]
+      .map(([code, e]) => ({ code, ...e }))
+      .sort((a, b) => b.total - a.total);
+  })();
 
   const bars     = buildBars(orders, period);
   const dishes   = buildTopDishes(orders);
@@ -964,6 +980,33 @@ export default function AnalyticsPage() {
                   <p className="text-xl font-black text-zinc-700 dark:text-zinc-300 tabular-nums">−{totalBonusesDeducted.toLocaleString("ru-RU")} б</p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── promo discount card ── */}
+        {totalPromoDiscount > 0 && (
+          <div className="rounded-2xl border border-rose-200 dark:border-rose-800/40 bg-rose-50/40 dark:bg-rose-500/5 p-5 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-500/15 flex items-center justify-center text-xl shrink-0">
+              🏷️
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-1">Скидки по промокодам за период</p>
+              <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">−{totalPromoDiscount.toLocaleString("ru-RU")} ₸</p>
+              <p className="text-xs text-zinc-400 mt-0.5 mb-3">Сумма скидок, предоставленных гостям по промокодам</p>
+              {promoCodeBreakdown.length > 0 && (
+                <div className="space-y-1.5">
+                  {promoCodeBreakdown.map(({ code, total, count }) => (
+                    <div key={code} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-mono font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded shrink-0">{code}</span>
+                        <span className="text-xs text-zinc-400 shrink-0">{count} заказ{count === 1 ? "" : count < 5 ? "а" : "ов"}</span>
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums text-rose-600 dark:text-rose-400 shrink-0">−{total.toLocaleString("ru-RU")} ₸</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
