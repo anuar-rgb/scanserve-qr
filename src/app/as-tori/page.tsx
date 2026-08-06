@@ -19,11 +19,13 @@ const FALLBACK_HERO: HeroBanner = {
 export default async function AsToriPage({
   searchParams,
 }: {
-  searchParams: Promise<{ table?: string; order?: string }>;
+  searchParams: Promise<{ table?: string; order?: string; source?: string }>;
 }) {
   const params = await searchParams;
   const initialTableNumber = params.table?.trim() || undefined;
   const initialOrderId = params.order?.trim() || undefined;
+  // ?source=qr → пришёл по QR в зале; любой другой source или отсутствие → из дома/интернета
+  const isInRestaurant = params.source === "qr" ? true : params.source !== undefined ? false : undefined;
   const restaurantId = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
   const [categories, dbBanners, dbRestaurant, dbHeroSlides, dbShowcase, dbPaymentBanks, dbTables, dbAds, dbHappyHours] = await Promise.all([
@@ -97,6 +99,7 @@ export default async function AsToriPage({
         showcaseItems={showcaseItems}
         initialTableNumber={initialTableNumber}
         initialOrderId={initialOrderId}
+        isInRestaurant={isInRestaurant}
         restaurantTables={dbTables.map(t => ({ id: t.id, label: t.label }))}
         restaurantId={restaurantId}
         ads={dbAds}

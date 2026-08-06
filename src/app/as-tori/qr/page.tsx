@@ -2,7 +2,7 @@
 
 import { QRCodeSVG } from "qrcode.react";
 
-const MENU_URL = "https://scanserve-qr-production.up.railway.app/as-tori";
+const MENU_URL = "https://scanserve-qr-production.up.railway.app/as-tori?source=qr";
 
 const TH = {
   bg: "#0C0407",

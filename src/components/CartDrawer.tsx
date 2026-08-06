@@ -409,6 +409,8 @@ export interface CartDrawerProps {
   deliveryFee?: number;
   is2gisEnabled?: boolean;
   twoGisApiKey?: string;
+  /** true = came via QR (in-restaurant), false = external link (from home), undefined = unknown */
+  isInRestaurant?: boolean;
 }
 
 export function CartDrawer({
@@ -432,11 +434,13 @@ export function CartDrawer({
   deliveryFee: deliveryFeeProp,
   is2gisEnabled,
   twoGisApiKey,
+  isInRestaurant,
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
+  const defaultOrderType: OrderType | null = isTableLocked ? "dine-in" : isInRestaurant === true ? "dine-in" : null;
   const [step, setStep]                       = useState<Step>("cart");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [orderType, setOrderType]             = useState<OrderType | null>(isTableLocked ? "dine-in" : null);
+  const [orderType, setOrderType]             = useState<OrderType | null>(defaultOrderType);
   const [timingMode, setTimingMode]           = useState<TimingMode>("asap");
   const [preorderDate, setPreorderDate]       = useState("");
   const [preorderTime, setPreorderTime]       = useState("");
@@ -657,7 +661,7 @@ export function CartDrawer({
   });
 
   const resetCheckout = () => {
-    setOrderType(isTableLocked ? "dine-in" : null);
+    setOrderType(defaultOrderType);
     setTimingMode("asap");
     setPreorderDate("");
     setPreorderTime("");
@@ -952,11 +956,15 @@ export function CartDrawer({
     );
   });
 
-  const ORDER_TYPE_OPTIONS: { id: OrderType; icon: string; labelKey: string }[] = [
+  const ORDER_TYPE_OPTIONS: { id: OrderType; icon: string; labelKey: string }[] = ([
     { id: "dine-in",  icon: "🍽️", labelKey: "dineIn"   },
     { id: "pickup",   icon: "🛍️", labelKey: "pickup"   },
     { id: "delivery", icon: "🚚", labelKey: "delivery" },
-  ];
+  ] as const).filter(opt => {
+    if (isInRestaurant === true)  return opt.id !== "delivery"; // в зале: только «В заведении» + «С собой»
+    if (isInRestaurant === false) return opt.id !== "dine-in";  // из дома: только «С собой» + «Доставка»
+    return true;
+  });
 
   const labelSectionStyle: React.CSSProperties = {
     fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",

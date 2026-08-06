@@ -202,6 +202,8 @@ export interface MenuTemplateProps {
   ads?: AdItem[];
   happyHours?: HappyHourInfo[];
   initialOrderId?: string;
+  /** true = пришёл по QR в зале, false = пришёл по внешней ссылке из дома */
+  isInRestaurant?: boolean;
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -2557,6 +2559,7 @@ export function MenuTemplate({
   ads = [],
   happyHours = [],
   initialOrderId,
+  isInRestaurant,
 }: MenuTemplateProps) {
   const [theme, setTheme]           = useState<Theme>("dark");
   const [lang, setLang]             = useState<Lang>(initLang);
@@ -3519,6 +3522,7 @@ export function MenuTemplate({
         deliveryFee={restaurant.deliveryFee}
         is2gisEnabled={restaurant.is2gisEnabled}
         twoGisApiKey={restaurant.twoGisApiKey}
+        isInRestaurant={isInRestaurant}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}
