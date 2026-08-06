@@ -403,14 +403,13 @@ export default function HallPage() {
   }, []);
 
   const loadRequests = useCallback(async () => {
-    const { data } = await supabase
-      .from("refund_requests")
-      .select("id, order_id, item_name, item_price, item_qty, product_id, refund_type, status, created_at")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .eq("status", "pending");
-    if (!data) return;
+    if (!RESTAURANT_ID) return;
+    // Use the admin API (service role key) so RLS on refund_requests never blocks reads.
+    const res = await fetch(`/api/admin/refund-requests?restaurantId=${encodeURIComponent(RESTAURANT_ID)}`);
+    if (!res.ok) return;
+    const data: RefundRequest[] = await res.json().catch(() => []);
     const grouped: Record<string, RefundRequest[]> = {};
-    for (const r of data as RefundRequest[]) {
+    for (const r of data) {
       if (!grouped[r.order_id]) grouped[r.order_id] = [];
       grouped[r.order_id].push(r);
     }
@@ -517,6 +516,12 @@ export default function HallPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [load, loadRequests]);
+
+  // Polling fallback: re-fetch pending requests every 8s in case Realtime is delayed.
+  useEffect(() => {
+    const t = setInterval(() => { void loadRequests(); }, 8000);
+    return () => clearInterval(t);
+  }, [loadRequests]);
 
   const loadPreordersForMonth = useCallback(async (year: number, month: number) => {
     if (!isConfigured) return;
