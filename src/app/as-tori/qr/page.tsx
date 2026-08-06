@@ -4,9 +4,20 @@ import { QRCodeSVG } from "qrcode.react";
 
 const MENU_URL = "https://scanserve-qr-production-2cff.up.railway.app/as-tori?source=qr";
 
-export default function AsToriQrPage() {
+function QrCard({
+  title,
+  subtitle,
+  cta,
+  ctaSub,
+}: {
+  title: string;
+  subtitle: string;
+  cta: string;
+  ctaSub: string;
+}) {
   return (
     <div
+      className="qr-page"
       style={{
         minHeight: "100vh",
         background: "#F5F5F5",
@@ -14,7 +25,8 @@ export default function AsToriQrPage() {
         alignItems: "center",
         justifyContent: "center",
         padding: "24px",
-        fontFamily: "var(--font-geist-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif)",
+        fontFamily:
+          "var(--font-geist-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif)",
       }}
     >
       <div
@@ -33,16 +45,53 @@ export default function AsToriQrPage() {
       >
         {/* Restaurant name */}
         <div style={{ textAlign: "center" }}>
-          <p style={{ margin: "0 0 6px", fontSize: "13px", color: "#888", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <p
+            style={{
+              margin: "0 0 10px",
+              fontSize: "13px",
+              color: "#888",
+              fontWeight: 500,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
             Ас Төрі
           </p>
-          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 700, color: "#111", letterSpacing: "-0.01em" }}>
-            Меню
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "52px",
+              fontWeight: 800,
+              color: "#111",
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+            }}
+          >
+            {title}
           </h1>
+          {subtitle && (
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: "13px",
+                color: "#888",
+                fontWeight: 400,
+              }}
+            >
+              {subtitle}
+            </p>
+          )}
         </div>
 
         {/* Divider */}
-        <div style={{ width: "40px", height: "2px", background: "#111", borderRadius: "2px" }} />
+        <div
+          style={{
+            width: "40px",
+            height: "2px",
+            background: "#111",
+            borderRadius: "2px",
+          }}
+        />
 
         {/* QR code */}
         <div
@@ -65,19 +114,67 @@ export default function AsToriQrPage() {
 
         {/* Call to action */}
         <div style={{ textAlign: "center" }}>
-          <p style={{ margin: "0 0 4px", fontSize: "16px", fontWeight: 600, color: "#111" }}>
-            Отсканируйте QR-код
+          <p
+            style={{
+              margin: "0 0 4px",
+              fontSize: "16px",
+              fontWeight: 600,
+              color: "#111",
+            }}
+          >
+            {cta}
           </p>
-          <p style={{ margin: 0, fontSize: "13px", color: "#888" }}>
-            чтобы открыть меню на телефоне
-          </p>
+          <p style={{ margin: 0, fontSize: "13px", color: "#888" }}>{ctaSub}</p>
         </div>
 
         {/* Powered by */}
-        <p style={{ margin: 0, fontSize: "11px", color: "#bbb", letterSpacing: "0.04em" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "11px",
+            color: "#bbb",
+            letterSpacing: "0.04em",
+          }}
+        >
           Powered by ScanServe
         </p>
       </div>
     </div>
+  );
+}
+
+export default function AsToriQrPage() {
+  return (
+    <>
+      <style>{`
+        @media print {
+          @page { margin: 0; size: A4; }
+          body { margin: 0; }
+          .qr-page { min-height: 100vh; page-break-after: always; break-after: page; }
+          .qr-page:last-child { page-break-after: avoid; break-after: avoid; }
+        }
+        @media screen {
+          .qr-page + .qr-page {
+            border-top: 2px dashed #ddd;
+          }
+        }
+      `}</style>
+
+      {/* Side 1 — Kazakh */}
+      <QrCard
+        title="МӘЗІР"
+        subtitle="Қазақстандық дәмдер"
+        cta="QR-кодты сканерлеңіз"
+        ctaSub="мәзірді телефонда ашу үшін"
+      />
+
+      {/* Side 2 — English */}
+      <QrCard
+        title="MENU"
+        subtitle="Kazakh cuisine"
+        cta="Scan the QR code"
+        ctaSub="to open the menu on your phone"
+      />
+    </>
   );
 }
