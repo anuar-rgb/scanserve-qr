@@ -442,25 +442,30 @@ function BannerSlider({ banners, lang }: { banners: Banner[]; lang: Lang }) {
                 🖼️
               </div>
             )}
-            {(banner.title || banner.subtitle) && (
-              <div style={{
-                position: "absolute", bottom: 8, left: 8, right: 8,
-                background: "rgba(0,0,0,0.52)",
-                borderRadius: 10,
-                padding: "6px 10px",
-              }}>
-                {banner.title && (
-                  <p style={{ color: "#fff", fontWeight: 700, fontSize: 13, margin: "0 0 1px", lineHeight: 1.2 }}>
-                    {resolve(banner.title, lang)}
-                  </p>
-                )}
-                {banner.subtitle && (
-                  <p style={{ color: "rgba(255,255,255,0.82)", fontSize: 11, margin: 0 }}>
-                    {resolve(banner.subtitle, lang)}
-                  </p>
-                )}
-              </div>
-            )}
+            {(() => {
+              const titleText = banner.title ? resolve(banner.title, lang) : "";
+              const subtitleText = banner.subtitle ? resolve(banner.subtitle, lang) : "";
+              if (!titleText && !subtitleText) return null;
+              return (
+                <div style={{
+                  position: "absolute", bottom: 8, left: 8, right: 8,
+                  background: "rgba(0,0,0,0.52)",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                }}>
+                  {titleText && (
+                    <p style={{ color: "#fff", fontWeight: 700, fontSize: 13, margin: "0 0 1px", lineHeight: 1.2 }}>
+                      {titleText}
+                    </p>
+                  )}
+                  {subtitleText && (
+                    <p style={{ color: "rgba(255,255,255,0.82)", fontSize: 11, margin: 0 }}>
+                      {subtitleText}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
