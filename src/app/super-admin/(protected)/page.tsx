@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor, Bell, BellOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Eye, EyeOff, Pencil, Check, X, BarChart3, Users, Smartphone, Monitor, Bell, BellOff, ChevronDown, ChevronUp, Mail } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -62,6 +62,7 @@ type GuestProfile = {
   id: string;
   name: string | null;
   phone: string | null;
+  email: string | null;
   guest_id: string | null;
   push_subscription: boolean;
   created_at: string;
@@ -595,6 +596,12 @@ export default function SuperAdminRestaurantsPage() {
                                             <a href={`tel:${g.phone}`} className="text-xs text-zinc-400 hover:text-violet-400 transition-colors font-mono">
                                               {g.phone}
                                             </a>
+                                          )}
+                                          {g.email && (
+                                            <span className="flex items-center gap-1 text-xs text-zinc-500">
+                                              <Mail size={10} className="text-zinc-600" />
+                                              {g.email}
+                                            </span>
                                           )}
                                           <span className="text-xs text-zinc-600">
                                             {new Date(g.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}

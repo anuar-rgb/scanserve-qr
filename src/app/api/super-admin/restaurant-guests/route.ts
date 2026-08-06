@@ -39,15 +39,15 @@ export async function GET(request: NextRequest) {
   const guestIds = [...new Set(clients.filter(c => c.guest_id).map(c => c.guest_id as string))];
   const phones   = [...new Set(clients.filter(c => !c.guest_id && c.phone).map(c => c.phone as string))];
 
-  const byId    = new Map<string, { id: string; name: string | null; phone: string }>();
-  const byPhone = new Map<string, { id: string; name: string | null; phone: string }>();
+  const byId    = new Map<string, { id: string; name: string | null; phone: string; email: string | null }>();
+  const byPhone = new Map<string, { id: string; name: string | null; phone: string; email: string | null }>();
 
   if (guestIds.length > 0) {
-    const { data } = await supabase.from("guests").select("id,name,phone").in("id", guestIds);
+    const { data } = await supabase.from("guests").select("id,name,phone,email").in("id", guestIds);
     data?.forEach(g => byId.set(g.id, g));
   }
   if (phones.length > 0) {
-    const { data } = await supabase.from("guests").select("id,name,phone").in("phone", phones);
+    const { data } = await supabase.from("guests").select("id,name,phone,email").in("phone", phones);
     data?.forEach(g => byPhone.set(g.phone, g));
   }
 
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       id:                c.id,
       name:              guest?.name  ?? c.name  ?? null,
       phone:             guest?.phone ?? c.phone ?? null,
+      email:             guest?.email ?? null,
       guest_id:          resolvedGuestId,
       push_subscription: !!c.push_subscription,
       created_at:        c.created_at,
