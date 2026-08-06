@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     .from("crm_clients")
     .select("id, phone, name, push_subscription, created_at, last_visit, guest_id")
     .eq("restaurant_id", restaurantId)
+    .not("guest_id", "is", null)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

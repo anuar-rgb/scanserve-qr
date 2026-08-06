@@ -585,11 +585,6 @@ export default function SuperAdminRestaurantsPage() {
                                           <span className="text-sm font-medium text-zinc-200 truncate">
                                             {g.name ?? "Без имени"}
                                           </span>
-                                          {g.guest_id && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 text-[10px] font-medium">
-                                              ПРОФИЛЬ
-                                            </span>
-                                          )}
                                         </div>
                                         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                                           {g.phone && (
