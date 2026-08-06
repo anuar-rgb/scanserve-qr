@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X, ShieldCheck, UserX } from "lucide-react";
+import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X, ShieldCheck, UserX, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ interface CrmClient {
   id: string;
   phone: string | null;
   name: string | null;
+  email: string | null;
   push_subscription: Record<string, unknown> | null;
   created_at: string;
   last_visit: string;
@@ -445,6 +446,20 @@ export default function CrmPage() {
                                   <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">Не указан</p>
                                 )}
                               </div>
+                              {/* Email — registered guests only */}
+                              {c.guest_id && (
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Email</p>
+                                  {c.email ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <Mail size={11} className="text-zinc-400 shrink-0" />
+                                      <p className="text-sm text-zinc-900 dark:text-zinc-100">{c.email}</p>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">Не указан</p>
+                                  )}
+                                </div>
+                              )}
                               {/* Full ID */}
                               <div>
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">ID клиента</p>

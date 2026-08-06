@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSessionRole } from "@/lib/session";
 
-type GuestRow = { id: string; name: string | null; phone: string };
+type GuestRow = { id: string; name: string | null; phone: string; email: string | null };
 
 export async function GET(request: NextRequest) {
   if (!getSessionRole(request)) {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   if (guestIds.length > 0) {
     const { data: gRows } = await supabase
       .from("guests")
-      .select("id,name,phone")
+      .select("id,name,phone,email")
       .in("id", guestIds);
     gRows?.forEach(g => byId.set(g.id, g));
   }
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   if (phonesWithoutLink.length > 0) {
     const { data: gRows } = await supabase
       .from("guests")
-      .select("id,name,phone")
+      .select("id,name,phone,email")
       .in("phone", phonesWithoutLink);
     gRows?.forEach(g => byPhone.set(g.phone, g));
   }
@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       name:     guest?.name  ?? c.name  ?? null,
       // Priority: guest.phone > crm.phone
       phone:    guest?.phone ?? c.phone ?? null,
+      email:    guest?.email ?? null,
       // Pass guest_id (resolved or original) so admin can display profile badge
       guest_id: guest?.id    ?? c.guest_id ?? null,
     };
