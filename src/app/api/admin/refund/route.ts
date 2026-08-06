@@ -142,7 +142,9 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     const oldBalance = (balance?.bonus_amount ?? 0) as number;
-    const newBalance = Math.max(0, oldBalance + netBonusChange);
+    // Allow negative balance (overdraft) — guest owes the restaurant.
+    // Debt is repaid automatically on next accrual (accrue-bonuses route).
+    const newBalance = oldBalance + netBonusChange;
 
     const { error: balErr } = await supabase
       .from("guest_balances")

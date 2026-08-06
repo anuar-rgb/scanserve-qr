@@ -88,5 +88,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "balance_update_failed", detail: upsertErr.message }, { status: 500 });
   }
 
+  // Log to bonus_transactions for full history (shows debt repayment when old balance was negative)
+  const desc = oldBalance < 0
+    ? `Кешбэк за заказ (включая погашение задолженности ${Math.abs(oldBalance)} б)`
+    : "Кешбэк за заказ";
+  await supabase.from("bonus_transactions").insert({
+    guest_id: order.guest_id,
+    restaurant_id: restaurantId,
+    order_id: orderId,
+    type: "earned",
+    amount: bonusesEarned,
+    description: desc,
+  });
+
   return NextResponse.json({ ok: true, bonusesEarned, oldBalance, newBalance });
 }
