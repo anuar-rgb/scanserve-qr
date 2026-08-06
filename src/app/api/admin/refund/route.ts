@@ -126,8 +126,9 @@ export async function POST(req: NextRequest) {
         remaining = remaining.map((it, i) => i === idx ? { ...it, qty: curQty - ri.qty } : it);
       }
     }
-    newItemsJson  = remaining;
-    newTotalPrice = remaining.reduce((s, it) => s + Number(it.price ?? 0) * Number(it.qty ?? 1), 0);
+    newItemsJson = remaining;
+    // Delta approach: preserves delivery fee, promo discount, bonus deduction baked into total_price.
+    newTotalPrice = Math.max(0, totalPrice - refundAmount + returnBonuses);
   }
 
   const netBonusChange = returnBonuses - reverseEarned;
@@ -187,10 +188,10 @@ export async function POST(req: NextRequest) {
     refund_earned_rev:  reverseEarned,
   };
   if (refundType === "partial" && newItemsJson !== null) {
-    orderUpdate.items_json  = newItemsJson;
-    orderUpdate.total_price = newTotalPrice;
-    // Update earned_bonuses to reflect the reversed cashback on returned items
-    orderUpdate.earned_bonuses = Math.max(0, earnedBonuses - reverseEarned);
+    orderUpdate.items_json       = newItemsJson;
+    orderUpdate.total_price      = newTotalPrice;
+    orderUpdate.earned_bonuses   = Math.max(0, earnedBonuses - reverseEarned);
+    orderUpdate.bonuses_deducted = Math.max(0, bonusesDeducted - returnBonuses);
   }
 
   const { error: updateErr } = await supabase

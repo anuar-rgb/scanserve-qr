@@ -180,9 +180,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    newItemsJson  = remaining;
-    newTotalPrice = remaining.reduce((s, it) => s + Number(it.price ?? 0) * Number(it.qty ?? 1), 0);
-    newEarnedBonuses = Math.max(0, earnedBonuses - reverseEarned);
+    newItemsJson = remaining;
+    // Delta approach: total_price already bakes in delivery fee, promo discount, bonus deduction.
+    // Subtract the refunded item price and add back the proportional bonus that's returned.
+    newTotalPrice = Math.max(0, totalPrice - refundAmount + returnBonuses);
+    // Recalculate earned bonuses from scratch using the remaining items for accuracy.
+    newEarnedBonuses = await calcEarnedBonuses(supabase, remaining);
   }
 
   // Only reverse accrued bonuses from guest_balances if they were actually credited.
@@ -250,13 +253,13 @@ export async function POST(req: NextRequest) {
       orderUpdate.closed_at  = new Date().toISOString();
     }
   } else {
-    // For partial from active order: update items, total, earned_bonuses
+    // For partial from active order: update items, total, earned_bonuses, bonuses_deducted
     if (newItemsJson !== null) {
       orderUpdate.items_json       = newItemsJson;
       orderUpdate.total_price      = newTotalPrice;
-      if (newEarnedBonuses !== null) {
-        orderUpdate.earned_bonuses = newEarnedBonuses;
-      }
+      orderUpdate.earned_bonuses   = newEarnedBonuses ?? 0;
+      // Keep bonuses_deducted in sync so future partial refunds calculate correctly.
+      orderUpdate.bonuses_deducted = Math.max(0, bonusesDeducted - returnBonuses);
     }
     // All items removed via partial refunds — treat as full cancellation
     if (newItemsJson !== null && newItemsJson.length === 0) {
