@@ -1216,7 +1216,7 @@ export function CartDrawer({
               ) : (
                 <>
                   <p style={labelSectionStyle}>{tn("selectOrderType", lang)}</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: SP.sm, marginBottom: SP.lg }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${ORDER_TYPE_OPTIONS.length}, minmax(0, 120px))`, justifyContent: "center", gap: SP.sm, marginBottom: SP.lg }}>
                     {ORDER_TYPE_OPTIONS.map(({ id, icon, labelKey }) => {
                       const sel = orderType === id;
                       return (
