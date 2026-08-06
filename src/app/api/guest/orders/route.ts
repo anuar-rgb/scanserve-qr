@@ -39,14 +39,32 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const mapped = (orders ?? [])
-    .filter((o) => {
-      // Exclude ghost orders left by item transfers (empty items + zero total)
-      const items = Array.isArray(o.items_json) ? o.items_json : [];
-      if (items.length === 0 && o.total_price === 0) return false;
-      return true;
-    })
-    .map((o) => {
+  const filtered = (orders ?? []).filter((o) => {
+    // Exclude ghost orders left by item transfers (empty items + zero total)
+    const items = Array.isArray(o.items_json) ? o.items_json : [];
+    if (items.length === 0 && o.total_price === 0) return false;
+    return true;
+  });
+
+  // Fetch pending refund_requests for all active orders so per-item status survives refresh
+  const activeOrderIds = filtered.filter((o) => o.status === "pending").map((o) => o.id);
+  const pendingRefundMap: Record<string, string[]> = {};
+  if (activeOrderIds.length > 0) {
+    const { data: refunds } = await supabase
+      .from("refund_requests")
+      .select("order_id, item_name")
+      .in("order_id", activeOrderIds)
+      .eq("status", "pending");
+    for (const r of refunds ?? []) {
+      if (!r.item_name) continue;
+      if (!pendingRefundMap[r.order_id]) pendingRefundMap[r.order_id] = [];
+      if (!pendingRefundMap[r.order_id].includes(r.item_name)) {
+        pendingRefundMap[r.order_id].push(r.item_name);
+      }
+    }
+  }
+
+  const mapped = filtered.map((o) => {
     const itemsRaw = Array.isArray(o.items_json) ? o.items_json as { name?: string; qty?: number; price?: number; original_price?: number; discountPct?: number }[] : [];
     return {
       id: o.id,
@@ -74,6 +92,7 @@ export async function GET(req: NextRequest) {
       bonusesDeducted: o.bonuses_deducted ?? undefined,
       promoCode: o.promo_code ?? undefined,
       promoDiscount: o.promo_discount ?? undefined,
+      pendingRefundItems: pendingRefundMap[o.id] ?? [],
     };
   });
 

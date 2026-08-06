@@ -636,7 +636,9 @@ export function OrdersModal({
                           </p>
                         )}
                         {order.items.map((item, i) => {
-                          const itemSent = sentItemRequests.has(`${order.id}-${i}`);
+                          // DB state (persists across refreshes) OR optimistic local state (shows immediately after send)
+                          const itemSent = (order.pendingRefundItems?.includes(item.name) ?? false)
+                            || sentItemRequests.has(`${order.id}-${i}`);
                           return (
                           <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: SP.xs }}>
                             <span style={{ color: muted, fontSize: 13, flex: 1, minWidth: 0 }}>

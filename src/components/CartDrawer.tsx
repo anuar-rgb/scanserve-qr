@@ -68,6 +68,8 @@ export interface StoredOrder {
   bonusesDeducted?: number;
   promoCode?: string;
   promoDiscount?: number;
+  /** Item names that have a pending refund request in the DB (persists across refreshes). */
+  pendingRefundItems?: string[];
 }
 
 // ── Design tokens (mirrors MenuTemplate) ──────────────────────────────────────
