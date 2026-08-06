@@ -171,7 +171,7 @@ export default function AsToriQrPage() {
       {/* Side 2 — English */}
       <QrCard
         title="MENU"
-        subtitle="Kazakh cuisine"
+        subtitle=""
         cta="Scan the QR code"
         ctaSub="to open the menu on your phone"
       />
