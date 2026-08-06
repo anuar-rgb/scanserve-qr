@@ -52,6 +52,9 @@ export function OrdersModal({
   const [sentFullRequests, setSentFullRequests]       = useState<Set<string>>(new Set());
   const [sentItemRequests, setSentItemRequests]       = useState<Set<string>>(new Set());
 
+  // Confirmation modal state
+  const [confirmCancelOrder, setConfirmCancelOrder]   = useState<StoredOrder | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to highlighted order when modal opens
@@ -110,6 +113,12 @@ export function OrdersModal({
     refundExpired:   lang === "kz" ? "⏱ Қайтару мерзімі аяқталды"               : lang === "ru" ? "⏱ Время возврата истекло"                   : "⏱ Refund window expired",
     idCopied:        lang === "kz" ? "Тапсырыс нөмірі көшірілді"                : lang === "ru" ? "Номер заказа скопирован"                     : "Order ID copied",
     preorderLabel:   lang === "kz" ? "Алдын ала тапсырыс уақыты"                : lang === "ru" ? "Дата и время выдачи"                        : "Scheduled for",
+    confirmItemTitle:  lang === "kz" ? "Тағамды болдырмау?"                     : lang === "ru" ? "Отменить блюдо?"                               : "Cancel dish?",
+    confirmItemBody:   lang === "kz" ? "Шынымен осы тағамды болдырмауды сұрайсыз ба?" : lang === "ru" ? "Вы действительно хотите запросить отмену этого блюда?" : "Are you sure you want to request cancellation of this dish?",
+    confirmOrderTitle: lang === "kz" ? "Тапсырысты болдырмау?"                  : lang === "ru" ? "Отменить заказ?"                               : "Cancel order?",
+    confirmOrderBody:  lang === "kz" ? "Шынымен тапсырысты толығымен болдырмауды сұрайсыз ба? Бұл туралы әкімші хабардар болады." : lang === "ru" ? "Вы действительно хотите запросить отмену всего заказа? Администратор рассмотрит запрос." : "Are you sure you want to request cancellation of the entire order? The admin will review your request.",
+    confirmYes:        lang === "kz" ? "Иә, болдырмау"                          : lang === "ru" ? "Да, отменить"                                  : "Yes, cancel",
+    confirmNo:         lang === "kz" ? "Жоқ, оралу"                             : lang === "ru" ? "Нет, вернуться"                                : "No, go back",
   };
 
   const WA: Record<string, Record<Lang, string>> = {
@@ -307,6 +316,33 @@ export function OrdersModal({
 
     if (!isPartial) onRefundRequest(order.id);
     setRefundSent(true);
+  };
+
+  const handleFullCancel = async (order: StoredOrder) => {
+    setConfirmCancelOrder(null);
+    if (fullCancelLoadingId === order.id || sentFullRequests.has(order.id)) return;
+    setFullCancelLoadingId(order.id);
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
+      const session = raw ? JSON.parse(raw) as { id?: string } : null;
+      const guestId = session?.id;
+      if (!guestId || !restaurantId) { toast.error("Необходима авторизация"); return; }
+
+      const res = await fetch("/api/guest/refund-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, restaurantId, guestId, itemName: "ПОЛНЫЙ ВОЗВРАТ", itemPrice: order.total, itemQty: 1, refundType: "full" }),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) {
+        if (data.error === "already_requested") setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
+        toast.error(data.error === "already_requested" ? (lang === "ru" ? "Запрос уже отправлен" : "Request already sent") : (data.error ?? "Ошибка"));
+        return;
+      }
+      setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
+      toast.success(lang === "ru" ? "Запрос на отмену отправлен" : lang === "kz" ? "Болдырмау сұранысы жіберілді" : "Cancellation request sent");
+    } catch { toast.error("Ошибка сети"); }
+    finally { setFullCancelLoadingId(null); }
   };
 
   const handleDownload = async (order: StoredOrder) => {
@@ -665,14 +701,15 @@ export function OrdersModal({
                                     flexShrink: 0,
                                     padding: "2px 8px",
                                     borderRadius: R.full,
-                                    border: `1px solid ${isDark ? "rgba(251,191,36,0.45)" : "rgba(217,119,6,0.45)"}`,
-                                    background: isDark ? "rgba(251,191,36,0.08)" : "rgba(217,119,6,0.07)",
-                                    color: isDark ? "#FCD34D" : "#B45309",
-                                    fontSize: 11, fontWeight: 600, cursor: "pointer",
+                                    border: `1px solid ${border}`,
+                                    background: "transparent",
+                                    color: muted,
+                                    fontSize: 10, fontWeight: 600, cursor: "pointer",
                                     letterSpacing: "0.01em", whiteSpace: "nowrap",
+                                    opacity: 0.75,
                                   }}
                                 >
-                                  {order.isActive ? t.requestBtn : t.refundItem}
+                                  ↩
                                 </button>
                               )
                             )}
@@ -704,64 +741,28 @@ export function OrdersModal({
                       </div>
 
                       {/* Full-order refund / request button */}
-                      <div style={{ padding: "6px 14px 12px" }}>
-                        {order.isActive ? (
-                          <button
-                            onClick={async () => {
-                              if (fullCancelLoadingId === order.id || isRequested) return;
-                              setFullCancelLoadingId(order.id);
-                              try {
-                                const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
-                                const session = raw ? JSON.parse(raw) as { id?: string } : null;
-                                const guestId = session?.id;
-                                if (!guestId || !restaurantId) { toast.error("Необходима авторизация"); return; }
-
-                                const res = await fetch("/api/guest/refund-request", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ orderId: order.id, restaurantId, guestId, itemName: "ПОЛНЫЙ ВОЗВРАТ", itemPrice: order.total, itemQty: 1, refundType: "full" }),
-                                });
-                                const data = await res.json().catch(() => ({})) as { error?: string };
-                                if (!res.ok) {
-                                  if (data.error === "already_requested") {
-                                    setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
-                                  }
-                                  toast.error(data.error === "already_requested" ? (lang === "ru" ? "Запрос уже отправлен" : "Request already sent") : (data.error ?? "Ошибка"));
-                                  return;
-                                }
-                                setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
-                                toast.success(lang === "ru" ? "Запрос на отмену отправлен" : lang === "kz" ? "Болдырмау сұранысы жіберілді" : "Cancellation request sent");
-                              } catch { toast.error("Ошибка сети"); }
-                              finally { setFullCancelLoadingId(null); }
-                            }}
-                            disabled={isRequested || fullCancelLoadingId === order.id}
-                            style={{
-                              width: "100%", padding: "8px 0", borderRadius: R.full,
-                              border: `1px solid ${(isRequested || fullCancelLoadingId === order.id) ? border : "#E05555"}`,
-                              background: "transparent",
-                              color: (isRequested || fullCancelLoadingId === order.id) ? muted : "#E05555",
-                              fontSize: 12, fontWeight: 700,
-                              cursor: (isRequested || fullCancelLoadingId === order.id) ? "default" : "pointer",
-                              letterSpacing: "0.02em",
-                            }}
-                          >
-                            {isRequested ? `✓ ${t.requested}` : fullCancelLoadingId === order.id ? "⏳ Отправка..." : t.requestFullBtn}
-                          </button>
+                      <div style={{ padding: "4px 14px 12px", textAlign: "center" }}>
+                        {isRequested ? (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: muted }}>
+                            ✓ {t.requested}
+                          </span>
+                        ) : fullCancelLoadingId === order.id ? (
+                          <span style={{ fontSize: 11, color: muted }}>⏳ {lang === "ru" ? "Отправка..." : "Sending..."}</span>
+                        ) : isExpired && !order.isActive ? (
+                          <span style={{ fontSize: 11, color: muted }}>{t.refundExpired}</span>
                         ) : (
                           <button
-                            onClick={() => openRefundForm(order)}
-                            disabled={isRequested || isExpired}
+                            onClick={() => order.isActive ? setConfirmCancelOrder(order) : openRefundForm(order)}
                             style={{
-                              width: "100%", padding: "8px 0", borderRadius: R.full,
-                              border: `1px solid ${(isRequested || isExpired) ? border : "#E05555"}`,
+                              padding: "4px 14px", borderRadius: R.full,
+                              border: `1px solid ${border}`,
                               background: "transparent",
-                              color: (isRequested || isExpired) ? muted : "#E05555",
-                              fontSize: 12, fontWeight: 700,
-                              cursor: (isRequested || isExpired) ? "default" : "pointer",
-                              letterSpacing: "0.02em",
+                              color: muted,
+                              fontSize: 11, fontWeight: 600, cursor: "pointer",
+                              letterSpacing: "0.01em", opacity: 0.7,
                             }}
                           >
-                            {isRequested ? `✓ ${t.requested}` : isExpired ? t.refundExpired : t.refundAll}
+                            {order.isActive ? t.requestFullBtn : t.refundAll}
                           </button>
                         )}
                       </div>
@@ -773,6 +774,60 @@ export function OrdersModal({
           )}
         </div>
       </div>
+
+      {/* ── Full Order Cancel Confirmation Modal ─────────────────────────────── */}
+      {confirmCancelOrder && (
+        <div
+          onClick={() => setConfirmCancelOrder(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 110,
+            background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: SP.md,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(320px, 92vw)",
+              background: card, borderRadius: R.lg,
+              padding: SP.lg, boxShadow: "0 12px 48px rgba(0,0,0,0.45)",
+              border: `1px solid ${border}`,
+              fontFamily: "'Montserrat', system-ui, sans-serif",
+              color: textClr,
+            }}
+          >
+            <p style={{ fontSize: 16, fontWeight: 800, margin: `0 0 ${SP.sm}px`, textAlign: "center" }}>
+              {t.confirmOrderTitle}
+            </p>
+            <p style={{ fontSize: 13, color: muted, textAlign: "center", margin: `0 0 ${SP.lg}px`, lineHeight: 1.55 }}>
+              {t.confirmOrderBody}
+            </p>
+            <div style={{ display: "flex", gap: SP.sm }}>
+              <button
+                onClick={() => setConfirmCancelOrder(null)}
+                style={{
+                  flex: 1, padding: "12px 0", borderRadius: R.full,
+                  border: `1.5px solid ${border}`, background: "transparent",
+                  color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                {t.confirmNo}
+              </button>
+              <button
+                onClick={() => void handleFullCancel(confirmCancelOrder)}
+                style={{
+                  flex: 1, padding: "12px 0", borderRadius: R.full,
+                  border: "none", background: "#E05555",
+                  color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                }}
+              >
+                {t.confirmYes}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Partial Refund Qty-Picker Dialog ────────────────────────────────── */}
       {partialDialog && (() => {
@@ -803,13 +858,23 @@ export function OrdersModal({
                 color: textClr,
               }}
             >
-              {/* Item name */}
-              <p style={{ fontSize: 15, fontWeight: 700, margin: `0 0 ${SP.xs}px`, textAlign: "center" }}>
+              {/* Confirm header */}
+              <p style={{ fontSize: 15, fontWeight: 800, margin: `0 0 ${SP.xs}px`, textAlign: "center" }}>
+                {partialDialog.order.isActive ? t.confirmItemTitle : t.qtyTitle}
+              </p>
+              <p style={{ fontSize: 12, color: muted, textAlign: "center", margin: `0 0 ${SP.sm}px` }}>
                 {item.name}
               </p>
-              <p style={{ fontSize: 12, color: muted, textAlign: "center", margin: `0 0 ${SP.lg}px` }}>
-                {t.qtyTitle}
-              </p>
+              {partialDialog.order.isActive && (
+                <p style={{ fontSize: 12, color: muted, textAlign: "center", margin: `0 0 ${SP.md}px`, lineHeight: 1.5 }}>
+                  {t.confirmItemBody}
+                </p>
+              )}
+              {!partialDialog.order.isActive && (
+                <p style={{ fontSize: 12, color: muted, textAlign: "center", margin: `0 0 ${SP.lg}px` }}>
+                  {t.qtyTitle}
+                </p>
+              )}
 
               {/* Counter */}
               <div style={{
@@ -891,7 +956,7 @@ export function OrdersModal({
                       color: muted, fontSize: 14, fontWeight: 600, cursor: "pointer",
                     }}
                   >
-                    {t.cancelBtn}
+                    {partialDialog.order.isActive ? t.confirmNo : t.cancelBtn}
                   </button>
                   <button
                     onClick={handlePartialConfirm}
@@ -901,7 +966,7 @@ export function OrdersModal({
                       color: bg, fontSize: 14, fontWeight: 700, cursor: "pointer",
                     }}
                   >
-                    {t.confirmBtn}
+                    {partialDialog.order.isActive ? t.confirmYes : t.confirmBtn}
                   </button>
                 </div>
               )}
