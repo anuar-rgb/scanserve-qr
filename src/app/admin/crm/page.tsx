@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X, ShieldCheck } from "lucide-react";
+import { Users, Bell, Send, RefreshCw, Loader2, CheckCircle2, Phone, BellOff, ChevronDown, Copy, Check, Pencil, X, ShieldCheck, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,8 @@ interface BonusEntry {
   saving: boolean;
 }
 
+type ClientTab = "registered" | "anonymous";
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string) {
@@ -46,6 +48,7 @@ export default function CrmPage() {
   const [clients, setClients]     = useState<CrmClient[]>([]);
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
+  const [clientTab, setClientTab] = useState<ClientTab>("registered");
 
   const [title, setTitle]         = useState("");
   const [body, setBody]           = useState("");
@@ -54,6 +57,14 @@ export default function CrmPage() {
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
   const [copiedId, setCopiedId]   = useState<string | null>(null);
   const [bonusMap, setBonusMap]   = useState<Map<string, BonusEntry>>(new Map());
+
+  // Split clients into two groups
+  const registeredClients = clients.filter(c => c.guest_id !== null);
+  const anonymousClients  = clients.filter(c => c.guest_id === null);
+  const visibleClients    = clientTab === "registered" ? registeredClients : anonymousClients;
+
+  // Only registered guests with push count toward the broadcast
+  const subscribedCount = registeredClients.filter(c => c.push_subscription !== null).length;
 
   function toggleClient(id: string) {
     setExpandedClientId((prev) => (prev === id ? null : id));
@@ -110,9 +121,7 @@ export default function CrmPage() {
       await navigator.clipboard.writeText(text);
       setCopiedId(clientId);
       setTimeout(() => setCopiedId(null), 1800);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
 
   const load = useCallback(async () => {
@@ -128,17 +137,14 @@ export default function CrmPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Fetch bonus balance when a client with a phone is expanded
   useEffect(() => {
     if (!expandedClientId) return;
     const client = clients.find((c) => c.id === expandedClientId);
     if (!client?.phone) return;
-    if (bonusMap.has(client.phone)) return; // already loaded
+    if (bonusMap.has(client.phone)) return;
     fetchBonus(client.phone);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedClientId, clients]);
-
-  const subscribedCount = clients.filter((c) => c.push_subscription !== null).length;
 
   async function handleSend() {
     if (!title.trim() || !body.trim()) {
@@ -179,13 +185,13 @@ export default function CrmPage() {
       </div>
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 mb-1">
-            <Users size={14} />
-            <span className="text-xs font-semibold uppercase tracking-wide">Гостей</span>
+          <div className="flex items-center gap-2 text-violet-500 mb-1">
+            <ShieldCheck size={14} />
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Зарег.</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{total}</p>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{registeredClients.length}</p>
         </div>
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
           <div className="flex items-center gap-2 text-violet-500 mb-1">
@@ -193,6 +199,13 @@ export default function CrmPage() {
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Подписок</span>
           </div>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{subscribedCount}</p>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+          <div className="flex items-center gap-2 text-zinc-400 mb-1">
+            <UserX size={14} />
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Анонимных</span>
+          </div>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{anonymousClients.length}</p>
         </div>
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
           <div className="flex items-center gap-2 text-emerald-500 mb-1">
@@ -212,6 +225,13 @@ export default function CrmPage() {
           <div className="flex items-center gap-2">
             <Send size={15} className="text-violet-500 shrink-0" />
             <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Отправить рассылку</h2>
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200/60 dark:border-violet-500/20">
+            <ShieldCheck size={12} className="text-violet-500 shrink-0" />
+            <p className="text-[11px] text-violet-700 dark:text-violet-400">
+              Рассылка отправляется только зарегистрированным гостям с активной push-подпиской
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -259,45 +279,91 @@ export default function CrmPage() {
 
           {subscribedCount === 0 && !loading && (
             <p className="text-xs text-zinc-400 text-center">
-              Нет подписчиков с активными push-подписками.
+              Нет зарегистрированных гостей с активными push-подписками.
             </p>
           )}
         </div>
 
         {/* ── Clients table ───────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden flex flex-col">
+
+          {/* Panel header */}
           <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
             <Users size={14} className="text-zinc-400 shrink-0" />
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex-1">
-              Клиенты
-            </h2>
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex-1">Клиенты</h2>
             {loading && <Loader2 size={12} className="animate-spin text-zinc-400" />}
           </div>
 
-          {!loading && clients.length === 0 && (
-            <div className="p-8 text-center">
-              <Users size={28} className="mx-auto text-zinc-300 dark:text-zinc-700 mb-2" />
-              <p className="text-sm text-zinc-400">Нет клиентов</p>
-              <p className="text-xs text-zinc-400 mt-1">
-                Гости появятся после первой подписки на уведомления.
-              </p>
+          {/* Tabs */}
+          <div className="flex border-b border-zinc-100 dark:border-zinc-800 px-4 pt-2 gap-1">
+            <button
+              onClick={() => { setClientTab("registered"); setExpandedClientId(null); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-t-lg transition-colors ${
+                clientTab === "registered"
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              <ShieldCheck size={11} className="text-violet-500" />
+              Зарегистрированные
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 text-[10px] font-bold">
+                {registeredClients.length}
+              </span>
+            </button>
+            <button
+              onClick={() => { setClientTab("anonymous"); setExpandedClientId(null); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-t-lg transition-colors ${
+                clientTab === "anonymous"
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              <UserX size={11} className="text-zinc-400" />
+              Анонимные
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold">
+                {anonymousClients.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Empty state */}
+          {!loading && visibleClients.length === 0 && (
+            <div className="p-8 text-center flex-1">
+              {clientTab === "registered" ? (
+                <>
+                  <ShieldCheck size={28} className="mx-auto text-zinc-300 dark:text-zinc-700 mb-2" />
+                  <p className="text-sm text-zinc-400">Нет зарегистрированных гостей</p>
+                  <p className="text-xs text-zinc-400 mt-1">Гости появятся после регистрации в системе лояльности.</p>
+                </>
+              ) : (
+                <>
+                  <UserX size={28} className="mx-auto text-zinc-300 dark:text-zinc-700 mb-2" />
+                  <p className="text-sm text-zinc-400">Нет анонимных гостей</p>
+                  <p className="text-xs text-zinc-400 mt-1">Сюда попадают телефоны из заказов без аккаунта.</p>
+                </>
+              )}
             </div>
           )}
 
-          {clients.length > 0 && (
+          {/* Table */}
+          {visibleClients.length > 0 && (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-5 py-2.5">Телефон / ID</th>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Push</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-5 py-2.5">
+                    {clientTab === "registered" ? "Гость" : "Телефон / ID"}
+                  </th>
+                  {clientTab === "registered" && (
+                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Push</th>
+                  )}
                   <th className="hidden sm:table-cell text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 px-3 py-2.5">Последний визит</th>
                   <th className="w-8" />
                 </tr>
               </thead>
               <tbody>
-                {clients.map((c) => {
+                {visibleClients.map((c) => {
                   const isExpanded = expandedClientId === c.id;
-                  const isCopied = copiedId === c.id;
+                  const isCopied   = copiedId === c.id;
                   return (
                     <>
                       <tr
@@ -307,24 +373,19 @@ export default function CrmPage() {
                       >
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
-                              <Users size={11} className="text-violet-600 dark:text-violet-400" />
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                              clientTab === "registered"
+                                ? "bg-violet-100 dark:bg-violet-500/15"
+                                : "bg-zinc-100 dark:bg-zinc-800"
+                            }`}>
+                              {clientTab === "registered"
+                                ? <ShieldCheck size={11} className="text-violet-600 dark:text-violet-400" />
+                                : <UserX size={11} className="text-zinc-400" />
+                              }
                             </div>
                             <div className="flex flex-col gap-0.5">
                               {c.name && (
-                                <div className="flex items-center gap-1.5">
-                                  <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
-                                  {c.guest_id && (
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 text-[9px] font-bold uppercase tracking-wide leading-none">
-                                      <ShieldCheck size={8} /> Профиль
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {!c.name && c.guest_id && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 text-[9px] font-bold uppercase tracking-wide leading-none w-fit">
-                                  <ShieldCheck size={8} /> Профиль
-                                </span>
+                                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{c.name}</p>
                               )}
                               {c.phone ? (
                                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums">
@@ -341,19 +402,23 @@ export default function CrmPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-3">
-                          {c.push_subscription ? (
-                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                              <Bell size={11} />
-                              <span className="text-[11px] font-semibold">Да</span>
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-zinc-400">
-                              <BellOff size={11} />
-                              <span className="text-[11px]">Нет</span>
-                            </span>
-                          )}
-                        </td>
+
+                        {clientTab === "registered" && (
+                          <td className="px-3 py-3">
+                            {c.push_subscription ? (
+                              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                <Bell size={11} />
+                                <span className="text-[11px] font-semibold">Да</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-zinc-400">
+                                <BellOff size={11} />
+                                <span className="text-[11px]">Нет</span>
+                              </span>
+                            )}
+                          </td>
+                        )}
+
                         <td className="hidden sm:table-cell px-3 py-3">
                           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                             {fmtDate(c.last_visit)}
@@ -366,9 +431,10 @@ export default function CrmPage() {
                           />
                         </td>
                       </tr>
+
                       {isExpanded && (
                         <tr key={`${c.id}-expanded`} className="bg-zinc-50 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800">
-                          <td colSpan={4} className="px-5 pb-4 pt-2">
+                          <td colSpan={clientTab === "registered" ? 4 : 3} className="px-5 pb-4 pt-2">
                             <div className="rounded-xl bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-700/50 p-3 space-y-3">
                               {/* Phone */}
                               <div>
@@ -394,7 +460,7 @@ export default function CrmPage() {
                                 </div>
                               </div>
 
-                              {/* Guest profile link */}
+                              {/* Guest profile — registered only */}
                               {c.guest_id && (
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200/60 dark:border-violet-500/20">
                                   <ShieldCheck size={13} className="text-violet-500 shrink-0" />
@@ -404,27 +470,30 @@ export default function CrmPage() {
                                   </div>
                                 </div>
                               )}
-                              {/* Last visit — shown on mobile since the column is hidden */}
+
+                              {/* Last visit — mobile */}
                               <div className="sm:hidden">
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Последний визит</p>
                                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{fmtDate(c.last_visit)}</p>
                               </div>
 
-                              {/* Push status */}
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Push-подписка</p>
-                                {c.push_subscription ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold">
-                                    <Bell size={10} /> Активна
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[11px]">
-                                    <BellOff size={10} /> Нет подписки
-                                  </span>
-                                )}
-                              </div>
+                              {/* Push status — registered only */}
+                              {clientTab === "registered" && (
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Push-подписка</p>
+                                  {c.push_subscription ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold">
+                                      <Bell size={10} /> Активна
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[11px]">
+                                      <BellOff size={10} /> Нет подписки
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
-                              {/* Bonus balance — owner only */}
+                              {/* Bonus balance */}
                               {c.phone && (() => {
                                 const bonus = bonusMap.get(c.phone!);
                                 return (

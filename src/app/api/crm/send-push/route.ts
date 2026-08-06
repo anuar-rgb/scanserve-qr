@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
       .from("crm_clients")
       .select("id,push_subscription")
       .eq("restaurant_id", restaurantId)
-      .not("push_subscription", "is", null),
+      .not("push_subscription", "is", null)
+      .not("guest_id", "is", null),
     supabase
       .from("restaurants")
       .select("logo")
