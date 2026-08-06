@@ -138,6 +138,7 @@ export interface RestaurantInfo {
   cardTransferOptions?: PaymentInfo[];
   serviceCharge?: string;
   workingHours?: string | LS;
+  deliveryFee?: number;
 }
 
 export interface HeroBanner {
@@ -3462,6 +3463,7 @@ export function MenuTemplate({
         initialTableNumber={initialTableNumber}
         happyHours={happyHours}
         restaurantOpen={isRestaurantOpen}
+        deliveryFee={restaurant.deliveryFee}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}

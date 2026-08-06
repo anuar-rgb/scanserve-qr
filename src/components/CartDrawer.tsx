@@ -406,6 +406,7 @@ export interface CartDrawerProps {
   initialTableNumber?: string;
   happyHours?: HappyHourInfo[];
   restaurantOpen?: boolean;
+  deliveryFee?: number;
 }
 
 export function CartDrawer({
@@ -426,6 +427,7 @@ export function CartDrawer({
   initialTableNumber,
   happyHours = [],
   restaurantOpen = true,
+  deliveryFee: deliveryFeeProp,
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
   const [step, setStep]                       = useState<Step>("cart");
@@ -574,7 +576,7 @@ export function CartDrawer({
 
   const items        = Object.values(cart);
   const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers, happyHours) * qty, 0);
-  const deliveryFee  = orderType === "delivery" ? DELIVERY_FEE : 0;
+  const deliveryFee  = orderType === "delivery" ? (deliveryFeeProp ?? DELIVERY_FEE) : 0;
   // Bonuses can cover food + delivery but not tips (tips go to staff in cash)
   // Clamp to 0 — prevents negative bonusAmount from inflating grandTotal
   const maxBonuses   = guestSession ? Math.max(0, Math.min(guestSession.bonusAmount, total + deliveryFee)) : 0;

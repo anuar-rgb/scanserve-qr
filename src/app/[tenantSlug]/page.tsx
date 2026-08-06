@@ -102,6 +102,7 @@ export default async function TenantMenuPage({
           address: dbRestaurant.address ?? undefined,
           workingHours: dbRestaurant.working_hours ?? undefined,
           cardTransferOptions,
+          deliveryFee: dbRestaurant.delivery_fee ?? 600,
         }}
         categories={categories}
         banners={banners}

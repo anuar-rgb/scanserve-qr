@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [phone, setPhone]           = useState("");
   const [address, setAddress]       = useState("");
   const [workingHours, setWorkingHours] = useState("");
+  const [deliveryFee, setDeliveryFee]   = useState<number>(600);
 
   const [logoFile, setLogoFile]     = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function SettingsPage() {
       setPhone(r.phone ?? "");
       setAddress(r.address ?? "");
       setWorkingHours(r.working_hours ?? "");
+      setDeliveryFee(r.delivery_fee ?? 600);
     }
     setLoading(false);
   }, []);
@@ -87,6 +89,7 @@ export default function SettingsPage() {
         phone: string | null;
         address: string | null;
         working_hours: string | null;
+        delivery_fee: number;
         logo?: string | null;
       } = {
         name: name.trim(),
@@ -96,6 +99,7 @@ export default function SettingsPage() {
         phone: phone.trim() || null,
         address: address.trim() || null,
         working_hours: workingHours.trim() || null,
+        delivery_fee: Number.isFinite(deliveryFee) && deliveryFee >= 0 ? deliveryFee : 600,
       };
 
       if (logoFile) {
@@ -273,6 +277,32 @@ export default function SettingsPage() {
                     onChange={(e) => setWorkingHours(e.target.value)}
                     placeholder="10:00 – 22:00"
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Delivery settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Настройки доставки</CardTitle>
+                <CardDescription>Стоимость доставки автоматически добавляется к сумме заказа, когда гость выбирает тип «Доставка».</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="delivery-fee">Стоимость доставки (₸)</Label>
+                  <Input
+                    id="delivery-fee"
+                    type="number"
+                    min={0}
+                    step={50}
+                    value={deliveryFee}
+                    onChange={(e) => setDeliveryFee(Math.max(0, Number(e.target.value)))}
+                    placeholder="600"
+                    className="max-w-[180px]"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Введите 0, если доставка бесплатная. Значение по умолчанию — 600 ₸.
+                  </p>
                 </div>
               </CardContent>
             </Card>

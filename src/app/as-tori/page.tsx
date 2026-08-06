@@ -85,6 +85,7 @@ export default async function AsToriPage({
           address: dbRestaurant?.address ?? restaurant.address,
           workingHours: dbRestaurant?.working_hours ?? restaurant.workingHours,
           cardTransferOptions,
+          deliveryFee: dbRestaurant?.delivery_fee ?? 600,
         }}
         categories={categories}
         lang="kz"
