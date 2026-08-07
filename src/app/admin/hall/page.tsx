@@ -290,6 +290,19 @@ function getElapsed(createdAt: string): number {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
+function useIsNewOrder(createdAt: string): boolean {
+  const [isNew, setIsNew] = useState(() =>
+    Date.now() - new Date(createdAt).getTime() < 5 * 60 * 1000,
+  );
+  useEffect(() => {
+    const remaining = 5 * 60 * 1000 - (Date.now() - new Date(createdAt).getTime());
+    if (remaining <= 0) { setIsNew(false); return; }
+    const t = setTimeout(() => setIsNew(false), remaining);
+    return () => clearTimeout(t);
+  }, [createdAt]);
+  return isNew;
+}
+
 function formatElapsed(minutes: number): string {
   if (minutes < 60) return `${minutes} мин`;
   const h = Math.floor(minutes / 60);
@@ -1542,6 +1555,8 @@ function TableCard({
 }) {
   const { table, status, order, preorderOrder, elapsed } = tws;
   const isLocked = status !== "free";
+  const isNewOrder = useIsNewOrder(order?.created_at ?? new Date(0).toISOString());
+  const isNew = isNewOrder && status === "occupied";
 
   const palette = {
     free: {
@@ -1579,6 +1594,8 @@ function TableCard({
           ${palette.card}
           ${isSelected
             ? "ring-2 ring-violet-500 ring-offset-1 shadow-md"
+            : isNew
+            ? "ring-2 ring-emerald-400 ring-offset-1 shadow-sm"
             : isMyTable
             ? "ring-1 ring-violet-400 ring-offset-0"
             : "hover:shadow-sm"
@@ -1610,7 +1627,13 @@ function TableCard({
         transition-all duration-200
         ${palette.card}
         ${!editMode ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-95" : "cursor-default"}
-        ${isActivatedPreorder ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse" : isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
+        ${isActivatedPreorder
+          ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse"
+          : isNew && !isSelected
+          ? "ring-2 ring-emerald-400 ring-offset-2 shadow-md shadow-emerald-100 dark:shadow-emerald-900/20"
+          : isSelected
+          ? "ring-2 ring-violet-500 ring-offset-2 shadow-md"
+          : ""}
         ${editMode && isLocked ? "opacity-60" : ""}
       `}
     >
@@ -1624,8 +1647,15 @@ function TableCard({
         </div>
       )}
 
+      {/* New order badge (first 5 min) */}
+      {isNew && !isActivatedPreorder && !editMode && (
+        <div className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
+          ✨ Новый
+        </div>
+      )}
+
       {/* Refund request badge */}
-      {hasPendingRefund && !editMode && !isActivatedPreorder && (
+      {hasPendingRefund && !editMode && !isActivatedPreorder && !isNew && (
         <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
           ⚠️ Возврат
         </div>
@@ -1782,6 +1812,7 @@ function OrderSlotCard({
 }) {
   const isWaiter   = useRole() === "waiter";
   const elapsed = getElapsed(order.created_at);
+  const isNew   = useIsNewOrder(order.created_at);
   const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const queueNum = String(index).padStart(2, "0");
@@ -1797,7 +1828,13 @@ function OrderSlotCard({
         transition-all duration-150
         bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700/40
         hover:shadow-md hover:-translate-y-0.5
-        ${isActivatedPreorder ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse" : isSelected ? "ring-2 ring-violet-500 ring-offset-2 shadow-md" : ""}
+        ${isActivatedPreorder
+          ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse"
+          : isNew && !isSelected
+          ? "ring-2 ring-emerald-400 ring-offset-1 shadow-md shadow-emerald-100 dark:shadow-emerald-900/20"
+          : isSelected
+          ? "ring-2 ring-violet-500 ring-offset-2 shadow-md"
+          : ""}
       `}
     >
       <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full animate-pulse ${isOverdue ? "bg-red-500" : "bg-amber-400"}`} />
@@ -1806,6 +1843,13 @@ function OrderSlotCard({
       {isActivatedPreorder && (
         <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-600 text-white text-[9px] font-bold shadow-sm z-10">
           🔔 Новый предзаказ
+        </div>
+      )}
+
+      {/* New order badge (first 5 min) */}
+      {isNew && !isActivatedPreorder && (
+        <div className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
+          ✨ Новый
         </div>
       )}
 
