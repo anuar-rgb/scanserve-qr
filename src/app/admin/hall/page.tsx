@@ -4455,7 +4455,7 @@ function TablePanel({
               {status === "free" ? "Свободен" : status === "occupied" ? "Занят" : "Предзаказ"}
             </span>
           </p>
-          {!isWaiter && status === "occupied" && !isVirtualSubTable && (
+          {(isChef || !isWaiter) && status === "occupied" && !isVirtualSubTable && (
             <div className="flex items-center gap-1 mt-0.5">
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <User size={9} className="shrink-0" />
@@ -4466,7 +4466,7 @@ function TablePanel({
                     : "Администратор"}
                 </span>
               </p>
-              {activeWaiters.length > 0 && (
+              {!isChef && activeWaiters.length > 0 && (
                 <button
                   onClick={() => setShowReassignModal(true)}
                   className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
@@ -4477,7 +4477,7 @@ function TablePanel({
               )}
             </div>
           )}
-          {!isWaiter && !isVirtualSubTable && (
+          {!isWaiter && !isChef && !isVirtualSubTable && (
             <div className="flex items-center gap-1 mt-0.5">
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <MapPin size={9} className="shrink-0" />
@@ -4624,7 +4624,7 @@ function TablePanel({
                 }
               </button>
               <div className="flex items-center gap-1.5">
-                {!isWaiter && (
+                {!isWaiter && !isChef && (
                   <button
                     onClick={() => handlePreCheck(activeOrder, {
                       restaurantName,
@@ -4730,7 +4730,7 @@ function TablePanel({
                                 )}
                               </div>
                               {item.modifiers?.map((mod, mi) => (
-                                <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
+                                <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name}{!isChef && <span className="text-muted-foreground/50"> (+{mod.price} ₸)</span>}</p>
                               ))}
                               {item.note && editingNoteIdx !== item._idx && (
                                 <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
@@ -4766,16 +4766,18 @@ function TablePanel({
                                 </div>
                               )}
                             </div>
-                            <div className="flex flex-col items-end shrink-0">
-                              {item.original_price != null && (
-                                <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
-                                  {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                            {!isChef && (
+                              <div className="flex flex-col items-end shrink-0">
+                                {item.original_price != null && (
+                                  <span className="text-[11px] text-muted-foreground/50 line-through tabular-nums">
+                                    {(item.original_price * item.qty).toLocaleString("ru-RU")} {item.currency}
+                                  </span>
+                                )}
+                                <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                                  {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
                                 </span>
-                              )}
-                              <span className={`font-semibold tabular-nums ${item.original_price != null ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                                {(item.price * item.qty).toLocaleString("ru-RU")} {item.currency}
-                              </span>
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -4785,7 +4787,7 @@ function TablePanel({
               </div>
             )}
 
-            {selectedItemIdx !== null && !isWaiter && (() => {
+            {selectedItemIdx !== null && !isWaiter && !isChef && (() => {
               const selItem = items[selectedItemIdx];
               if (!selItem) return null;
               return (
@@ -4821,7 +4823,7 @@ function TablePanel({
             })()}
 
             {/* Add from menu + action buttons */}
-            {status === "occupied" && activeOrder && (
+            {!isChef && status === "occupied" && activeOrder && (
               <>
                 <div>
                   <button
@@ -4937,6 +4939,7 @@ function TablePanel({
             )}
 
             {/* Total */}
+            {!isChef && (
             <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Итого</span>
@@ -5007,9 +5010,10 @@ function TablePanel({
                 </span>
               </div>
             </div>
+            )}
 
             {/* Guest refund requests */}
-            {!isWaiter && pendingRequests.length > 0 && (
+            {!isWaiter && !isChef && pendingRequests.length > 0 && (
               <GuestRefundRequestsBlock
                 requests={pendingRequests}
                 onRefresh={() => { onRefresh(); onRequestsRefresh?.(); }}
@@ -5017,7 +5021,7 @@ function TablePanel({
             )}
 
             {/* Close order */}
-            {!isWaiter && status === "occupied" && (
+            {!isWaiter && !isChef && status === "occupied" && (
               <div className="space-y-2">
                 <button
                   onClick={() => setShowPaymentModal(true)}
@@ -5036,7 +5040,7 @@ function TablePanel({
               </div>
             )}
 
-            {!isWaiter && order && order.status === "completed" && (
+            {!isWaiter && !isChef && order && order.status === "completed" && (
               order.refund_status ? (
                 <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-muted text-muted-foreground text-sm font-semibold">
                   <RotateCcw size={14} />
