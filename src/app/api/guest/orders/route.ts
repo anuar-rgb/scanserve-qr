@@ -46,20 +46,33 @@ export async function GET(req: NextRequest) {
     return true;
   });
 
-  // Fetch pending refund_requests for all active orders so per-item status survives refresh
-  const activeOrderIds = filtered.filter((o) => o.status === "pending").map((o) => o.id);
+  // Fetch pending refund_requests for active orders AND recently-completed orders (< 3h)
+  const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+  const relevantOrderIds = filtered
+    .filter((o) => {
+      if (o.status === "pending") return true;
+      const age = Date.now() - new Date(o.created_at).getTime();
+      return age < THREE_HOURS_MS;
+    })
+    .map((o) => o.id);
+
   const pendingRefundMap: Record<string, string[]> = {};
-  if (activeOrderIds.length > 0) {
+  const fullRefundMap: Record<string, boolean> = {};
+
+  if (relevantOrderIds.length > 0) {
     const { data: refunds } = await supabase
       .from("refund_requests")
-      .select("order_id, item_name")
-      .in("order_id", activeOrderIds)
+      .select("order_id, item_name, refund_type")
+      .in("order_id", relevantOrderIds)
       .eq("status", "pending");
     for (const r of refunds ?? []) {
-      if (!r.item_name) continue;
-      if (!pendingRefundMap[r.order_id]) pendingRefundMap[r.order_id] = [];
-      if (!pendingRefundMap[r.order_id].includes(r.item_name)) {
-        pendingRefundMap[r.order_id].push(r.item_name);
+      if (r.refund_type === "full") {
+        fullRefundMap[r.order_id] = true;
+      } else if (r.item_name) {
+        if (!pendingRefundMap[r.order_id]) pendingRefundMap[r.order_id] = [];
+        if (!pendingRefundMap[r.order_id].includes(r.item_name)) {
+          pendingRefundMap[r.order_id].push(r.item_name);
+        }
       }
     }
   }
@@ -93,6 +106,7 @@ export async function GET(req: NextRequest) {
       promoCode: o.promo_code ?? undefined,
       promoDiscount: o.promo_discount ?? undefined,
       pendingRefundItems: pendingRefundMap[o.id] ?? [],
+      hasFullRefundRequest: fullRefundMap[o.id] ?? false,
     };
   });
 

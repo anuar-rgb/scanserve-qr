@@ -10,7 +10,7 @@ import { downloadOrderPDF, shareOrderPDF } from "@/lib/receipt-pdf";
 const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 
-const REFUND_WINDOW_MS = 24 * 60 * 60 * 1000;
+const REFUND_WINDOW_MS = 3 * 60 * 60 * 1000;
 const canRefund = (timestamp: number) => Date.now() - timestamp < REFUND_WINDOW_MS;
 
 export interface OrdersModalProps {
@@ -56,6 +56,13 @@ export function OrdersModal({
   const [confirmCancelOrder, setConfirmCancelOrder]   = useState<StoredOrder | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Minute tick so isExpired auto-updates without requiring user interaction
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => forceUpdate((n) => n + 1), 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Scroll to highlighted order when modal opens
   useEffect(() => {
@@ -193,77 +200,49 @@ export function OrdersModal({
     const item = order.items[itemIndex];
     if (!item) { setPartialDialog(null); return; }
 
-    // Active (pending) order → submit a refund request for admin approval
-    if (order.isActive) {
-      try {
-        const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
-        const session = raw ? JSON.parse(raw) as { id?: string } : null;
-        const guestId = session?.id;
+    // All orders within 3-hour window → submit refund request for admin approval
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
+      const session = raw ? JSON.parse(raw) as { id?: string } : null;
+      const guestId = session?.id;
 
-        if (!guestId || !restaurantId) {
-          toast.error("Необходима авторизация");
-          return;
-        }
-
-        const res = await fetch("/api/guest/refund-request", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: order.id,
-            restaurantId,
-            guestId,
-            itemName: item.name,
-            itemPrice: item.price,
-            itemQty: qty,
-            refundType: "partial",
-          }),
-        });
-
-        const data = await res.json().catch(() => ({})) as { error?: string };
-        if (!res.ok) {
-          if (data.error === "already_requested") {
-            toast.error(lang === "ru" ? "Запрос уже отправлен" : lang === "kz" ? "Өтінім жіберілген" : "Request already sent");
-          } else {
-            toast.error(data.error ?? "Ошибка отправки запроса");
-          }
-          return;
-        }
-
-        setSentItemRequests(prev => { const n = new Set(prev); n.add(`${order.id}-${itemIndex}`); return n; });
-        setPartialConfirmed(true);
-      } catch {
-        toast.error("Ошибка сети");
+      if (!guestId || !restaurantId) {
+        toast.error("Необходима авторизация");
+        return;
       }
-      return;
-    }
 
-    // Completed order → old WhatsApp flow
-    const refundAmountVal = item.price * qty;
-    const newTotal = Math.max(0, order.total - refundAmountVal);
+      const res = await fetch("/api/guest/refund-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          restaurantId,
+          guestId,
+          itemName: item.name,
+          itemPrice: item.price,
+          itemQty: qty,
+          refundType: "partial",
+        }),
+      });
 
-    if (whatsappPhone) {
-      const lines = [
-        `*${wm("partialHeader")} — ${order.restaurantName}*`,
-        `• ${wm("orderLbl")}: ${order.id}`,
-        `• ${wm("dateLbl")}: ${formatDate(order.timestamp)}`,
-        `• ${wm("itemLbl")}: ${item.name}`,
-        `• ${wm("refundedQty")}: ${qty} ${t.pcs}`,
-        `• ${wm("refundAmt")}: ${refundAmountVal.toLocaleString()} ${item.currency}`,
-        `• ${wm("newTotal")}: ${newTotal.toLocaleString()} ${order.currency}`,
-      ];
-      const clean = whatsappPhone.replace(/\D/g, "");
-      const url = `https://wa.me/${clean}?text=${encodeURIComponent(lines.join("\n"))}`;
-      if (isMobile) {
-        window.location.href = url;
-      } else {
-        window.open(url, "_blank", "noopener,noreferrer");
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) {
+        if (data.error === "already_requested") {
+          toast.error(lang === "ru" ? "Запрос уже отправлен" : lang === "kz" ? "Өтінім жіберілген" : "Request already sent");
+        } else if (data.error === "refund_window_expired") {
+          toast.error(t.refundExpired);
+        } else {
+          toast.error(data.error ?? "Ошибка отправки запроса");
+        }
+        return;
       }
-    } else {
-      toast.error("WhatsApp не настроен. Добавьте номер в Брендинге.");
-    }
 
-    onPartialRefund(order.id, itemIndex, qty);
-    setPartialConfirmed(true);
+      setSentItemRequests(prev => { const n = new Set(prev); n.add(`${order.id}-${itemIndex}`); return n; });
+      if (!order.isActive) onPartialRefund(order.id, itemIndex, qty);
+      setPartialConfirmed(true);
+    } catch {
+      toast.error("Ошибка сети");
+    }
   };
 
   const closePartialDialog = () => {
@@ -542,7 +521,7 @@ export function OrdersModal({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: SP.sm }}>
                 {sorted.map((order) => {
-                  const isRequested  = order.status === "refund-requested" || sentFullRequests.has(order.id);
+                  const isRequested  = order.status === "refund-requested" || sentFullRequests.has(order.id) || (order.hasFullRefundRequest ?? false);
                   const isExpired    = !isRequested && !canRefund(order.timestamp);
                   const isHighlighted = order.id === highlightOrderId;
                   return (
@@ -748,11 +727,11 @@ export function OrdersModal({
                           </span>
                         ) : fullCancelLoadingId === order.id ? (
                           <span style={{ fontSize: 11, color: muted }}>⏳ {lang === "ru" ? "Отправка..." : "Sending..."}</span>
-                        ) : isExpired && !order.isActive ? (
+                        ) : isExpired ? (
                           <span style={{ fontSize: 11, color: muted }}>{t.refundExpired}</span>
                         ) : (
                           <button
-                            onClick={() => order.isActive ? setConfirmCancelOrder(order) : openRefundForm(order)}
+                            onClick={() => setConfirmCancelOrder(order)}
                             style={{
                               padding: "4px 14px", borderRadius: R.full,
                               border: `1px solid ${border}`,
@@ -762,7 +741,7 @@ export function OrdersModal({
                               letterSpacing: "0.01em", opacity: 0.7,
                             }}
                           >
-                            {order.isActive ? t.requestFullBtn : t.refundAll}
+                            {t.requestFullBtn}
                           </button>
                         )}
                       </div>

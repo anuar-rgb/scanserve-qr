@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  // Verify order belongs to this guest and is still active (pending)
+  // Verify order belongs to this guest
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, guest_id, status")
+    .select("id, guest_id, status, created_at")
     .eq("id", orderId)
     .eq("restaurant_id", restaurantId)
     .single();
@@ -46,12 +46,30 @@ export async function POST(req: NextRequest) {
   if (order.guest_id !== guestId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (order.status !== "pending") {
-    return NextResponse.json({ error: "Order is not active" }, { status: 409 });
+  const ALLOWED_STATUSES = ["pending", "open", "completed"];
+  if (!ALLOWED_STATUSES.includes(order.status)) {
+    return NextResponse.json({ error: "Order is not eligible for refund" }, { status: 409 });
+  }
+  // Enforce 3-hour window from order creation
+  const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+  const orderAge = Date.now() - new Date(order.created_at as string).getTime();
+  if (orderAge > THREE_HOURS_MS) {
+    return NextResponse.json({ error: "refund_window_expired" }, { status: 409 });
   }
 
-  // Check for duplicate pending request for the same item
-  if (refundType === "partial") {
+  // Check for duplicate pending requests
+  if (refundType === "full") {
+    const { data: existing } = await supabase
+      .from("refund_requests")
+      .select("id")
+      .eq("order_id", orderId)
+      .eq("refund_type", "full")
+      .eq("status", "pending")
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({ error: "already_requested" }, { status: 409 });
+    }
+  } else if (refundType === "partial") {
     const { data: existing } = await supabase
       .from("refund_requests")
       .select("id")
@@ -59,7 +77,6 @@ export async function POST(req: NextRequest) {
       .eq("item_name", itemName)
       .eq("status", "pending")
       .maybeSingle();
-
     if (existing) {
       return NextResponse.json({ error: "already_requested" }, { status: 409 });
     }

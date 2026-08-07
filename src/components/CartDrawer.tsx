@@ -70,6 +70,8 @@ export interface StoredOrder {
   promoDiscount?: number;
   /** Item names that have a pending refund request in the DB (persists across refreshes). */
   pendingRefundItems?: string[];
+  /** True if a full-refund request already exists in DB (persists across refreshes). */
+  hasFullRefundRequest?: boolean;
 }
 
 // ── Design tokens (mirrors MenuTemplate) ──────────────────────────────────────
