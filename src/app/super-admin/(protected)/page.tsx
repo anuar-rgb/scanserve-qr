@@ -88,6 +88,20 @@ type GuestBalance = {
   bonus_amount: number;
 };
 
+type GuestOrder = {
+  id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  total_price: number;
+  status: string;
+  type: string;
+  created_at: string;
+  bonuses_deducted: number;
+  earned_bonuses: number;
+  bonuses_accrued: boolean;
+  refund_status: string | null;
+};
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
@@ -268,25 +282,7 @@ export default function SuperAdminRestaurantsPage() {
   const [guestsLoading, setGuestsLoading]   = useState(false);
 
   // guest detail modal
-  const [selectedGuest, setSelectedGuest]       = useState<GuestProfile | null>(null);
-  const [guestTxs, setGuestTxs]                 = useState<BonusTx[]>([]);
-  const [guestBalances, setGuestBalances]       = useState<GuestBalance[]>([]);
-  const [guestTxLoading, setGuestTxLoading]     = useState(false);
-
-  async function openGuestModal(g: GuestProfile) {
-    if (!g.guest_id) return;
-    setSelectedGuest(g);
-    setGuestTxs([]);
-    setGuestBalances([]);
-    setGuestTxLoading(true);
-    const res = await fetch(`/api/super-admin/guest-transactions?guestId=${g.guest_id}`);
-    if (res.ok) {
-      const data = await res.json() as { transactions: BonusTx[]; balances: GuestBalance[] };
-      setGuestTxs(data.transactions ?? []);
-      setGuestBalances(data.balances ?? []);
-    }
-    setGuestTxLoading(false);
-  }
+  const [selectedGuest, setSelectedGuest] = useState<GuestProfile | null>(null);
 
   async function loadGuests(restaurantId: string) {
     if (guestListId === restaurantId) { setGuestListId(null); return; }
@@ -613,7 +609,7 @@ export default function SuperAdminRestaurantsPage() {
                                   {guests.map((g, i) => (
                                     <div
                                       key={g.id}
-                                      onClick={() => openGuestModal(g)}
+                                      onClick={() => g.guest_id && setSelectedGuest(g)}
                                       className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors cursor-pointer group"
                                     >
                                       {/* Index */}
@@ -827,9 +823,6 @@ export default function SuperAdminRestaurantsPage() {
       {selectedGuest && (
         <GuestDetailModal
           guest={selectedGuest}
-          transactions={guestTxs}
-          balances={guestBalances}
-          loading={guestTxLoading}
           onClose={() => setSelectedGuest(null)}
         />
       )}
@@ -1108,6 +1101,18 @@ function StaffTab({
 
 // ── GuestDetailModal ───────────────────────────────────────────────────────────
 
+const ORDER_TYPE_LABELS: Record<string, string> = {
+  "dine-in": "В зале",
+  takeaway:  "С собой",
+  delivery:  "Доставка",
+};
+
+const ORDER_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+  open:      { label: "Открыт",   cls: "text-amber-400"   },
+  completed: { label: "Завершён", cls: "text-emerald-400" },
+  cancelled: { label: "Отменён",  cls: "text-red-400"     },
+};
+
 const TX_ICONS: Record<string, React.ReactNode> = {
   earned:       <TrendingUp  size={13} className="text-emerald-400" />,
   spent:        <TrendingDown size={13} className="text-red-400"     />,
@@ -1126,17 +1131,44 @@ const TX_TYPE_LABELS: Record<string, string> = {
 
 function GuestDetailModal({
   guest,
-  transactions,
-  balances,
-  loading,
   onClose,
 }: {
   guest: GuestProfile;
-  transactions: BonusTx[];
-  balances: GuestBalance[];
-  loading: boolean;
   onClose: () => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"info" | "orders" | "addresses" | "bonuses">("info");
+  const [transactions, setTransactions] = useState<BonusTx[]>([]);
+  const [balances, setBalances]         = useState<GuestBalance[]>([]);
+  const [txLoading, setTxLoading]       = useState(false);
+  const [orders, setOrders]             = useState<GuestOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersLoaded, setOrdersLoaded]   = useState(false);
+
+  useEffect(() => {
+    if (!guest.guest_id) return;
+    setTxLoading(true);
+    fetch(`/api/super-admin/guest-transactions?guestId=${guest.guest_id}`)
+      .then((r) => r.ok ? r.json() as Promise<{ transactions: BonusTx[]; balances: GuestBalance[] }> : { transactions: [], balances: [] })
+      .then((data) => { setTransactions(data.transactions ?? []); setBalances(data.balances ?? []); })
+      .finally(() => setTxLoading(false));
+  }, [guest.guest_id]);
+
+  useEffect(() => {
+    if (activeTab !== "orders" || !guest.guest_id || ordersLoaded) return;
+    setOrdersLoading(true);
+    fetch(`/api/super-admin/guest-orders?guestId=${guest.guest_id}`)
+      .then((r) => r.ok ? r.json() as Promise<GuestOrder[]> : [])
+      .then((data) => { setOrders(data ?? []); setOrdersLoaded(true); })
+      .finally(() => setOrdersLoading(false));
+  }, [activeTab, guest.guest_id, ordersLoaded]);
+
+  const tabs: { key: typeof activeTab; label: string }[] = [
+    { key: "info",      label: "Инфо"      },
+    { key: "orders",    label: "Заказы"    },
+    { key: "addresses", label: "Избранное" },
+    { key: "bonuses",   label: "Бонусы"    },
+  ];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -1172,99 +1204,281 @@ function GuestDetailModal({
           </button>
         </div>
 
-        {/* Current balances */}
-        {balances.length > 0 && (
-          <div className="px-5 py-3 border-b border-zinc-800 flex-shrink-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Текущий баланс</p>
-            <div className="flex flex-wrap gap-2">
-              {balances.map(b => (
-                <div key={b.restaurant_id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700">
-                  <span className="text-xs text-zinc-400 truncate max-w-[120px]">{b.restaurant_name}</span>
-                  <span className={`text-sm font-bold tabular-nums ${b.bonus_amount >= 0 ? "text-amber-400" : "text-red-400"}`}>
-                    {b.bonus_amount >= 0 ? "+" : ""}{b.bonus_amount} ₸
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Tabs */}
+        <div className="flex border-b border-zinc-800 px-4 gap-0.5 flex-shrink-0 pt-1">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-3 py-2 text-xs font-semibold transition-colors rounded-t-lg ${
+                activeTab === t.key
+                  ? "text-violet-300 border-b-2 border-violet-500 -mb-px"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        {/* Transactions */}
+        {/* Tab content */}
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="h-40 flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
-            </div>
-          ) : transactions.length === 0 ? (
-            <div className="h-40 flex items-center justify-center">
-              <p className="text-sm text-zinc-600">История транзакций пуста</p>
-            </div>
-          ) : (
-            <>
-              {/* Column headers */}
-              <div className="flex items-center gap-2 px-5 py-2 border-b border-zinc-800/60 sticky top-0 bg-zinc-900">
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-32 flex-shrink-0">Дата</span>
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider flex-1">Ресторан / Причина</span>
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-20 text-right flex-shrink-0">Сумма</span>
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-20 text-right flex-shrink-0">Баланс</span>
-              </div>
-              <div className="divide-y divide-zinc-800/60">
-                {transactions.map((tx) => {
-                  const isPositive = tx.amount > 0;
-                  const dt = new Date(tx.created_at);
-                  return (
-                    <div key={tx.id} className="flex items-center gap-2 px-5 py-3 hover:bg-zinc-800/30 transition-colors">
-                      {/* Icon */}
-                      <div className="flex-shrink-0">
-                        {TX_ICONS[tx.type] ?? TX_ICONS.manual}
-                      </div>
-                      {/* Date */}
-                      <div className="w-28 flex-shrink-0">
-                        <p className="text-xs text-zinc-300 tabular-nums">
-                          {dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                        </p>
-                        <p className="text-[10px] text-zinc-600 tabular-nums">
-                          {dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      {/* Restaurant + description */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-zinc-300 truncate">{tx.restaurant_name}</p>
-                        <p className="text-[10px] text-zinc-500 truncate mt-0.5">
-                          {tx.description ?? TX_TYPE_LABELS[tx.type] ?? tx.type}
-                          {tx.order_id && (
-                            <span className="ml-1.5 text-zinc-700 font-mono">
-                              #{tx.order_id.slice(0, 8)}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      {/* Amount */}
-                      <div className="w-20 text-right flex-shrink-0">
-                        <span className={`text-sm font-bold tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
-                          {isPositive ? "+" : ""}{tx.amount}
-                        </span>
-                      </div>
-                      {/* Balance after */}
-                      <div className="w-20 text-right flex-shrink-0">
-                        <span className={`text-sm tabular-nums ${tx.balance_after >= 0 ? "text-zinc-300" : "text-red-400"}`}>
-                          {tx.balance_after}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {activeTab === "info"      && <GuestInfoTab guest={guest} balances={balances} txLoading={txLoading} />}
+          {activeTab === "orders"    && <GuestOrdersTab orders={orders} loading={ordersLoading} />}
+          {activeTab === "addresses" && <GuestAddressesTab />}
+          {activeTab === "bonuses"   && <GuestBonusesTab transactions={transactions} balances={balances} loading={txLoading} />}
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-zinc-800 flex-shrink-0 flex items-center justify-between">
-          <span className="text-xs text-zinc-600">{transactions.length} транзакций</span>
+          <span className="text-xs text-zinc-600">
+            {activeTab === "bonuses" && `${transactions.length} транзакций`}
+            {activeTab === "orders" && ordersLoaded && `${orders.length} заказов`}
+          </span>
           <button onClick={onClose} className={BTN_GHOST}>Закрыть</button>
         </div>
       </div>
     </div>
+  );
+}
+
+// ── GuestDetailModal sub-tabs ─────────────────────────────────────────────────
+
+function InfoRow({ label, value, mono, highlight }: { label: string; value: string; mono?: boolean; highlight?: "emerald" }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 gap-4">
+      <span className="text-xs text-zinc-500 flex-shrink-0">{label}</span>
+      <span className={`text-xs text-right truncate ${mono ? "font-mono" : ""} ${highlight === "emerald" ? "text-emerald-400" : "text-zinc-200"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function GuestInfoTab({ guest, balances, txLoading }: { guest: GuestProfile; balances: GuestBalance[]; txLoading: boolean }) {
+  const totalBonus = balances.reduce((s, b) => s + b.bonus_amount, 0);
+  return (
+    <div className="p-5 space-y-4">
+      <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/50 divide-y divide-zinc-700/50">
+        <InfoRow label="Имя"         value={guest.name  ?? "Не указано"} />
+        <InfoRow label="Телефон"     value={guest.phone ?? "Не указан"} mono />
+        <InfoRow label="Email"       value={guest.email ?? "Не указан"} mono />
+        <InfoRow label="Регистрация" value={new Date(guest.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })} />
+        <InfoRow
+          label="Последний визит"
+          value={guest.last_visit
+            ? new Date(guest.last_visit).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+            : "Нет данных"}
+        />
+        <InfoRow
+          label="Push-уведомления"
+          value={guest.push_subscription ? "Подключены" : "Не подключены"}
+          highlight={guest.push_subscription ? "emerald" : undefined}
+        />
+      </div>
+
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Бонусный счёт</p>
+        {txLoading ? (
+          <div className="h-8 flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
+            <span className="text-xs text-zinc-600">Загрузка...</span>
+          </div>
+        ) : balances.length === 0 ? (
+          <p className="text-xs text-zinc-600">Нет бонусных счетов</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {balances.map((b) => (
+              <div key={b.restaurant_id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700">
+                <span className="text-xs text-zinc-400 truncate max-w-[120px]">{b.restaurant_name}</span>
+                <span className={`text-sm font-bold tabular-nums ${b.bonus_amount >= 0 ? "text-amber-400" : "text-red-400"}`}>
+                  {b.bonus_amount >= 0 ? "+" : ""}{b.bonus_amount} ₸
+                </span>
+              </div>
+            ))}
+            {balances.length > 1 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
+                <span className="text-xs text-zinc-500">Итого</span>
+                <span className={`text-sm font-bold tabular-nums ${totalBonus >= 0 ? "text-amber-300" : "text-red-400"}`}>
+                  {totalBonus >= 0 ? "+" : ""}{totalBonus} ₸
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {guest.guest_id && (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-1">ID гостя</p>
+          <code className="text-[10px] text-zinc-600 font-mono break-all">{guest.guest_id}</code>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GuestOrdersTab({ orders, loading }: { orders: GuestOrder[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="h-40 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (orders.length === 0) {
+    return (
+      <div className="h-40 flex items-center justify-center">
+        <p className="text-sm text-zinc-600">Заказов не найдено</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="flex items-center gap-2 px-5 py-2 border-b border-zinc-800/60 sticky top-0 bg-zinc-900">
+        <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-28 flex-shrink-0">Дата</span>
+        <span className="text-[10px] text-zinc-600 uppercase tracking-wider flex-1">Ресторан</span>
+        <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-14 text-center flex-shrink-0">Тип</span>
+        <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-22 text-right flex-shrink-0">Сумма</span>
+        <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-18 text-right flex-shrink-0">Статус</span>
+      </div>
+      <div className="divide-y divide-zinc-800/60">
+        {orders.map((o) => {
+          const dt     = new Date(o.created_at);
+          const status = ORDER_STATUS_LABELS[o.status] ?? { label: o.status, cls: "text-zinc-400" };
+          return (
+            <div key={o.id} className="flex items-center gap-2 px-5 py-3 hover:bg-zinc-800/30 transition-colors">
+              <div className="w-28 flex-shrink-0">
+                <p className="text-xs text-zinc-300 tabular-nums">
+                  {dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                </p>
+                <p className="text-[10px] text-zinc-600 tabular-nums">
+                  {dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-zinc-300 truncate">{o.restaurant_name}</p>
+                <p className="text-[10px] text-zinc-600 font-mono">#{o.id.slice(0, 8)}</p>
+              </div>
+              <div className="w-14 text-center flex-shrink-0">
+                <span className="text-[10px] text-zinc-500">{ORDER_TYPE_LABELS[o.type] ?? o.type}</span>
+              </div>
+              <div className="w-22 text-right flex-shrink-0">
+                <span className="text-sm font-bold tabular-nums text-zinc-200">{o.total_price.toLocaleString("ru-RU")} ₸</span>
+                {(o.bonuses_deducted > 0 || o.earned_bonuses > 0) && (
+                  <p className="text-[10px] text-zinc-600 tabular-nums">
+                    {o.bonuses_deducted > 0 && `-${o.bonuses_deducted}б`}
+                    {o.bonuses_deducted > 0 && o.earned_bonuses > 0 && " "}
+                    {o.earned_bonuses > 0 && `+${o.earned_bonuses}б`}
+                  </p>
+                )}
+              </div>
+              <div className="w-18 text-right flex-shrink-0">
+                <span className={`text-xs font-medium ${status.cls}`}>{status.label}</span>
+                {o.refund_status && (
+                  <p className="text-[10px] text-zinc-600">Возврат</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function GuestAddressesTab() {
+  return (
+    <div className="h-48 flex flex-col items-center justify-center gap-2 px-8 text-center">
+      <p className="text-sm font-medium text-zinc-400">Адреса и избранное</p>
+      <p className="text-xs text-zinc-600">Эта функция будет добавлена в следующем обновлении платформы</p>
+    </div>
+  );
+}
+
+function GuestBonusesTab({
+  transactions,
+  balances,
+  loading,
+}: {
+  transactions: BonusTx[];
+  balances: GuestBalance[];
+  loading: boolean;
+}) {
+  return (
+    <>
+      {balances.length > 0 && (
+        <div className="px-5 py-3 border-b border-zinc-800">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Текущий баланс</p>
+          <div className="flex flex-wrap gap-2">
+            {balances.map((b) => (
+              <div key={b.restaurant_id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700">
+                <span className="text-xs text-zinc-400 truncate max-w-[120px]">{b.restaurant_name}</span>
+                <span className={`text-sm font-bold tabular-nums ${b.bonus_amount >= 0 ? "text-amber-400" : "text-red-400"}`}>
+                  {b.bonus_amount >= 0 ? "+" : ""}{b.bonus_amount} ₸
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="h-40 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-400 rounded-full animate-spin" />
+        </div>
+      ) : transactions.length === 0 ? (
+        <div className="h-40 flex items-center justify-center">
+          <p className="text-sm text-zinc-600">История транзакций пуста</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 px-5 py-2 border-b border-zinc-800/60 sticky top-0 bg-zinc-900">
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-32 flex-shrink-0">Дата</span>
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wider flex-1">Ресторан / Причина</span>
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-20 text-right flex-shrink-0">Сумма</span>
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-20 text-right flex-shrink-0">Баланс</span>
+          </div>
+          <div className="divide-y divide-zinc-800/60">
+            {transactions.map((tx) => {
+              const isPositive = tx.amount > 0;
+              const dt = new Date(tx.created_at);
+              return (
+                <div key={tx.id} className="flex items-center gap-2 px-5 py-3 hover:bg-zinc-800/30 transition-colors">
+                  <div className="flex-shrink-0">{TX_ICONS[tx.type] ?? TX_ICONS.manual}</div>
+                  <div className="w-28 flex-shrink-0">
+                    <p className="text-xs text-zinc-300 tabular-nums">
+                      {dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                    </p>
+                    <p className="text-[10px] text-zinc-600 tabular-nums">
+                      {dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-zinc-300 truncate">{tx.restaurant_name}</p>
+                    <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                      {tx.description ?? TX_TYPE_LABELS[tx.type] ?? tx.type}
+                      {tx.order_id && (
+                        <span className="ml-1.5 text-zinc-700 font-mono">#{tx.order_id.slice(0, 8)}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-20 text-right flex-shrink-0">
+                    <span className={`text-sm font-bold tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                      {isPositive ? "+" : ""}{tx.amount}
+                    </span>
+                  </div>
+                  <div className="w-20 text-right flex-shrink-0">
+                    <span className={`text-sm tabular-nums ${tx.balance_after >= 0 ? "text-zinc-300" : "text-red-400"}`}>
+                      {tx.balance_after}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
   );
 }
