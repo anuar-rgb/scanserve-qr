@@ -1557,6 +1557,7 @@ function TableCard({
   const isLocked = status !== "free";
   const isNewOrder = useIsNewOrder(order?.created_at ?? new Date(0).toISOString());
   const isNew = isNewOrder && status === "occupied";
+  const isChefCard = useRole() === "chef";
 
   const palette = {
     free: {
@@ -1705,24 +1706,48 @@ function TableCard({
               {elapsed > 0 && (
                 <p className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                   <Clock size={10} className="shrink-0" />
-                  {formatElapsed(elapsed)}
+                  {isChefCard ? formatOrderTime(order.created_at) : formatElapsed(elapsed)}
+                  {isChefCard && elapsed > 0 && <span className="text-muted-foreground/60">({formatElapsed(elapsed)})</span>}
                 </p>
               )}
-              {table.assigned_waiter_id && waiterNames[table.assigned_waiter_id] && (
+              {!isChefCard && table.assigned_waiter_id && waiterNames[table.assigned_waiter_id] && (
                 <p className="text-xs text-muted-foreground truncate mb-0.5">
                   <User size={10} className="inline shrink-0 mr-0.5" />
                   {waiterNames[table.assigned_waiter_id]}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground mb-1.5">
-                {table.seats} мест · {tws.orders.reduce((s, o) => {
-                  const items = (Array.isArray(o.items_json) ? o.items_json : []) as Array<{qty?: number}>;
-                  return s + items.reduce((acc, it) => acc + (it.qty ?? 1), 0);
-                }, 0)} поз.
-              </p>
-              <p className="text-xl font-black text-foreground tabular-nums">
-                {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
-              </p>
+              {isChefCard ? (
+                (() => {
+                  const allItems: OrderItem[] = tws.orders.flatMap((o) =>
+                    Array.isArray(o.items_json) ? (o.items_json as OrderItem[]) : []
+                  );
+                  return allItems.length > 0 ? (
+                    <ul className="mt-1 space-y-1">
+                      {allItems.slice(0, 5).map((item, i) => (
+                        <li key={i} className="flex items-baseline gap-1">
+                          <span className="text-sm font-black text-amber-500 dark:text-amber-400 tabular-nums shrink-0">{item.qty}×</span>
+                          <span className="text-sm font-semibold text-foreground leading-snug">{capFirst(item.name)}</span>
+                        </li>
+                      ))}
+                      {allItems.length > 5 && (
+                        <li className="text-xs text-muted-foreground">+{allItems.length - 5} ещё</li>
+                      )}
+                    </ul>
+                  ) : null;
+                })()
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    {table.seats} мест · {tws.orders.reduce((s, o) => {
+                      const items = (Array.isArray(o.items_json) ? o.items_json : []) as Array<{qty?: number}>;
+                      return s + items.reduce((acc, it) => acc + (it.qty ?? 1), 0);
+                    }, 0)} поз.
+                  </p>
+                  <p className="text-xl font-black text-foreground tabular-nums">
+                    {tws.orders.reduce((s, o) => s + (o.total_price ?? 0), 0).toLocaleString("ru-RU")} ₸
+                  </p>
+                </>
+              )}
             </>
           )}
 
@@ -1810,7 +1835,9 @@ function OrderSlotCard({
   onPay: () => void;
   isActivatedPreorder?: boolean;
 }) {
-  const isWaiter   = useRole() === "waiter";
+  const role       = useRole();
+  const isWaiter   = role === "waiter";
+  const isChef     = role === "chef";
   const elapsed = getElapsed(order.created_at);
   const isNew   = useIsNewOrder(order.created_at);
   const shortId = order.id.startsWith("ORD-") ? order.id : `#${order.id.slice(0, 8)}`;
@@ -1856,26 +1883,64 @@ function OrderSlotCard({
       <div className="p-4 pb-3 flex-1">
         {/* Queue number + order ID */}
         <div className="flex items-end gap-2 mb-2">
-          <span className={`text-4xl font-black tabular-nums leading-none ${isOverdue ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`}>
+          <span className={`${isChef ? "text-5xl" : "text-4xl"} font-black tabular-nums leading-none ${isOverdue ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`}>
             {queueNum}
           </span>
-          <p className="text-[10px] font-mono text-muted-foreground/60 mb-0.5 pr-4">{shortId}</p>
+          {!isChef && <p className="text-[10px] font-mono text-muted-foreground/60 mb-0.5 pr-4">{shortId}</p>}
         </div>
 
         {order.table_number && (
-          <p className="text-sm font-bold text-foreground truncate mb-1">{order.table_number}</p>
+          <p className={`${isChef ? "text-base" : "text-sm"} font-bold text-foreground truncate mb-1`}>{order.table_number}</p>
         )}
-        <p className="text-lg font-black text-foreground">
-          {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
-        </p>
+
+        {/* Total price — hidden for chef */}
+        {!isChef && (
+          <p className="text-lg font-black text-foreground">
+            {(order.total_price ?? 0).toLocaleString("ru-RU")} ₸
+          </p>
+        )}
+
         <div className="flex items-center gap-1.5 mt-1">
-          <Clock size={11} className="text-amber-500 shrink-0" />
-          <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-            {formatElapsed(elapsed)}
+          <Clock size={isChef ? 13 : 11} className="text-amber-500 shrink-0" />
+          <span className={`${isChef ? "text-sm" : "text-xs"} font-semibold text-amber-700 dark:text-amber-400`}>
+            {isChef ? formatOrderTime(order.created_at) : formatElapsed(elapsed)}
           </span>
+          {isChef && elapsed > 0 && (
+            <span className="text-xs text-muted-foreground">({formatElapsed(elapsed)})</span>
+          )}
         </div>
-        {items.length > 0 && (
-          <p className="text-[11px] text-muted-foreground mt-1">{items.length} позиц.</p>
+
+        {/* Items: full list for chef, count for others */}
+        {isChef ? (
+          items.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {items.map((item, i) => (
+                <li key={i} className="flex flex-col gap-0.5">
+                  <span className="flex items-baseline gap-1.5">
+                    <span className="text-lg font-black text-amber-500 dark:text-amber-400 shrink-0 tabular-nums">{item.qty}×</span>
+                    <span className="text-base font-semibold text-foreground leading-snug">{capFirst(item.name)}</span>
+                  </span>
+                  {item.modifiers && item.modifiers.length > 0 && (
+                    <span className="text-xs text-muted-foreground pl-7">
+                      {item.modifiers.map((m) => m.name).join(", ")}
+                    </span>
+                  )}
+                  {item.note && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400 pl-7 italic">{item.note}</span>
+                  )}
+                </li>
+              ))}
+              {order.customer_comments && (
+                <li className="pt-1 text-sm text-muted-foreground italic border-t border-amber-200/60 dark:border-amber-700/30 mt-1">
+                  💬 {order.customer_comments}
+                </li>
+              )}
+            </ul>
+          )
+        ) : (
+          items.length > 0 && (
+            <p className="text-[11px] text-muted-foreground mt-1">{items.length} позиц.</p>
+          )
         )}
 
         {/* Delivery status badge */}
@@ -1890,12 +1955,13 @@ function OrderSlotCard({
           };
           const cfg = DS_LABEL[ds] ?? DS_LABEL.new;
           return (
-            <p className={`text-[10px] font-semibold mt-1 ${cfg.color}`}>{cfg.label}</p>
+            <p className={`${isChef ? "text-sm" : "text-[10px]"} font-semibold mt-1 ${cfg.color}`}>{cfg.label}</p>
           );
         })()}
       </div>
 
-      {!isWaiter && (
+      {/* Pay button — hidden for chef */}
+      {!isWaiter && !isChef && (
         <div className="border-t border-amber-200/60 dark:border-amber-700/30 px-3 py-2">
           <button
             onClick={(e) => { e.stopPropagation(); onPay(); }}
@@ -3233,7 +3299,7 @@ function PickupDeliveryGrid({
                 <p className="text-sm">{emptyText}</p>
               </div>
             ) : (
-              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${readOnly ? "240px" : "190px"}, 1fr))` }}>
                 {orders.map((order, i) => (
                   <OrderSlotCard
                     key={order.id}
