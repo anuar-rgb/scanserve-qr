@@ -900,7 +900,7 @@ export default function HallPage() {
       </header>
 
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
-      <div className="flex shrink-0 border-b border-border bg-background px-4 gap-1 pt-1">
+      <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-1 px-4"}`}>
         {([
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
@@ -914,14 +914,18 @@ export default function HallPage() {
           <button
             key={id}
             onClick={() => { setActiveTab(id); if (id !== "dine-in") setEditMode(false); }}
-            className={`relative flex items-center gap-1.5 px-2 sm:px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+            className={`relative flex items-center gap-1.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              isChef
+                ? "flex-1 justify-center py-4 px-2 rounded-none"
+                : "px-2 sm:px-4 py-2.5 rounded-t-lg"
+            } ${
               activeTab === id
                 ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-violet-50/60 dark:bg-violet-900/10"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50"
             }`}
           >
-            <Icon size={14} />
-            <span className="hidden sm:inline">{label}</span>
+            <Icon size={isChef ? 18 : 14} />
+            <span className={isChef ? "text-sm font-semibold" : "hidden sm:inline"}>{label}</span>
             {count > 0 && (
               <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
                 activeTab === id
