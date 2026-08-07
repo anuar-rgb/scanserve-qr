@@ -448,7 +448,7 @@ export function CartDrawer({
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [mapOpen, setMapOpen]                 = useState(false);
   const [notes, setNotes]                     = useState("");
-  const [payment, setPayment]                 = useState<PaymentMethod | null>(isTableLocked ? "pay-at-restaurant" : null);
+  const [payment, setPayment]                 = useState<PaymentMethod | null>(defaultOrderType === "dine-in" ? "pay-at-restaurant" : null);
   const [cardBankIdx, setCardBankIdx]         = useState<number | null>(null);
   const [placedOrder, setPlacedOrder]         = useState<PlacedOrder | null>(null);
   const [loading, setLoading]                 = useState(false);
