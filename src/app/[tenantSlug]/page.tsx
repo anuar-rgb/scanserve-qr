@@ -33,12 +33,13 @@ export default async function TenantMenuPage({
   searchParams,
 }: {
   params: Promise<{ tenantSlug: string }>;
-  searchParams: Promise<{ table?: string; order?: string }>;
+  searchParams: Promise<{ table?: string; order?: string; source?: string }>;
 }) {
   const { tenantSlug } = await params;
-  const { table, order } = await searchParams;
+  const { table, order, source } = await searchParams;
   const initialTableNumber = table?.trim() || undefined;
   const initialOrderId = order?.trim() || undefined;
+  const isInRestaurant = source === "qr";
 
   const dbRestaurant = await fetchRestaurantBySlug(tenantSlug);
   if (!dbRestaurant) notFound();
@@ -113,6 +114,7 @@ export default async function TenantMenuPage({
         showcaseItems={showcaseItems}
         initialTableNumber={initialTableNumber}
         initialOrderId={initialOrderId}
+        isInRestaurant={isInRestaurant}
         restaurantTables={dbTables.map((t) => ({ id: t.id, label: t.label }))}
         restaurantId={restaurantId}
         ads={dbAds}

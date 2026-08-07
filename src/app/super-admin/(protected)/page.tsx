@@ -855,8 +855,9 @@ function LinksTab({
   copied: string | null;
   onCopy: (text: string, key: string) => void;
 }) {
-  const origin   = typeof window !== "undefined" ? window.location.origin : "";
-  const menuUrl  = `${origin}/${restaurant.slug}`;
+  const origin    = typeof window !== "undefined" ? window.location.origin : "";
+  const menuUrl   = `${origin}/${restaurant.slug}`;           // ссылка для отправки — С собой + Доставка
+  const qrUrl     = `${origin}/${restaurant.slug}?source=qr`; // QR в зале — В заведении + С собой
   const qrCanvasId = `qr-canvas-${restaurant.id}`;
 
   function downloadQR() {
@@ -869,10 +870,11 @@ function LinksTab({
   }
 
   return (
-    <div className="space-y-5">
-      {/* Menu link */}
+    <div className="space-y-6">
+      {/* Regular link — takeaway + delivery */}
       <div>
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Ссылка на гостевое меню</p>
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Ссылка для отправки гостям</p>
+        <p className="text-[11px] text-zinc-600 mb-2">С собой · Доставка — для рассылки и соцсетей</p>
         <div className="flex items-center gap-2">
           <code className="flex-1 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-violet-300 text-xs truncate">
             {menuUrl}
@@ -888,35 +890,35 @@ function LinksTab({
         </div>
       </div>
 
-      {/* QR code */}
+      {/* QR code — dine-in + takeaway */}
       <div>
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">QR-код для печати</p>
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">QR-код для зала</p>
+        <p className="text-[11px] text-zinc-600 mb-3">В заведении · С собой — размещается в зале на столах</p>
         <div className="flex items-start gap-5 flex-wrap">
           <div className="bg-white p-3 rounded-2xl flex-shrink-0">
             <QRCodeCanvas
               id={qrCanvasId}
-              value={menuUrl}
+              value={qrUrl}
               size={160}
               level="H"
               marginSize={1}
             />
           </div>
           <div className="flex flex-col gap-2 justify-center">
-            <p className="text-xs text-zinc-500 max-w-xs">
-              QR ведёт на гостевое меню без привязки к столу.<br />
-              Гость сможет выбрать стол при оформлении заказа.
-            </p>
+            <code className="text-[10px] text-zinc-600 font-mono break-all max-w-[200px]">
+              {qrUrl}
+            </code>
             <button onClick={downloadQR}
               className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors w-fit">
               Скачать PNG
             </button>
-            <button onClick={() => onCopy(menuUrl, `qr-url-${restaurant.id}`)}
+            <button onClick={() => onCopy(qrUrl, `qr-url-${restaurant.id}`)}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors w-fit ${
                 copied === `qr-url-${restaurant.id}`
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                   : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
               }`}>
-              {copied === `qr-url-${restaurant.id}` ? "Скопировано!" : "Копировать ссылку для QR"}
+              {copied === `qr-url-${restaurant.id}` ? "Скопировано!" : "Копировать ссылку QR"}
             </button>
           </div>
         </div>
