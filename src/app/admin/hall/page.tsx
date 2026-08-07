@@ -1044,6 +1044,8 @@ export default function HallPage() {
                 ) : displayedTables.length === 0 ? (
                   isWaiter ? (
                     <WaiterEmptyDineIn onNew={() => setWaiterNewOrderPicker(true)} />
+                  ) : isChef ? (
+                    <ChefEmptyDineIn />
                   ) : (
                     <EmptyState onAdd={() => { setEditMode(true); setAddOpen(true); }} />
                   )
@@ -1243,6 +1245,16 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         <Plus size={13} />
         Добавить первый стол
       </button>
+    </div>
+  );
+}
+
+function ChefEmptyDineIn() {
+  return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground select-none">
+      <span className="text-5xl">🍽️</span>
+      <p className="text-base font-semibold text-foreground">Нет активных заказов</p>
+      <p className="text-sm text-muted-foreground">Заказы появятся здесь автоматически</p>
     </div>
   );
 }
@@ -3294,9 +3306,10 @@ function PickupDeliveryGrid({
             )}
 
             {orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
-                <span className="text-5xl select-none">{emptyIcon}</span>
-                <p className="text-sm">{emptyText}</p>
+              <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground select-none">
+                <span className="text-5xl">{emptyIcon}</span>
+                <p className={`${readOnly ? "text-base font-semibold text-foreground" : "text-sm"}`}>{emptyText}</p>
+                {readOnly && <p className="text-sm text-muted-foreground">Заказы появятся здесь автоматически</p>}
               </div>
             ) : (
               <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${readOnly ? "240px" : "190px"}, 1fr))` }}>
@@ -4214,7 +4227,9 @@ function TablePanel({
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
-  const isWaiter    = useRole() === "waiter";
+  const role        = useRole();
+  const isWaiter    = role === "waiter";
+  const isChef      = role === "chef";
   const userId      = useUserId();
   const displayName = useDisplayName();
   const { table, status, order, preorderOrder, elapsed } = data;
@@ -4577,15 +4592,17 @@ function TablePanel({
             <div>
               <p className="text-sm font-semibold text-foreground">Стол свободен</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-[220px] mx-auto">
-                Гости заказывают через QR, или кассир открывает заказ вручную
+                {isChef ? "Заказов на этом столе нет" : "Гости заказывают через QR, или кассир открывает заказ вручную"}
               </p>
             </div>
-            <button
-              onClick={() => { setPanelMode("order"); onEnterOrderMode?.(); }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors"
-            >
-              <ShoppingCart size={14} /> Принять заказ
-            </button>
+            {!isChef && (
+              <button
+                onClick={() => { setPanelMode("order"); onEnterOrderMode?.(); }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors"
+              >
+                <ShoppingCart size={14} /> Принять заказ
+              </button>
+            )}
           </div>
         )}
 
