@@ -75,6 +75,207 @@ function buildDatePills() {
 
 const DATE_PILLS = buildDatePills();
 
+// ── useIsNewOrder ────────────────────────────────────────────────────────────
+
+function useIsNewOrder(createdAt: string): boolean {
+  const [isNew, setIsNew] = useState(() =>
+    Date.now() - new Date(createdAt).getTime() < 5 * 60 * 1000,
+  );
+  useEffect(() => {
+    const remaining = 5 * 60 * 1000 - (Date.now() - new Date(createdAt).getTime());
+    if (remaining <= 0) { setIsNew(false); return; }
+    const t = setTimeout(() => setIsNew(false), remaining);
+    return () => clearTimeout(t);
+  }, [createdAt]);
+  return isNew;
+}
+
+// ── DeliveryOrderCard ────────────────────────────────────────────────────────
+
+function DeliveryOrderCard({
+  order, role, busy, expandedIds, toggleExpand, updateStatus, filter,
+}: {
+  order: DeliveryOrder;
+  role: string | null;
+  busy: string | null;
+  expandedIds: Set<string>;
+  toggleExpand: (id: string) => void;
+  updateStatus: (orderId: string, deliveryStatus: DeliveryStatus) => Promise<void>;
+  filter: "active" | "history";
+}) {
+  const isNew = useIsNewOrder(order.created_at);
+  const ds      = (order.delivery_status ?? "new") as DeliveryStatus;
+  const cfg     = STATUS_CFG[ds];
+  const isAdmin = role === "owner" || role === "manager" || role === "supervisor";
+  const action  = isAdmin ? ADMIN_ACTION[ds] : COURIER_ACTION[ds];
+  const isBusy  = busy === order.id;
+  const items   = Array.isArray(order.items_json) ? order.items_json as DeliveryOrder["items_json"] : [];
+  const address2gis = order.delivery_address
+    ? `https://2gis.kz/search/${encodeURIComponent(order.delivery_address)}`
+    : null;
+  const isExpanded = expandedIds.has(order.id);
+
+  return (
+    <div
+      className={`w-full rounded-2xl border bg-white dark:bg-zinc-900 overflow-hidden transition-shadow ${
+        isNew
+          ? "border-orange-400 dark:border-orange-500 shadow-[0_0_0_3px_rgba(251,146,60,0.18)]"
+          : "border-zinc-200 dark:border-zinc-800"
+      }`}
+    >
+      {/* Status header */}
+      <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ background: cfg.bg }}>
+        <span className="text-sm font-semibold" style={{ color: cfg.color }}>{cfg.icon} {cfg.label}</span>
+        <div className="flex items-center gap-2 ml-auto">
+          {isNew && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white animate-pulse">
+              Новый
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <Clock size={12} />{fmtTime(order.created_at)}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-3">
+        <div className="space-y-1.5">
+          {order.customer_phone && (
+            <div className="flex items-center gap-3">
+              <Phone size={14} className="text-emerald-500 shrink-0" />
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
+                  {order.customer_name ? <span className="font-medium">{order.customer_name} — </span> : null}
+                  {order.customer_phone}
+                </span>
+                <a href={`tel:${order.customer_phone}`} className="shrink-0 text-xs px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
+                  Позвонить
+                </a>
+              </div>
+            </div>
+          )}
+          {order.customer_city && (
+            <div className="flex items-center gap-3">
+              <MapPin size={14} className="text-violet-400 shrink-0" />
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">{order.customer_city}</span>
+            </div>
+          )}
+          {order.delivery_address && (
+            <div className="flex items-start gap-3">
+              <MapPin size={14} className="text-violet-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 leading-tight">{order.delivery_address}</p>
+                {address2gis && (
+                  <a href={address2gis} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-0.5 text-xs text-violet-500 hover:text-violet-700">
+                    <Navigation size={10} />Открыть в 2GIS
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+          {order.payment_method && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm">🏦</span>
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">{order.payment_method}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Items accordion */}
+        {items.length > 0 && (() => {
+          const itemsSubtotal = items.reduce((s, it) => s + (it?.price ?? 0) * (it?.qty ?? 1), 0);
+          const tips = order.tips_amount ?? 0;
+          const derivedFee = Math.round((order.total_price ?? 0) - itemsSubtotal - tips);
+          const hiddenCount = items.length - 2;
+          return (
+            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
+              <button type="button" onClick={() => toggleExpand(order.id)} className="w-full flex items-center gap-2 mb-2">
+                <Package size={13} className="text-zinc-400" />
+                <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
+                  Состав · {items.length} позиц.
+                </span>
+                <ChevronDown size={14} className={`ml-auto text-zinc-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+              </button>
+              {!isExpanded ? (
+                <div className="space-y-1">
+                  {items.slice(0, 2).map((it, idx) => (
+                    <div key={idx} className="flex items-baseline gap-2">
+                      <span className="text-sm text-zinc-700 dark:text-zinc-300 leading-snug">{it?.name ?? "Блюдо"} ×{it?.qty ?? 1}</span>
+                    </div>
+                  ))}
+                  {hiddenCount > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-600">+ ещё {hiddenCount}...</p>}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {items.map((it, idx) => {
+                    const qty = it?.qty ?? 1, price = it?.price ?? 0;
+                    return (
+                      <div key={idx} className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1 leading-snug">{it?.name ?? "Блюдо"} ×{qty}</span>
+                        <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 shrink-0 tabular-nums">{fmtPrice(price * qty)}</span>
+                      </div>
+                    );
+                  })}
+                  {(derivedFee > 0 || tips > 0) && (
+                    <div className="pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700 space-y-1">
+                      {derivedFee > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-zinc-500 dark:text-zinc-400">🚚 Доставка</span>
+                          <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(derivedFee)}</span>
+                        </div>
+                      )}
+                      {tips > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-zinc-500 dark:text-zinc-400">💝 Чаевые</span>
+                          <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(tips)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                    <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">Итого</span>
+                    <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{fmtPrice(order.total_price ?? 0)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {order.customer_comments && (
+          <p className="text-xs text-zinc-500 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-800 rounded-lg px-3 py-2">
+            💬 {order.customer_comments}
+          </p>
+        )}
+
+        {action && (
+          <button
+            disabled={isBusy}
+            onClick={() => updateStatus(order.id, action.next)}
+            className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-50"
+            style={{ background: STATUS_CFG[action.next].color }}
+          >
+            {isBusy ? "..." : action.label}
+          </button>
+        )}
+
+        {!((role === "owner" || role === "manager" || role === "supervisor")) && ds === "new" && (
+          <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 text-sm">
+            <Clock size={14} />Ожидайте готовности заказа
+          </div>
+        )}
+
+        {ds === "delivered" && filter === "active" && (
+          <div className="flex items-center justify-center gap-2 py-2 text-emerald-500">
+            <CheckCircle2 size={16} />
+            <span className="text-sm font-semibold">Доставлен — ожидает закрытия</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function DeliveryPage() {
@@ -104,7 +305,6 @@ export default function DeliveryPage() {
   }
 
   const knownIdsRef = useRef<Set<string>>(new Set());
-  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const audioRef    = useRef<AudioContext | null>(null);
 
   const playBell = useCallback(() => {
@@ -183,7 +383,6 @@ export default function DeliveryPage() {
           if (knownIdsRef.current.has(order.id)) return; // already in list (race dedup)
           knownIdsRef.current.add(order.id);
           setOrders(prev => [order, ...prev]);
-          setNewOrderIds(prev => new Set([...prev, order.id]));
           playBell();
         },
       )
@@ -194,10 +393,6 @@ export default function DeliveryPage() {
           const updated = payload.new as DeliveryOrder;
           if (updated.type !== "delivery") return;
           setOrders(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o));
-          // Clear "new" badge when order moves past "new" status
-          if (updated.delivery_status && updated.delivery_status !== "new") {
-            setNewOrderIds(prev => { const s = new Set(prev); s.delete(updated.id); return s; });
-          }
         },
       )
       .subscribe();
@@ -206,7 +401,6 @@ export default function DeliveryPage() {
 
   async function updateStatus(orderId: string, deliveryStatus: DeliveryStatus) {
     setBusy(orderId);
-    setNewOrderIds(prev => { const s = new Set(prev); s.delete(orderId); return s; });
     await fetch("/api/admin/delivery-orders", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId, deliveryStatus }),
@@ -221,182 +415,6 @@ export default function DeliveryPage() {
   const todayCount     = orders.filter(o => o.delivery_status === "delivered" && isToday(o.created_at)).length;
   const displayedOrders = filter === "active" ? activeOrders : historyOrders;
   const isLoading       = filter === "active" ? loading : historyLoading;
-
-  // ── Render a single order card ─────────────────────────────────────────────
-  function renderCard(order: DeliveryOrder) {
-    const ds      = (order.delivery_status ?? "new") as DeliveryStatus;
-    const cfg     = STATUS_CFG[ds];
-    const isAdmin = role === "owner" || role === "manager" || role === "supervisor";
-    const action  = isAdmin ? ADMIN_ACTION[ds] : COURIER_ACTION[ds];
-    const isBusy  = busy === order.id;
-    const isNew   = newOrderIds.has(order.id);
-    const items   = Array.isArray(order.items_json) ? order.items_json as DeliveryOrder["items_json"] : [];
-    const address2gis = order.delivery_address
-      ? `https://2gis.kz/search/${encodeURIComponent(order.delivery_address)}`
-      : null;
-    const isExpanded = expandedIds.has(order.id);
-
-    return (
-      <div
-        key={order.id}
-        className={`w-full rounded-2xl border bg-white dark:bg-zinc-900 overflow-hidden transition-shadow ${
-          isNew
-            ? "border-orange-400 dark:border-orange-500 shadow-[0_0_0_3px_rgba(251,146,60,0.18)]"
-            : "border-zinc-200 dark:border-zinc-800"
-        }`}
-      >
-        {/* Status header */}
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ background: cfg.bg }}>
-          <span className="text-sm font-semibold" style={{ color: cfg.color }}>{cfg.icon} {cfg.label}</span>
-          <div className="flex items-center gap-2 ml-auto">
-            {isNew && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white animate-pulse">
-                Новый
-              </span>
-            )}
-            <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-              <Clock size={12} />{fmtTime(order.created_at)}
-            </span>
-          </div>
-        </div>
-
-        <div className="p-4 space-y-3">
-          <div className="space-y-1.5">
-            {order.customer_phone && (
-              <div className="flex items-center gap-3">
-                <Phone size={14} className="text-emerald-500 shrink-0" />
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
-                    {order.customer_name ? <span className="font-medium">{order.customer_name} — </span> : null}
-                    {order.customer_phone}
-                  </span>
-                  <a href={`tel:${order.customer_phone}`} className="shrink-0 text-xs px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
-                    Позвонить
-                  </a>
-                </div>
-              </div>
-            )}
-            {order.customer_city && (
-              <div className="flex items-center gap-3">
-                <MapPin size={14} className="text-violet-400 shrink-0" />
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">{order.customer_city}</span>
-              </div>
-            )}
-            {order.delivery_address && (
-              <div className="flex items-start gap-3">
-                <MapPin size={14} className="text-violet-500 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 leading-tight">{order.delivery_address}</p>
-                  {address2gis && (
-                    <a href={address2gis} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-0.5 text-xs text-violet-500 hover:text-violet-700">
-                      <Navigation size={10} />Открыть в 2GIS
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-            {order.payment_method && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm">🏦</span>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">{order.payment_method}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Items accordion */}
-          {items.length > 0 && (() => {
-            const itemsSubtotal = items.reduce((s, it) => s + (it?.price ?? 0) * (it?.qty ?? 1), 0);
-            const tips = order.tips_amount ?? 0;
-            const derivedFee = Math.round((order.total_price ?? 0) - itemsSubtotal - tips);
-            const hiddenCount = items.length - 2;
-            return (
-              <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
-                <button type="button" onClick={() => toggleExpand(order.id)} className="w-full flex items-center gap-2 mb-2">
-                  <Package size={13} className="text-zinc-400" />
-                  <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
-                    Состав · {items.length} позиц.
-                  </span>
-                  <ChevronDown size={14} className={`ml-auto text-zinc-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                </button>
-                {!isExpanded ? (
-                  <div className="space-y-1">
-                    {items.slice(0, 2).map((it, idx) => (
-                      <div key={idx} className="flex items-baseline gap-2">
-                        <span className="text-sm text-zinc-700 dark:text-zinc-300 leading-snug">{it?.name ?? "Блюдо"} ×{it?.qty ?? 1}</span>
-                      </div>
-                    ))}
-                    {hiddenCount > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-600">+ ещё {hiddenCount}...</p>}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {items.map((it, idx) => {
-                      const qty = it?.qty ?? 1, price = it?.price ?? 0;
-                      return (
-                        <div key={idx} className="flex items-baseline justify-between gap-2">
-                          <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1 leading-snug">{it?.name ?? "Блюдо"} ×{qty}</span>
-                          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 shrink-0 tabular-nums">{fmtPrice(price * qty)}</span>
-                        </div>
-                      );
-                    })}
-                    {(derivedFee > 0 || tips > 0) && (
-                      <div className="pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700 space-y-1">
-                        {derivedFee > 0 && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400">🚚 Доставка</span>
-                            <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(derivedFee)}</span>
-                          </div>
-                        )}
-                        {tips > 0 && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400">💝 Чаевые</span>
-                            <span className="text-sm text-zinc-600 dark:text-zinc-300 tabular-nums">{fmtPrice(tips)}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                      <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">Итого</span>
-                      <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{fmtPrice(order.total_price ?? 0)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {order.customer_comments && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-800 rounded-lg px-3 py-2">
-              💬 {order.customer_comments}
-            </p>
-          )}
-
-          {action && (
-            <button
-              disabled={isBusy}
-              onClick={() => updateStatus(order.id, action.next)}
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-50"
-              style={{ background: STATUS_CFG[action.next].color }}
-            >
-              {isBusy ? "..." : action.label}
-            </button>
-          )}
-
-          {!((role === "owner" || role === "manager" || role === "supervisor")) && ds === "new" && (
-            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 text-sm">
-              <Clock size={14} />Ожидайте готовности заказа
-            </div>
-          )}
-
-          {ds === "delivered" && filter === "active" && (
-            <div className="flex items-center justify-center gap-2 py-2 text-emerald-500">
-              <CheckCircle2 size={16} />
-              <span className="text-sm font-semibold">Доставлен — ожидает закрытия</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   // ── JSX ───────────────────────────────────────────────────────────────────
   return (
@@ -496,7 +514,18 @@ export default function DeliveryPage() {
             </p>
           </div>
         ) : (
-          displayedOrders.map(renderCard)
+          displayedOrders.map(order => (
+            <DeliveryOrderCard
+              key={order.id}
+              order={order}
+              role={role}
+              busy={busy}
+              expandedIds={expandedIds}
+              toggleExpand={toggleExpand}
+              updateStatus={updateStatus}
+              filter={filter}
+            />
+          ))
         )}
       </div>
     </div>
