@@ -472,6 +472,7 @@ export function CartDrawer({
   const [occupiedLabels, setOccupiedLabels]   = useState<Set<string>>(new Set());
   const [tablesLoading, setTablesLoading]     = useState(false);
   const [subTableConfirmBase, setSubTableConfirmBase] = useState<string | null>(null);
+  const [tableDropdownOpen, setTableDropdownOpen]     = useState(false);
   const [paymentBanks, setPaymentBanks]               = useState<DbPaymentBank[]>([]);
   const [copiedIdx, setCopiedIdx]                     = useState<number | null>(null);
   const [tipsEnabled, setTipsEnabled]                 = useState(false);
@@ -1466,7 +1467,7 @@ export function CartDrawer({
               {/* ── Table picker (dine-in, not pre-filled from QR) ── */}
               {orderType === "dine-in" && !isTableLocked && (
                 <div style={{ marginBottom: SP.lg }}>
-                  <p style={labelSectionStyle}>{tn("selectTable", lang)}</p>
+                  <p style={{ ...labelSectionStyle, margin: `0 0 ${SP.sm}px` }}>{tn("selectTable", lang)}</p>
                   {tablesLoading ? (
                     <p style={{ fontSize: 13, color: muted, textAlign: "center", padding: "16px 0" }}>
                       {tn("loadingTables", lang)}
@@ -1474,53 +1475,92 @@ export function CartDrawer({
                   ) : guestTables.length === 0 ? (
                     <div style={{
                       padding: "12px 14px", background: surface, borderRadius: R.md,
-                      marginTop: SP.sm, color: muted, fontSize: 13, textAlign: "center",
+                      color: muted, fontSize: 13, textAlign: "center",
                     }}>
                       {tn("noTablesAvailable", lang)}
                     </div>
                   ) : (
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))",
-                      gap: SP.sm,
-                      marginTop: SP.sm,
-                    }}>
-                      {guestTables.map((t) => {
-                        const isOccupied = occupiedLabels.has(t.label);
-                        const isSelected = tableNumber === t.label || tableNumber.startsWith(t.label + ".");
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => {
-                              if (isOccupied) {
-                                setSubTableConfirmBase(t.label);
-                              } else {
-                                setTableNumber(tableNumber === t.label ? "" : t.label);
-                              }
-                            }}
-                            style={{
-                              display: "flex", flexDirection: "column",
-                              alignItems: "center", justifyContent: "center",
-                              gap: 3, padding: "10px 6px",
-                              background: isSelected
-                                ? (isDark ? "rgba(255,255,255,0.13)" : "rgba(0,0,0,0.07)")
-                                : card,
-                              border: `2px solid ${isSelected ? textClr : isOccupied ? "rgba(139,92,246,0.35)" : border}`,
-                              borderRadius: R.md,
-                              cursor: "pointer",
-                              opacity: isOccupied ? 0.65 : 1,
-                              transition: "all 0.15s",
-                              color: textClr,
-                            }}
-                          >
-                            <span style={{ fontSize: 17, fontWeight: 800, lineHeight: 1 }}>{t.label}</span>
-                            <span style={{ fontSize: 9, color: isOccupied ? "rgb(139,92,246)" : muted, lineHeight: 1.2, fontWeight: isOccupied ? 700 : 400 }}>
-                              {isOccupied ? "занят" : `${t.seats} мест`}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setTableDropdownOpen((v) => !v)}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          width: "100%", padding: "13px 14px",
+                          background: surface,
+                          border: `1.5px solid ${tableNumber ? textClr : border}`,
+                          borderRadius: tableDropdownOpen ? `${R.md}px ${R.md}px 0 0` : R.md,
+                          color: tableNumber ? textClr : muted,
+                          fontSize: 15, cursor: "pointer", fontFamily: "inherit",
+                          boxSizing: "border-box", textAlign: "left",
+                          transition: "border-color 0.15s",
+                        } as React.CSSProperties}
+                      >
+                        <span>{tableNumber || tn("selectTable", lang)}</span>
+                        <ChevronDown
+                          size={16}
+                          style={{
+                            transform: tableDropdownOpen ? "rotate(180deg)" : "none",
+                            transition: "transform 0.2s",
+                            flexShrink: 0,
+                          }}
+                        />
+                      </button>
+
+                      {tableDropdownOpen && (
+                        <div style={{
+                          border: `1.5px solid ${textClr}`,
+                          borderTop: `1px solid ${border}`,
+                          borderRadius: `0 0 ${R.md}px ${R.md}px`,
+                          background: surface,
+                          overflow: "hidden",
+                          maxHeight: 240,
+                          overflowY: "auto",
+                        }}>
+                          {guestTables.map((t, i) => {
+                            const isOccupied = occupiedLabels.has(t.label);
+                            const isSelected = tableNumber === t.label || tableNumber.startsWith(t.label + ".");
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isOccupied) {
+                                    setSubTableConfirmBase(t.label);
+                                    setTableDropdownOpen(false);
+                                  } else {
+                                    setTableNumber(isSelected ? "" : t.label);
+                                    setTableDropdownOpen(false);
+                                  }
+                                }}
+                                style={{
+                                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                                  width: "100%", padding: "11px 14px",
+                                  background: isSelected
+                                    ? (isDark ? "rgba(245,245,245,0.09)" : "rgba(0,0,0,0.05)")
+                                    : "transparent",
+                                  border: "none",
+                                  borderBottom: i < guestTables.length - 1 ? `1px solid ${border}` : "none",
+                                  color: textClr, fontSize: 14, cursor: "pointer",
+                                  textAlign: "left", fontFamily: "inherit",
+                                } as React.CSSProperties}
+                              >
+                                <span style={{ fontWeight: isSelected ? 700 : 400 }}>
+                                  {lang === "ru" ? "Стол" : lang === "kz" ? "Үстел" : "Table"} {t.label}
+                                </span>
+                                <span style={{
+                                  fontSize: 11, fontWeight: 600,
+                                  color: isOccupied ? "rgb(139,92,246)" : muted,
+                                }}>
+                                  {isOccupied
+                                    ? tn("tableOccupied", lang)
+                                    : `${t.seats} ${lang === "ru" ? "мест" : lang === "kz" ? "орын" : "seats"}`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
