@@ -108,7 +108,7 @@ function ProductRow({
       {/* Controls row */}
       <div className="flex items-center justify-between pl-10">
         <StatusBadge qty={qty} />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <button
             onClick={handleDecrement}
             disabled={saving}
@@ -136,15 +136,17 @@ function ProductRow({
           >
             <Plus size={14} />
           </button>
-          <button
-            onClick={handleUnlimited}
-            disabled={saving || qty === null}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-emerald-500 transition-colors disabled:opacity-30"
-            aria-label="Без лимита"
-            title="Снять лимит"
-          >
-            {saving ? <Loader2 size={13} className="animate-spin" /> : <Infinity size={13} />}
-          </button>
+          {qty !== null && (
+            <button
+              onClick={handleUnlimited}
+              disabled={saving}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-emerald-500 transition-colors disabled:opacity-30"
+              aria-label="Без лимита"
+              title="Снять лимит"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Infinity size={13} />}
+            </button>
+          )}
         </div>
       </div>
     </div>
