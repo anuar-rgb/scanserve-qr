@@ -3312,17 +3312,18 @@ function PickupDeliveryGrid({
                 {readOnly && <p className="text-sm text-muted-foreground">Заказы появятся здесь автоматически</p>}
               </div>
             ) : (
-              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${readOnly ? "240px" : "190px"}, 1fr))` }}>
+              <div className="flex flex-wrap gap-3 justify-center content-start">
                 {orders.map((order, i) => (
-                  <OrderSlotCard
-                    key={order.id}
-                    order={order}
-                    index={i + 1}
-                    isSelected={selected === order.id}
-                    onClick={() => setSelected(selected === order.id ? null : order.id)}
-                    onPay={() => setPayingOrder(order)}
-                    isActivatedPreorder={activatedPreorderIds?.has(order.id) ?? false}
-                  />
+                  <div key={order.id} style={{ width: readOnly ? 240 : 190, flexShrink: 0 }}>
+                    <OrderSlotCard
+                      order={order}
+                      index={i + 1}
+                      isSelected={selected === order.id}
+                      onClick={() => setSelected(selected === order.id ? null : order.id)}
+                      onPay={() => setPayingOrder(order)}
+                      isActivatedPreorder={activatedPreorderIds?.has(order.id) ?? false}
+                    />
+                  </div>
                 ))}
               </div>
             )}
