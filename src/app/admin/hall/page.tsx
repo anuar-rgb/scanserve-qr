@@ -2685,7 +2685,7 @@ function OrderSlotPanel({
             </div>
           )}
         </div>
-        <button onClick={onClose} className="p-2 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={onClose} className="p-2 rounded-xl bg-accent text-foreground hover:bg-muted transition-colors">
           <X size={22} />
         </button>
       </div>
