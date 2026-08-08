@@ -27,6 +27,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
       .select("*")
       .eq("restaurant_id", restaurantId)
       .eq("is_archived", false)
+      .or("remaining_qty.is.null,remaining_qty.gt.0")
       .order("order_index"),
     supabase
       .from("modifiers")

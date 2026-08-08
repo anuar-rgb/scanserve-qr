@@ -9,7 +9,7 @@ import {
   BarChart2, TrendingUp, Package, Monitor, Star, Tag,
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
-  Clock, LogIn, AlertTriangle, CalendarDays, Truck,
+  Clock, LogIn, AlertTriangle, CalendarDays, Truck, ChefHat,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -41,6 +41,7 @@ type DrawerSection = {
   courierSection?: boolean;
   storekeeperAccess?: boolean;
   accountantAccess?: boolean;
+  chefAccess?: boolean;
   items: {
     labelKey: AdminKey;
     icon: LucideIcon;
@@ -59,6 +60,13 @@ const BOTTOM_TABS: TabItem[] = [
 ];
 
 const DRAWER_NAV: DrawerSection[] = [
+  {
+    titleKey: "sectionKitchen",
+    chefAccess: true,
+    items: [
+      { labelKey: "navDishLimits", icon: ChefHat, href: "/admin/dish-limits" },
+    ],
+  },
   {
     titleKey: "sectionDelivery",
     courierSection: true,
@@ -300,6 +308,7 @@ export default function MobileBottomNav() {
               if (section.courierSection && !isCourier && !isOwner) return null;
               if (section.storekeeperAccess && role !== "storekeeper" && !isOwner) return null;
               if (section.accountantAccess  && role !== "accountant"  && !isOwner) return null;
+              if (section.chefAccess && role !== "chef" && !isOwner) return null;
 
               const visibleItems = section.items.filter((item) => {
                 if (item.strictOwner && !isStrictOwner) return false;

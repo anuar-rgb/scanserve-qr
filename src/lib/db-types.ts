@@ -67,6 +67,7 @@ export interface DbProduct {
   badge_color: string | null;
   allergens: string[] | null;
   bonus_percent: number | null;
+  remaining_qty: number | null;
 }
 
 export interface DbBanner {

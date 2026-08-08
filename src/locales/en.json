@@ -270,6 +270,8 @@
     "showcaseCardDescLabel": "Description (popup text)",
     "showcaseCardDescPlaceholder": "E.g. Wi-Fi password: mypassword123",
     "showcaseCardActive": "Active",
+    "sectionKitchen": "Kitchen",
+    "navDishLimits": "Dish Limits",
     "sectionDelivery": "Delivery",
     "navDelivery": "Deliveries",
     "sectionWarehouse": "Warehouse",
