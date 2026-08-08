@@ -96,63 +96,56 @@ function ProductRow({
   }
 
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-zinc-100 dark:border-zinc-800/60 last:border-0">
-      {/* Emoji + Name */}
-      <span className="text-xl shrink-0 w-8 text-center">{product.emoji ?? "🍽️"}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+    <div className="py-3 border-b border-zinc-100 dark:border-zinc-800/60 last:border-0">
+      {/* Name row */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xl shrink-0 w-8 text-center">{product.emoji ?? "🍽️"}</span>
+        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate flex-1 min-w-0">
           {getName(product.name)}
         </p>
-        <div className="mt-0.5">
-          <StatusBadge qty={qty} />
-        </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Decrement */}
-        <button
-          onClick={handleDecrement}
-          disabled={saving}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
-          aria-label="Уменьшить"
-        >
-          <Minus size={14} />
-        </button>
-
-        {/* Number input */}
-        <input
-          ref={inputRef}
-          type="number"
-          min={0}
-          value={qty === null ? "" : qty}
-          onChange={handleInputChange}
-          onBlur={handleInputBlur}
-          onKeyDown={handleInputKeyDown}
-          placeholder="∞"
-          className="w-12 h-8 text-center text-sm font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg border-0 outline-none focus:ring-2 focus:ring-violet-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-
-        {/* Increment */}
-        <button
-          onClick={handleIncrement}
-          disabled={saving}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
-          aria-label="Увеличить"
-        >
-          <Plus size={14} />
-        </button>
-
-        {/* Unlimited */}
-        <button
-          onClick={handleUnlimited}
-          disabled={saving || qty === null}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-emerald-500 transition-colors disabled:opacity-30"
-          aria-label="Без лимита"
-          title="Снять лимит"
-        >
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <Infinity size={13} />}
-        </button>
+      {/* Controls row */}
+      <div className="flex items-center justify-between pl-10">
+        <StatusBadge qty={qty} />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleDecrement}
+            disabled={saving}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
+            aria-label="Уменьшить"
+          >
+            <Minus size={14} />
+          </button>
+          <input
+            ref={inputRef}
+            type="number"
+            min={0}
+            value={qty === null ? "" : qty}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
+            placeholder="∞"
+            className="w-12 h-8 text-center text-sm font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg border-0 outline-none focus:ring-2 focus:ring-violet-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <button
+            onClick={handleIncrement}
+            disabled={saving}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
+            aria-label="Увеличить"
+          >
+            <Plus size={14} />
+          </button>
+          <button
+            onClick={handleUnlimited}
+            disabled={saving || qty === null}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-emerald-500 transition-colors disabled:opacity-30"
+            aria-label="Без лимита"
+            title="Снять лимит"
+          >
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Infinity size={13} />}
+          </button>
+        </div>
       </div>
     </div>
   );
