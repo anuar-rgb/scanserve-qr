@@ -2616,7 +2616,7 @@ function OrderSlotPanel({
   }
 
   return (
-    <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: width ?? 500 }}>
+    <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: `min(${width ?? 500}px, 100vw)` }}>
       {/* Reassign waiter modal */}
       {showReassignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowReassignModal(false)}>
@@ -3312,18 +3312,17 @@ function PickupDeliveryGrid({
                 {readOnly && <p className="text-sm text-muted-foreground">Заказы появятся здесь автоматически</p>}
               </div>
             ) : (
-              <div className="flex flex-wrap gap-3 justify-center content-start">
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${readOnly ? "240px" : "190px"}, 1fr))` }}>
                 {orders.map((order, i) => (
-                  <div key={order.id} style={{ width: readOnly ? 240 : 190, flexShrink: 0 }}>
-                    <OrderSlotCard
-                      order={order}
-                      index={i + 1}
-                      isSelected={selected === order.id}
-                      onClick={() => setSelected(selected === order.id ? null : order.id)}
-                      onPay={() => setPayingOrder(order)}
-                      isActivatedPreorder={activatedPreorderIds?.has(order.id) ?? false}
-                    />
-                  </div>
+                  <OrderSlotCard
+                    key={order.id}
+                    order={order}
+                    index={i + 1}
+                    isSelected={selected === order.id}
+                    onClick={() => setSelected(selected === order.id ? null : order.id)}
+                    onPay={() => setPayingOrder(order)}
+                    isActivatedPreorder={activatedPreorderIds?.has(order.id) ?? false}
+                  />
                 ))}
               </div>
             )}
@@ -3333,7 +3332,7 @@ function PickupDeliveryGrid({
 
       {selectedOrder && (
         <>
-          <ResizeHandle onMouseDown={startSlotResize} />
+          <ResizeHandle onMouseDown={startSlotResize} className="hidden sm:block" />
           <OrderSlotPanel
             key={selectedOrder.id}
             order={selectedOrder}
