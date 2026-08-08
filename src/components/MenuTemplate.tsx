@@ -100,6 +100,7 @@ export interface Dish {
   allergens?: string[];
   modifiers?: DishModifier[];
   bonusPercent?: number;
+  remainingQty?: number | null;
 }
 
 export interface Banner {
@@ -2804,6 +2805,8 @@ export function MenuTemplate({
       : dish.id;
     setCart((prev) => {
       const current = prev[cartKey]?.qty ?? 0;
+      const limit = dish.remainingQty ?? null;
+      if (delta > 0 && limit !== null && current >= limit) return prev;
       const next = Math.max(0, current + delta);
       if (next === 0) {
         const { [cartKey]: _, ...rest } = prev;

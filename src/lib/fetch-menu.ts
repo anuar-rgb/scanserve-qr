@@ -71,6 +71,7 @@ export async function fetchMenuCategories(restaurantId: string): Promise<MenuCat
           ingredients: p.ingredients ?? undefined,
           allergens: p.allergens ?? undefined,
           bonusPercent: p.bonus_percent ?? undefined,
+          remainingQty: p.remaining_qty ?? null,
           modifiers: mods
             .filter(m =>
               m.product_id === p.id ||
