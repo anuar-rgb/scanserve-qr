@@ -2892,15 +2892,15 @@ function OrderSlotPanel({
 
           {items.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав · {items.length} позиц.</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Состав · {items.length} позиц.</p>
               {groupOrderItems(items.map((it, i) => ({ ...it, _idx: i })), order.created_at).map((group, gi) => (
                 <div key={gi}>
                   {gi === 0 ? (
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
                   ) : (
                     <div className="flex items-center gap-2 my-2.5">
                       <div className="flex-1 h-px bg-border" />
-                      <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">
+                      <span className="text-xs font-semibold tracking-wide text-violet-400 shrink-0 px-1">
                         Дозаказ в {group.label}{formatAddedByLabel(group.addedByRole, group.addedByName)}
                       </span>
                       <div className="flex-1 h-px bg-border" />
@@ -2911,7 +2911,7 @@ function OrderSlotPanel({
                       <div
                         key={i}
                         onClick={() => { setSelectedItemIdx(prev => prev === item._idx ? null : item._idx); if (editingNoteIdx !== null && editingNoteIdx !== item._idx) setEditingNoteIdx(null); }}
-                        className={`px-3 py-2 text-sm cursor-pointer transition-colors ${selectedItemIdx === item._idx ? "bg-violet-50 dark:bg-violet-900/20" : "hover:bg-accent/50"} ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
+                        className={`px-3 py-2.5 text-base cursor-pointer transition-colors ${selectedItemIdx === item._idx ? "bg-violet-50 dark:bg-violet-900/20" : "hover:bg-accent/50"} ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0 mr-3">
@@ -2927,10 +2927,10 @@ function OrderSlotPanel({
                               )}
                             </div>
                             {item.modifiers?.map((mod, mi) => (
-                              <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
+                              <p key={mi} className="text-sm text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
                             ))}
                             {item.note && editingNoteIdx !== item._idx && (
-                              <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                              <p className="text-sm italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                 ✎ {item.note}
                               </p>
                             )}
@@ -4654,17 +4654,17 @@ function TablePanel({
             {/* Items list */}
             {items.length > 0 && (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Состав · {items.length} позиц.
                 </p>
                 {groupOrderItems(items.map((it, i) => ({ ...it, _idx: i })), activeOrder.created_at).map((group, gi) => (
                   <div key={gi}>
                     {gi === 0 ? (
-                      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 mb-1.5">Заказ · {group.label}</p>
                     ) : (
                       <div className="flex items-center gap-2 my-2.5">
                         <div className="flex-1 h-px bg-border" />
-                        <span className="text-[9px] font-semibold tracking-wide text-violet-400 shrink-0 px-1">
+                        <span className="text-xs font-semibold tracking-wide text-violet-400 shrink-0 px-1">
                           Дозаказ в {group.label}{formatAddedByLabel(group.addedByRole, group.addedByName)}
                         </span>
                         <div className="flex-1 h-px bg-border" />
@@ -4675,7 +4675,7 @@ function TablePanel({
                         <div
                           key={i}
                           onClick={() => { setSelectedItemIdx(prev => prev === item._idx ? null : item._idx); if (editingNoteIdx !== null && editingNoteIdx !== item._idx) setEditingNoteIdx(null); }}
-                          className={`px-3 py-2 text-sm cursor-pointer transition-colors ${selectedItemIdx === item._idx ? "bg-violet-50 dark:bg-violet-900/20" : "hover:bg-accent/50"} ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
+                          className={`px-3 py-2.5 text-base cursor-pointer transition-colors ${selectedItemIdx === item._idx ? "bg-violet-50 dark:bg-violet-900/20" : "hover:bg-accent/50"} ${i < group.items.length - 1 ? "border-b border-border" : ""}`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0 mr-3">
@@ -4691,10 +4691,10 @@ function TablePanel({
                                 )}
                               </div>
                               {item.modifiers?.map((mod, mi) => (
-                                <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name}{!isChef && <span className="text-muted-foreground/50"> (+{mod.price} ₸)</span>}</p>
+                                <p key={mi} className="text-sm text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name}{!isChef && <span className="text-muted-foreground/50"> (+{mod.price} ₸)</span>}</p>
                               ))}
                               {item.note && editingNoteIdx !== item._idx && (
-                                <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                                <p className="text-sm italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                   ✎ {item.note}
                                 </p>
                               )}
