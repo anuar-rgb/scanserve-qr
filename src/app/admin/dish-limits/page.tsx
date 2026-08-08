@@ -207,7 +207,7 @@ export default function DishLimitsPage() {
   const stopListCount = products.filter((p) => p.remaining_qty === 0).length;
 
   return (
-    <div className="max-w-2xl mx-auto pb-32">
+    <div className="w-full max-w-2xl mx-auto pb-32">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800/60 px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">

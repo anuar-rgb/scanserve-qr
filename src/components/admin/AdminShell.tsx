@@ -15,7 +15,7 @@ function ShellMain({ children }: { children: ReactNode }) {
   const role = useRole();
   const isCourier = role === "courier";
   return (
-    <main className={`flex-1 overflow-y-auto flex flex-col pb-16 ${isCourier ? "" : "md:ml-16 md:pb-0"}`}>
+    <main className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-16 ${isCourier ? "" : "md:ml-16 md:pb-0"}`}>
       <MobileAdminHeader />
       {children}
     </main>
