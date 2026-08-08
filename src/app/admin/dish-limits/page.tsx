@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChefHat, Infinity, Loader2, Minus, Plus, RefreshCw } from "lucide-react";
+import { ChefHat, Infinity, Loader2, Minus, Plus, RefreshCw, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Product {
@@ -157,6 +157,7 @@ export default function DishLimitsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -205,31 +206,57 @@ export default function DishLimitsPage() {
   }
 
   const stopListCount = products.filter((p) => p.remaining_qty === 0).length;
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? products.filter((p) => getName(p.name).toLowerCase().includes(q))
+    : products;
 
   return (
     <div className="w-full max-w-2xl mx-auto pb-32">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800/60 px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-orange-500/10 dark:bg-orange-500/20 flex items-center justify-center">
-            <ChefHat size={16} className="text-orange-500" />
+      <div className="sticky top-0 z-10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800/60 px-4 py-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-orange-500/10 dark:bg-orange-500/20 flex items-center justify-center">
+              <ChefHat size={16} className="text-orange-500" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Лимиты блюд</h1>
+              {stopListCount > 0 && (
+                <p className="text-[11px] text-red-500 font-medium">
+                  {stopListCount} в стоп-листе
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Лимиты блюд</h1>
-            {stopListCount > 0 && (
-              <p className="text-[11px] text-red-500 font-medium">
-                {stopListCount} в стоп-листе
-              </p>
-            )}
-          </div>
+          <button
+            onClick={load}
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            aria-label="Обновить"
+          >
+            <RefreshCw size={15} />
+          </button>
         </div>
-        <button
-          onClick={load}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-          aria-label="Обновить"
-        >
-          <RefreshCw size={15} />
-        </button>
+        {/* Search */}
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск блюда..."
+            className="w-full h-9 pl-8 pr-8 text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl border-0 outline-none focus:ring-2 focus:ring-violet-500 placeholder:text-zinc-400"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+              aria-label="Очистить"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Legend */}
@@ -243,24 +270,39 @@ export default function DishLimitsPage() {
 
       {/* Products grouped by category */}
       <div className="px-4 py-2 space-y-6">
-        {categories.map((cat) => {
-          const catProducts = products.filter((p) => p.category_id === cat.id);
-          if (catProducts.length === 0) return null;
-          return (
-            <div key={cat.id}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-2 pt-2">
-                {getName(cat.name)}
-              </p>
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800/60 px-4">
-                {catProducts.map((product) => (
-                  <ProductRow key={product.id} product={product} onUpdate={handleUpdate} />
-                ))}
-              </div>
+        {q ? (
+          filtered.length > 0 ? (
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800/60 px-4">
+              {filtered.map((product) => (
+                <ProductRow key={product.id} product={product} onUpdate={handleUpdate} />
+              ))}
             </div>
-          );
-        })}
+          ) : (
+            <div className="text-center py-12 text-zinc-400 dark:text-zinc-600">
+              <Search size={28} className="mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Ничего не найдено</p>
+            </div>
+          )
+        ) : (
+          categories.map((cat) => {
+            const catProducts = products.filter((p) => p.category_id === cat.id);
+            if (catProducts.length === 0) return null;
+            return (
+              <div key={cat.id}>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-2 pt-2">
+                  {getName(cat.name)}
+                </p>
+                <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800/60 px-4">
+                  {catProducts.map((product) => (
+                    <ProductRow key={product.id} product={product} onUpdate={handleUpdate} />
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
 
-        {products.length === 0 && (
+        {products.length === 0 && !q && (
           <div className="text-center py-12 text-zinc-400 dark:text-zinc-600">
             <ChefHat size={32} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm">Нет блюд в меню</p>
