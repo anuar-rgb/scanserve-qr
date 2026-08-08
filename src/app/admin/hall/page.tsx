@@ -2616,7 +2616,7 @@ function OrderSlotPanel({
   }
 
   return (
-    <aside className="shrink-0 flex flex-col bg-background overflow-hidden" style={{ width: `min(${width ?? 500}px, 100vw)` }}>
+    <aside className={`flex flex-col bg-background overflow-hidden ${width !== undefined ? "shrink-0" : "flex-1"}`} style={width !== undefined ? { width: `min(${width}px, 100vw)` } : undefined}>
       {/* Reassign waiter modal */}
       {showReassignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowReassignModal(false)}>
@@ -3268,7 +3268,15 @@ function PickupDeliveryGrid({
   const [selected, setSelected]     = useState<string | null>(null);
   const [creating, setCreating]     = useState(false);
   const [payingOrder, setPayingOrder] = useState<DbOrder | null>(null);
+  const [isMobile, setIsMobile]     = useState(false);
   const { width: slotPanelW, startResize: startSlotResize } = usePanelResize("hall:orderSlotPanel", 500, 280, 720);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const selectedOrder = selected ? orders.find((o) => o.id === selected) ?? null : null;
   const emptyIcon = orderType === "delivery" ? "🛵" : "🛍️";
@@ -3288,6 +3296,7 @@ function PickupDeliveryGrid({
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
+      {!(isMobile && selectedOrder) && (
       <div className="flex-1 overflow-y-auto p-5">
         {loading ? (
           <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
@@ -3329,6 +3338,7 @@ function PickupDeliveryGrid({
           </>
         )}
       </div>
+      )}
 
       {selectedOrder && (
         <>
@@ -3336,7 +3346,7 @@ function PickupDeliveryGrid({
           <OrderSlotPanel
             key={selectedOrder.id}
             order={selectedOrder}
-            width={slotPanelW}
+            width={isMobile ? undefined : slotPanelW}
             onClose={() => setSelected(null)}
             onRefresh={onRefresh}
             onRequestsRefresh={onRequestsRefresh}
