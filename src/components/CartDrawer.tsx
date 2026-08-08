@@ -863,6 +863,7 @@ export function CartDrawer({
           setLoading(false);
           return;
         }
+        fetch("/api/orders/decrement-limits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId }) }).catch(() => {});
         if (promoCode) {
           fetch("/api/promo/use", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode, restaurantId: RESTAURANT_ID }) }).catch(() => {});
         }
@@ -909,6 +910,9 @@ export function CartDrawer({
           promo_discount: promoDiscount > 0 ? promoDiscount : 0,
         });
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
+        if (!insertError) {
+          fetch("/api/orders/decrement-limits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId }) }).catch(() => {});
+        }
         if (promoCode) {
           fetch("/api/promo/use", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode, restaurantId: RESTAURANT_ID }) }).catch(() => {});
         }
