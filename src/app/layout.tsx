@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { LanguageProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <LanguageProvider>{children}</LanguageProvider>
+          <Toaster position="top-center" richColors />
         </ThemeProvider>
       </body>
     </html>

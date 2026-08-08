@@ -6,6 +6,7 @@ import type { SlideTag } from "@/lib/db-types";
 import { capFirst } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sun, Moon, ChevronDown, Heart, Search, X, User } from "lucide-react";
+import { toast } from "sonner";
 import { FloatingNavBar } from "./FloatingNavBar";
 import { CartDrawer, type CartMap, type StoredOrder } from "./CartDrawer";
 import { WaiterModal } from "./WaiterModal";
@@ -1855,6 +1856,13 @@ function customBadgeColors(color?: string): { bg: string; fg: string } {
   return { bg: "var(--text-color)", fg: "var(--bg-color)" };
 }
 
+function portionWord(n: number): string {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "порция";
+  if ([2, 3, 4].includes(m10) && ![12, 13, 14].includes(m100)) return "порции";
+  return "порций";
+}
+
 /** Small icon-only badges for menu list & popular section (overlaid on photo) */
 function dishBadges(dish: Dish): BadgeItem[] {
   const out: BadgeItem[] = [];
@@ -1929,6 +1937,7 @@ function CatalogDishCard({
   const qty = dish.modifiers?.length
     ? Object.entries(cart).filter(([k]) => k === dish.id || k.startsWith(`${dish.id}:`)).reduce((s, [, v]) => s + v.qty, 0)
     : cart[dish.id]?.qty ?? 0;
+  const atLimit = dish.remainingQty != null && qty >= dish.remainingQty;
   const catBadges = catalogBadges(dish);
   const dishPct   = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const hhPct     = getHappyHourDiscount(dish.categoryId, happyHours);
@@ -2129,11 +2138,14 @@ function CatalogDishCard({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onAddToCart(dish, currency, +1); }}
+                disabled={atLimit}
                 style={{
                   width: 24, height: 24, borderRadius: R.full,
                   border: "none",
                   background: "var(--text-color)", color: "var(--bg-color)",
-                  cursor: "pointer", display: "flex", alignItems: "center",
+                  cursor: atLimit ? "default" : "pointer",
+                  opacity: atLimit ? 0.35 : 1,
+                  display: "flex", alignItems: "center",
                   justifyContent: "center", fontSize: 14, fontWeight: 700,
                 }}
               >+</button>
@@ -2209,6 +2221,7 @@ function MenuDishRow({
   const qty = dish.modifiers?.length
     ? Object.entries(cart).filter(([k]) => k === dish.id || k.startsWith(`${dish.id}:`)).reduce((s, [, v]) => s + v.qty, 0)
     : cart[dish.id]?.qty ?? 0;
+  const atLimit = dish.remainingQty != null && qty >= dish.remainingQty;
   const badges = dishBadges(dish);
   const rowPct = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const rowDiscountedPrice = !isNaN(rowPct) && rowPct > 0 && rowPct < 100
@@ -2327,7 +2340,7 @@ function MenuDishRow({
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, -1); }} style={{ width: 28, height: 28, borderRadius: R.full, border: "1px solid var(--border-color)", background: "var(--bg-surface)", color: "var(--text-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
               <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-              <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, +1); }} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, +1); }} disabled={atLimit} style={{ width: 28, height: 28, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: atLimit ? "default" : "pointer", opacity: atLimit ? 0.35 : 1, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
           ) : (
             <button onClick={(e) => { e.stopPropagation(); addToCart(dish, currency, +1); }} style={{ width: 34, height: 34, borderRadius: R.full, border: "none", background: "var(--text-color)", color: "var(--bg-color)", cursor: "pointer", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
@@ -2803,10 +2816,16 @@ export function MenuTemplate({
     const cartKey = mods.length > 0
       ? `${dish.id}:${mods.map(m => m.id).sort().join(",")}`
       : dish.id;
+    if (delta > 0) {
+      const current = cart[cartKey]?.qty ?? 0;
+      const limit = dish.remainingQty ?? null;
+      if (limit !== null && current >= limit) {
+        toast.error(`Осталось только ${limit} ${portionWord(limit)}`);
+        return;
+      }
+    }
     setCart((prev) => {
       const current = prev[cartKey]?.qty ?? 0;
-      const limit = dish.remainingQty ?? null;
-      if (delta > 0 && limit !== null && current >= limit) return prev;
       const next = Math.max(0, current + delta);
       if (next === 0) {
         const { [cartKey]: _, ...rest } = prev;
@@ -2817,6 +2836,16 @@ export function MenuTemplate({
   };
 
   const updateCartQty = (cartKey: string, delta: number) => {
+    if (delta > 0) {
+      const entry = cart[cartKey];
+      if (entry) {
+        const limit = entry.dish.remainingQty ?? null;
+        if (limit !== null && entry.qty >= limit) {
+          toast.error(`Осталось только ${limit} ${portionWord(limit)}`);
+          return;
+        }
+      }
+    }
     setCart((prev) => {
       const entry = prev[cartKey];
       if (!entry) return prev;

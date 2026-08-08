@@ -87,6 +87,7 @@ export function ProductDetailModal({
           .reduce((s, [, v]) => s + (v as { qty: number }).qty, 0)
       : cart[dish.id]?.qty ?? 0
     : 0;
+  const atLimit = dish != null && dish.remainingQty != null && qty >= dish.remainingQty;
 
   const dishPct = dish?.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
   const discountedPrice =
@@ -510,6 +511,7 @@ export function ProductDetailModal({
                   </span>
                   <button
                     onClick={handleAdd}
+                    disabled={atLimit}
                     style={{
                       flex: 1,
                       height: 48,
@@ -517,7 +519,8 @@ export function ProductDetailModal({
                       border: "none",
                       background: added ? "#10B981" : "var(--cta-bg)",
                       color: "var(--cta-fg)",
-                      cursor: "pointer",
+                      cursor: atLimit ? "default" : "pointer",
+                      opacity: atLimit ? 0.45 : 1,
                       fontSize: 15,
                       fontWeight: 700,
                       fontFamily: "'Montserrat', system-ui, sans-serif",
