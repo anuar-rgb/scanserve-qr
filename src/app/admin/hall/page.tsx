@@ -3312,7 +3312,7 @@ function PickupDeliveryGrid({
                 {readOnly && <p className="text-sm text-muted-foreground">Заказы появятся здесь автоматически</p>}
               </div>
             ) : (
-              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${readOnly ? "240px" : "190px"}, 1fr))` }}>
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, ${readOnly ? "240px" : "190px"})` }}>
                 {orders.map((order, i) => (
                   <OrderSlotCard
                     key={order.id}
