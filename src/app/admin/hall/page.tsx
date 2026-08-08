@@ -3015,61 +3015,6 @@ function OrderSlotPanel({
             );
           })()}
 
-          <div>
-            <button
-              onClick={() => setShowMenuPicker(true)}
-              className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border hover:border-violet-400 hover:text-violet-600 text-xs text-muted-foreground transition-colors"
-            >
-              <Plus size={12} /> Выбрать из меню
-            </button>
-            {showMenuPicker && (
-              <MenuPickerModal
-                orderId={order.id}
-                existingItems={items}
-                orderCreatedAt={order.created_at}
-                onDone={() => { setShowMenuPicker(false); onRefresh(); }}
-                onClose={() => setShowMenuPicker(false)}
-              />
-            )}
-          </div>
-
-          {!isWaiter && (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setShowDiscountModal(true)}
-                  className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-                >
-                  <Percent size={14} />
-                  <span className="text-[10px] font-medium">Скидка</span>
-                </button>
-                <button
-                  onClick={() => setShowTypeModal(true)}
-                  className="flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-border hover:border-violet-400 hover:text-violet-600 text-muted-foreground transition-colors"
-                >
-                  <ArrowLeftRight size={14} />
-                  <span className="text-[10px] font-medium">Изменить тип</span>
-                </button>
-              </div>
-              {showDiscountModal && (
-                <DiscountModal
-                  orderId={order.id}
-                  existingItems={items}
-                  onDone={() => { setShowDiscountModal(false); onRefresh(); }}
-                  onClose={() => setShowDiscountModal(false)}
-                />
-              )}
-              {showTypeModal && (
-                <ChangeOrderTypeModal
-                  orderId={order.id}
-                  currentType={order.type}
-                  allTables={allTables}
-                  onDone={() => { setShowTypeModal(false); onRefresh(); onClose(); }}
-                  onClose={() => setShowTypeModal(false)}
-                />
-              )}
-            </>
-          )}
 
           {!isChef && <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-1.5">
             <div className="flex items-center justify-between">
