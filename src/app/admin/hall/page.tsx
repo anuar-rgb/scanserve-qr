@@ -2752,7 +2752,8 @@ function OrderSlotPanel({
             </div>
           )}
 
-          {/* Delivery / Pickup info block */}
+          {/* Delivery / Pickup info block — hidden for chef */}
+          {!isChef && (
           <div className={`px-4 py-3 rounded-xl border ${
             order.type === "delivery"
               ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-700/40"
@@ -2818,6 +2819,7 @@ function OrderSlotPanel({
               )}
             </div>
           </div>
+          )}
 
           {canMarkTakeawayReady && (
             <button
