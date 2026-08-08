@@ -486,6 +486,7 @@ export function CartDrawer({
   const [promoLabel, setPromoLabel]                   = useState("");
   const [promoLoading, setPromoLoading]               = useState(false);
   const [promoError, setPromoError]                   = useState("");
+  const [bonusError, setBonusError]                   = useState("");
   const [hasActivePromos, setHasActivePromos]         = useState(false);
 
   async function applyPromo() {
@@ -719,8 +720,47 @@ export function CartDrawer({
     }
   };
 
+  // Calls the atomic deduction API and returns true on success.
+  // The server-side function uses PostgreSQL row-level locking so concurrent
+  // requests for the same guest are serialized — only one can succeed when
+  // the balance is insufficient (prevents double-spending).
+  async function deductBonusesNow(guestId: string, amount: number): Promise<boolean> {
+    setBonusError("");
+    try {
+      const res = await fetch("/api/orders/deduct-bonuses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestId, restaurantId: RESTAURANT_ID, amount }),
+      });
+      if (!res.ok) {
+        const errMsg = res.status === 422
+          ? (lang === "kz"
+              ? "Бонус балансы жеткіліксіз. Бетті жаңартып, қайта көріңіз."
+              : lang === "ru"
+              ? "Недостаточно бонусов на балансе. Обновите страницу и попробуйте снова."
+              : "Insufficient bonus balance. Refresh the page and try again.")
+          : (lang === "kz"
+              ? "Бонус шегерімінде қате. Қайталап көріңіз."
+              : lang === "ru"
+              ? "Ошибка при списании бонусов. Попробуйте ещё раз."
+              : "Failed to deduct bonuses. Please try again.");
+        setBonusError(errMsg);
+        return false;
+      }
+      return true;
+    } catch {
+      setBonusError(
+        lang === "kz" ? "Желі қатесі. Интернет байланысын тексеріңіз."
+        : lang === "ru" ? "Ошибка сети. Проверьте подключение к интернету."
+        : "Network error. Check your connection."
+      );
+      return false;
+    }
+  }
+
   const handlePlaceOrder = async () => {
     if (!canPlaceOrder || loading) return;
+    setBonusError("");
     setLoading(true);
     const orderItems = items.map(({ dish, qty, currency: c, selectedModifiers }) => {
       const finalPrice = effPrice(dish, selectedModifiers, happyHours);
@@ -785,6 +825,15 @@ export function CartDrawer({
           assignedWaiterId = tableRow?.assigned_waiter_id ?? null;
         }
 
+        // Deduct bonuses atomically BEFORE inserting the order.
+        // This prevents double-spending: the server-side PostgreSQL function
+        // uses a conditional UPDATE with row-level locking, so only one
+        // concurrent request can succeed when the balance is insufficient.
+        if (bonusesApplied > 0 && guestSession?.id) {
+          const deducted = await deductBonusesNow(guestSession.id, bonusesApplied);
+          if (!deducted) { setLoading(false); return; }
+        }
+
         const { error } = await supabase.from(DB_TABLES.orders).insert({
           id: orderId,
           restaurant_id: RESTAURANT_ID,
@@ -814,14 +863,6 @@ export function CartDrawer({
           setLoading(false);
           return;
         }
-        // Deduct used bonuses from guest balance immediately (fire-and-forget)
-        if (bonusesApplied > 0 && guestSession?.id) {
-          fetch("/api/orders/deduct-bonuses", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ guestId: guestSession.id, restaurantId: RESTAURANT_ID, amount: bonusesApplied }),
-          }).catch(() => {});
-        }
         if (promoCode) {
           fetch("/api/promo/use", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode, restaurantId: RESTAURANT_ID }) }).catch(() => {});
         }
@@ -832,6 +873,12 @@ export function CartDrawer({
       const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId, tipsAmount || undefined);
 
       if (isConfigured) {
+        // Deduct bonuses atomically BEFORE inserting the order (same reasoning as dine-in branch above).
+        if (bonusesApplied > 0 && guestSession?.id) {
+          const deducted = await deductBonusesNow(guestSession.id, bonusesApplied);
+          if (!deducted) { setLoading(false); return; }
+        }
+
         // Use values from `order` object — same source as WhatsApp message, avoids any state-read mismatch
         const { error: insertError } = await supabase.from(DB_TABLES.orders).insert({
           id: orderId,
@@ -862,14 +909,6 @@ export function CartDrawer({
           promo_discount: promoDiscount > 0 ? promoDiscount : 0,
         });
         if (insertError) console.error("[CartDrawer] order insert failed:", insertError);
-        // Deduct used bonuses from guest balance immediately (fire-and-forget)
-        if (bonusesApplied > 0 && guestSession?.id) {
-          fetch("/api/orders/deduct-bonuses", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ guestId: guestSession.id, restaurantId: RESTAURANT_ID, amount: bonusesApplied }),
-          }).catch(() => {});
-        }
         if (promoCode) {
           fetch("/api/promo/use", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode, restaurantId: RESTAURANT_ID }) }).catch(() => {});
         }
@@ -2321,6 +2360,11 @@ export function CartDrawer({
                     : lang === "ru"
                     ? "Заведение сейчас закрыто. Заказы не принимаются."
                     : "Restaurant is currently closed. Orders not accepted."}
+                </p>
+              )}
+              {bonusError && (
+                <p style={{ margin: "0 0 8px", fontSize: 12, color: "#EF4444", textAlign: "center" }}>
+                  {bonusError}
                 </p>
               )}
               <button

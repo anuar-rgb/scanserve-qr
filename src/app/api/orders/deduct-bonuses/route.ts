@@ -12,9 +12,10 @@ function db() {
 
 // POST /api/orders/deduct-bonuses
 // Body: { guestId, restaurantId, amount }
-// Called immediately when a guest places an order with bonuses applied —
-// before admin confirms payment — so balance is updated right away and
-// cannot be double-spent on a concurrent order.
+//
+// Uses a PostgreSQL function (deduct_guest_bonuses) that performs an atomic
+// conditional UPDATE — so concurrent requests for the same guest are serialized
+// by row-level locking and cannot both succeed when balance is insufficient.
 export async function POST(req: NextRequest) {
   const session = req.cookies.get("admin_session")?.value;
   const origin = req.headers.get("origin") || req.headers.get("referer") || "";
@@ -44,34 +45,26 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  const { data: balance } = await supabase
-    .from("guest_balances")
-    .select("bonus_amount")
-    .eq("guest_id", guestId)
-    .eq("restaurant_id", restaurantId)
-    .maybeSingle();
-
-  const currentBalance = (balance?.bonus_amount ?? 0) as number;
-
-  if (currentBalance < deduct) {
-    return NextResponse.json(
-      { error: "Недостаточно бонусов на балансе", currentBalance, requested: deduct },
-      { status: 422 },
-    );
-  }
-
-  const newBalance = currentBalance - deduct;
-
-  const { error } = await supabase
-    .from("guest_balances")
-    .upsert(
-      { guest_id: guestId, restaurant_id: restaurantId, bonus_amount: newBalance },
-      { onConflict: "guest_id,restaurant_id" },
-    );
+  // Single atomic operation: locks the row, checks balance >= amount, deducts.
+  // Concurrent calls are serialized by PostgreSQL row-level locking.
+  const { data, error } = await supabase.rpc("deduct_guest_bonuses", {
+    p_guest_id:      guestId,
+    p_restaurant_id: restaurantId,
+    p_amount:        deduct,
+  });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, newBalance });
+  const result = data as { ok: boolean; error?: string; new_balance?: number };
+
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: "Недостаточно бонусов на балансе", code: result.error },
+      { status: 422 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, newBalance: result.new_balance });
 }
