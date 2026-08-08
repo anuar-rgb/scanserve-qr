@@ -858,7 +858,7 @@ export default function HallPage() {
   }
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden bg-background">
+    <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="px-4 sm:px-6 py-3 border-b border-border shrink-0 flex items-center gap-3 bg-background">
@@ -3287,7 +3287,7 @@ function PickupDeliveryGrid({
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 overflow-y-auto p-5">
         {loading ? (
           <div className="flex items-center justify-center h-64 gap-2 text-muted-foreground text-sm">
