@@ -1929,8 +1929,8 @@ function OrderSlotCard({
               {items.map((item, i) => (
                 <li key={i} className="flex flex-col gap-0.5">
                   <span className="flex items-baseline gap-1.5">
-                    <span className="text-lg font-black text-amber-500 dark:text-amber-400 shrink-0 tabular-nums">{item.qty}×</span>
-                    <span className="text-base font-semibold text-foreground leading-snug">{capFirst(item.name)}</span>
+                    <span className="text-2xl font-black text-amber-500 dark:text-amber-400 shrink-0 tabular-nums">{item.qty}×</span>
+                    <span className="text-xl font-bold text-foreground leading-snug">{capFirst(item.name)}</span>
                   </span>
                   {item.modifiers && item.modifiers.length > 0 && (
                     <span className="text-xs text-muted-foreground pl-7">
@@ -2915,11 +2915,9 @@ function OrderSlotPanel({
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0 mr-3">
-                            <div className="flex items-start gap-1.5 flex-wrap">
-                              <span className="text-muted-foreground break-words">
-                                {capFirst(item.name)}
-                                <span className="ml-1 text-muted-foreground/60">× {item.qty}</span>
-                              </span>
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="text-2xl font-black text-amber-500 dark:text-amber-400 shrink-0 tabular-nums">{item.qty}×</span>
+                              <span className="text-xl font-bold text-foreground break-words leading-snug">{capFirst(item.name)}</span>
                               {pendingRequests.some(r => r.item_name === item.name && r.refund_type === "partial") && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 leading-none animate-pulse">
                                   ⚠ Отмена
