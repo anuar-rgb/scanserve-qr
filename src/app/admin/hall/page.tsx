@@ -1020,7 +1020,7 @@ export default function HallPage() {
       )}
 
       {/* ── Edit mode banner ────────────────────────────────────────────────── */}
-      {!isWaiter && activeTab === "dine-in" && editMode && (
+      {!isWaiter && activeTab === "dine-in" && !isHistoryTab && editMode && (
         <div className="px-6 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-700/50 shrink-0 flex items-center gap-2">
           <Settings size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -1030,7 +1030,7 @@ export default function HallPage() {
       )}
 
       {/* ── В заведении ─────────────────────────────────────────────────────── */}
-      {activeTab === "dine-in" && (
+      {activeTab === "dine-in" && !isHistoryTab && (
         <>
           {/* Legend */}
           {!isWaiter && (
@@ -1133,7 +1133,7 @@ export default function HallPage() {
       )}
 
       {/* ── С собой ─────────────────────────────────────────────────────────── */}
-      {activeTab === "takeaway" && (
+      {activeTab === "takeaway" && !isHistoryTab && (
         <PickupDeliveryGrid
           orders={takeawayOrders}
           loading={loading}
@@ -1152,7 +1152,7 @@ export default function HallPage() {
       )}
 
       {/* ── Доставка ────────────────────────────────────────────────────────── */}
-      {activeTab === "delivery" && (
+      {activeTab === "delivery" && !isHistoryTab && (
         <PickupDeliveryGrid
           orders={deliveryOrders}
           loading={loading}
@@ -1171,7 +1171,7 @@ export default function HallPage() {
       )}
 
       {/* ── Предзаказы ─────────────────────────────────────────────────────────── */}
-      {activeTab === "preorder" && (
+      {activeTab === "preorder" && !isHistoryTab && (
         <PreorderCalendarView
           preorders={preorders}
           calLoading={calLoading}
@@ -1185,7 +1185,7 @@ export default function HallPage() {
         />
       )}
 
-      {activeTab === "rotation" && (
+      {activeTab === "rotation" && !isHistoryTab && (
         <RotationTab
           activeWaiters={activeWaiters}
           allStaffUsers={allStaffUsers}
