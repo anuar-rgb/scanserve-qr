@@ -21,8 +21,8 @@ interface ActiveStaffMember {
 }
 
 type StaffRole =
-  | "owner" | "manager" | "supervisor" | "cashier" | "waiter" | "chef"
-  | "bartender" | "hostess" | "courier" | "cleaner" | "doorman"
+  | "owner" | "manager" | "supervisor" | "cashier" | "waiter" | "chef" | "courier"
+  | "bartender" | "hostess" | "cleaner" | "doorman"
   | "sommelier" | "senior_waiter" | "runner" | "storekeeper" | "accountant";
 
 interface StaffUser {
@@ -38,22 +38,12 @@ interface StaffUser {
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const ROLES: { value: StaffRole; label: string }[] = [
-  { value: "owner",        label: "Владелец"         },
-  { value: "manager",      label: "Менеджер"         },
-  { value: "supervisor",   label: "Управляющий"      },
-  { value: "cashier",      label: "Кассир"           },
-  { value: "waiter",       label: "Официант"         },
-  { value: "senior_waiter",label: "Старший официант" },
-  { value: "chef",         label: "Повар"            },
-  { value: "bartender",    label: "Бармен"           },
-  { value: "sommelier",    label: "Сомелье"          },
-  { value: "hostess",      label: "Хостес"           },
-  { value: "runner",       label: "Раннер"           },
-  { value: "courier",      label: "Курьер"           },
-  { value: "storekeeper",  label: "Кладовщик"        },
-  { value: "accountant",   label: "Бухгалтер"        },
-  { value: "cleaner",      label: "Уборщик"          },
-  { value: "doorman",      label: "Швейцар"          },
+  { value: "manager",      label: "Менеджер"    },
+  { value: "supervisor",   label: "Управляющий" },
+  { value: "cashier",      label: "Кассир"      },
+  { value: "waiter",       label: "Официант"    },
+  { value: "chef",         label: "Повар"       },
+  { value: "courier",      label: "Курьер"      },
 ];
 
 const ROLE_COLOR: Record<StaffRole, string> = {
