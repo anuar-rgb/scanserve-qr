@@ -917,7 +917,7 @@ export default function HallPage() {
       </header>
 
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
-      <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-1 px-4"}`}>
+      {!isHistoryTab && <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-1 px-4"}`}>
         {([
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
@@ -961,7 +961,7 @@ export default function HallPage() {
             )}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* ── Waiter shift overlay ─────────────────────────────────────────────── */}
       {isWaiter && activeShift !== undefined && !myCheckin && (
