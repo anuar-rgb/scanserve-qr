@@ -273,6 +273,8 @@
     "sectionKitchen": "Kitchen",
     "navDishLimits": "Dish Limits",
     "navOrderHistory": "Order History",
+    "sectionMyHistory": "My History",
+    "navMyOrders": "My Orders",
     "sectionDelivery": "Delivery",
     "navDelivery": "Deliveries",
     "sectionWarehouse": "Warehouse",
