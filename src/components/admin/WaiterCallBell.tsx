@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Bell, CheckCircle, X } from "lucide-react";
 import { useWaiterCalls } from "@/lib/waiter-call-context";
 
@@ -15,12 +15,18 @@ const ACTION_LABEL: Record<string, string> = {
   come:  "Подойдите к столу",
 };
 
+const POPUP_W = 288; // w-72
+const MARGIN  = 16;
+
 export function WaiterCallBell() {
   const { calls, pendingCount, resolveCall } = useWaiterCalls();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen]         = useState(false);
+  const ref                     = useRef<HTMLDivElement>(null);
+  const buttonRef               = useRef<HTMLButtonElement>(null);
+  const [pos, setPos]           = useState<{ top: number; right: number } | null>(null);
   const hasCalls = pendingCount > 0;
 
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
@@ -30,9 +36,22 @@ export function WaiterCallBell() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  // Compute viewport-safe position from the button's bounding rect
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) { setPos(null); return; }
+    const r   = buttonRef.current.getBoundingClientRect();
+    const vw  = window.innerWidth;
+    // Ideally align popup's right edge with button's right edge
+    const idealRight  = vw - r.right;
+    // Clamp so popup never overflows either viewport edge
+    const clampedRight = Math.max(MARGIN, Math.min(idealRight, vw - POPUP_W - MARGIN));
+    setPos({ top: r.bottom + 8, right: clampedRight });
+  }, [open]);
+
   return (
     <div ref={ref} className="relative">
       <button
+        ref={buttonRef}
         onClick={() => setOpen(v => !v)}
         title="Вызовы официанта"
         className={`relative p-2 rounded-lg transition-colors ${
@@ -41,12 +60,8 @@ export function WaiterCallBell() {
             : "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
         }`}
       >
-        <Bell
-          size={16}
-          className={hasCalls ? "animate-bounce" : ""}
-        />
+        <Bell size={16} className={hasCalls ? "animate-bounce" : ""} />
 
-        {/* Ping ring for extra visual attention */}
         {hasCalls && (
           <span className="absolute -top-0.5 -right-0.5">
             <span className="animate-ping absolute inline-flex h-3.5 w-3.5 rounded-full bg-red-400 opacity-60" />
@@ -59,9 +74,12 @@ export function WaiterCallBell() {
         )}
       </button>
 
-      {/* Dropdown panel */}
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+      {/* Dropdown — fixed to viewport, position derived from button rect */}
+      {open && pos && (
+        <div
+          style={{ position: "fixed", top: pos.top, right: pos.right, width: POPUP_W, zIndex: 9999 }}
+          className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden"
+        >
           {/* Panel header */}
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-100 dark:border-zinc-800">
             <div className="flex items-center gap-2">
@@ -92,7 +110,6 @@ export function WaiterCallBell() {
             <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
               {calls.map(call => (
                 <div key={call.id} className="flex items-center gap-3 px-3 py-3">
-                  {/* Table + action info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
@@ -107,7 +124,6 @@ export function WaiterCallBell() {
                     </p>
                   </div>
 
-                  {/* Resolve button */}
                   <button
                     onClick={() => resolveCall(call.id)}
                     className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
