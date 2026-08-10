@@ -388,8 +388,6 @@ export default function HallPage() {
   const [pendingRequests, setPendingRequests] = useState<Record<string, RefundRequest[]>>({});
   const [activeShift,   setActiveShift]   = useState<{ id: string; opened_at: string } | null | undefined>(undefined);
   const [shiftCheckins, setShiftCheckins] = useState<{ staff_user_id: string; checked_in_at: string }[]>([]);
-  const [myCheckin,     setMyCheckin]     = useState(false);
-  const [checkingIn,    setCheckingIn]    = useState(false);
   const [openingShift,  setOpeningShift]  = useState(false);
 
   useEffect(() => {
@@ -628,12 +626,28 @@ export default function HallPage() {
       .catch(() => setActiveShift(null));
   }, []);
 
-  // Sync myCheckin once userId and shift are loaded
+  // Auto-checkin: when staff opens the terminal, silently record attendance
+  // if a shift is active — no manual button press required.
+  const autoCheckinFired = useRef(false);
   useEffect(() => {
-    if (userId && activeShift !== undefined) {
-      setMyCheckin(shiftCheckins.some((c) => c.staff_user_id === userId));
-    }
-  }, [userId, shiftCheckins, activeShift]);
+    if (autoCheckinFired.current) return;
+    if (!userId || activeShift === undefined || activeShift === null) return;
+    const alreadyIn = shiftCheckins.some((c) => c.staff_user_id === userId);
+    if (alreadyIn) { autoCheckinFired.current = true; return; }
+    autoCheckinFired.current = true;
+    fetch("/api/admin/shift/auto-checkin", { method: "POST" })
+      .then((r) => r.json())
+      .then((d: { checkin?: { staff_user_id: string; checked_in_at: string } | null }) => {
+        if (d?.checkin) {
+          setShiftCheckins((prev) =>
+            prev.some((c) => c.staff_user_id === d.checkin!.staff_user_id)
+              ? prev
+              : [...prev, d.checkin!],
+          );
+        }
+      })
+      .catch(() => {});
+  }, [userId, activeShift, shiftCheckins]);
 
   // Keep refs in sync for the activation interval (avoids stale closures)
   useEffect(() => { restaurantRef.current = restaurant; }, [restaurant]);
@@ -835,27 +849,6 @@ export default function HallPage() {
     setOpeningShift(false);
   }
 
-  async function handleCheckIn() {
-    setCheckingIn(true);
-    try {
-      const r = await fetch("/api/admin/shift/checkin", { method: "POST" });
-      const d = r.ok ? await r.json() : null;
-      if (d?.checkin) {
-        setShiftCheckins((prev) => {
-          const exists = prev.some((c) => c.staff_user_id === d.checkin.staff_user_id);
-          return exists ? prev : [...prev, d.checkin];
-        });
-        toast.success("Смена начата! Удачной работы 👋");
-      } else {
-        // Analytics recording failed — let waiter work anyway (checkin is non-blocking)
-        toast.error("Аналитика входа недоступна, но смена начата");
-      }
-    } catch {
-      // Same — don't block on network error
-    }
-    setMyCheckin(true);
-    setCheckingIn(false);
-  }
 
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
@@ -958,42 +951,6 @@ export default function HallPage() {
         ))}
       </div>
 
-      {/* ── Waiter shift overlay ─────────────────────────────────────────────── */}
-      {isWaiter && activeShift !== undefined && !myCheckin && (
-        <div className="absolute inset-0 z-40 bg-background flex flex-col items-center justify-center gap-6 p-8 text-center">
-          {activeShift === null ? (
-            <>
-              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-                <Lock size={28} className="text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-base font-semibold mb-1">Смена не открыта</p>
-                <p className="text-sm text-muted-foreground">Обратитесь к менеджеру для открытия смены</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                <Clock size={28} className="text-violet-600 dark:text-violet-400" />
-              </div>
-              <div>
-                <p className="text-base font-semibold mb-1">Начните свою смену</p>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  Нажмите кнопку — время входа зафиксируется для аналитики
-                </p>
-              </div>
-              <button
-                onClick={handleCheckIn}
-                disabled={checkingIn}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-60 transition-colors"
-              >
-                {checkingIn ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                Начать смену
-              </button>
-            </>
-          )}
-        </div>
-      )}
 
       {/* ── Manager: no shift banner ─────────────────────────────────────────── */}
       {!isWaiter && activeShift === null && (
