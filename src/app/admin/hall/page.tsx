@@ -5856,7 +5856,7 @@ function OrderPanel({
       panelTitle={title}
       onBack={onBack}
       extraHeader={extraHeader}
-      confirmLabel="Отправить на кухню"
+      confirmLabel="Применить"
       onConfirm={handleConfirm}
     />
   );
