@@ -866,9 +866,9 @@ function PopularDishesSection({
                 </div>
               </div>
 
-              <div style={{ padding: "9px 10px 11px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div style={{ padding: "9px 10px 10px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
                 <p style={{
-                  fontSize: 12, fontWeight: 700, margin: "0 0 6px",
+                  fontSize: 12, fontWeight: 700, margin: 0,
                   color: "var(--text-color)",
                   fontFamily: "'Montserrat', system-ui, sans-serif",
                   lineHeight: 1.3, overflow: "hidden",
@@ -877,21 +877,34 @@ function PopularDishesSection({
                 }}>
                   {capFirst(resolve(dish.name, lang))}
                 </p>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-                    {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
-                  </p>
-                  {discountedPrice !== null && (
-                    <p style={{ fontSize: 10, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
-                      {dish.price.toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", gap: 4 }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 800, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+                      {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
                     </p>
-                  )}
+                    {discountedPrice !== null && (
+                      <p style={{ fontSize: 9, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
+                        {dish.price.toLocaleString()}
+                      </p>
+                    )}
+                    {!!dish.bonusPercent && dish.bonusPercent > 0 && (
+                      <p style={{ fontSize: 9, fontWeight: 700, margin: 0, color: "#10B981" }}>
+                        +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} б
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onGoToDish(dish.id); }}
+                    style={{
+                      width: 30, height: 30, borderRadius: "50%", border: "none",
+                      background: "var(--text-color)", color: "var(--bg-color)",
+                      fontSize: 20, fontWeight: 300, lineHeight: 1,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", flexShrink: 0,
+                    }}
+                    aria-label="Добавить"
+                  >+</button>
                 </div>
-                {!!dish.bonusPercent && dish.bonusPercent > 0 && (
-                  <p style={{ fontSize: 9, fontWeight: 700, margin: "2px 0 0", color: "#10B981" }}>
-                    +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} бонусов
-                  </p>
-                )}
               </div>
             </div>
           );
@@ -917,14 +930,14 @@ function TryThisSection({
   if (!dishes.length) return null;
 
   const title =
-    lang === "kz" ? "Бұны сынап көрдіңіз бе?"
-    : lang === "ru" ? "А вы это пробовали?"
-    : "Have You Tried This?";
+    lang === "kz" ? "Аспаздың таңдауы"
+    : lang === "ru" ? "Выбор шеф-повара"
+    : "Chef's Picks";
 
   return (
     <section style={{ marginBottom: SP.lg + 4 }}>
       <div style={{ display: "flex", alignItems: "center", gap: SP.sm, marginBottom: SP.md }}>
-        <div style={{ width: 3, height: 20, borderRadius: R.full, backgroundColor: "var(--text-color)", flexShrink: 0 }} />
+        <span style={{ fontSize: 18, flexShrink: 0 }}>👨‍🍳</span>
         <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
           {title}
         </h2>
@@ -982,9 +995,9 @@ function TryThisSection({
                 )}
               </div>
 
-              <div style={{ padding: "9px 10px 11px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div style={{ padding: "9px 10px 10px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
                 <p style={{
-                  fontSize: 12, fontWeight: 700, margin: "0 0 6px",
+                  fontSize: 12, fontWeight: 700, margin: 0,
                   color: "var(--text-color)",
                   fontFamily: "'Montserrat', system-ui, sans-serif",
                   lineHeight: 1.3, overflow: "hidden",
@@ -993,15 +1006,28 @@ function TryThisSection({
                 }}>
                   {capFirst(resolve(dish.name, lang))}
                 </p>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-                    {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
-                  </p>
-                  {discountedPrice !== null && (
-                    <p style={{ fontSize: 10, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
-                      {dish.price.toLocaleString()}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", gap: 4 }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 800, margin: 0, color: "var(--text-color)", fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+                      {(discountedPrice ?? dish.price).toLocaleString()} {dish.currency ?? defaultCurrency ?? ""}
                     </p>
-                  )}
+                    {discountedPrice !== null && (
+                      <p style={{ fontSize: 9, margin: 0, color: "var(--text-muted)", textDecoration: "line-through" }}>
+                        {dish.price.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onGoToDish(dish.id); }}
+                    style={{
+                      width: 30, height: 30, borderRadius: "50%", border: "none",
+                      background: "var(--text-color)", color: "var(--bg-color)",
+                      fontSize: 20, fontWeight: 300, lineHeight: 1,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", flexShrink: 0,
+                    }}
+                    aria-label="Добавить"
+                  >+</button>
                 </div>
               </div>
             </div>
@@ -2924,8 +2950,20 @@ export function MenuTemplate({
   // Curated home sections
   const allDishes   = categories.flatMap((c) => c.dishes);
   const promoDishes = allDishes.filter((d) => d.isPromo);
-  const hitDishes     = allDishes.filter((d) => d.isRecommended).slice(0, 8);
-  const popularDishes = allDishes.filter((d) => getLikeCount(d.id) > 0);
+  const recommendedDishes = allDishes.filter((d) => d.isRecommended);
+  // Fallback: if no recommended dishes, show new dishes; if still empty, first 6 dishes
+  const hitDishes = (
+    recommendedDishes.length > 0 ? recommendedDishes
+    : allDishes.filter((d) => d.isNew).length > 0 ? allDishes.filter((d) => d.isNew)
+    : allDishes.slice(0, 6)
+  ).slice(0, 8);
+  const likedDishes = allDishes.filter((d) => getLikeCount(d.id) > 0);
+  // Fallback: if no liked dishes, show is_popular dishes; if still empty, first 8 dishes
+  const popularDishes = (
+    likedDishes.length > 0 ? likedDishes
+    : allDishes.filter((d) => d.isPopular).length > 0 ? allDishes.filter((d) => d.isPopular)
+    : allDishes.slice(0, 8)
+  );
 
   const tAll = lang === "kz" ? "Барлығы" : lang === "ru" ? "Все" : "All";
 
@@ -3298,8 +3336,11 @@ export function MenuTemplate({
             {/* 0. Info showcase cards — dynamic, admin-managed via /admin/info-showcase */}
             <InfoShowcaseSection items={showcaseItems} lang={lang} theme={theme} />
 
-            {/* 2. Banner slider (admin-managed via Supabase) */}
-            <BannerSlider banners={banners} lang={lang} />
+            {/* 2. Banner slider — DB-managed when available, promo slides as fallback */}
+            {banners.length > 0
+              ? <BannerSlider banners={banners} lang={lang} />
+              : <MarketingBannerSlider lang={lang} />
+            }
 
             {/* 3. "А вы это пробовали?" — admin-managed recommended dishes */}
             <TryThisSection
