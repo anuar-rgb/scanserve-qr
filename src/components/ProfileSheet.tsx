@@ -700,8 +700,12 @@ function LoggedInView({
   onLogout: () => void;
   onOpenOrders: () => void;
 }) {
-  const displayName  = session.name?.trim() || session.email;
-  const initials     = displayName.slice(0, 2).toUpperCase();
+  const IS_DEMO      = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const demoName     = "Мади Бекенов";
+  const demoEmail    = "demo@scanserve.qr";
+  const demoPhone    = "+7 (705) 555-77-88";
+  const displayName  = IS_DEMO ? demoName : (session.name?.trim() || session.email);
+  const initials     = IS_DEMO ? "МБ" : displayName.slice(0, 2).toUpperCase();
   const recentOrders = orders.slice(0, 3);
 
   const [pushPerm, setPushPerm] = useState<NotificationPermission | "unsupported">("default");
@@ -748,16 +752,16 @@ function LoggedInView({
         </div>
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: textPri, lineHeight: 1.2 }}>
-            {isRu ? `Привет, ${session.name || ""}!` : `Hi, ${session.name || ""}!`}
+            {isRu ? `Привет, ${IS_DEMO ? demoName : (session.name || "")}!` : `Hi, ${IS_DEMO ? demoName : (session.name || "")}!`}
           </p>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: textMut, display: "flex", alignItems: "center", gap: 5 }}>
             <Mail size={12} />
-            {session.email}
+            {IS_DEMO ? demoEmail : session.email}
           </p>
-          {session.phone && (
+          {(IS_DEMO || session.phone) && (
             <p style={{ margin: "2px 0 0", fontSize: 13, color: textMut, display: "flex", alignItems: "center", gap: 5 }}>
               <Phone size={12} />
-              {session.phone}
+              {IS_DEMO ? demoPhone : session.phone}
             </p>
           )}
         </div>

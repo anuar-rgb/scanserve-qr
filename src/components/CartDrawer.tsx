@@ -241,6 +241,8 @@ const T: Record<string, Record<Lang, string>> = {
 
 const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? key;
 
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 // ── WhatsApp order ────────────────────────────────────────────────────────────
 
 function buildWhatsAppUrl(
@@ -934,10 +936,12 @@ export function CartDrawer({
         }).catch(() => {/* ignore */});
       }
 
-      if (isMobile) {
-        window.location.href = url;
-      } else {
-        window.open(url, "_blank", "noopener,noreferrer");
+      if (!IS_DEMO) {
+        if (isMobile) {
+          window.location.href = url;
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
       }
     }
 
@@ -2453,9 +2457,19 @@ export function CartDrawer({
               <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", textAlign: "center" }}>
                 {placedOrder.orderType === "dine-in" ? tn("dineInSuccess", lang) : tn("success", lang)}
               </h2>
-              <p style={{ fontSize: 14, color: muted, margin: "0 0 28px", textAlign: "center", lineHeight: 1.5 }}>
+              <p style={{ fontSize: 14, color: muted, margin: "0 0 20px", textAlign: "center", lineHeight: 1.5 }}>
                 {placedOrder.orderType === "dine-in" ? tn("dineInSuccessSub", lang) : tn("successSub", lang)}
               </p>
+
+              {IS_DEMO && placedOrder.orderType !== "dine-in" && (
+                <div style={{ width: "100%", marginBottom: 20, padding: "12px 14px", borderRadius: R.md, background: isDark ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1 }}>🔍</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isDark ? "#FBBF24" : "#92400E" }}>Демо-режим</p>
+                    <p style={{ margin: "3px 0 0", fontSize: 12, color: isDark ? "#A78BFA" : "#6D28D9", lineHeight: 1.4 }}>В реальной версии здесь открылся бы WhatsApp для отправки заказа в заведение</p>
+                  </div>
+                </div>
+              )}
 
               <div style={{ width: "100%", background: surface, borderRadius: R.lg, padding: SP.md, border: `1px solid ${border}` }}>
                 <OrderRow
