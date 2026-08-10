@@ -2,15 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Sun, Moon, LogIn } from "lucide-react";
+import { LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRole, useDisplayName } from "@/lib/role-context";
-import { useCheckin } from "@/lib/checkin-context";
 import { WaiterCallBell } from "./WaiterCallBell";
-import dynamic from "next/dynamic";
-import { toast } from "sonner";
-
-const QrScannerModal = dynamic(() => import("./QrScannerModal"), { ssr: false });
 
 const R_NAME = process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe";
 
@@ -28,13 +23,8 @@ export default function MobileAdminHeader() {
   const role        = useRole();
   const displayName = useDisplayName();
   const isWaiter    = role === "waiter";
-  const STAFF_ROLES = new Set(["waiter", "chef", "bartender", "hostess", "courier", "cleaner", "doorman", "sommelier", "senior_waiter", "runner", "storekeeper", "accountant"]);
-  const isStaff     = role !== null && STAFF_ROLES.has(role);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const { isCheckedIn, checkout } = useCheckin();
-  const [checkoutScanning, setCheckoutScanning] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
   useEffect(() => setMounted(true), []);
   const isDark = !mounted || theme === "dark";
@@ -42,18 +32,6 @@ export default function MobileAdminHeader() {
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace("/login");
-  }
-
-  async function handleCheckoutScan(token: string) {
-    setCheckoutScanning(false);
-    setCheckoutBusy(true);
-    const result = await checkout(token);
-    setCheckoutBusy(false);
-    if (result.ok) {
-      toast.success("Смена завершена. До свидания!");
-    } else {
-      toast.error(result.error ?? "Неверный QR-код");
-    }
   }
 
   return (
@@ -81,18 +59,6 @@ export default function MobileAdminHeader() {
         </div>
         {role !== "courier" && role !== "chef" && <WaiterCallBell />}
 
-        {/* Завершить работу — waiter / chef only */}
-        {isStaff && isCheckedIn && (
-          <button
-            onClick={() => setCheckoutScanning(true)}
-            disabled={checkoutBusy}
-            className="p-2 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-60"
-            title="Завершить работу"
-          >
-            <LogIn size={16} className="rotate-180" />
-          </button>
-        )}
-
         <button
           onClick={() => mounted && setTheme(isDark ? "light" : "dark")}
           className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
@@ -112,14 +78,6 @@ export default function MobileAdminHeader() {
         </button>
       </div>
 
-      {checkoutScanning && (
-        <QrScannerModal
-          title="Завершение работы"
-          hint="Отсканируйте QR-код у выхода для фиксации ухода"
-          onScan={handleCheckoutScan}
-          onClose={() => setCheckoutScanning(false)}
-        />
-      )}
     </>
   );
 }
