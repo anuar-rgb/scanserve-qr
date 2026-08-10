@@ -9,7 +9,7 @@ import {
   BarChart2, TrendingUp, Package, Monitor, Star, Tag,
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
-  Clock, LogIn, AlertTriangle, CalendarDays, Truck, ChefHat,
+  Clock, LogIn, AlertTriangle, CalendarDays, Truck, ChefHat, History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -64,7 +64,8 @@ const DRAWER_NAV: DrawerSection[] = [
     titleKey: "sectionKitchen",
     chefAccess: true,
     items: [
-      { labelKey: "navDishLimits", icon: ChefHat, href: "/admin/dish-limits" },
+      { labelKey: "navDishLimits",   icon: ChefHat, href: "/admin/dish-limits" },
+      { labelKey: "navOrderHistory", icon: History, href: "/admin/hall?tab=history" },
     ],
   },
   {
@@ -331,6 +332,7 @@ export default function MobileBottomNav() {
                         <Link
                           key={item.href}
                           href={item.href}
+                          onClick={() => setDrawerOpen(false)}
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium min-h-[48px] transition-colors ${
                             isActive
                               ? "bg-violet-50 dark:bg-violet-600/15 text-violet-700 dark:text-violet-300"

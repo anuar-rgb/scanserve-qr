@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
@@ -374,7 +375,12 @@ export default function HallPage() {
   const [selected, setSelected]     = useState<string | null>(null);
   const [addOpen, setAddOpen]       = useState(false);
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
-  const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
+  const searchParams                = useSearchParams();
+  const [activeTab, setActiveTab]   = useState<ActiveTab>(() => {
+    const t = searchParams.get("tab");
+    if (t === "history") return "history";
+    return "dine-in";
+  });
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
   const role                        = useRole();
@@ -920,7 +926,7 @@ export default function HallPage() {
           { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
           { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true, chefHide: false },
           { id: "rotation", icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true, chefHide: true  },
-          { id: "history",  icon: History,           label: "История",     count: 0,                      waiterHide: true, chefHide: false },
+          { id: "history",  icon: History,           label: "История",     count: 0,                      waiterHide: true, chefHide: true  },
         ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean; chefHide?: boolean }>)
         .filter((t) => !(isWaiter && t.waiterHide))
         .filter((t) => !(isChef && t.chefHide))
