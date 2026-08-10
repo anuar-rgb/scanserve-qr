@@ -801,12 +801,12 @@ function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder |
                           <span className="text-foreground">{capFirst(item.name)}</span>
                           <span className="ml-1.5 text-muted-foreground/60 text-xs">× {item.qty}</span>
                           {item.modifiers?.map((mod, mi) => (
-                            <p key={mi} className="text-[11px] text-violet-500 dark:text-violet-400 mt-0.5 leading-tight">
-                              + {mod.name} <span className="text-muted-foreground/60">(+{mod.price} ₸)</span>
+                            <p key={mi} className="text-sm font-medium text-violet-500 dark:text-violet-400 mt-0.5 leading-tight">
+                              + {mod.name} <span className="text-xs font-normal text-muted-foreground/60">(+{mod.price} ₸)</span>
                             </p>
                           ))}
                           {item.note && (
-                            <p className="text-[11px] italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                            <p className="text-sm font-semibold text-amber-500 dark:text-amber-400 mt-0.5 leading-tight">
                               ✎ {item.note}
                             </p>
                           )}

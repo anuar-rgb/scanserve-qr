@@ -1933,12 +1933,14 @@ function OrderSlotCard({
                     <span className="text-xl font-bold text-foreground leading-snug">{capFirst(item.name)}</span>
                   </span>
                   {item.modifiers && item.modifiers.length > 0 && (
-                    <span className="text-xs text-muted-foreground pl-7">
-                      {item.modifiers.map((m) => m.name).join(", ")}
-                    </span>
+                    <div className="flex flex-col gap-0.5 pl-10 mt-1">
+                      {item.modifiers.map((m, mi) => (
+                        <span key={mi} className="text-sm font-semibold text-violet-400 dark:text-violet-400">+ {m.name}</span>
+                      ))}
+                    </div>
                   )}
                   {item.note && (
-                    <span className="text-xs text-amber-600 dark:text-amber-400 pl-7 italic">{item.note}</span>
+                    <span className="pl-10 mt-0.5 text-sm font-semibold text-amber-400 dark:text-amber-400">✎ {item.note}</span>
                   )}
                 </li>
               ))}
@@ -2925,10 +2927,10 @@ function OrderSlotPanel({
                               )}
                             </div>
                             {item.modifiers?.map((mod, mi) => (
-                              <p key={mi} className="text-sm text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name} <span className="text-muted-foreground/50">(+{mod.price} ₸)</span></p>
+                              <p key={mi} className="text-base font-semibold text-violet-500 dark:text-violet-400 leading-tight mt-1">+ {mod.name} <span className="text-sm font-normal text-muted-foreground/60">(+{mod.price} ₸)</span></p>
                             ))}
                             {item.note && editingNoteIdx !== item._idx && (
-                              <p className="text-sm italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                              <p className="text-base font-semibold text-amber-500 dark:text-amber-400 mt-1 leading-tight">
                                 ✎ {item.note}
                               </p>
                             )}
@@ -4687,10 +4689,10 @@ function TablePanel({
                                 )}
                               </div>
                               {item.modifiers?.map((mod, mi) => (
-                                <p key={mi} className="text-sm text-violet-500 dark:text-violet-400 leading-tight mt-0.5">+ {mod.name}{!isChef && <span className="text-muted-foreground/50"> (+{mod.price} ₸)</span>}</p>
+                                <p key={mi} className="text-base font-semibold text-violet-500 dark:text-violet-400 leading-tight mt-1">+ {mod.name}{!isChef && <span className="text-sm font-normal text-muted-foreground/60"> (+{mod.price} ₸)</span>}</p>
                               ))}
                               {item.note && editingNoteIdx !== item._idx && (
-                                <p className="text-sm italic text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                                <p className="text-base font-semibold text-amber-500 dark:text-amber-400 mt-1 leading-tight">
                                   ✎ {item.note}
                                 </p>
                               )}
