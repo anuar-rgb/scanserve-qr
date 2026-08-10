@@ -5,7 +5,7 @@ import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
-  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark, Bell, Star, RotateCcw, History,
+  Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark, Bell, Star, RotateCcw,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -363,7 +363,7 @@ function parseOpeningTime(wh: string | null): number | null {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation" | "history";
+type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation";
 
 export default function HallPage() {
   const [tables, setTables]         = useState<DbRestaurantTable[]>([]);
@@ -913,7 +913,6 @@ export default function HallPage() {
           { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
           { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true, chefHide: false },
           { id: "rotation", icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true, chefHide: true  },
-          { id: "history",  icon: History,           label: "История",     count: 0,                      waiterHide: true, chefHide: true  },
         ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean; chefHide?: boolean }>)
         .filter((t) => !(isWaiter && t.waiterHide))
         .filter((t) => !(isChef && t.chefHide))
