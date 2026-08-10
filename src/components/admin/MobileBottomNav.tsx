@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   LayoutGrid, ShoppingBag, FileText, AlignJustify, X,
@@ -152,8 +152,6 @@ const DRAWER_NAV: DrawerSection[] = [
 export default function MobileBottomNav() {
   const pathname          = usePathname();
   const router            = useRouter();
-  const searchParams      = useSearchParams();
-  const isHistoryParam    = searchParams.get("tab") === "history";
   const { t, lang, setLang } = useTranslations();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted]           = useState(false);
@@ -243,8 +241,7 @@ export default function MobileBottomNav() {
       {/* ── Bottom tab bar ────────────────────────────────────────────────── */}
       <nav className={`${isCourier ? "" : "md:hidden"} fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800/60 flex items-stretch h-16`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         {visibleTabs.slice(0, 3).map((tab) => {
-          const baseMatch = pathname === tab.href || pathname.startsWith(tab.href + "/");
-          const isActive  = baseMatch && !(tab.href === "/admin/hall" && isHistoryParam);
+          const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
           const Icon = tab.icon;
           return (
             <Link
