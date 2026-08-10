@@ -46,6 +46,9 @@ export default function MyOrdersPage() {
     .filter((o) => o.status === "completed")
     .reduce((s, o) => s + (o.total_price ?? 0), 0);
 
+  const totalTips = orders
+    .reduce((s, o) => s + (o.tips_amount ?? 0), 0);
+
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-background">
 
@@ -82,6 +85,14 @@ export default function MyOrdersPage() {
               <span className="text-xs text-muted-foreground">Выручка:</span>
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 {totalRevenue.toLocaleString("ru-RU")} ₸
+              </span>
+            </div>
+          )}
+          {totalTips > 0 && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Чаевые:</span>
+              <span className="text-xs font-bold text-amber-500 dark:text-amber-400">
+                {totalTips.toLocaleString("ru-RU")} ₸
               </span>
             </div>
           )}
@@ -187,11 +198,21 @@ export default function MyOrdersPage() {
 
                 {/* Footer */}
                 {!isCanc && order.total_price > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Итого</span>
-                    <span className="text-sm font-bold tabular-nums">
-                      {order.total_price.toLocaleString("ru-RU")} ₸
-                    </span>
+                  <div className="mt-2 pt-2 border-t border-border/50 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Итого</span>
+                      <span className="text-sm font-bold tabular-nums">
+                        {order.total_price.toLocaleString("ru-RU")} ₸
+                      </span>
+                    </div>
+                    {(order.tips_amount ?? 0) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-amber-500 dark:text-amber-400 font-medium">💝 Чаевые</span>
+                        <span className="text-xs font-bold tabular-nums text-amber-500 dark:text-amber-400">
+                          +{order.tips_amount!.toLocaleString("ru-RU")} ₸
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
