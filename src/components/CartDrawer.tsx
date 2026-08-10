@@ -37,7 +37,7 @@ interface PlacedOrder {
   paymentComment?: string;
   notes?: string;
   phoneNumber?: string;
-  items: { name: string; qty: number; price: number; originalPrice?: number; discountPct?: number; currency: string }[];
+  items: { name: string; qty: number; price: number; originalPrice?: number; discountPct?: number; currency: string; note?: string }[];
   total: number;
   currency: string;
   deliveryFee?: number;
@@ -59,7 +59,7 @@ export interface StoredOrder {
   preorderDate?: string;
   preorderTime?: string;
   tableNumber?: string;
-  items: { name: string; qty: number; price: number; originalPrice?: number; discountPct?: number; currency: string }[];
+  items: { name: string; qty: number; price: number; originalPrice?: number; discountPct?: number; currency: string; note?: string }[];
   total: number;
   currency: string;
   status: "pending" | "refund-requested";
@@ -352,8 +352,8 @@ function buildWhatsAppUrl(
     ...paymentLines,
     `---`,
     `${m("dishesLabel")}:`,
-    ...order.items.map(
-      (i) => `• ${i.name} x${i.qty} — ${(i.price * i.qty).toLocaleString("ru-RU")} ${i.currency}`,
+    ...order.items.flatMap(
+      (i) => [`• ${i.name} x${i.qty} — ${(i.price * i.qty).toLocaleString("ru-RU")} ${i.currency}`, ...(i.note ? [`  ✎ ${i.note}`] : [])],
     ),
     ...(order.deliveryFee ? [`• 🚚 ${m("deliveryFeeLabel")}: ${order.deliveryFee.toLocaleString("ru-RU")} ${order.currency}`] : []),
     ...((tipsAmount && tipsAmount > 0) ? [`• 💝 ${m("tipsLabel")}: ${tipsAmount.toLocaleString("ru-RU")} ${order.currency}`] : []),
@@ -365,7 +365,6 @@ function buildWhatsAppUrl(
       `• ${m("preorderDateLabel")}: ${order.preorderDate ?? ""}`,
       `• ${m("preorderTimeLabel")}: ${order.preorderTime ?? ""}`,
     ] : []),
-    ...(order.notes ? [`• ${m("notesLabel")}: ${order.notes}`] : []),
   ];
 
   // encodeURIComponent correctly percent-encodes Kazakh/Cyrillic characters (UTF-8)
@@ -449,7 +448,10 @@ export function CartDrawer({
   const [tableNumber, setTableNumber]         = useState(initialTableNumber ?? "");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [mapOpen, setMapOpen]                 = useState(false);
-  const [notes, setNotes]                     = useState("");
+  const [itemNotes, setItemNotes]              = useState<Record<string, string>>({});
+  const [notePickerOpen, setNotePickerOpen]    = useState(false);
+  const [notePickerKey, setNotePickerKey]      = useState<string | null>(null);
+  const [noteInput, setNoteInput]              = useState("");
   const [payment, setPayment]                 = useState<PaymentMethod | null>(defaultOrderType === "dine-in" ? "pay-at-restaurant" : null);
   const [cardBankIdx, setCardBankIdx]         = useState<number | null>(null);
   const [placedOrder, setPlacedOrder]         = useState<PlacedOrder | null>(null);
@@ -671,7 +673,7 @@ export function CartDrawer({
     setPreorderTime("");
     if (!isTableLocked) setTableNumber("");
     setDeliveryAddress("");
-    setNotes("");
+    setItemNotes({});
     setPayment(null);
     setCardBankIdx(null);
     setPlacedOrder(null);
@@ -763,7 +765,7 @@ export function CartDrawer({
     if (!canPlaceOrder || loading) return;
     setBonusError("");
     setLoading(true);
-    const orderItems = items.map(({ dish, qty, currency: c, selectedModifiers }) => {
+    const orderItems = items.map(({ dish, qty, currency: c, selectedModifiers, cartKey }) => {
       const finalPrice = effPrice(dish, selectedModifiers, happyHours);
       const modSuffix = selectedModifiers?.length
         ? ` (+ ${selectedModifiers.map(m => m.name).join(", ")})`
@@ -771,6 +773,7 @@ export function CartDrawer({
       const pp = dish.isPromo && dish.discountLabel ? parseInt(dish.discountLabel, 10) : 0;
       const hp = getHappyHourDiscount(dish.categoryId, happyHours);
       const dp = Math.max(isNaN(pp) ? 0 : pp, hp);
+      const dishNote = itemNotes[cartKey]?.trim();
       return {
         name: resolve(dish.name, lang) + modSuffix,
         qty,
@@ -778,6 +781,7 @@ export function CartDrawer({
         currency: c || currency,
         product_id: dish.id,
         ...(dp > 0 ? { original_price: dish.price, discountPct: dp } : {}),
+        ...(dishNote ? { note: dishNote } : {}),
       };
     });
     const foundCity = KZ_CITIES.find((c) => c.id === city);
@@ -795,7 +799,6 @@ export function CartDrawer({
       remoteBank: payment === "remote-payment" && remoteBank !== null ? remoteBank : undefined,
       invoicePhone: payment === "remote-payment" && invoicePhone.trim() ? invoicePhone.trim() : undefined,
       paymentComment: payment === "remote-payment" && paymentComment.trim() ? paymentComment.trim() : undefined,
-      notes: notes.trim() || undefined,
       phoneNumber: (orderType === "pickup" || orderType === "delivery") ? phoneNumber.trim() : undefined,
       items: orderItems,
       total: grandTotal,
@@ -848,7 +851,7 @@ export function CartDrawer({
           payment_method: payment,
           preorder_date: timingMode === "preorder" ? preorderDate : null,
           preorder_time: timingMode === "preorder" ? preorderTime : null,
-          customer_comments: notes.trim() || null,
+          customer_comments: null,
           customer_name: timingMode === "preorder" ? (customerName.trim() || null) : null,
           customer_phone: timingMode === "preorder" ? (phoneNumber.trim() || null) : null,
           customer_city: timingMode === "preorder" ? (customerCity.trim() || null) : null,
@@ -895,7 +898,7 @@ export function CartDrawer({
           payment_method: order.paymentMethod,
           preorder_date: order.preorderDate ?? null,
           preorder_time: order.preorderTime ?? null,
-          customer_comments: order.notes ?? null,
+          customer_comments: null,
           customer_name: customerName.trim() || null,
           customer_phone: order.phoneNumber ?? null,
           customer_city: order.cityName ?? null,
@@ -1185,6 +1188,9 @@ export function CartDrawer({
                           <p style={{ fontSize: 11, color: muted, margin: "1px 0 2px", lineHeight: 1.3 }}>
                             + {selectedModifiers.map(m => m.name).join(", ")}
                           </p>
+                        )}
+                        {itemNotes[ck] && (
+                          <p style={{ fontSize: 12, color: "#F59E0B", margin: "2px 0 0", fontStyle: "italic", lineHeight: 1.3 }}>✎ {itemNotes[ck]}</p>
                         )}
                         {hasPromoDiscount ? (
                           <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
@@ -2035,22 +2041,37 @@ export function CartDrawer({
                 </>
               )}
 
-              {/* ── Notes (optional) ── */}
-              <label style={{ display: "block", marginBottom: SP.lg }}>
+              {/* ── Per-dish notes ── */}
+              <div style={{ marginBottom: SP.lg }}>
                 <span style={labelSectionStyle}>
                   {tn("notes", lang)}{" "}
-                  <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
-                    ({tn("optional", lang)})
-                  </span>
+                  <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({tn("optional", lang)})</span>
                 </span>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder={tn("notesHint", lang)}
-                  rows={2}
-                  style={textareaStyle(notes.trim().length > 0)}
-                />
-              </label>
+                {Object.entries(itemNotes).filter(([, v]) => v.trim()).map(([ck, note]) => {
+                  const entry = items.find(it => it.cartKey === ck);
+                  if (!entry) return null;
+                  return (
+                    <div key={ck} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: surface, borderRadius: R.sm, border: `1px solid ${border}`, marginBottom: 6, marginTop: 8 }}>
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{entry.dish.emoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 11, color: muted, margin: 0 }}>{capFirst(resolve(entry.dish.name, lang))}</p>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: textClr, margin: 0, fontStyle: "italic" }}>✎ {note}</p>
+                      </div>
+                      <button onClick={() => setItemNotes(prev => { const n = { ...prev }; delete n[ck]; return n; })}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: muted, padding: 4, display: "flex" }}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => { setNotePickerOpen(true); setNotePickerKey(null); setNoteInput(""); }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", marginTop: 8, padding: "11px 14px", background: "none", border: `1.5px dashed ${border}`, borderRadius: R.md, cursor: "pointer", color: muted, fontSize: 14, fontFamily: "inherit" }}
+                >
+                  <Plus size={14} />
+                  Добавить пожелание к блюду
+                </button>
+              </div>
 
               {/* ── Tips ── */}
               <div style={{ marginBottom: SP.lg }}>
@@ -2731,6 +2752,78 @@ export function CartDrawer({
           </>
         )}
       </div>
+
+      {/* ── Note picker modal ── */}
+      {notePickerOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setNotePickerOpen(false)}
+        >
+          <div
+            style={{ width: "min(100vw, 480px)", background: card, borderRadius: "20px 20px 0 0", padding: "20px 16px 36px", fontFamily: "'Montserrat', system-ui, sans-serif", color: textClr }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              {notePickerKey !== null
+                ? <button onClick={() => setNotePickerKey(null)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, display: "flex", padding: 4 }}><ChevronLeft size={20} /></button>
+                : <div style={{ width: 28 }} />
+              }
+              <p style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
+                {notePickerKey !== null
+                  ? capFirst(resolve(items.find(it => it.cartKey === notePickerKey)?.dish.name ?? "", lang))
+                  : "К какому блюду?"}
+              </p>
+              <button onClick={() => setNotePickerOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, display: "flex", padding: 4 }}><X size={20} /></button>
+            </div>
+
+            {notePickerKey === null ? (
+              /* Step 1: pick a dish */
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {items.map(({ dish, qty, cartKey: ck }) => (
+                  <button
+                    key={ck}
+                    onClick={() => { setNotePickerKey(ck); setNoteInput(itemNotes[ck] ?? ""); }}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: surface, border: `1.5px solid ${itemNotes[ck] ? textClr : border}`, borderRadius: R.md, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
+                  >
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>{dish.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: textClr, margin: 0 }}>{capFirst(resolve(dish.name, lang))}</p>
+                      <p style={{ fontSize: 12, color: muted, margin: 0 }}>× {qty}{itemNotes[ck] ? ` · ✎ ${itemNotes[ck]}` : ""}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              /* Step 2: type note for selected dish */
+              <div>
+                <textarea
+                  autoFocus
+                  value={noteInput}
+                  onChange={e => setNoteInput(e.target.value)}
+                  placeholder="Например: без лука, соус отдельно…"
+                  rows={3}
+                  style={{ display: "block", width: "100%", padding: "13px 14px", background: surface, border: `1.5px solid ${noteInput.trim() ? textClr : border}`, borderRadius: R.md, color: textClr, fontSize: 15, outline: "none", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginBottom: 14 }}
+                />
+                <button
+                  onClick={() => {
+                    const trimmed = noteInput.trim();
+                    if (trimmed) {
+                      setItemNotes(prev => ({ ...prev, [notePickerKey]: trimmed }));
+                    } else {
+                      setItemNotes(prev => { const n = { ...prev }; delete n[notePickerKey]; return n; });
+                    }
+                    setNotePickerOpen(false);
+                  }}
+                  style={{ width: "100%", height: 48, borderRadius: R.full, border: "none", background: textClr, color: card, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Сохранить
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
