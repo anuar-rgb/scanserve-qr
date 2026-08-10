@@ -1013,7 +1013,7 @@ export default function HallPage() {
                 ) : (
                   <div
                     className="grid gap-3"
-                    style={{ gridTemplateColumns: isWaiter ? "repeat(auto-fill, minmax(80px, 1fr))" : "repeat(auto-fill, minmax(100px, 1fr))" }}
+                    style={{ gridTemplateColumns: isWaiter ? "repeat(auto-fill, minmax(110px, 1fr))" : "repeat(auto-fill, minmax(100px, 1fr))" }}
                   >
                     {displayedTables.map((tws) => (
                       <TableCard
@@ -1563,7 +1563,7 @@ function TableCard({
       <div
         onClick={onClick}
         className={`
-          relative flex flex-col items-center justify-center rounded-xl border select-none py-2.5 px-1
+          relative flex flex-col items-center justify-center rounded-xl border select-none py-4 px-2
           transition-all duration-150 cursor-pointer active:scale-95
           ${palette.card}
           ${isSelected
@@ -1576,16 +1576,16 @@ function TableCard({
           }
         `}
       >
-        <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
+        <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
         {hasPendingRefund && (
-          <div className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Запрос на возврат" />
+          <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" title="Запрос на возврат" />
         )}
-        <p className="text-xs font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
+        <p className="text-base font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
         {isMyTable && (
-          <span className="hidden md:inline mt-0.5 text-[8px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
+          <span className="mt-1 text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Мой</span>
         )}
         {isOtherTable && (
-          <span className="hidden md:inline mt-0.5 text-[8px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-none px-0.5 truncate w-full">{assignedName}</span>
+          <span className="mt-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-none px-0.5 truncate w-full">{assignedName}</span>
         )}
       </div>
     );
