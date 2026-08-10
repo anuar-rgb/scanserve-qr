@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   TrendingUp, ShoppingBag, CreditCard, Star, Tag, RefreshCw,
   Clock, Play, Printer, Archive, ChevronDown, X, CheckCircle2, FileText, Users,
@@ -68,6 +68,15 @@ interface WaiterPerfRow {
   revenueTotal: number;
   ordersTotal: number;
   shiftsCount: number;
+}
+
+interface LiveWaiterRow {
+  waiterId: string;
+  waiterName: string;
+  ordersCount: number;
+  cashTotal: number;
+  cardTotal: number;
+  revenueTotal: number;
 }
 
 type ShiftRow = DbShift;
@@ -392,6 +401,11 @@ export default function AnalyticsPage() {
   const [waiterPerf, setWaiterPerf]         = useState<WaiterPerfRow[]>([]);
   const [waiterPerfLoading, setWaiterPerfLoading] = useState(false);
 
+  // ── live waiter stats (current shift, real-time) ──
+  const [liveWaiterStats, setLiveWaiterStats]       = useState<LiveWaiterRow[]>([]);
+  const [liveWaiterLoading, setLiveWaiterLoading]   = useState(false);
+  const liveStaffMapRef = useRef<Map<string, string>>(new Map());
+
   // ── food cost state ──
   const [activeSection, setActiveSection] = useState<"analytics" | "foodcost">("analytics");
   const [foodCost,    setFoodCost]    = useState<FoodCostSummary | null>(null);
@@ -524,6 +538,73 @@ export default function AnalyticsPage() {
     }
     setWaiterPerf([...agg.values()].sort((a, b) => b.revenueTotal - a.revenueTotal));
     setWaiterPerfLoading(false);
+  }, []);
+
+  // ── live waiter stats (current shift) ──
+  const loadLiveWaiterStats = useCallback(async (shift: ShiftRow) => {
+    if (!isConfigured) return;
+    setLiveWaiterLoading(true);
+
+    if (liveStaffMapRef.current.size === 0) {
+      const { data: staffData } = await supabase
+        .from("staff_users")
+        .select("id, display_name, username")
+        .eq("restaurant_id", RESTAURANT_ID);
+      for (const s of (staffData ?? []) as { id: string; display_name: string | null; username: string }[]) {
+        liveStaffMapRef.current.set(s.id, s.display_name || s.username);
+      }
+    }
+
+    let q = supabase
+      .from("orders")
+      .select("total_price, opened_by, payment_method, payment_details, paid_amount")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("status", "completed")
+      .not("opened_by", "is", null)
+      .gte("created_at", shift.opened_at);
+    if (shift.closed_at) q = q.lte("created_at", shift.closed_at);
+
+    const { data } = await q;
+    type LiveOrderRow = {
+      total_price: number;
+      opened_by: string;
+      payment_method: string | null;
+      payment_details: Record<string, number> | null;
+      paid_amount: number | null;
+    };
+    const rows = (data ?? []) as LiveOrderRow[];
+
+    const agg = new Map<string, LiveWaiterRow>();
+    for (const o of rows) {
+      if (!o.opened_by) continue;
+      const id = o.opened_by;
+      if (!agg.has(id)) {
+        agg.set(id, {
+          waiterId: id,
+          waiterName: liveStaffMapRef.current.get(id) ?? "Сотрудник",
+          ordersCount: 0, cashTotal: 0, cardTotal: 0, revenueTotal: 0,
+        });
+      }
+      const e = agg.get(id)!;
+      const total = o.total_price ?? 0;
+      e.ordersCount  += 1;
+      e.revenueTotal += total;
+      if (o.payment_details && typeof o.payment_details === "object") {
+        for (const [method, amount] of Object.entries(o.payment_details)) {
+          if (typeof amount === "number") {
+            if (CASH_METHODS.has(method)) e.cashTotal += amount;
+            else                          e.cardTotal += amount;
+          }
+        }
+      } else if (CASH_METHODS.has(o.payment_method ?? "")) {
+        e.cashTotal += total;
+      } else {
+        e.cardTotal += total;
+      }
+    }
+
+    setLiveWaiterStats([...agg.values()].sort((a, b) => b.revenueTotal - a.revenueTotal));
+    setLiveWaiterLoading(false);
   }, []);
 
   // ── food cost load ──
@@ -667,6 +748,29 @@ export default function AnalyticsPage() {
 
   useEffect(() => { load(period); loadWaiterPerf(period); loadFoodCost(period); }, [load, loadWaiterPerf, loadFoodCost, period]);
   useEffect(() => { loadShifts(); }, [loadShifts]);
+
+  // ── live waiter stats: load + real-time subscription ──
+  useEffect(() => {
+    if (activeShift === undefined) return; // shifts still loading
+    if (!activeShift) { setLiveWaiterStats([]); return; }
+
+    loadLiveWaiterStats(activeShift);
+
+    const channel = supabase
+      .channel(`live-waiter-${RESTAURANT_ID}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        (payload) => {
+          if ((payload.new as { status: string }).status === "completed") {
+            loadLiveWaiterStats(activeShift);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [activeShift, loadLiveWaiterStats]);
 
   // ── shift actions ──
 
@@ -1437,7 +1541,86 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ── Waiter Performance ── */}
+        {/* ── Live Waiter Activity (current shift) ── */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <Users size={15} />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Активность за смену</h2>
+                <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                  {activeShift ? "Обновляется в реальном времени" : "Текущая смена"}
+                </p>
+              </div>
+            </div>
+            {activeShift && (
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                LIVE
+              </span>
+            )}
+          </div>
+
+          {activeShift === undefined || (liveWaiterLoading && liveWaiterStats.length === 0) ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-10 bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : !activeShift ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-600 text-center py-6">
+              Смена не открыта — откройте смену, чтобы видеть активность официантов
+            </p>
+          ) : liveWaiterStats.length === 0 ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-600 text-center py-6">
+              Нет закрытых заказов — данные появятся при расчёте гостя
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {liveWaiterStats.map((w, i) => {
+                const maxRev = liveWaiterStats[0].revenueTotal || 1;
+                return (
+                  <div key={w.waiterId} className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-zinc-400 w-4 shrink-0 text-center">{i + 1}</span>
+                    <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        {w.waiterName.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{w.waiterName}</span>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-[10px] text-zinc-400">{w.ordersCount} чек{w.ordersCount === 1 ? "" : w.ordersCount < 5 ? "а" : "ов"}</span>
+                          <span className="text-xs font-bold tabular-nums text-zinc-800 dark:text-zinc-200">
+                            {w.revenueTotal.toLocaleString("ru-RU")} ₸
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                          style={{ width: `${Math.round(w.revenueTotal / maxRev * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="hidden md:block shrink-0 text-right min-w-[90px]">
+                      <div className="text-[9px] text-zinc-400 tabular-nums">💵 {w.cashTotal.toLocaleString("ru-RU")} ₸</div>
+                      <div className="text-[9px] text-zinc-400 tabular-nums">💳 {w.cardTotal.toLocaleString("ru-RU")} ₸</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Waiter Performance (historical, post Z-report) ── */}
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-6">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-500">
