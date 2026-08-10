@@ -65,7 +65,7 @@ const DRAWER_NAV: DrawerSection[] = [
     chefAccess: true,
     items: [
       { labelKey: "navDishLimits",   icon: ChefHat, href: "/admin/dish-limits" },
-      { labelKey: "navOrderHistory", icon: History, href: "/admin/hall?tab=history" },
+      { labelKey: "navOrderHistory", icon: History, href: "/admin/order-history" },
     ],
   },
   {

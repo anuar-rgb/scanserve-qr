@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
@@ -375,9 +374,6 @@ export default function HallPage() {
   const [selected, setSelected]     = useState<string | null>(null);
   const [addOpen, setAddOpen]       = useState(false);
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
-  const router                      = useRouter();
-  const searchParams                = useSearchParams();
-  const isHistoryTab                = searchParams.get("tab") === "history";
   const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
@@ -917,7 +913,7 @@ export default function HallPage() {
       </header>
 
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
-      {!isHistoryTab && <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-1 px-4"}`}>
+      <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-1 px-4"}`}>
         {([
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
@@ -934,7 +930,6 @@ export default function HallPage() {
             onClick={() => {
               setActiveTab(id);
               if (id !== "dine-in") setEditMode(false);
-              if (isHistoryTab) void router.replace("/admin/hall");
             }}
             className={`relative font-medium transition-colors border-b-2 -mb-px ${
               isChef
@@ -961,7 +956,7 @@ export default function HallPage() {
             )}
           </button>
         ))}
-      </div>}
+      </div>
 
       {/* ── Waiter shift overlay ─────────────────────────────────────────────── */}
       {isWaiter && activeShift !== undefined && !myCheckin && (
@@ -1020,7 +1015,7 @@ export default function HallPage() {
       )}
 
       {/* ── Edit mode banner ────────────────────────────────────────────────── */}
-      {!isWaiter && activeTab === "dine-in" && !isHistoryTab && editMode && (
+      {!isWaiter && activeTab === "dine-in" && editMode && (
         <div className="px-6 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-700/50 shrink-0 flex items-center gap-2">
           <Settings size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -1030,7 +1025,7 @@ export default function HallPage() {
       )}
 
       {/* ── В заведении ─────────────────────────────────────────────────────── */}
-      {activeTab === "dine-in" && !isHistoryTab && (
+      {activeTab === "dine-in" && (
         <>
           {/* Legend */}
           {!isWaiter && (
@@ -1133,7 +1128,7 @@ export default function HallPage() {
       )}
 
       {/* ── С собой ─────────────────────────────────────────────────────────── */}
-      {activeTab === "takeaway" && !isHistoryTab && (
+      {activeTab === "takeaway" && (
         <PickupDeliveryGrid
           orders={takeawayOrders}
           loading={loading}
@@ -1152,7 +1147,7 @@ export default function HallPage() {
       )}
 
       {/* ── Доставка ────────────────────────────────────────────────────────── */}
-      {activeTab === "delivery" && !isHistoryTab && (
+      {activeTab === "delivery" && (
         <PickupDeliveryGrid
           orders={deliveryOrders}
           loading={loading}
@@ -1171,7 +1166,7 @@ export default function HallPage() {
       )}
 
       {/* ── Предзаказы ─────────────────────────────────────────────────────────── */}
-      {activeTab === "preorder" && !isHistoryTab && (
+      {activeTab === "preorder" && (
         <PreorderCalendarView
           preorders={preorders}
           calLoading={calLoading}
@@ -1185,7 +1180,7 @@ export default function HallPage() {
         />
       )}
 
-      {activeTab === "rotation" && !isHistoryTab && (
+      {activeTab === "rotation" && (
         <RotationTab
           activeWaiters={activeWaiters}
           allStaffUsers={allStaffUsers}
@@ -1193,8 +1188,6 @@ export default function HallPage() {
           onRefresh={load}
         />
       )}
-
-      {isHistoryTab && <ChefHistoryTab />}
 
       {/* Modals */}
       {(addOpen || editTable) && (
@@ -1385,176 +1378,6 @@ function WaiterTablePickerModal({
         </div>
       </div>
     </>
-  );
-}
-
-// ── ChefHistoryTab ────────────────────────────────────────────────────────────
-
-type HistoryFilter = "all" | "dine-in" | "takeaway" | "delivery" | "preorder";
-
-function ChefHistoryTab() {
-  const [histOrders, setHistOrders] = useState<DbOrder[]>([]);
-  const [histLoading, setHistLoading] = useState(true);
-  const [filter, setFilter] = useState<HistoryFilter>("all");
-
-  const loadHistory = useCallback(async () => {
-    if (!isConfigured) { setHistLoading(false); return; }
-    setHistLoading(true);
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const { data } = await supabase
-      .from(DB_TABLES.orders)
-      .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .in("status", ["completed", "cancelled"])
-      .gte("created_at", todayStart.toISOString())
-      .order("created_at", { ascending: false });
-    setHistOrders((data as DbOrder[]) ?? []);
-    setHistLoading(false);
-  }, []);
-
-  useEffect(() => { void loadHistory(); }, [loadHistory]);
-
-  const filtered = histOrders.filter((o) => {
-    if (filter === "all")      return true;
-    if (filter === "dine-in")  return o.type === "dine-in";
-    if (filter === "takeaway") return o.type === "takeaway" || o.type === "pickup";
-    if (filter === "delivery") return o.type === "delivery";
-    if (filter === "preorder") return o.order_type === "preorder";
-    return true;
-  });
-
-  const filterTabs: Array<{ id: HistoryFilter; label: string; icon: React.ElementType }> = [
-    { id: "all",      label: "Все",          icon: History        },
-    { id: "dine-in",  label: "В заведении",  icon: UtensilsCrossed },
-    { id: "takeaway", label: "С собой",       icon: Package         },
-    { id: "delivery", label: "Доставка",      icon: Bike            },
-    { id: "preorder", label: "Предзаказы",    icon: CalendarDays    },
-  ];
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* ── Filter bar ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border shrink-0 overflow-x-auto">
-        {filterTabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setFilter(id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
-              filter === id
-                ? "bg-violet-600 text-white"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <Icon size={12} />
-            {label}
-          </button>
-        ))}
-        <button
-          onClick={loadHistory}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-muted-foreground hover:bg-accent transition-colors shrink-0"
-        >
-          <RotateCcw size={12} className={histLoading ? "animate-spin" : ""} />
-          Обновить
-        </button>
-      </div>
-
-      {/* ── Content ───────────────────────────────────────────────── */}
-      {histLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 size={28} className="animate-spin text-violet-500" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center p-8">
-          <Clock size={32} className="text-muted-foreground/30" />
-          <p className="text-sm font-semibold text-muted-foreground">Нет завершённых заказов</p>
-          <p className="text-xs text-muted-foreground/60">за сегодняшний день</p>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {filtered.map((order) => {
-            const items   = (order.items_json as OrderItem[]) ?? [];
-            const isCanc  = order.status === "cancelled";
-            const typeLabel =
-              order.order_type === "preorder" ? "Предзаказ"
-              : order.type === "dine-in"       ? "В зале"
-              : order.type === "delivery"      ? "Доставка"
-              : "С собой";
-            const closedAt  = order.closed_at ?? order.created_at;
-            const timeStr   = new Date(closedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-            return (
-              <div
-                key={order.id}
-                className={`rounded-xl border p-3 ${
-                  isCanc
-                    ? "border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20"
-                    : "border-border bg-card"
-                }`}
-              >
-                {/* Order header */}
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                    isCanc
-                      ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                      : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                  }`}>
-                    {isCanc ? "Отменён" : "Закрыт"}
-                  </span>
-                  <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
-                    {typeLabel}
-                  </span>
-                  {order.table_number && (
-                    <span className="text-[10px] text-muted-foreground shrink-0">Стол {order.table_number}</span>
-                  )}
-                  {order.customer_name && (
-                    <span className="text-[10px] text-muted-foreground truncate">{order.customer_name}</span>
-                  )}
-                  <span className="ml-auto text-xs font-mono text-muted-foreground/70 shrink-0">{timeStr}</span>
-                </div>
-
-                {/* Dish list */}
-                <div className="space-y-1">
-                  {items.length === 0 ? (
-                    <p className="text-xs text-muted-foreground/50 italic">Позиции не сохранены</p>
-                  ) : items.map((item, i) => (
-                    <div key={i}>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-black tabular-nums text-amber-500 dark:text-amber-400 shrink-0">
-                          {item.qty}×
-                        </span>
-                        <span className="text-base font-bold text-foreground leading-snug">
-                          {capFirst(item.name)}
-                        </span>
-                      </div>
-                      {item.modifiers && item.modifiers.length > 0 && (
-                        <div className="flex flex-col gap-0.5 pl-8 mt-0.5">
-                          {item.modifiers.map((m, mi) => (
-                            <span key={mi} className="text-xs font-semibold text-violet-400">+ {m.name}</span>
-                          ))}
-                        </div>
-                      )}
-                      {item.note && (
-                        <p className="pl-8 mt-0.5 text-xs font-semibold text-amber-400">✎ {item.note}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Footer total */}
-                {!isCanc && order.total_price > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Итого</span>
-                    <span className="text-sm font-bold tabular-nums">
-                      {order.total_price.toLocaleString("ru-RU")} ₸
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }
 
