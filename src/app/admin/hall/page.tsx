@@ -4459,9 +4459,9 @@ function TablePanel({
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          className="p-2 rounded-xl bg-accent text-foreground hover:bg-muted transition-colors"
         >
-          <X size={15} />
+          <X size={22} />
         </button>
       </div>
 
