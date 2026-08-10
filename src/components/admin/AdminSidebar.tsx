@@ -228,7 +228,7 @@ export default function AdminSidebar() {
               {platformLabel}
             </p>
           </div>
-          {!isOwner && expanded && <WaiterCallBell />}
+          {expanded && role !== "chef" && <WaiterCallBell />}
         </div>
       </div>
 

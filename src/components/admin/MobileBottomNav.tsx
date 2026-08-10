@@ -299,7 +299,7 @@ export default function MobileBottomNav() {
               <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Навигация</span>
             </div>
             <div className="flex items-center gap-1.5">
-              {!isOwner && !isCourier && role !== "chef" && <WaiterCallBell />}
+              {!isCourier && role !== "chef" && <WaiterCallBell />}
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"

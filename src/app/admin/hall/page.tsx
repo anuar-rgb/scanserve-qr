@@ -13,6 +13,7 @@ import { RESTAURANT_ID, DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserId, useRole, useDisplayName } from "@/lib/role-context";
+import { useWaiterCalls } from "@/lib/waiter-call-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -381,6 +382,11 @@ export default function HallPage() {
   const userId                      = useUserId();
   const isWaiter                    = role === "waiter";
   const isChef                      = role === "chef";
+  const { calls: waiterCallsList }  = useWaiterCalls();
+  const callingTables               = useMemo(
+    () => new Set(waiterCallsList.filter(c => c.status === "pending").map(c => c.table_label)),
+    [waiterCallsList],
+  );
   const [waiterNewOrderPicker, setWaiterNewOrderPicker] = useState(false);
   const [waiterAutoOrder, setWaiterAutoOrder]           = useState(false);
   const knownOrderIds               = useRef(new Set<string>());
@@ -1040,6 +1046,7 @@ export default function HallPage() {
                         preorderCount={preordersByTableLabel[tws.table.label] ?? 0}
                         isActivatedPreorder={tws.order ? activatedPreorderIds.has(tws.order.id) : false}
                         hasPendingRefund={tws.orders.some(o => (pendingRequests[o.id]?.length ?? 0) > 0)}
+                        hasWaiterCall={callingTables.has(tws.table.label)}
                       />
                     ))}
                   </div>
@@ -1511,6 +1518,7 @@ function TableCard({
   preorderCount = 0,
   isActivatedPreorder = false,
   hasPendingRefund = false,
+  hasWaiterCall = false,
 }: {
   tws: TableWithStatus;
   isSelected: boolean;
@@ -1524,6 +1532,7 @@ function TableCard({
   preorderCount?: number;
   isActivatedPreorder?: boolean;
   hasPendingRefund?: boolean;
+  hasWaiterCall?: boolean;
 }) {
   const { table, status, order, preorderOrder, elapsed } = tws;
   const isLocked = status !== "free";
@@ -1564,9 +1573,11 @@ function TableCard({
         className={`
           relative flex flex-col items-center justify-center rounded-xl border select-none py-4 px-2
           transition-all duration-150 cursor-pointer active:scale-95
-          ${palette.card}
+          ${hasWaiterCall ? "border-red-400 dark:border-red-500" : palette.card}
           ${isSelected
             ? "ring-2 ring-violet-500 ring-offset-1 shadow-md"
+            : hasWaiterCall
+            ? "ring-2 ring-red-500 ring-offset-1 shadow-md animate-pulse"
             : isNew
             ? "ring-2 ring-emerald-400 ring-offset-1 shadow-sm"
             : isMyTable
@@ -1576,7 +1587,12 @@ function TableCard({
         `}
       >
         <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${palette.dot} ${status === "occupied" ? "animate-pulse" : ""}`} />
-        {hasPendingRefund && (
+        {hasWaiterCall && (
+          <div className="absolute top-1.5 left-1.5" title="Вызов официанта">
+            <Bell size={10} className="text-red-500 animate-bounce" />
+          </div>
+        )}
+        {!hasWaiterCall && hasPendingRefund && (
           <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" title="Запрос на возврат" />
         )}
         <p className="text-base font-bold leading-tight text-foreground text-center w-full px-1 break-words line-clamp-2">{table.label}</p>
@@ -1602,6 +1618,8 @@ function TableCard({
         ${!editMode ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-95" : "cursor-default"}
         ${isActivatedPreorder
           ? "ring-2 ring-violet-500 ring-offset-2 shadow-lg animate-pulse"
+          : hasWaiterCall && !isSelected
+          ? "ring-2 ring-red-500 ring-offset-2 shadow-md shadow-red-100 dark:shadow-red-900/20 animate-pulse"
           : isNew && !isSelected
           ? "ring-2 ring-emerald-400 ring-offset-2 shadow-md shadow-emerald-100 dark:shadow-emerald-900/20"
           : isSelected
@@ -1620,15 +1638,22 @@ function TableCard({
         </div>
       )}
 
+      {/* Waiter call badge — highest priority after preorder */}
+      {hasWaiterCall && !isActivatedPreorder && !editMode && (
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
+          🔔 Вызов
+        </div>
+      )}
+
       {/* New order badge (first 5 min) */}
-      {isNew && !isActivatedPreorder && !editMode && (
+      {isNew && !isActivatedPreorder && !hasWaiterCall && !editMode && (
         <div className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
           ✨ Новый
         </div>
       )}
 
       {/* Refund request badge */}
-      {hasPendingRefund && !editMode && !isActivatedPreorder && !isNew && (
+      {hasPendingRefund && !editMode && !isActivatedPreorder && !hasWaiterCall && !isNew && (
         <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-bold shadow-sm z-10 animate-pulse">
           ⚠️ Возврат
         </div>
