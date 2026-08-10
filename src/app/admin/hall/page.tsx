@@ -381,6 +381,10 @@ export default function HallPage() {
     if (t === "history") return "history";
     return "dine-in";
   });
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    setActiveTab(t === "history" ? "history" : (prev) => prev === "history" ? "dine-in" : prev);
+  }, [searchParams]);
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
   const role                        = useRole();
