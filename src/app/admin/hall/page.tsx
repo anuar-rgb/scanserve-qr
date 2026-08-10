@@ -6525,7 +6525,9 @@ function PreorderDayCard({
   const [removingIdx, setRemovingIdx]         = useState<number | null>(null);
   const [confirmCancel, setConfirmCancel]     = useState(false);
   const [cancelling, setCancelling]           = useState(false);
-  const isWaiter = useRole() === "waiter";
+  const role     = useRole();
+  const isWaiter = role === "waiter";
+  const isChef   = role === "chef";
 
   const items: OrderItem[] = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
   const savedAmount = items.reduce(
@@ -6769,12 +6771,14 @@ function PreorderDayCard({
             <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
               Состав заказа
             </p>
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowMenuPicker(true); }}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
-            >
-              <Plus size={11} /> Добавить
-            </button>
+            {!isChef && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowMenuPicker(true); }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+              >
+                <Plus size={11} /> Добавить
+              </button>
+            )}
           </div>
 
           {items.length === 0 ? (
@@ -6807,7 +6811,7 @@ function PreorderDayCard({
                       )}
                     </div>
                     <div className="flex items-start gap-1 shrink-0">
-                      {!isWaiter && (
+                      {!isWaiter && !isChef && (
                         <button
                           onClick={(e) => { e.stopPropagation(); void removeItem(i); }}
                           disabled={removingIdx !== null}
@@ -6870,8 +6874,8 @@ function PreorderDayCard({
         </div>
       )}
 
-      {/* Cancel button — only for non-completed, non-cancelled orders */}
-      {expanded && !isCancelled && !isCompleted && (
+      {/* Cancel button — only for non-completed, non-cancelled orders; hidden for chefs */}
+      {expanded && !isCancelled && !isCompleted && !isChef && (
         <div className="px-3 pb-3 border-t border-border pt-2.5">
           <button
             onClick={(e) => { e.stopPropagation(); setConfirmCancel(true); }}
