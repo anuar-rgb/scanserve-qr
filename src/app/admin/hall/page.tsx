@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
@@ -375,16 +375,10 @@ export default function HallPage() {
   const [selected, setSelected]     = useState<string | null>(null);
   const [addOpen, setAddOpen]       = useState(false);
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
+  const router                      = useRouter();
   const searchParams                = useSearchParams();
-  const [activeTab, setActiveTab]   = useState<ActiveTab>(() => {
-    const t = searchParams.get("tab");
-    if (t === "history") return "history";
-    return "dine-in";
-  });
-  useEffect(() => {
-    const t = searchParams.get("tab");
-    setActiveTab(t === "history" ? "history" : (prev) => prev === "history" ? "dine-in" : prev);
-  }, [searchParams]);
+  const isHistoryTab                = searchParams.get("tab") === "history";
+  const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
   const role                        = useRole();
@@ -937,7 +931,11 @@ export default function HallPage() {
         .map(({ id, icon: Icon, label, count }) => (
           <button
             key={id}
-            onClick={() => { setActiveTab(id); if (id !== "dine-in") setEditMode(false); }}
+            onClick={() => {
+              setActiveTab(id);
+              if (id !== "dine-in") setEditMode(false);
+              if (isHistoryTab) void router.replace("/admin/hall");
+            }}
             className={`relative font-medium transition-colors border-b-2 -mb-px ${
               isChef
                 ? "flex flex-col flex-1 items-center justify-center gap-1 py-3 px-1 rounded-none"
@@ -1196,7 +1194,7 @@ export default function HallPage() {
         />
       )}
 
-      {activeTab === "history" && <ChefHistoryTab />}
+      {isHistoryTab && <ChefHistoryTab />}
 
       {/* Modals */}
       {(addOpen || editTable) && (
