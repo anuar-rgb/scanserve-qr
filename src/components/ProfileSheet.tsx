@@ -188,6 +188,10 @@ export function ProfileSheet({
 
   // ── Step 1: Send OTP ─────────────────────────────────────────────────────
   async function handleSendOtp() {
+    if (isDemo) {
+      setError(lang === "en" ? "This is a demo — registration is disabled" : "Это демо — регистрация недоступна");
+      return;
+    }
     const trimEmail = email.trim().toLowerCase();
     if (!trimEmail || !trimEmail.includes("@")) {
       setError("Введите корректный Email"); return;
