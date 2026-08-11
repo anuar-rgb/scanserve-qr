@@ -12,6 +12,10 @@ export async function POST(request: NextRequest) {
 
   const { username, password } = await request.json();
 
+  if (username && !checkRateLimit(`login:user:${username}`, 10, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Подождите 15 минут." }, { status: 429 });
+  }
+
   if (!username || !password) {
     return NextResponse.json({ error: "Username and password are required." }, { status: 400 });
   }

@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
 
   const { username, password } = await request.json();
 
+  if (username && !checkRateLimit(`super:user:${username}`, 5, 30 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Подождите 30 минут." }, { status: 429 });
+  }
+
   const validUser = process.env.SUPER_ADMIN_USERNAME;
   const validPass = process.env.SUPER_ADMIN_PASSWORD;
 
