@@ -701,11 +701,18 @@ function LoggedInView({
   onOpenOrders: () => void;
 }) {
   const IS_DEMO      = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-  const demoName     = "Мади Бекенов";
-  const demoEmail    = "demo@scanserve.qr";
-  const demoPhone    = "+7 (705) 555-77-88";
+  const DEMO_PERSONAS = [
+    { name: "Асель Нурланова",   email: "asel.n@mail.kz",    phone: "+7 (701) 234-56-78", initials: "АН" },
+    { name: "Ерлан Сейтқали",    email: "erlan.s@mail.kz",   phone: "+7 (705) 876-54-32", initials: "ЕС" },
+    { name: "Дина Жақсыбекова",  email: "dina.zh@mail.kz",   phone: "+7 (707) 345-67-89", initials: "ДЖ" },
+    { name: "Бауыржан Әлиев",    email: "bauyr.a@mail.kz",   phone: "+7 (702) 456-78-90", initials: "БА" },
+  ];
+  const demoPick     = IS_DEMO ? DEMO_PERSONAS[session.id.charCodeAt(0) % DEMO_PERSONAS.length] : null;
+  const demoName     = demoPick?.name    ?? "";
+  const demoEmail    = demoPick?.email   ?? "";
+  const demoPhone    = demoPick?.phone   ?? "";
   const displayName  = IS_DEMO ? demoName : (session.name?.trim() || session.email);
-  const initials     = IS_DEMO ? "МБ" : displayName.slice(0, 2).toUpperCase();
+  const initials     = IS_DEMO ? (demoPick?.initials ?? "ДМ") : displayName.slice(0, 2).toUpperCase();
   const recentOrders = orders.slice(0, 3);
 
   const [pushPerm, setPushPerm] = useState<NotificationPermission | "unsupported">("default");

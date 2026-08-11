@@ -214,8 +214,6 @@ const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const HEADER_H  = 80;                     // 64px height + 8px top margin + 8px gap below
 const SLIDER_H  = "min(485px, 133vw)";   // hero slider height — ~485px on any phone
-const IS_DEMO   = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 export type Theme = "dark" | "light";
