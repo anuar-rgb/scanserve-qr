@@ -476,138 +476,6 @@ function BannerSlider({ banners, lang }: { banners: Banner[]; lang: Lang }) {
   );
 }
 
-// ── Marketing Banner Slider (hardcoded, home view) ────────────────────────────
-
-const PROMO_SLIDES = [
-  {
-    id: "ps1",
-    bg: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
-    emoji: "🍕",
-    badge: "−20%",
-    badgeBg: "#FF4D6D",
-    title: "Скидка 20% на все пиццы",
-    sub: "Только в будни с 12:00 до 16:00",
-  },
-  {
-    id: "ps2",
-    bg: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
-    emoji: "🚗",
-    badge: "FREE",
-    badgeBg: "#10B981",
-    title: "Бесплатная доставка",
-    sub: "При заказе от 3 000 ₸",
-  },
-  {
-    id: "ps3",
-    bg: "linear-gradient(135deg, #3b1f6e 0%, #1a1a2e 100%)",
-    emoji: "⭐",
-    badge: "NEW",
-    badgeBg: "#F59E0B",
-    title: "Новинки сезона",
-    sub: "Попробуй что-то новое уже сегодня",
-  },
-];
-
-function MarketingBannerSlider({ lang: _lang }: { lang: Lang }) {
-  const [cur, setCur] = useState(0);
-  const dragRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const t = setInterval(() => setCur((c) => (c + 1) % PROMO_SLIDES.length), 4200);
-    return () => clearInterval(t);
-  }, []);
-
-  const goTo = (i: number) => setCur((i + PROMO_SLIDES.length) % PROMO_SLIDES.length);
-
-  const onTouchStart = (e: React.TouchEvent) => { dragRef.current = e.touches[0].clientX; };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (dragRef.current === null) return;
-    const dx = e.changedTouches[0].clientX - dragRef.current;
-    if (Math.abs(dx) > 44) goTo(cur + (dx < 0 ? 1 : -1));
-    dragRef.current = null;
-  };
-
-  return (
-    <div
-      style={{
-        marginBottom: SP.lg + 4,
-        position: "relative", overflow: "hidden",
-        borderRadius: 18, height: 130,
-        userSelect: "none",
-      } as React.CSSProperties}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
-      {PROMO_SLIDES.map((s, i) => (
-        <div
-          key={s.id}
-          style={{
-            position: "absolute", inset: 0,
-            background: s.bg,
-            opacity: i === cur ? 1 : 0,
-            transition: "opacity 0.55s ease",
-            pointerEvents: i === cur ? "auto" : "none",
-            display: "flex", alignItems: "center",
-            padding: "0 20px", gap: 14,
-          }}
-        >
-          <div style={{
-            width: 64, height: 64, borderRadius: R.full, flexShrink: 0,
-            background: "rgba(255,255,255,0.12)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 32,
-          }}>
-            {s.emoji}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={{
-              display: "inline-block",
-              fontSize: 10, fontWeight: 800,
-              padding: "3px 9px", borderRadius: R.full,
-              background: s.badgeBg, color: "#fff",
-              marginBottom: 5, letterSpacing: "0.05em",
-              fontFamily: "'Montserrat', system-ui, sans-serif",
-            }}>{s.badge}</span>
-            <p style={{
-              color: "#fff", fontWeight: 800, fontSize: 16,
-              margin: "0 0 3px", lineHeight: 1.2,
-              fontFamily: "'Montserrat', system-ui, sans-serif",
-              textShadow: "0 1px 8px rgba(0,0,0,0.35)",
-            }}>{s.title}</p>
-            <p style={{
-              color: "rgba(255,255,255,0.72)", fontSize: 11,
-              margin: 0, fontWeight: 500,
-              fontFamily: "'Montserrat', system-ui, sans-serif",
-            }}>{s.sub}</p>
-          </div>
-        </div>
-      ))}
-
-      {/* Tap zones */}
-      <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex" }}>
-        <div style={{ flex: 1 }} onClick={() => goTo(cur - 1)} />
-        <div style={{ flex: 1 }} onClick={() => goTo(cur + 1)} />
-      </div>
-
-      <div style={{
-        position: "absolute", bottom: 8, left: 0, right: 0, zIndex: 3,
-        display: "flex", justifyContent: "center", gap: 5, pointerEvents: "none",
-      }}>
-        {PROMO_SLIDES.map((_, i) => (
-          <div
-            key={i}
-            style={{
-              width: i === cur ? 18 : 5, height: 5,
-              borderRadius: R.full,
-              background: i === cur ? "#fff" : "rgba(255,255,255,0.35)",
-              transition: "width 0.3s ease, background 0.3s ease",
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Promo Slider ─────────────────────────────────────────────────────────────
 
@@ -3335,11 +3203,8 @@ export function MenuTemplate({
             {/* 0. Info showcase cards — dynamic, admin-managed via /admin/info-showcase */}
             <InfoShowcaseSection items={showcaseItems} lang={lang} theme={theme} />
 
-            {/* 2. Banner slider — DB-managed when available, promo slides as fallback */}
-            {banners.length > 0
-              ? <BannerSlider banners={banners} lang={lang} />
-              : <MarketingBannerSlider lang={lang} />
-            }
+            {/* 2. Banner slider — DB-managed */}
+            {banners.length > 0 && <BannerSlider banners={banners} lang={lang} />}
 
             {/* 3. "А вы это пробовали?" — admin-managed recommended dishes */}
             <TryThisSection
