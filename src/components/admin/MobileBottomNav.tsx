@@ -43,6 +43,7 @@ type DrawerSection = {
   accountantAccess?: boolean;
   chefAccess?: boolean;
   waiterAccess?: boolean;
+  cashierSection?: boolean;
   items: {
     labelKey: AdminKey;
     icon: LucideIcon;
@@ -73,6 +74,13 @@ const DRAWER_NAV: DrawerSection[] = [
     chefAccess: true,
     items: [
       { labelKey: "navDishLimits",   icon: ChefHat, href: "/admin/dish-limits" },
+      { labelKey: "navOrderHistory", icon: History, href: "/admin/order-history" },
+    ],
+  },
+  {
+    titleKey: "sectionPOS",
+    cashierSection: true,
+    items: [
       { labelKey: "navOrderHistory", icon: History, href: "/admin/order-history" },
     ],
   },
@@ -319,6 +327,7 @@ export default function MobileBottomNav() {
               if (section.accountantAccess  && role !== "accountant"  && !isOwner) return null;
               if (section.chefAccess && role !== "chef" && !isOwner) return null;
               if (section.waiterAccess && role !== "waiter" && !isOwner) return null;
+              if (section.cashierSection && role !== "cashier") return null;
 
               const visibleItems = section.items.filter((item) => {
                 if (item.strictOwner && !isStrictOwner) return false;

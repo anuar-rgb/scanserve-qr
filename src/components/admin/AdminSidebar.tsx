@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays, Lock, ChefHat,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, Clock, MessageSquare, LogIn, PrinterIcon, FilePen, Boxes, AlertTriangle, CalendarDays, Lock, ChefHat, History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -75,9 +75,10 @@ const NAV: NavSection[] = [
     titleKey: "sectionPOS",
     noPOS: true,
     items: [
-      { labelKey: "navHall",       icon: LayoutGrid, href: "/admin/hall"                },
-      { labelKey: "navDishLimits", icon: ChefHat,    href: "/admin/dish-limits"           },
-      { labelKey: "navInvoices",   icon: FileText,   href: "/admin/invoices", noWaiter: true },
+      { labelKey: "navHall",         icon: LayoutGrid, href: "/admin/hall"                              },
+      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits"                       },
+      { labelKey: "navOrderHistory", icon: History,    href: "/admin/order-history", noWaiter: true     },
+      { labelKey: "navInvoices",     icon: FileText,   href: "/admin/invoices",      noWaiter: true     },
     ],
   },
   {
