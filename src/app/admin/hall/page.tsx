@@ -4412,10 +4412,10 @@ function TablePanel({
               {!isChef && activeWaiters.length > 0 && (
                 <button
                   onClick={() => setShowReassignModal(true)}
-                  className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
+                  className={`${fullWidth ? "p-2.5 rounded-xl active:bg-accent active:text-violet-600 touch-manipulation" : "p-0.5 rounded"} hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors`}
                   title="Переназначить официанта"
                 >
-                  <UserCog size={10} />
+                  <UserCog size={fullWidth ? 16 : 10} />
                 </button>
               )}
             </div>
@@ -4433,10 +4433,10 @@ function TablePanel({
               </p>
               <button
                 onClick={() => setShowAssignModal(true)}
-                className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors"
+                className={`${fullWidth ? "p-2.5 rounded-xl active:bg-accent active:text-violet-600 touch-manipulation" : "p-0.5 rounded"} hover:bg-accent text-muted-foreground hover:text-violet-600 transition-colors`}
                 title="Привязать официанта к столу"
               >
-                <UserCog size={10} />
+                <UserCog size={fullWidth ? 16 : 10} />
               </button>
             </div>
           )}
