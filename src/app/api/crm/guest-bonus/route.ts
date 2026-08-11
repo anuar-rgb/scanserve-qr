@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionRole } from "@/lib/session";
+import { getSessionRole, getSessionRestaurantId } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -14,19 +14,16 @@ function db() {
 // GET /api/crm/guest-bonus?phone=...&restaurantId=...
 // Returns { guestId, bonusAmount } or { guestId: null, bonusAmount: null } if not found
 export async function GET(req: NextRequest) {
-  const session = req.cookies.get("admin_session")?.value;
-  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-  const host = req.headers.get("host") || "";
-  if (!session && !origin.includes(host)) {
+  const sessionRid = getSessionRestaurantId(req);
+  if (!getSessionRole(req) || !sessionRid) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
-  const phone        = searchParams.get("phone");
-  const restaurantId = searchParams.get("restaurantId");
+  const phone = searchParams.get("phone");
 
-  if (!phone || !restaurantId) {
-    return NextResponse.json({ error: "phone and restaurantId required" }, { status: 400 });
+  if (!phone) {
+    return NextResponse.json({ error: "phone required" }, { status: 400 });
   }
 
   const supabase = db();
@@ -45,7 +42,7 @@ export async function GET(req: NextRequest) {
     .from("guest_balances")
     .select("bonus_amount")
     .eq("guest_id", guest.id)
-    .eq("restaurant_id", restaurantId)
+    .eq("restaurant_id", sessionRid)
     .maybeSingle();
 
   return NextResponse.json({
@@ -55,24 +52,24 @@ export async function GET(req: NextRequest) {
 }
 
 // PUT /api/crm/guest-bonus
-// Body: { guestId, restaurantId, newAmount }
+// Body: { guestId, newAmount }
 // Owner-only: sets the balance to a specific value
 export async function PUT(req: NextRequest) {
   const role = getSessionRole(req);
-  if (role !== "owner") {
+  const putRid = getSessionRestaurantId(req);
+  if (role !== "owner" || !putRid) {
     return NextResponse.json({ error: "Недостаточно прав. Только владелец может изменять бонусный баланс." }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({})) as {
     guestId?: string;
-    restaurantId?: string;
     newAmount?: number;
   };
 
-  const { guestId, restaurantId, newAmount } = body;
+  const { guestId, newAmount } = body;
 
-  if (!guestId || !restaurantId || newAmount === undefined || newAmount === null) {
-    return NextResponse.json({ error: "guestId, restaurantId, newAmount required" }, { status: 400 });
+  if (!guestId || newAmount === undefined || newAmount === null) {
+    return NextResponse.json({ error: "guestId, newAmount required" }, { status: 400 });
   }
 
   const amount = Math.max(0, Math.floor(Number(newAmount)));
@@ -85,7 +82,7 @@ export async function PUT(req: NextRequest) {
   const { error } = await supabase
     .from("guest_balances")
     .upsert(
-      { guest_id: guestId, restaurant_id: restaurantId, bonus_amount: amount },
+      { guest_id: guestId, restaurant_id: putRid, bonus_amount: amount },
       { onConflict: "guest_id,restaurant_id" },
     );
 

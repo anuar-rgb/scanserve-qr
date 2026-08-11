@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionRole } from "@/lib/session";
+import { getSessionRole, getSessionRestaurantId } from "@/lib/session";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +9,8 @@ const supabase = createClient(
 );
 
 export async function PUT(req: NextRequest) {
-  if (!getSessionRole(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionRid = getSessionRestaurantId(req);
+  if (!getSessionRole(req) || !sessionRid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { employeeId, dailyRate, commissionPct } = await req.json().catch(() => ({})) as {
     employeeId?: string; dailyRate?: number; commissionPct?: number;
@@ -26,7 +27,8 @@ export async function PUT(req: NextRequest) {
   const { error } = await supabase
     .from("staff_users")
     .update(updates)
-    .eq("id", employeeId);
+    .eq("id", employeeId)
+    .eq("restaurant_id", sessionRid);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

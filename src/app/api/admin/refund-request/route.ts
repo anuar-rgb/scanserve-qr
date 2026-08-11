@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionRole } from "@/lib/session";
+import { getSessionRole, getSessionRestaurantId } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -39,7 +39,8 @@ async function calcEarnedBonuses(supabase: ReturnType<typeof db>, items: ItemRow
 
 // GET /api/admin/refund-request?orderId=...
 export async function GET(req: NextRequest) {
-  if (!getSessionRole(req)) {
+  const sessionRid = getSessionRestaurantId(req);
+  if (!getSessionRole(req) || !sessionRid) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
     .from("refund_requests")
     .select("id, order_id, item_name, item_price, item_qty, product_id, refund_type, status, admin_note, created_at")
     .eq("order_id", orderId)
+    .eq("restaurant_id", sessionRid)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -65,7 +67,8 @@ export async function GET(req: NextRequest) {
 // Body: { requestId, action: 'approve'|'reject', adminNote? }
 export async function POST(req: NextRequest) {
   const role = getSessionRole(req);
-  if (!role) {
+  const sessionRid = getSessionRestaurantId(req);
+  if (!role || !sessionRid) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -85,11 +88,12 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  // Fetch the refund request
+  // Fetch the refund request — scoped to session restaurant to prevent IDOR
   const { data: rr, error: rrErr } = await supabase
     .from("refund_requests")
     .select("*")
     .eq("id", requestId)
+    .eq("restaurant_id", sessionRid)
     .single();
 
   if (rrErr || !rr) {

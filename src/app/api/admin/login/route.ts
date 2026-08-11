@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
   };
-  response.cookies.set("admin_session",       signSession(user.role), { ...cookieOpts, httpOnly: true });
+  response.cookies.set("admin_session",       signSession(user.role, user.restaurant_id), { ...cookieOpts, httpOnly: true });
   response.cookies.set("admin_user_id",       user.id,            { ...cookieOpts, httpOnly: true });
   // non-httpOnly so client-side constants.ts can read it from document.cookie
   response.cookies.set("admin_restaurant_id", user.restaurant_id, { ...cookieOpts, httpOnly: false });

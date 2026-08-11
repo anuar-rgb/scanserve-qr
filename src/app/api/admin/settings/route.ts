@@ -10,12 +10,17 @@ function db() {
   );
 }
 
-const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+// Removed unsigned-cookie RID helper — now using getSessionRestaurantId from signed session
 
 export async function PUT(request: NextRequest) {
-  const { getSessionRole } = await import("@/lib/session");
+  const { getSessionRole, getSessionRestaurantId } = await import("@/lib/session");
   const role = getSessionRole(request);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (role !== "owner" && role !== "manager") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const sessionRid = getSessionRestaurantId(request);
+  if (!sessionRid) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
 
@@ -32,7 +37,7 @@ export async function PUT(request: NextRequest) {
   const { data, error } = await db()
     .from("restaurants")
     .update(update)
-    .eq("id", RID(request))
+    .eq("id", sessionRid)
     .select("id")
     .single();
 

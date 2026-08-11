@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = db();
-  const restaurantId = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+  const restaurantId = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
   // Verify current password
   const { data: verified } = await supabase.rpc("verify_staff_password", {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     sameSite: "lax" as const,
     secure:   process.env.NODE_ENV === "production",
   };
-  response.cookies.set("admin_session", signSession(user.role), cookieOpts);
+  response.cookies.set("admin_session", signSession(user.role, restaurantId), cookieOpts);
   response.cookies.set("admin_user_id", user.id, cookieOpts);
   return response;
 }

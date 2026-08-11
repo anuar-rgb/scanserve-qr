@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionRole } from "@/lib/session";
+import { getSessionRole, getSessionRestaurantId } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -11,16 +11,14 @@ function db() {
   );
 }
 
-// GET /api/admin/refund-requests?restaurantId=...
-// Returns all pending refund requests for the restaurant.
-// Uses service role key — bypasses RLS so the hall page doesn't need anon-key access.
+// GET /api/admin/refund-requests
+// Returns all pending refund requests for the session's restaurant.
 export async function GET(req: NextRequest) {
   if (!getSessionRole(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const restaurantId = searchParams.get("restaurantId");
+  const restaurantId = getSessionRestaurantId(req);
 
   if (!restaurantId) {
     return NextResponse.json({ error: "Missing restaurantId" }, { status: 400 });
