@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Clock, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 
 interface AttendanceRecord {
@@ -27,34 +27,12 @@ function fmtHours(h: number) {
   return `${hrs} ч. ${String(mins).padStart(2, "0")} мин.`;
 }
 
-function useElapsed(checkIn: string | null) {
-  const [elapsed, setElapsed] = useState("");
-
-  useEffect(() => {
-    if (!checkIn) { setElapsed(""); return; }
-
-    function tick() {
-      const ms = Date.now() - new Date(checkIn!).getTime();
-      const h = Math.floor(ms / 3_600_000);
-      const m = Math.floor((ms % 3_600_000) / 60_000);
-      const s = Math.floor((ms % 60_000) / 1_000);
-      setElapsed(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
-    }
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [checkIn]);
-
-  return elapsed;
-}
 
 export default function MyAttendancePage() {
   const { t } = useTranslations();
   const [active, setActive]     = useState<AttendanceRecord | null>(null);
   const [history, setHistory]   = useState<AttendanceRecord[]>([]);
   const [loading, setLoading]   = useState(true);
-  const elapsed = useElapsed(active?.check_in ?? null);
-
   const loadStatus = useCallback(async () => {
     setLoading(true);
     try {
@@ -112,13 +90,6 @@ export default function MyAttendancePage() {
               {t.admin.attendanceOnShift} · {t.admin.attendanceCheckIn}: {fmtTime(active.check_in)}
             </p>
 
-            {/* Timer */}
-            <div className="flex items-center gap-3">
-              <Clock size={20} className="text-emerald-500 shrink-0" />
-              <span className="text-3xl font-black tabular-nums text-emerald-700 dark:text-emerald-300 tracking-tight">
-                {elapsed}
-              </span>
-            </div>
           </div>
         ) : (
           /* Not on shift */
