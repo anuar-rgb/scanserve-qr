@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function db() {
   return createClient(
@@ -17,11 +18,9 @@ function db() {
 // conditional UPDATE — so concurrent requests for the same guest are serialized
 // by row-level locking and cannot both succeed when balance is insufficient.
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get("admin_session")?.value;
-  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-  const host = req.headers.get("host") || "";
-  if (!session && !origin.includes(host)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`deduct-bonuses:${ip}`, 30, 60 * 1000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({})) as {

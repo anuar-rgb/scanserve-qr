@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { signSession } from "@/lib/session";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function db() {
   return createClient(
@@ -15,6 +16,11 @@ function db() {
 // Called on first login when must_change_password = true
 // Body: { username, currentPassword, newPassword }
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`change-pw:ip:${ip}`, 10, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Попробуйте позже." }, { status: 429 });
+  }
+
   const body = await request.json().catch(() => ({})) as {
     username?: string;
     currentPassword?: string;
@@ -22,6 +28,10 @@ export async function POST(request: NextRequest) {
   };
 
   const { username, currentPassword, newPassword } = body;
+
+  if (username && !checkRateLimit(`change-pw:user:${username}`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Слишком много попыток. Попробуйте позже." }, { status: 429 });
+  }
 
   if (!username || !currentPassword || !newPassword) {
     return NextResponse.json({ error: "Все поля обязательны" }, { status: 400 });

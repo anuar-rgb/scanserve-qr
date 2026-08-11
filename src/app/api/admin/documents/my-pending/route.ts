@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSessionRole, getSessionRestaurantId } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -15,10 +16,23 @@ const RID = (r: NextRequest) => r.cookies.get("admin_restaurant_id")?.value ?? p
 // Auto-creates employee_signatures records (with sign_token) for any missing ones,
 // so the blocking screen can immediately show sign links.
 export async function GET(req: NextRequest) {
+  const role = getSessionRole(req);
+  const sessionRid = getSessionRestaurantId(req);
+  if (!role || !sessionRid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const staffUserId = req.cookies.get("admin_user_id")?.value;
   if (!staffUserId) return NextResponse.json({ docs: [] });
 
   const supabase = db();
+
+  // Verify the staffUserId cookie belongs to the authenticated restaurant
+  const { data: staffCheck } = await supabase
+    .from("staff_users")
+    .select("id")
+    .eq("id", staffUserId)
+    .eq("restaurant_id", sessionRid)
+    .maybeSingle();
+  if (!staffCheck) return NextResponse.json({ docs: [] });
 
   // All required documents for this restaurant
   const { data: allDocs } = await supabase

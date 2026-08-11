@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSessionRole } from "@/lib/session";
+import { checkRateLimit } from "@/lib/rate-limit";
 import webpush from "web-push";
 
 function db() {
@@ -42,6 +43,11 @@ export async function POST(request: NextRequest) {
 
   // action === "notify" — notify all couriers for a restaurant
   // Called from CartDrawer after placing a delivery order
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`courier-push:${ip}`, 20, 60 * 1000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const body = await request.json().catch(() => null) as {
     restaurantId?: string;
     address?: string;
@@ -50,6 +56,18 @@ export async function POST(request: NextRequest) {
 
   const restaurantId = body?.restaurantId ?? RID(request);
   if (!restaurantId) return NextResponse.json({ error: "restaurantId required" }, { status: 400 });
+
+  // Verify the order exists for this restaurant — prevents arbitrary push spam
+  const orderId = body?.orderId;
+  if (!orderId) return NextResponse.json({ error: "orderId required" }, { status: 400 });
+  const supabaseCheck = db();
+  const { data: orderCheck } = await supabaseCheck
+    .from("orders")
+    .select("id")
+    .eq("id", orderId)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (!orderCheck) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   const vapidPublic  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;

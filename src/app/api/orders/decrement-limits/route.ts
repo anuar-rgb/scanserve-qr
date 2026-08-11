@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function db() {
   return createClient(
@@ -18,11 +19,9 @@ function db() {
 // that has a limit set (remaining_qty IS NOT NULL).
 // Uses GREATEST(0, remaining_qty - qty) — never goes below zero.
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get("admin_session")?.value;
-  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-  const host = req.headers.get("host") || "";
-  if (!session && !origin.includes(host)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`decrement-limits:${ip}`, 30, 60 * 1000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({})) as { orderId?: string };
