@@ -378,6 +378,7 @@ export function ProfileSheet({
               phone={phone}     setPhone={setPhone}
               loading={loading}
               error={error}
+              disableRegister={restaurantId === "demo"}
               inputStyle={inputStyle}
               isDark={isDark}
               surface={surface}
@@ -413,6 +414,7 @@ function AuthView({
   name, setName,
   phone, setPhone,
   loading, error,
+  disableRegister,
   inputStyle,
   isDark, surface, border, textPri, textMut, isRu,
   onSend,
@@ -422,40 +424,43 @@ function AuthView({
   name: string;  setName:  (v: string) => void;
   phone: string; setPhone: (v: string) => void;
   loading: boolean; error: string | null;
+  disableRegister?: boolean;
   inputStyle: (extra?: React.CSSProperties) => React.CSSProperties;
   isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
   onSend: () => void;
 }) {
   return (
     <div>
-      {/* Tab switcher */}
-      <div style={{
-        display: "flex",
-        background: isDark ? "#1A1A1A" : "#EBEBED",
-        borderRadius: 14, padding: 4, gap: 4, marginBottom: 24,
-      }}>
-        {(["login", "register"] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              flex: 1, padding: "10px 0",
-              borderRadius: 10, border: "none",
-              background: tab === t ? surface : "transparent",
-              color: tab === t ? textPri : textMut,
-              fontSize: 14, fontWeight: tab === t ? 700 : 500,
-              cursor: "pointer",
-              boxShadow: tab === t ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
-              transition: "all 0.2s",
-              fontFamily: "inherit",
-            }}
-          >
-            {t === "login"
-              ? (isRu ? "Вход" : "Sign In")
-              : (isRu ? "Регистрация" : "Sign Up")}
-          </button>
-        ))}
-      </div>
+      {/* Tab switcher — hidden on demo */}
+      {!disableRegister && (
+        <div style={{
+          display: "flex",
+          background: isDark ? "#1A1A1A" : "#EBEBED",
+          borderRadius: 14, padding: 4, gap: 4, marginBottom: 24,
+        }}>
+          {(["login", "register"] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                flex: 1, padding: "10px 0",
+                borderRadius: 10, border: "none",
+                background: tab === t ? surface : "transparent",
+                color: tab === t ? textPri : textMut,
+                fontSize: 14, fontWeight: tab === t ? 700 : 500,
+                cursor: "pointer",
+                boxShadow: tab === t ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
+                transition: "all 0.2s",
+                fontFamily: "inherit",
+              }}
+            >
+              {t === "login"
+                ? (isRu ? "Вход" : "Sign In")
+                : (isRu ? "Регистрация" : "Sign Up")}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* Name — register only */}
@@ -543,23 +548,25 @@ function AuthView({
         </button>
       </div>
 
-      <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: textMut }}>
-        {tab === "login"
-          ? (isRu ? "Ещё нет аккаунта?" : "No account yet?")
-          : (isRu ? "Уже есть аккаунт?" : "Already have an account?")}{" "}
-        <button
-          onClick={() => setTab(tab === "login" ? "register" : "login")}
-          style={{
-            background: "none", border: "none",
-            color: "#7C3AED", fontWeight: 700, fontSize: 13,
-            cursor: "pointer", padding: 0, fontFamily: "inherit",
-          }}
-        >
+      {!disableRegister && (
+        <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: textMut }}>
           {tab === "login"
-            ? (isRu ? "Зарегистрироваться" : "Sign up")
-            : (isRu ? "Войти" : "Sign in")}
-        </button>
-      </p>
+            ? (isRu ? "Ещё нет аккаунта?" : "No account yet?")
+            : (isRu ? "Уже есть аккаунт?" : "Already have an account?")}{" "}
+          <button
+            onClick={() => setTab(tab === "login" ? "register" : "login")}
+            style={{
+              background: "none", border: "none",
+              color: "#7C3AED", fontWeight: 700, fontSize: 13,
+              cursor: "pointer", padding: 0, fontFamily: "inherit",
+            }}
+          >
+            {tab === "login"
+              ? (isRu ? "Зарегистрироваться" : "Sign up")
+              : (isRu ? "Войти" : "Sign in")}
+          </button>
+        </p>
+      )}
     </div>
   );
 }
