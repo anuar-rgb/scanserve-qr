@@ -382,6 +382,7 @@ export default function HallPage() {
   const userId                      = useUserId();
   const isWaiter                    = role === "waiter";
   const isChef                      = role === "chef";
+  const isCashier                   = role === "cashier";
   const { calls: waiterCallsList }  = useWaiterCalls();
   const callingTables               = useMemo(
     () => new Set(waiterCallsList.filter(c => c.status === "pending").map(c => c.table_label)),
@@ -886,7 +887,7 @@ export default function HallPage() {
           </button>
         )}
 
-        {!isWaiter && !isChef && activeTab === "dine-in" && editMode && (
+        {!isWaiter && !isChef && !isCashier && activeTab === "dine-in" && editMode && (
           <button
             onClick={() => setAddOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors shrink-0"
@@ -896,7 +897,7 @@ export default function HallPage() {
           </button>
         )}
 
-        {!isWaiter && !isChef && activeTab === "dine-in" && (
+        {!isWaiter && !isChef && !isCashier && activeTab === "dine-in" && (
           <button
             onClick={editMode ? exitEditMode : enterEditMode}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
@@ -912,7 +913,7 @@ export default function HallPage() {
       </header>
 
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
-      <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-1 px-4"}`}>
+      <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-0 px-0"}`}>
         {([
           { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
           { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
@@ -929,20 +930,18 @@ export default function HallPage() {
               setActiveTab(id);
               if (id !== "dine-in") setEditMode(false);
             }}
-            className={`relative font-medium transition-colors border-b-2 -mb-px ${
-              isChef
-                ? "flex flex-col flex-1 items-center justify-center gap-1 py-3 px-1 rounded-none"
-                : "flex items-center gap-1.5 px-2 sm:px-4 py-2.5 rounded-t-lg"
+            className={`relative font-medium transition-colors border-b-2 -mb-px flex flex-col flex-1 items-center justify-center gap-1.5 rounded-none ${
+              isChef ? "py-4 px-2" : "py-3.5 px-2"
             } ${
               activeTab === id
                 ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-violet-50/60 dark:bg-violet-900/10"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50"
             }`}
           >
-            <Icon size={isChef ? 20 : 14} />
-            <span className={isChef ? "text-[11px] font-semibold leading-tight text-center" : "hidden sm:inline text-sm"}>{label}</span>
+            <Icon size={isChef ? 24 : 22} />
+            <span className="text-[10px] font-semibold leading-tight text-center">{label}</span>
             {count > 0 && (
-              <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+              <span className={`absolute top-1.5 right-1.5 min-w-[20px] h-[20px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
                 activeTab === id
                   ? "bg-violet-600 text-white"
                   : id === "preorder"
