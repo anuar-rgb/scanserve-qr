@@ -6,6 +6,7 @@ import {
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
   ArrowLeft, Search, Minus, UtensilsCrossed, Package, Bike, CheckCircle2, MessageSquare,
   Percent, ArrowLeftRight, ChevronDown, ChevronUp, Move, CalendarDays, User, UserCog, MapPin, Phone, ArrowRight, Shuffle, Landmark, Bell, Star, RotateCcw,
+  Wallet, Banknote, Smartphone, CreditCard,
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
@@ -364,7 +365,7 @@ function parseOpeningTime(wh: string | null): number | null {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation";
+type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation" | "cash-report";
 
 export default function HallPage() {
   const [tables, setTables]         = useState<DbRestaurantTable[]>([]);
@@ -915,14 +916,16 @@ export default function HallPage() {
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
       <div className={`flex shrink-0 border-b border-border bg-background pt-1 ${isChef ? "gap-0 px-0" : "gap-0 px-0"}`}>
         {([
-          { id: "dine-in",  icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
-          { id: "takeaway", icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
-          { id: "delivery", icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
-          { id: "preorder", icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true, chefHide: false },
-          { id: "rotation", icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true, chefHide: true  },
-        ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean; chefHide?: boolean }>)
+          { id: "dine-in",     icon: UtensilsCrossed, label: "В заведении", count: occupiedCount },
+          { id: "takeaway",    icon: Package,          label: "С собой",     count: takeawayOrders.length,  waiterHide: true },
+          { id: "delivery",    icon: Bike,             label: "Доставка",    count: deliveryOrders.length,  waiterHide: true },
+          { id: "preorder",    icon: CalendarDays,     label: "Предзаказы",  count: upcomingPreorderCount,  waiterHide: true, chefHide: false },
+          { id: "rotation",    icon: Shuffle,          label: "Ротация",     count: 0,                      waiterHide: true, chefHide: true  },
+          { id: "cash-report", icon: Wallet,           label: "Касса",       count: 0,                      waiterHide: true, chefHide: true, cashierOnly: true },
+        ] as Array<{ id: ActiveTab; icon: React.ElementType; label: string; count: number; waiterHide?: boolean; chefHide?: boolean; cashierOnly?: boolean }>)
         .filter((t) => !(isWaiter && t.waiterHide))
         .filter((t) => !(isChef && t.chefHide))
+        .filter((t) => !(t.cashierOnly && !isCashier))
         .map(({ id, icon: Icon, label, count }) => (
           <button
             key={id}
@@ -1149,6 +1152,10 @@ export default function HallPage() {
           tablesWithStatus={tablesWithStatus}
           onRefresh={load}
         />
+      )}
+
+      {activeTab === "cash-report" && isCashier && (
+        <CashReportTab shift={activeShift ?? null} />
       )}
 
       {/* Modals */}
@@ -1497,6 +1504,135 @@ function RotationTab({
             Нажмите на стол, чтобы назначить или снять привязку · Красная точка = занят
           </p>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── CashReportTab ─────────────────────────────────────────────────────────────
+
+function CashReportTab({ shift }: { shift: { id: string; opened_at: string } | null }) {
+  type ReportData = {
+    revenue: number;
+    cash: number;
+    kaspi: number;
+    card: number;
+    ordersCount: number;
+    openedAt: string;
+  };
+
+  const [data, setData]             = useState<ReportData | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt]   = useState<Date | null>(null);
+
+  async function fetchReport(manual = false) {
+    if (!shift?.id) { setLoading(false); return; }
+    if (manual) setRefreshing(true);
+    try {
+      const r = await fetch(`/api/admin/shift/report?shiftId=${shift.id}`);
+      if (r.ok) { setData(await r.json()); setUpdatedAt(new Date()); }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => { fetchReport(); }, [shift?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!shift?.id) return;
+    const iv = setInterval(() => fetchReport(), 30_000);
+    return () => clearInterval(iv);
+  }, [shift?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fmt     = (n: number) => n.toLocaleString("ru-RU");
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  if (!shift) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+        <Wallet size={36} className="text-muted-foreground/40" />
+        <p className="font-semibold text-sm">Смена не открыта</p>
+        <p className="text-xs text-muted-foreground">Откройте смену, чтобы видеть кассовый отчёт</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 size={20} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const avgCheck   = data && data.ordersCount > 0 ? Math.round(data.revenue / data.ordersCount) : 0;
+  const shiftStart = fmtTime(shift.opened_at);
+  const nowTime    = fmtTime(new Date().toISOString());
+  const dateStr    = new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-sm">Отчёт за смену</p>
+          <p className="text-xs text-muted-foreground">{shiftStart} — {nowTime} · {dateStr}</p>
+        </div>
+        <button
+          onClick={() => fetchReport(true)}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent hover:bg-muted text-foreground transition-colors disabled:opacity-50"
+        >
+          <RotateCcw size={12} className={refreshing ? "animate-spin" : ""} />
+          Обновить
+        </button>
+      </div>
+
+      {/* Main revenue card */}
+      <div className="rounded-2xl bg-violet-600 dark:bg-violet-700 p-5 text-white">
+        <p className="text-xs font-medium text-violet-200 mb-1">Общая выручка</p>
+        <p className="text-3xl font-bold tracking-tight">{fmt(data?.revenue ?? 0)} ₸</p>
+        <div className="flex items-center gap-5 mt-3 pt-3 border-t border-violet-500/40">
+          <div>
+            <p className="text-[10px] text-violet-200">Чеков</p>
+            <p className="text-sm font-semibold">{data?.ordersCount ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-violet-200">Средний чек</p>
+            <p className="text-sm font-semibold">{fmt(avgCheck)} ₸</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment breakdown */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Разбивка по оплате</p>
+        {([
+          { label: "Наличные",  amount: data?.cash  ?? 0, Icon: Banknote,   color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30" },
+          { label: "Kaspi / QR",amount: data?.kaspi ?? 0, Icon: Smartphone, color: "text-orange-500 dark:text-orange-400",   bg: "bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800/30"     },
+          { label: "Карта",     amount: data?.card  ?? 0, Icon: CreditCard, color: "text-blue-500 dark:text-blue-400",       bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30"             },
+        ] as const).map(({ label, amount, Icon, color, bg }) => (
+          <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${bg}`}>
+            <div className={`w-8 h-8 rounded-lg bg-white dark:bg-background flex items-center justify-center shrink-0 ${color}`}>
+              <Icon size={16} />
+            </div>
+            <span className="flex-1 text-sm font-medium">{label}</span>
+            <span className="text-sm font-bold">{fmt(amount)} ₸</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Last updated */}
+      {updatedAt && (
+        <p className="text-[10px] text-muted-foreground text-center pb-2">
+          Обновлено в {updatedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · автообновление каждые 30 с
+        </p>
       )}
     </div>
   );
