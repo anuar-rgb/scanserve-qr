@@ -214,6 +214,7 @@ const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const R  = { sm: 10, md: 20, lg: 24, full: 999 } as const;
 const HEADER_H  = 80;                     // 64px height + 8px top margin + 8px gap below
 const SLIDER_H  = "min(485px, 133vw)";   // hero slider height — ~485px on any phone
+const IS_DEMO   = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -3179,7 +3180,8 @@ export function MenuTemplate({
                   <Search size={17} />
                 </button>
 
-                {/* Profile icon */}
+                {/* Profile icon — hidden in demo mode */}
+                {!IS_DEMO && (
                 <button
                   onClick={() => setProfileOpen(true)}
                   aria-label={lang === "kz" ? "Профиль" : lang === "ru" ? "Профиль" : "Profile"}
@@ -3200,6 +3202,7 @@ export function MenuTemplate({
                     }} />
                   )}
                 </button>
+                )}
 
                 {/* Language dropdown */}
                 <div ref={langRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -3612,7 +3615,8 @@ export function MenuTemplate({
         highlightOrderId={initialOrderId}
       />
 
-      {/* ── Guest profile sheet ────────────────────────────────────────────── */}
+      {/* ── Guest profile sheet — disabled in demo mode ─────────────────── */}
+      {!IS_DEMO && (
       <ProfileSheet
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
@@ -3626,6 +3630,7 @@ export function MenuTemplate({
         onOpenOrders={() => { setProfileOpen(false); setOrdersOpen(true); }}
         onSeen={() => setHasUnseenOrder(false)}
       />
+      )}
 
       {/* ── Call Waiter modal ─────────────────────────────────────────────── */}
       <WaiterModal
