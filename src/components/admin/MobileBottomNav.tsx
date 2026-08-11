@@ -368,17 +368,10 @@ export default function MobileBottomNav() {
                 <span className="flex-1 min-w-0 text-sm text-emerald-700 dark:text-emerald-400 truncate">
                   Смена с {fmtTime(shift.opened_at)}
                 </span>
-                {isOwner && !confirmClose && (
+                {isOwner && (
                   <button onClick={() => setConfirmClose(true)} className="text-xs text-red-400 hover:text-red-500 font-medium transition-colors">
                     Закрыть
                   </button>
-                )}
-                {isOwner && confirmClose && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={handleCloseShift} className="text-xs font-semibold text-red-500">Да</button>
-                    <span className="text-zinc-300 dark:text-zinc-700">·</span>
-                    <button onClick={() => setConfirmClose(false)} className="text-xs text-zinc-400">Нет</button>
-                  </div>
                 )}
               </div>
             )}
@@ -439,6 +432,37 @@ export default function MobileBottomNav() {
           onScan={handleCheckoutScan}
           onClose={() => setCheckoutScanning(false)}
         />
+      )}
+
+      {/* Confirm shift-close modal */}
+      {confirmClose && blockedTables === null && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center mb-3">
+                <AlertTriangle size={20} className="text-amber-500" />
+              </div>
+              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Закрыть смену?</h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                Все активные смены сотрудников закроются автоматически. Это действие нельзя отменить.
+              </p>
+            </div>
+            <div className="px-5 py-4 border-t border-zinc-200 dark:border-zinc-800 flex gap-2">
+              <button
+                onClick={() => setConfirmClose(false)}
+                className="flex-1 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleCloseShift}
+                className="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-600 transition-colors"
+              >
+                Закрыть смену
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Blocked shift-close modal */}
