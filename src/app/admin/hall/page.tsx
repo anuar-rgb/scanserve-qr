@@ -2700,7 +2700,7 @@ function OrderSlotPanel({
                   Пречек
                 </button>
               )}
-              {!isChef && (
+              {!isChef && !isWaiter && (
               <button
                 onClick={() => handleKitchenPrint(order, { tableLabel: typeLabel, restaurantId: RESTAURANT_ID })}
                 className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -4582,7 +4582,7 @@ function TablePanel({
                     Пречек
                   </button>
                 )}
-                {!isChef && (
+                {!isChef && !isWaiter && (
                 <button
                   onClick={() => handleKitchenPrint(activeOrder, { tableLabel: `Стол ${table.label}`, restaurantId: RESTAURANT_ID })}
                   className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
