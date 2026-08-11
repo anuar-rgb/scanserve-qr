@@ -420,6 +420,22 @@ export function ProfileSheet({
   );
 }
 
+// ── Phone mask: +7 (XXX) XXX-XX-XX ──────────────────────────────────────────
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").replace(/^[78]/, "").slice(0, 10);
+  if (!digits) return "";
+  const p1 = digits.slice(0, 3);
+  const p2 = digits.slice(3, 6);
+  const p3 = digits.slice(6, 8);
+  const p4 = digits.slice(8, 10);
+  let out = `+7 (${p1}`;
+  if (digits.length >= 4) out += `) ${p2}`;
+  else if (digits.length === 3) out += `)`;
+  if (digits.length >= 7) out += `-${p3}`;
+  if (digits.length >= 9) out += `-${p4}`;
+  return out;
+}
+
 // ── Auth form (step = "form") ─────────────────────────────────────────────────
 
 function AuthView({
@@ -499,8 +515,17 @@ function AuthView({
             <input
               type="tel"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="+7 700 000 00 00"
+              onChange={e => {
+                const newRaw = e.target.value;
+                const newDigits = newRaw.replace(/\D/g, "").replace(/^[78]/, "").slice(0, 10);
+                const oldDigits = phone.replace(/\D/g, "").replace(/^[78]/, "");
+                if (newRaw.length < phone.length && newDigits.length >= oldDigits.length && oldDigits.length > 0) {
+                  setPhone(formatPhone(oldDigits.slice(0, -1)));
+                } else {
+                  setPhone(formatPhone(newRaw));
+                }
+              }}
+              placeholder="+7 (700) 000-00-00"
               style={inputStyle()}
               autoComplete="tel"
               inputMode="tel"
