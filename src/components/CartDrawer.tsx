@@ -766,6 +766,10 @@ export function CartDrawer({
 
   const handlePlaceOrder = async () => {
     if (!canPlaceOrder || loading) return;
+    if (isDemo) {
+      setBonusError(lang === "en" ? "This is a demo — orders are disabled" : "Это демо — заказы не отправляются");
+      return;
+    }
     setBonusError("");
     setLoading(true);
     const orderItems = items.map(({ dish, qty, currency: c, selectedModifiers, cartKey }) => {
