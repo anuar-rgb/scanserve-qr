@@ -33,7 +33,16 @@ export interface ProfileSheetProps {
   onPartialRefund: (orderId: string, itemIndex: number, qty: number) => void;
   onOpenOrders: () => void;
   onSeen: () => void;
+  isDemo?: boolean;
 }
+
+const DEMO_SESSION: GuestSession = {
+  id: "demo-guest-id",
+  name: "Мади Бекенов",
+  phone: "+7 (705) 555-77-88",
+  email: "demo@scanserve.qr",
+  bonusAmount: 340,
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +92,7 @@ export function ProfileSheet({
   open, onClose, restaurantId, lang, theme,
   orders, whatsappPhone,
   onRefundRequest, onPartialRefund, onOpenOrders, onSeen,
+  isDemo = false,
 }: ProfileSheetProps) {
 
   const isDark  = theme === "dark";
@@ -94,7 +104,7 @@ export function ProfileSheet({
   const inputBg = isDark ? "#1A1A1A" : "#FFFFFF";
 
   // ── Session ──────────────────────────────────────────────────────────────
-  const [session, setSession] = useState<GuestSession | null>(null);
+  const [session, setSession] = useState<GuestSession | null>(isDemo ? DEMO_SESSION : null);
 
   // ── Auth form state ──────────────────────────────────────────────────────
   const [tab,          setTab]          = useState<"login" | "register">("login");
@@ -111,14 +121,14 @@ export function ProfileSheet({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    setSession(loadSession());
-  }, []);
+    if (!isDemo) setSession(loadSession());
+  }, [isDemo]);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     onSeen();
-    if (session) {
+    if (session && !isDemo) {
       fetch(`/api/guest/profile?guestId=${session.id}&restaurantId=${restaurantId}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => {
@@ -334,14 +344,15 @@ export function ProfileSheet({
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 32px" }}>
           {session ? (
             <LoggedInView
-              session={session}
-              orders={orders}
+              session={isDemo ? DEMO_SESSION : session}
+              orders={isDemo ? [] : orders}
               isDark={isDark}
               surface={surface}
               border={border}
               textPri={textPri}
               textMut={textMut}
               isRu={isRu}
+              isDemo={isDemo}
               onLogout={handleLogout}
               onOpenOrders={() => { onClose(); onOpenOrders(); }}
             />
@@ -692,16 +703,18 @@ function OtpView({
 function LoggedInView({
   session, orders,
   isDark, surface, border, textPri, textMut, isRu,
+  isDemo,
   onLogout, onOpenOrders,
 }: {
   session: GuestSession;
   orders: StoredOrder[];
   isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
+  isDemo?: boolean;
   onLogout: () => void;
   onOpenOrders: () => void;
 }) {
   const displayName  = session.name?.trim() || session.email;
-  const initials     = displayName.slice(0, 2).toUpperCase();
+  const initials     = isDemo ? "МБ" : displayName.slice(0, 2).toUpperCase();
   const recentOrders = orders.slice(0, 3);
 
   const [pushPerm, setPushPerm] = useState<NotificationPermission | "unsupported">("default");

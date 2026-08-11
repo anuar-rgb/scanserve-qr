@@ -3490,6 +3490,7 @@ export function MenuTemplate({
         onPartialRefund={handlePartialRefund}
         onOpenOrders={() => { setProfileOpen(false); setOrdersOpen(true); }}
         onSeen={() => setHasUnseenOrder(false)}
+        isDemo={restaurantId === "demo"}
       />
 
       {/* ── Call Waiter modal ─────────────────────────────────────────────── */}

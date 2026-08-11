@@ -986,7 +986,7 @@ export function CartDrawer({
     if (reviewRating === 0 || reviewLoading) return;
     setReviewLoading(true);
     try {
-      if (isConfigured) {
+      if (isConfigured && !isDemo) {
         await supabase.from("reviews").insert({
           restaurant_id: RESTAURANT_ID,
           order_id: placedOrderId,
