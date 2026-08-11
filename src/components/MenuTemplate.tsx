@@ -3180,8 +3180,7 @@ export function MenuTemplate({
                   <Search size={17} />
                 </button>
 
-                {/* Profile icon — hidden in demo mode */}
-                {!IS_DEMO && (
+                {/* Profile icon */}
                 <button
                   onClick={() => setProfileOpen(true)}
                   aria-label={lang === "kz" ? "Профиль" : lang === "ru" ? "Профиль" : "Profile"}
@@ -3202,7 +3201,6 @@ export function MenuTemplate({
                     }} />
                   )}
                 </button>
-                )}
 
                 {/* Language dropdown */}
                 <div ref={langRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -3615,8 +3613,7 @@ export function MenuTemplate({
         highlightOrderId={initialOrderId}
       />
 
-      {/* ── Guest profile sheet — disabled in demo mode ─────────────────── */}
-      {!IS_DEMO && (
+      {/* ── Guest profile sheet ────────────────────────────────────────────── */}
       <ProfileSheet
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
@@ -3630,7 +3627,6 @@ export function MenuTemplate({
         onOpenOrders={() => { setProfileOpen(false); setOrdersOpen(true); }}
         onSeen={() => setHasUnseenOrder(false)}
       />
-      )}
 
       {/* ── Call Waiter modal ─────────────────────────────────────────────── */}
       <WaiterModal
