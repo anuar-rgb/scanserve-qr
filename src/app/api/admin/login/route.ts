@@ -38,14 +38,17 @@ export async function POST(request: NextRequest) {
 
   const user = data[0] as { id: string; role: string; display_name: string | null; restaurant_id: string };
 
-  const { data: staffRow } = await supabase
-    .from("staff_users")
-    .select("must_change_password")
-    .eq("id", user.id)
-    .maybeSingle();
+  const ADMIN_ROLES = ["owner", "manager", "supervisor"];
+  if (ADMIN_ROLES.includes(user.role)) {
+    const { data: staffRow } = await supabase
+      .from("staff_users")
+      .select("must_change_password")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  if (staffRow?.must_change_password) {
-    return NextResponse.json({ mustChangePassword: true, userId: user.id });
+    if (staffRow?.must_change_password) {
+      return NextResponse.json({ mustChangePassword: true, userId: user.id });
+    }
   }
 
   const response = NextResponse.json({ ok: true, role: user.role, displayName: user.display_name });

@@ -37,12 +37,21 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
 
-  // Force employee to set their own password on next login
-  await supabase
+  // Only require password change for admin roles — staff log in directly with the admin-set password
+  const ADMIN_ROLES = ["owner", "manager", "supervisor"];
+  const { data: staffRow } = await supabase
     .from("staff_users")
-    .update({ must_change_password: true })
+    .select("role")
     .eq("id", id)
-    .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!);
+    .maybeSingle();
+
+  if (staffRow?.role && ADMIN_ROLES.includes(staffRow.role)) {
+    await supabase
+      .from("staff_users")
+      .update({ must_change_password: true })
+      .eq("id", id)
+      .eq("restaurant_id", request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!);
+  }
 
   return NextResponse.json({ ok: true });
 }

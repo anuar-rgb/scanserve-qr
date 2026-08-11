@@ -87,11 +87,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  // Save phone + must_change_password flag (RPC doesn't accept extra fields)
+  const ADMIN_ROLES = ["owner", "manager", "supervisor"];
+  // Save phone; only require password change for admin roles
   await supabase
     .from("staff_users")
     .update({
-      must_change_password: true,
+      must_change_password: ADMIN_ROLES.includes(role),
       ...(phone?.trim() ? { phone: phone.trim() } : {}),
     })
     .eq("id", data as string)
