@@ -15,19 +15,34 @@ function getRestaurantId(request: NextRequest) {
   return request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 }
 
-function requireOwner(request: NextRequest) {
-  const role = getSessionRole(request);
-  return role === "owner" || role === "manager" || role === "supervisor";
-}
+const POS_ROLES = new Set(["cashier", "waiter", "chef", "bartender", "supervisor"]);
 
 // GET /api/admin/staff — list all staff for this restaurant
+// POS roles (cashier, waiter, chef, …) get a minimal name-only view for rotation display
 export async function GET(request: NextRequest) {
   const sessionRole = getSessionRole(request);
-  if (sessionRole !== "owner" && sessionRole !== "manager") {
+  const isAdmin = sessionRole === "owner" || sessionRole === "manager";
+  const isPOS   = sessionRole != null && POS_ROLES.has(sessionRole);
+
+  if (!isAdmin && !isPOS) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = serverSupabase();
+
+  if (isPOS && !isAdmin) {
+    // POS roles only need names for rotation — no sensitive columns
+    const { data, error } = await supabase
+      .from("staff_users")
+      .select("id, username, display_name")
+      .eq("restaurant_id", getRestaurantId(request))
+      .eq("is_active", true)
+      .order("display_name", { ascending: true });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ staff: data });
+  }
+
+  // Admin view — full columns
   let query = supabase
     .from("staff_users")
     .select("id, username, role, display_name, is_active, phone, created_at")
