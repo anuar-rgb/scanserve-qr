@@ -412,8 +412,6 @@ export interface CartDrawerProps {
   twoGisApiKey?: string;
   /** true = came via QR (in-restaurant), false = external link (from home), undefined = unknown */
   isInRestaurant?: boolean;
-  /** true = demo page — skip all DB writes and WhatsApp redirect */
-  isDemo?: boolean;
 }
 
 export function CartDrawer({
@@ -438,7 +436,6 @@ export function CartDrawer({
   is2gisEnabled,
   twoGisApiKey,
   isInRestaurant,
-  isDemo = false,
 }: CartDrawerProps) {
   const isTableLocked = Boolean(initialTableNumber);
   const defaultOrderType: OrderType | null = isTableLocked ? "dine-in" : isInRestaurant === true ? "dine-in" : null;
@@ -819,7 +816,7 @@ export function CartDrawer({
 
     if (orderType === "dine-in") {
       // Direct Supabase insert — no WhatsApp redirect for table orders
-      if (isConfigured && !isDemo) {
+      if (isConfigured) {
         // Auto-assign the waiter responsible for this table (from rotation)
         let assignedWaiterId: string | null = null;
         if (tableNumber.trim()) {
@@ -880,7 +877,7 @@ export function CartDrawer({
       const bankInfos = paymentBanks.map(b => ({ bankName: b.bank_name, phone: b.phone, recipientName: b.recipient_name ?? undefined }));
       const url = buildWhatsAppUrl(order, whatsappPhone, lang, kaspiPhone, bankInfos.length ? bankInfos : cardTransferOptions, orderId, tipsAmount || undefined);
 
-      if (isConfigured && !isDemo) {
+      if (isConfigured) {
         // Deduct bonuses atomically BEFORE inserting the order (same reasoning as dine-in branch above).
         if (bonusesApplied > 0 && guestSession?.id) {
           const deducted = await deductBonusesNow(guestSession.id, bonusesApplied);
@@ -937,12 +934,10 @@ export function CartDrawer({
         }).catch(() => {/* ignore */});
       }
 
-      if (!isDemo) {
-        if (isMobile) {
-          window.location.href = url;
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
       }
     }
 

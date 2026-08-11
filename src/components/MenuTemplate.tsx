@@ -3595,7 +3595,6 @@ export function MenuTemplate({
         is2gisEnabled={restaurant.is2gisEnabled}
         twoGisApiKey={restaurant.twoGisApiKey}
         isInRestaurant={isInRestaurant}
-        isDemo={restaurantId === "demo"}
       />
 
       {/* ── Orders history modal ──────────────────────────────────────────── */}
