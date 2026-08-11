@@ -2,8 +2,8 @@ import { createHmac } from "crypto";
 import type { NextRequest } from "next/server";
 
 function secret(): string {
-  const s = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!s) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  const s = process.env.SESSION_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!s) throw new Error("SESSION_SECRET is not set");
   return s;
 }
 
