@@ -13,6 +13,22 @@ function db() {
   );
 }
 
+function isValidPushEndpoint(endpoint: unknown): boolean {
+  if (typeof endpoint !== "string") return false;
+  let parsed: URL;
+  try { parsed = new URL(endpoint); } catch { return false; }
+  if (parsed.protocol !== "https:") return false;
+  const h = parsed.hostname.toLowerCase();
+  if (
+    h === "localhost" || h === "::1" ||
+    h.startsWith("127.") || h.startsWith("10.") || h.startsWith("192.168.") ||
+    h === "169.254.169.254" || h === "metadata.google.internal"
+  ) return false;
+  const m = h.match(/^172\.(\d{1,3})\./);
+  if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return false;
+  return true;
+}
+
 const RID = (r: NextRequest) =>
   r.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID!;
 
@@ -30,6 +46,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => null) as { subscription?: unknown } | null;
     if (!body?.subscription) return NextResponse.json({ error: "Missing subscription" }, { status: 400 });
+
+    const endpoint = (body.subscription as { endpoint?: unknown })?.endpoint;
+    if (!isValidPushEndpoint(endpoint)) {
+      return NextResponse.json({ error: "Invalid subscription endpoint" }, { status: 400 });
+    }
 
     const supabase = db();
     const { error } = await supabase
