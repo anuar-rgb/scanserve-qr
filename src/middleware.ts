@@ -32,6 +32,12 @@ async function verifySession(signed: string): Promise<string | null> {
   return sig === expected ? payload : null;
 }
 
+// Payload format is "role:restaurantId" — extract just the role part.
+function roleFromPayload(payload: string | null): string | null {
+  if (!payload) return null;
+  return payload.split(":")[0] ?? null;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("admin_session")?.value;
@@ -47,7 +53,7 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === "/login") {
     if (sessionCookie) {
-      const role = await verifySession(sessionCookie);
+      const role = roleFromPayload(await verifySession(sessionCookie));
       if (role) {
         const dest = ROLE_HOME[role] ?? (POS_ONLY_ROLES.includes(role) ? "/admin/hall" : "/admin/analytics");
         return NextResponse.redirect(new URL(dest, request.url));
@@ -60,7 +66,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const role = await verifySession(sessionCookie);
+  const role = roleFromPayload(await verifySession(sessionCookie));
   if (!role) {
     const resp = NextResponse.redirect(new URL("/login", request.url));
     resp.cookies.delete("admin_session");

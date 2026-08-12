@@ -4,6 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 
+const POS_ONLY_ROLES = new Set([
+  "cashier", "waiter", "chef", "bartender", "hostess", "courier", "cleaner",
+  "doorman", "sommelier", "senior_waiter", "runner", "storekeeper", "accountant",
+]);
+const ROLE_HOME: Record<string, string> = {
+  courier:     "/admin/delivery",
+  storekeeper: "/admin/warehouse",
+  accountant:  "/admin/billing",
+  cashier:     "/admin/invoices",
+  cleaner:     "/admin/my-attendance",
+  doorman:     "/admin/my-attendance",
+};
+function homeForRole(role: string): string {
+  return ROLE_HOME[role] ?? (POS_ONLY_ROLES.has(role) ? "/admin/hall" : "/admin/analytics");
+}
+
 export default function AdminLogin() {
   const router = useRouter();
 
@@ -41,7 +57,7 @@ export default function AdminLogin() {
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ username, password }),
     });
-    const data = await res.json() as { ok?: boolean; mustChangePassword?: boolean; error?: string };
+    const data = await res.json() as { ok?: boolean; role?: string; mustChangePassword?: boolean; error?: string };
 
     if (res.ok && data.mustChangePassword) {
       // Staff must set their own password before proceeding
@@ -51,7 +67,7 @@ export default function AdminLogin() {
     }
 
     if (res.ok) {
-      router.replace("/admin/dashboard");
+      router.replace(homeForRole(data.role ?? ""));
     } else {
       setError(data.error ?? "Login failed.");
       setLoading(false);
@@ -74,7 +90,8 @@ export default function AdminLogin() {
     const data = await res.json() as { ok?: boolean; error?: string };
 
     if (res.ok) {
-      router.replace("/admin/dashboard");
+      // must_change_password only applies to owner/manager/supervisor
+      router.replace("/admin/analytics");
     } else {
       setError(data.error ?? "Ошибка. Попробуйте ещё раз.");
       setChanging(false);
