@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 // ─── Scroll-reveal helper ──────────────────────────────────────────────────────
 
@@ -95,6 +94,19 @@ function AuroraBackground() {
   );
 }
 
+// Force light theme on the landing page so background is always #E7E9EB.
+// Restores previous class on unmount so admin/menu keep their own theme.
+function useForceLightTheme() {
+  useEffect(() => {
+    const html = document.documentElement;
+    const hadDark = html.classList.contains("dark");
+    html.classList.remove("dark");
+    return () => {
+      if (hadDark) html.classList.add("dark");
+    };
+  }, []);
+}
+
 function useTrackSections() {
   const tracked = useRef(new Set<string>());
   const sessionId = useRef("");
@@ -171,7 +183,6 @@ function Navbar() {
         >
           {t.nav.signIn}
         </a>
-        <ThemeSwitcher />
         <LanguageSwitcher />
         <a href="#pricing" className="btn-primary text-sm py-2 px-4">
           {t.nav.getStarted}
@@ -937,6 +948,7 @@ function Footer() {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  useForceLightTheme();
   useTrackSections();
 
   return (
