@@ -11,20 +11,94 @@ import {
   Palette,
   ArrowRight,
   Check,
-  Star,
   ChevronRight,
+  Users,
+  Clock,
+  TrendingUp,
+  Shield,
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-// ─── Scroll-reveal helper ──────────────────────────────────────────────────────
+// ─── Design constants ─────────────────────────────────────────────────────────
 
-const fadeUp = {
-  initial: { opacity: 0, y: 28 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.6, ease: [0.21, 0.47, 0.32, 0.98] as const },
-};
+const BLUE = "#1D4ED8";
+const BLUE_HOVER = "#1E40AF";
+const BLUE_LIGHT = "#60A5FA";
+const GRAPHITE = "#242424";
+const PEARL = "#E7E9EB";
+const WHITE = "#FFFFFF";
+const DARK_BG = "#1A1A1A";
+
+// ─── Force light theme ────────────────────────────────────────────────────────
+
+function useForceLightTheme() {
+  useEffect(() => {
+    const html = document.documentElement;
+    const hadDark = html.classList.contains("dark");
+    html.classList.remove("dark");
+    return () => {
+      if (hadDark) html.classList.add("dark");
+    };
+  }, []);
+}
+
+// ─── Section analytics ────────────────────────────────────────────────────────
+
+function useTrackSections() {
+  const tracked = useRef(new Set<string>());
+  const sessionId = useRef("");
+
+  useEffect(() => {
+    sessionId.current =
+      sessionStorage.getItem("landing_sid") ?? crypto.randomUUID();
+    sessionStorage.setItem("landing_sid", sessionId.current);
+    const device = window.innerWidth < 768 ? "mobile" : "desktop";
+    const referrer = document.referrer || "direct";
+
+    fetch("/api/analytics/landing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sessionId.current,
+        section: "page_view",
+        device,
+        referrer,
+      }),
+    }).catch(() => {});
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (
+            entry.isIntersecting &&
+            !tracked.current.has(entry.target.id)
+          ) {
+            tracked.current.add(entry.target.id);
+            fetch("/api/analytics/landing", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: sessionId.current,
+                section: entry.target.id,
+                device,
+                referrer,
+              }),
+            }).catch(() => {});
+          }
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    document
+      .querySelectorAll("[data-track]")
+      .forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+}
+
+// ─── Scroll-reveal wrapper ────────────────────────────────────────────────────
 
 function Reveal({
   children,
@@ -39,10 +113,10 @@ function Reveal({
 }) {
   return (
     <motion.div
-      initial={fadeUp.initial}
-      whileInView={fadeUp.whileInView}
-      viewport={fadeUp.viewport}
-      transition={{ ...fadeUp.transition, delay }}
+      initial={{ opacity: 0, y: 22 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.52, delay, ease: [0.21, 0.47, 0.32, 0.98] }}
       className={className}
       style={style}
     >
@@ -51,332 +125,361 @@ function Reveal({
   );
 }
 
-// ─── Aurora background ──────────────────────────────────────────────────────────
+// ─── Eyebrow label ────────────────────────────────────────────────────────────
 
-function AuroraBackground() {
+function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
   return (
-    <div
-      className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 0 }}
-      aria-hidden
+    <p
+      className="text-xs font-bold uppercase tracking-[0.14em] mb-4"
+      style={{ color: dark ? BLUE_LIGHT : BLUE }}
     >
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: 520, height: 520, top: "-8%", left: "-8%",
-          background: "radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 70%)",
-          filter: "blur(50px)",
-        }}
-        animate={{ x: [0, 60, 0], y: [0, 40, 0] }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: 480, height: 480, top: "20%", right: "-10%",
-          background: "radial-gradient(circle, rgba(14,165,233,0.16) 0%, transparent 70%)",
-          filter: "blur(50px)",
-        }}
-        animate={{ x: [0, -50, 0], y: [0, 50, 0] }}
-        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: 420, height: 420, bottom: "-5%", left: "30%",
-          background: "radial-gradient(circle, rgba(168,85,247,0.14) 0%, transparent 70%)",
-          filter: "blur(50px)",
-        }}
-        animate={{ x: [0, 40, 0], y: [0, -30, 0] }}
-        transition={{ duration: 19, repeat: Infinity, ease: "easeInOut" }}
-      />
-    </div>
+      {children}
+    </p>
   );
 }
 
-// Force light theme on the landing page so background is always #E7E9EB.
-// Restores previous class on unmount so admin/menu keep their own theme.
-function useForceLightTheme() {
-  useEffect(() => {
-    const html = document.documentElement;
-    const hadDark = html.classList.contains("dark");
-    html.classList.remove("dark");
-    return () => {
-      if (hadDark) html.classList.add("dark");
-    };
-  }, []);
+// ─── Section heading ──────────────────────────────────────────────────────────
+
+function SectionTitle({
+  children,
+  dark = false,
+}: {
+  children: React.ReactNode;
+  dark?: boolean;
+}) {
+  return (
+    <h2
+      className="text-4xl font-bold mb-4"
+      style={{ color: dark ? PEARL : GRAPHITE, letterSpacing: "-0.02em" }}
+    >
+      {children}
+    </h2>
+  );
 }
 
-function useTrackSections() {
-  const tracked = useRef(new Set<string>());
-  const sessionId = useRef("");
-
-  useEffect(() => {
-    sessionId.current = sessionStorage.getItem("landing_sid") ?? crypto.randomUUID();
-    sessionStorage.setItem("landing_sid", sessionId.current);
-
-    const device = window.innerWidth < 768 ? "mobile" : "desktop";
-    const referrer = document.referrer || "direct";
-
-    fetch("/api/analytics/landing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: sessionId.current, section: "page_view", device, referrer }),
-    }).catch(() => {});
-
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && !tracked.current.has(entry.target.id)) {
-          tracked.current.add(entry.target.id);
-          fetch("/api/analytics/landing", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: sessionId.current, section: entry.target.id, device, referrer }),
-          }).catch(() => {});
-        }
-      }
-    }, { threshold: 0.3 });
-
-    const sections = document.querySelectorAll("[data-track]");
-    sections.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-}
-
-// ─── Navbar ──────────────────────────────────────────────────────────────────
+// ─── Navbar ───────────────────────────────────────────────────────────────────
 
 function Navbar() {
   const { t } = useTranslations();
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[rgba(231,233,235,0.82)] dark:bg-[rgba(36,36,36,0.88)]"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
       style={{
-        backdropFilter: "blur(20px)",
-        borderBottom: "1px solid var(--border)",
+        background: "rgba(231,233,235,0.92)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderBottom: "1px solid rgba(36,36,36,0.09)",
       }}
     >
-      <div className="flex items-center gap-2">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5">
         <div
           className="flex items-center justify-center w-8 h-8 rounded-lg"
-          style={{ background: "var(--accent)" }}
+          style={{ background: BLUE }}
         >
-          <QrCode size={18} color="#fff" />
+          <QrCode size={16} color={WHITE} />
         </div>
-        <span className="font-bold text-lg tracking-tight">
-          ScanServe<span style={{ color: "var(--accent)" }}>.qr</span>
+        <span
+          className="font-bold text-lg"
+          style={{ color: GRAPHITE, letterSpacing: "-0.025em" }}
+        >
+          ScanServe<span style={{ color: BLUE }}>.qr</span>
         </span>
       </div>
 
+      {/* Desktop nav */}
       <nav className="hidden md:flex items-center gap-8">
-        <a href="#features" className="nav-link">{t.nav.features}</a>
-        <a href="#how-it-works" className="nav-link">{t.nav.howItWorks}</a>
-        <a href="#pricing" className="nav-link">{t.nav.pricing}</a>
+        {[
+          { href: "#features", label: t.nav.features },
+          { href: "#how-it-works", label: t.nav.howItWorks },
+          { href: "#pricing", label: t.nav.pricing },
+        ].map(({ href, label }) => (
+          <a
+            key={href}
+            href={href}
+            className="text-sm font-medium transition-colors hover:text-[#242424]"
+            style={{ color: "rgba(36,36,36,0.55)" }}
+          >
+            {label}
+          </a>
+        ))}
       </nav>
 
+      {/* Actions */}
       <div className="flex items-center gap-3">
-        <a
-          href="#"
-          className="hidden sm:block text-sm font-medium transition-colors"
-          style={{ color: "var(--muted)" }}
-        >
-          {t.nav.signIn}
-        </a>
         <LanguageSwitcher />
-        <a href="#pricing" className="btn-primary text-sm py-2 px-4">
+        <a
+          href="#pricing"
+          className="hidden sm:flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-lg transition-all hover:opacity-90"
+          style={{ background: BLUE, color: WHITE }}
+        >
           {t.nav.getStarted}
+          <ArrowRight size={14} />
         </a>
       </div>
     </header>
   );
 }
 
-// ─── Hero ────────────────────────────────────────────────────────────────────
+// ─── Phone Mockup ─────────────────────────────────────────────────────────────
 
 function PhoneMockup() {
   return (
-    <div className="relative w-[280px] h-[560px] mx-auto">
-      {/* Glow */}
+    <div className="relative w-[260px] h-[520px] mx-auto select-none">
+      {/* Glow shadow */}
       <div
         className="absolute inset-0 rounded-[3rem]"
         style={{
-          background: "radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)",
-          filter: "blur(30px)",
+          background: `radial-gradient(ellipse, rgba(29,78,216,0.18) 0%, transparent 70%)`,
+          filter: "blur(28px)",
+          transform: "translateY(16px) scale(0.9)",
         }}
       />
-      {/* Phone frame */}
+      {/* Phone shell */}
       <div
-        className="relative w-full h-full rounded-[2.5rem] overflow-hidden glow-border"
-        style={{ background: "var(--surface)", padding: "12px" }}
+        className="relative w-full h-full rounded-[2.5rem] overflow-hidden"
+        style={{
+          background: WHITE,
+          border: "1px solid rgba(36,36,36,0.12)",
+          boxShadow:
+            "0 24px 60px rgba(36,36,36,0.16), 0 4px 12px rgba(36,36,36,0.08)",
+          padding: "10px",
+        }}
       >
         {/* Notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 rounded-b-2xl z-10" style={{ background: "var(--surface)" }} />
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 rounded-b-2xl z-10"
+          style={{ background: WHITE }}
+        />
         {/* Screen */}
-        <div className="w-full h-full rounded-[2rem] overflow-hidden relative" style={{ background: "#111" }}>
-          {/* Hero image */}
+        <div
+          className="w-full h-full rounded-[2rem] overflow-hidden"
+          style={{ background: "#F5F5F7" }}
+        >
+          {/* Hero banner */}
           <img
             src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80"
-            alt="Restaurant"
-            className="w-full h-48 object-cover"
+            alt="Restaurant interior"
+            className="w-full h-44 object-cover"
           />
-          {/* Fake menu UI overlay */}
-          <div className="px-4 pt-3 space-y-3">
+
+          {/* Mock menu UI */}
+          <div className="px-3.5 pt-3 space-y-2.5">
+            {/* Restaurant header */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">A</div>
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                style={{ background: BLUE }}
+              >
+                A
+              </div>
               <div>
-                <p className="text-[11px] font-bold text-white leading-tight">АС ТӨРІ</p>
-                <p className="text-[8px] text-zinc-500">QR-меню ресторана</p>
+                <p className="text-[10px] font-bold text-gray-900 leading-tight">АС ТӨРІ</p>
+                <p className="text-[7px] text-gray-400">QR-меню ресторана</p>
               </div>
             </div>
+
             {/* Category pills */}
-            <div className="flex gap-1.5">
-              {["Салаты", "Горячее", "Напитки"].map((c) => (
-                <span key={c} className="text-[8px] font-semibold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300">{c}</span>
+            <div className="flex gap-1 overflow-hidden">
+              {["Салаты", "Горячее", "Напитки"].map((c, i) => (
+                <span
+                  key={c}
+                  className="text-[7px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                  style={
+                    i === 0
+                      ? { background: BLUE, color: WHITE }
+                      : { background: "rgba(36,36,36,0.07)", color: "rgba(36,36,36,0.6)" }
+                  }
+                >
+                  {c}
+                </span>
               ))}
             </div>
+
             {/* Dish cards */}
             {[
               { name: "Цезарь с курицей", price: "2 800 ₸" },
               { name: "Стейк Рибай", price: "7 500 ₸" },
-              { name: "Том Ям", price: "3 200 ₸" },
             ].map((d) => (
-              <div key={d.name} className="flex items-center gap-2 p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.06)" }}>
-                <div className="w-10 h-10 rounded-lg bg-zinc-800 shrink-0" />
+              <div
+                key={d.name}
+                className="flex items-center gap-2 p-2 rounded-xl"
+                style={{
+                  background: WHITE,
+                  border: "1px solid rgba(36,36,36,0.07)",
+                }}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg shrink-0"
+                  style={{ background: "#E7E9EB" }}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-semibold text-white truncate">{d.name}</p>
-                  <p className="text-[9px] text-violet-400 font-bold">{d.price}</p>
+                  <p className="text-[9px] font-semibold text-gray-800 truncate">{d.name}</p>
+                  <p className="text-[8px] font-bold" style={{ color: BLUE }}>
+                    {d.price}
+                  </p>
                 </div>
-                <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px]">+</div>
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                  style={{ background: BLUE }}
+                >
+                  +
+                </div>
               </div>
             ))}
+
             {/* Bottom nav mock */}
-            <div className="flex justify-around pt-2 border-t border-zinc-800/50">
+            <div
+              className="flex justify-around pt-1.5"
+              style={{ borderTop: "1px solid rgba(36,36,36,0.08)" }}
+            >
               {["🏠", "📋", "🛒"].map((e, i) => (
-                <span key={i} className="text-sm opacity-60">{e}</span>
+                <span key={i} className="text-xs opacity-40">
+                  {e}
+                </span>
               ))}
             </div>
           </div>
         </div>
       </div>
+
       {/* Live badge */}
       <div
-        className="absolute -top-3 -right-3 rounded-xl px-3 py-2 text-xs font-semibold"
+        className="absolute -top-2 -right-2 flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold"
         style={{
-          background: "rgba(34,197,94,0.15)",
-          border: "1px solid rgba(34,197,94,0.3)",
-          color: "#4ade80",
+          background: WHITE,
+          border: "1px solid rgba(36,36,36,0.09)",
+          color: "#16a34a",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         }}
       >
-        ✓ Live
+        <span
+          className="w-1.5 h-1.5 rounded-full inline-block"
+          style={{ background: "#22c55e" }}
+        />
+        Live
+      </div>
+
+      {/* Order badge */}
+      <div
+        className="absolute -bottom-2 -left-4 rounded-xl px-3 py-2 text-xs font-semibold"
+        style={{
+          background: WHITE,
+          border: "1px solid rgba(36,36,36,0.09)",
+          color: BLUE,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        }}
+      >
+        <span style={{ color: "rgba(36,36,36,0.5)" }}>Заказ #14</span>
+        {" · "}
+        <span style={{ color: "#16a34a", fontWeight: 700 }}>Принят ✓</span>
       </div>
     </div>
   );
 }
 
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
 function Hero() {
   const { t } = useTranslations();
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center bg-grid overflow-hidden pt-20">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div
-          className="w-[600px] h-[600px] rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center py-20">
+    <section
+      className="relative min-h-screen flex items-center pt-20 bg-grid overflow-hidden"
+      style={{ background: PEARL }}
+    >
+      <div className="relative z-10 max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center py-24">
+        {/* Left: text */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] }}
+          transition={{ duration: 0.65, ease: [0.21, 0.47, 0.32, 0.98] }}
         >
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.05 }}
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium mb-8"
+          {/* Badge */}
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest mb-8"
             style={{
-              background: "rgba(99,102,241,0.12)",
-              border: "1px solid rgba(99,102,241,0.25)",
-              color: "#a5b4fc",
+              background: "rgba(29,78,216,0.08)",
+              border: "1px solid rgba(29,78,216,0.18)",
+              color: BLUE,
+              letterSpacing: "0.09em",
             }}
           >
-            <Star size={14} fill="currentColor" />
             {t.hero.badge}
-          </motion.div>
+          </div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.12 }}
-            className="text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-6"
+          {/* Headline */}
+          <h1
+            className="font-extrabold leading-[1.05] tracking-tight mb-6"
+            style={{
+              color: GRAPHITE,
+              fontSize: "clamp(2.6rem, 5vw, 3.8rem)",
+              letterSpacing: "-0.03em",
+            }}
           >
-            <span className="text-gradient">{t.hero.title1}</span>
+            {t.hero.title1}
             <br />
-            <span style={{ color: "var(--foreground)" }}>{t.hero.title2}</span>
+            <span style={{ color: BLUE }}>{t.hero.title2}</span>
             <br />
-            <span style={{ color: "var(--foreground)" }}>{t.hero.title3}</span>
-          </motion.h1>
+            {t.hero.title3}
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+          <p
             className="text-lg leading-relaxed mb-10"
-            style={{ color: "var(--muted)", maxWidth: "480px" }}
+            style={{ color: "rgba(36,36,36,0.58)", maxWidth: 480 }}
           >
             {t.hero.subtitle}
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.28 }}
-            className="flex flex-wrap gap-4 mb-12"
-          >
-            <a href="#pricing" className="btn-primary">
+          {/* CTA row */}
+          <div className="flex flex-wrap gap-3 mb-12">
+            <a
+              href="#pricing"
+              className="flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: BLUE }}
+            >
               {t.hero.ctaPrimary}
-              <ArrowRight size={16} />
+              <ArrowRight size={15} />
             </a>
-            <a href="#features" className="btn-ghost">
+            <a
+              href="#features"
+              className="flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-black/5 active:scale-[0.98]"
+              style={{
+                color: GRAPHITE,
+                border: "1px solid rgba(36,36,36,0.22)",
+                background: "transparent",
+              }}
+            >
               {t.hero.ctaSecondary}
             </a>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.36 }}
-            className="flex flex-wrap items-center gap-6"
-          >
+          {/* Trust signals */}
+          <div className="flex flex-wrap gap-5">
             {[t.hero.trust1, t.hero.trust2, t.hero.trust3].map((label) => (
               <div
                 key={label}
-                className="flex items-center gap-2 text-sm"
-                style={{ color: "var(--muted)" }}
+                className="flex items-center gap-1.5 text-sm"
+                style={{ color: "rgba(36,36,36,0.5)" }}
               >
-                <Check size={14} style={{ color: "var(--accent)" }} />
+                <Check size={13} style={{ color: BLUE }} />
                 {label}
               </div>
             ))}
-          </motion.div>
+          </div>
         </motion.div>
 
+        {/* Right: phone mockup */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.15, ease: [0.21, 0.47, 0.32, 0.98] }}
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.65, delay: 0.1, ease: [0.21, 0.47, 0.32, 0.98] }}
           className="flex justify-center lg:justify-end"
         >
           <motion.div
-            animate={{ y: [0, -14, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ y: [0, -12, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           >
             <PhoneMockup />
           </motion.div>
@@ -386,31 +489,42 @@ function Hero() {
   );
 }
 
-// ─── Stats ───────────────────────────────────────────────────────────────────
+// ─── Stats strip ──────────────────────────────────────────────────────────────
 
 function Stats() {
   const { t } = useTranslations();
 
-  const stats = [
-    { value: "2", label: t.stats.restaurants },
-    { value: "12+", label: t.stats.activeMenus },
-    { value: "16", label: t.stats.monthlyScans },
-    { value: "99.9%", label: t.stats.uptimeSla },
+  const items = [
+    { icon: <Users size={18} />, value: "2", label: t.stats.restaurants },
+    { icon: <QrCode size={18} />, value: "12+", label: t.stats.activeMenus },
+    { icon: <TrendingUp size={18} />, value: "16", label: t.stats.monthlyScans },
+    { icon: <Clock size={18} />, value: "99.9%", label: t.stats.uptimeSla },
   ];
 
   return (
     <section
       style={{
-        background: "var(--surface)",
-        borderTop: "1px solid var(--border)",
-        borderBottom: "1px solid var(--border)",
+        background: WHITE,
+        borderTop: "1px solid rgba(36,36,36,0.08)",
+        borderBottom: "1px solid rgba(36,36,36,0.08)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
-        {stats.map(({ value, label }, i) => (
-          <Reveal key={label} delay={i * 0.08} className="text-center">
-            <div className="text-3xl font-bold mb-1 text-gradient">{value}</div>
-            <div className="text-sm" style={{ color: "var(--muted)" }}>
+      <div className="max-w-6xl mx-auto px-6 py-14 grid grid-cols-2 md:grid-cols-4 gap-8">
+        {items.map(({ icon, value, label }, i) => (
+          <Reveal key={label} delay={i * 0.07} className="flex flex-col items-center text-center">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+              style={{ background: "rgba(29,78,216,0.08)", color: BLUE }}
+            >
+              {icon}
+            </div>
+            <div
+              className="text-3xl font-black mb-1"
+              style={{ color: GRAPHITE, letterSpacing: "-0.03em" }}
+            >
+              {value}
+            </div>
+            <div className="text-sm" style={{ color: "rgba(36,36,36,0.5)" }}>
               {label}
             </div>
           </Reveal>
@@ -420,195 +534,57 @@ function Stats() {
   );
 }
 
-// ─── Problems ────────────────────────────────────────────────────────────────
-
-function Problems() {
-  const { t } = useTranslations();
-  const p = t.problems;
-
-  const items = [
-    { icon: "📋", title: p.p1Title, desc: p.p1Desc, tag: p.p1Tag },
-    { icon: "🗣️", title: p.p2Title, desc: p.p2Desc, tag: p.p2Tag },
-    { icon: "📊", title: p.p3Title, desc: p.p3Desc, tag: p.p3Tag },
-  ];
-
-  return (
-    <section className="py-28 px-6">
-      <div className="max-w-7xl mx-auto">
-        <Reveal className="text-center mb-16">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
-            style={{
-              background: "rgba(239,68,68,0.1)",
-              border: "1px solid rgba(239,68,68,0.2)",
-              color: "#f87171",
-            }}
-          >
-            {p.badge}
-          </div>
-          <h2 className="text-4xl font-bold mb-4">{p.title}</h2>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: "var(--muted)" }}>
-            {p.subtitle}
-          </p>
-        </Reveal>
-
-        <div className="grid md:grid-cols-3 gap-5">
-          {items.map(({ icon, title, desc, tag }, i) => (
-            <Reveal key={title} delay={i * 0.1} className="card-base p-6 relative overflow-hidden">
-              <div
-                className="absolute top-0 left-0 right-0 h-0.5"
-                style={{ background: "linear-gradient(90deg, rgba(239,68,68,0.6), transparent)" }}
-              />
-              <div className="text-3xl mb-4">{icon}</div>
-              <h3 className="font-semibold text-lg mb-2" style={{ color: "var(--foreground)" }}>
-                {title}
-              </h3>
-              <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
-                {desc}
-              </p>
-              <span
-                className="inline-block text-xs font-bold uppercase px-3 py-1 rounded"
-                style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", letterSpacing: "0.06em" }}
-              >
-                {tag}
-              </span>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Proof ───────────────────────────────────────────────────────────────────
-
-function Proof() {
-  const { t } = useTranslations();
-  const p = t.proof;
-
-  const stats = [
-    { val: p.stat1, label: p.stat1Label },
-    { val: p.stat2, label: p.stat2Label },
-    { val: p.stat3, label: p.stat3Label },
-    { val: p.stat4, label: p.stat4Label },
-  ];
-
-  return (
-    <section
-      className="py-28 px-6"
-      style={{
-        background: "var(--surface)",
-        borderTop: "1px solid var(--border)",
-        borderBottom: "1px solid var(--border)",
-      }}
-    >
-      <div className="max-w-7xl mx-auto">
-        <Reveal className="mb-12">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
-            style={{
-              background: "rgba(99,102,241,0.1)",
-              border: "1px solid rgba(99,102,241,0.2)",
-              color: "#a5b4fc",
-            }}
-          >
-            {p.badge}
-          </div>
-          <h2 className="text-4xl font-bold mb-4">{p.title}</h2>
-          <p className="text-lg max-w-2xl" style={{ color: "var(--muted)" }}>
-            {p.subtitle}
-          </p>
-        </Reveal>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          {stats.map(({ val, label }, i) => (
-            <Reveal key={label} delay={i * 0.08}>
-              <div className="text-3xl font-bold mb-1 text-gradient">{val}</div>
-              <div className="text-sm" style={{ color: "var(--muted)" }}>{label}</div>
-            </Reveal>
-          ))}
-        </div>
-
-        <Reveal>
-          <blockquote
-            className="rounded-2xl p-8"
-            style={{
-              background: "var(--background)",
-              border: "1px solid var(--border)",
-              borderLeft: "3px solid var(--accent)",
-            }}
-          >
-            <p className="text-lg italic leading-relaxed mb-4" style={{ color: "var(--foreground)" }}>
-              {p.quote}
-            </p>
-            <footer className="text-sm font-semibold" style={{ color: "var(--muted)" }}>
-              {p.quoteAuthor}
-            </footer>
-          </blockquote>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-// ─── Features ────────────────────────────────────────────────────────────────
+// ─── Features ─────────────────────────────────────────────────────────────────
 
 function Features() {
   const { t } = useTranslations();
 
   const items = [
-    { icon: <QrCode size={22} />, title: t.features.qrTitle, desc: t.features.qrDesc },
-    { icon: <Zap size={22} />, title: t.features.realtimeTitle, desc: t.features.realtimeDesc },
-    { icon: <BarChart3 size={22} />, title: t.features.analyticsTitle, desc: t.features.analyticsDesc },
-    { icon: <Globe2 size={22} />, title: t.features.multilingualTitle, desc: t.features.multilingualDesc },
-    { icon: <Smartphone size={22} />, title: t.features.noappTitle, desc: t.features.noappDesc },
-    { icon: <Palette size={22} />, title: t.features.brandingTitle, desc: t.features.brandingDesc },
+    { icon: <QrCode size={20} />, title: t.features.qrTitle, desc: t.features.qrDesc },
+    { icon: <Zap size={20} />, title: t.features.realtimeTitle, desc: t.features.realtimeDesc },
+    { icon: <BarChart3 size={20} />, title: t.features.analyticsTitle, desc: t.features.analyticsDesc },
+    { icon: <Globe2 size={20} />, title: t.features.multilingualTitle, desc: t.features.multilingualDesc },
+    { icon: <Smartphone size={20} />, title: t.features.noappTitle, desc: t.features.noappDesc },
+    { icon: <Palette size={20} />, title: t.features.brandingTitle, desc: t.features.brandingDesc },
   ];
 
   return (
-    <section id="features" className="py-28 px-6">
-      <div className="max-w-7xl mx-auto">
+    <section id="features" className="py-28 px-6" style={{ background: PEARL }}>
+      <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
-            style={{
-              background: "rgba(99,102,241,0.1)",
-              border: "1px solid rgba(99,102,241,0.2)",
-              color: "#a5b4fc",
-            }}
-          >
-            {t.features.badge}
-          </div>
-          <h2 className="text-4xl font-bold mb-4">{t.features.title}</h2>
-          <p
-            className="text-lg max-w-xl mx-auto"
-            style={{ color: "var(--muted)" }}
-          >
+          <Eyebrow>{t.features.badge}</Eyebrow>
+          <SectionTitle>{t.features.title}</SectionTitle>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: "rgba(36,36,36,0.55)" }}>
             {t.features.subtitle}
           </p>
         </Reveal>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map(({ icon, title, desc }, i) => (
-            <Reveal key={title} delay={(i % 3) * 0.08} className="card-base p-6">
+            <Reveal
+              key={title}
+              delay={(i % 3) * 0.08}
+              className="group p-6 rounded-2xl transition-all duration-200"
+              style={{
+                background: WHITE,
+                border: "1px solid rgba(36,36,36,0.08)",
+              }}
+            >
               <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center mb-5"
-                style={{
-                  background: "rgba(99,102,241,0.15)",
-                  color: "var(--accent)",
-                }}
+                className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 transition-colors"
+                style={{ background: "rgba(29,78,216,0.08)", color: BLUE }}
               >
                 {icon}
               </div>
               <h3
-                className="font-semibold text-lg mb-2"
-                style={{ color: "var(--foreground)" }}
+                className="font-semibold text-base mb-2"
+                style={{ color: GRAPHITE }}
               >
                 {title}
               </h3>
               <p
                 className="text-sm leading-relaxed"
-                style={{ color: "var(--muted)" }}
+                style={{ color: "rgba(36,36,36,0.55)" }}
               >
                 {desc}
               </p>
@@ -620,7 +596,7 @@ function Features() {
   );
 }
 
-// ─── How it works ────────────────────────────────────────────────────────────
+// ─── How It Works ─────────────────────────────────────────────────────────────
 
 function HowItWorks() {
   const { t } = useTranslations();
@@ -634,66 +610,59 @@ function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      style={{
-        background: "var(--surface)",
-        borderTop: "1px solid var(--border)",
-      }}
       className="py-28 px-6"
+      style={{ background: WHITE, borderTop: "1px solid rgba(36,36,36,0.07)" }}
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
-            style={{
-              background: "rgba(99,102,241,0.1)",
-              border: "1px solid rgba(99,102,241,0.2)",
-              color: "#a5b4fc",
-            }}
-          >
-            {t.howItWorks.badge}
-          </div>
-          <h2 className="text-4xl font-bold mb-4">{t.howItWorks.title}</h2>
-          <p
-            className="text-lg max-w-xl mx-auto"
-            style={{ color: "var(--muted)" }}
-          >
+          <Eyebrow>{t.howItWorks.badge}</Eyebrow>
+          <SectionTitle>{t.howItWorks.title}</SectionTitle>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: "rgba(36,36,36,0.55)" }}>
             {t.howItWorks.subtitle}
           </p>
         </Reveal>
 
-        <div className="grid md:grid-cols-3 gap-6 relative">
-          <div
-            className="hidden md:block absolute top-10 left-[33%] right-[33%] h-px"
-            style={{
-              background:
-                "linear-gradient(90deg, transparent, rgba(99,102,241,0.4), transparent)",
-            }}
-          />
+        <div className="grid md:grid-cols-3 gap-5">
           {steps.map(({ step, title, desc }, i) => (
-            <Reveal key={step} delay={i * 0.12} className="card-base p-8 text-center">
+            <Reveal key={step} delay={i * 0.10}>
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 glow-border"
-                style={{ background: "rgba(99,102,241,0.1)" }}
+                className="p-8 rounded-2xl h-full"
+                style={{
+                  background: PEARL,
+                  border: "1px solid rgba(36,36,36,0.07)",
+                }}
               >
-                <span
-                  className="text-xl font-bold"
-                  style={{ color: "var(--accent)" }}
+                {/* Big ghost number */}
+                <div
+                  className="text-7xl font-black leading-none mb-6"
+                  style={{
+                    color: "rgba(29,78,216,0.10)",
+                    letterSpacing: "-0.06em",
+                    userSelect: "none",
+                  }}
                 >
                   {step}
-                </span>
+                </div>
+                {/* Step number pill */}
+                <div
+                  className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mb-4"
+                  style={{ background: BLUE, color: WHITE }}
+                >
+                  {parseInt(step)}
+                </div>
+                <h3
+                  className="font-bold text-xl mb-3"
+                  style={{ color: GRAPHITE }}
+                >
+                  {title}
+                </h3>
+                <p
+                  className="text-sm leading-relaxed"
+                  style={{ color: "rgba(36,36,36,0.55)" }}
+                >
+                  {desc}
+                </p>
               </div>
-              <h3
-                className="font-semibold text-xl mb-3"
-                style={{ color: "var(--foreground)" }}
-              >
-                {title}
-              </h3>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: "var(--muted)" }}
-              >
-                {desc}
-              </p>
             </Reveal>
           ))}
         </div>
@@ -702,7 +671,174 @@ function HowItWorks() {
   );
 }
 
-// ─── Pricing ─────────────────────────────────────────────────────────────────
+// ─── Problems ─────────────────────────────────────────────────────────────────
+
+function Problems() {
+  const { t } = useTranslations();
+  const p = t.problems;
+
+  const items = [
+    { icon: "📋", title: p.p1Title, desc: p.p1Desc, tag: p.p1Tag },
+    { icon: "🗣️", title: p.p2Title, desc: p.p2Desc, tag: p.p2Tag },
+    { icon: "📊", title: p.p3Title, desc: p.p3Desc, tag: p.p3Tag },
+  ];
+
+  return (
+    <section
+      className="py-28 px-6"
+      style={{ background: PEARL, borderTop: "1px solid rgba(36,36,36,0.07)" }}
+    >
+      <div className="max-w-6xl mx-auto">
+        <Reveal className="text-center mb-16">
+          <p
+            className="text-xs font-bold uppercase tracking-[0.14em] mb-4"
+            style={{ color: "#DC2626" }}
+          >
+            {p.badge}
+          </p>
+          <SectionTitle>{p.title}</SectionTitle>
+          <p
+            className="text-lg max-w-xl mx-auto"
+            style={{ color: "rgba(36,36,36,0.55)" }}
+          >
+            {p.subtitle}
+          </p>
+        </Reveal>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          {items.map(({ icon, title, desc, tag }, i) => (
+            <Reveal key={title} delay={i * 0.09}>
+              <div
+                className="p-6 rounded-2xl relative overflow-hidden h-full"
+                style={{
+                  background: WHITE,
+                  border: "1px solid rgba(36,36,36,0.08)",
+                }}
+              >
+                {/* Red top accent line */}
+                <div
+                  className="absolute top-0 left-0 right-0 h-0.5"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, #DC2626 0%, transparent 80%)",
+                  }}
+                />
+                <div className="text-3xl mb-4">{icon}</div>
+                <h3
+                  className="font-semibold text-base mb-2"
+                  style={{ color: GRAPHITE }}
+                >
+                  {title}
+                </h3>
+                <p
+                  className="text-sm leading-relaxed mb-5"
+                  style={{ color: "rgba(36,36,36,0.55)" }}
+                >
+                  {desc}
+                </p>
+                <span
+                  className="inline-block text-xs font-bold uppercase px-3 py-1 rounded-md"
+                  style={{
+                    background: "rgba(220,38,38,0.07)",
+                    color: "#DC2626",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {tag}
+                </span>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Proof (dark section) ─────────────────────────────────────────────────────
+
+function Proof() {
+  const { t } = useTranslations();
+  const p = t.proof;
+
+  const stats = [
+    { val: p.stat1, label: p.stat1Label },
+    { val: p.stat2, label: p.stat2Label },
+    { val: p.stat3, label: p.stat3Label },
+    { val: p.stat4, label: p.stat4Label },
+  ];
+
+  return (
+    <section className="py-28 px-6" style={{ background: GRAPHITE }}>
+      <div className="max-w-6xl mx-auto">
+        <Reveal className="mb-14">
+          <Eyebrow dark>{p.badge}</Eyebrow>
+          <SectionTitle dark>{p.title}</SectionTitle>
+          <p
+            className="text-lg max-w-2xl"
+            style={{ color: "rgba(231,233,235,0.55)" }}
+          >
+            {p.subtitle}
+          </p>
+        </Reveal>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-14">
+          {stats.map(({ val, label }, i) => (
+            <Reveal key={label} delay={i * 0.07}>
+              <div
+                className="text-4xl font-black mb-1.5"
+                style={{
+                  color: BLUE_LIGHT,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                {val}
+              </div>
+              <div
+                className="text-sm"
+                style={{ color: "rgba(231,233,235,0.45)" }}
+              >
+                {label}
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Testimonial */}
+        <Reveal>
+          <blockquote
+            className="rounded-2xl p-8"
+            style={{
+              background: "rgba(231,233,235,0.05)",
+              border: "1px solid rgba(231,233,235,0.10)",
+              borderLeft: `3px solid ${BLUE}`,
+            }}
+          >
+            <Shield
+              size={20}
+              style={{ color: BLUE_LIGHT, marginBottom: 16 }}
+            />
+            <p
+              className="text-lg italic leading-relaxed mb-5"
+              style={{ color: "rgba(231,233,235,0.85)" }}
+            >
+              {p.quote}
+            </p>
+            <footer
+              className="text-sm font-semibold"
+              style={{ color: "rgba(231,233,235,0.35)" }}
+            >
+              {p.quoteAuthor}
+            </footer>
+          </blockquote>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ─── Pricing ──────────────────────────────────────────────────────────────────
 
 function Pricing() {
   const { t } = useTranslations();
@@ -718,7 +854,10 @@ function Pricing() {
       desc: p.starterDesc,
       cta: p.starterCta,
       highlight: false,
-      features: [p.starterF1, p.starterF2, p.starterF3, p.starterF4, p.starterF5, p.starterF6, p.starterF7, p.starterF8, p.starterF9],
+      features: [
+        p.starterF1, p.starterF2, p.starterF3, p.starterF4, p.starterF5,
+        p.starterF6, p.starterF7, p.starterF8, p.starterF9,
+      ],
     },
     {
       name: p.proName,
@@ -729,7 +868,10 @@ function Pricing() {
       desc: p.proDesc,
       cta: p.proCta,
       highlight: true,
-      features: [p.proF1, p.proF2, p.proF3, p.proF4, p.proF5, p.proF6, p.proF7, p.proF8, p.proF9],
+      features: [
+        p.proF1, p.proF2, p.proF3, p.proF4, p.proF5,
+        p.proF6, p.proF7, p.proF8, p.proF9,
+      ],
     },
     {
       name: p.entName,
@@ -740,116 +882,158 @@ function Pricing() {
       desc: p.entDesc,
       cta: p.entCta,
       highlight: false,
-      features: [p.entF1, p.entF2, p.entF3, p.entF4, p.entF5, p.entF6, p.entF7, p.entF8, p.entF9],
+      features: [
+        p.entF1, p.entF2, p.entF3, p.entF4, p.entF5,
+        p.entF6, p.entF7, p.entF8, p.entF9,
+      ],
     },
   ];
 
   return (
-    <section id="pricing" className="py-28 px-6">
-      <div className="max-w-7xl mx-auto">
+    <section id="pricing" className="py-28 px-6" style={{ background: PEARL }}>
+      <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
-            style={{
-              background: "rgba(99,102,241,0.1)",
-              border: "1px solid rgba(99,102,241,0.2)",
-              color: "#a5b4fc",
-            }}
-          >
-            {p.badge}
-          </div>
-          <h2 className="text-4xl font-bold mb-4">{p.title}</h2>
+          <Eyebrow>{p.badge}</Eyebrow>
+          <SectionTitle>{p.title}</SectionTitle>
           <p
             className="text-lg max-w-xl mx-auto"
-            style={{ color: "var(--muted)" }}
+            style={{ color: "rgba(36,36,36,0.55)" }}
           >
             {p.subtitle}
           </p>
         </Reveal>
 
-        <div className="grid md:grid-cols-3 gap-6 items-start">
+        <div className="grid md:grid-cols-3 gap-5 items-start">
           {plans.map(({ name, price, oldPrice, badge, period, desc, cta, highlight, features }, i) => (
-            <Reveal
-              key={name}
-              delay={i * 0.1}
-              className={`rounded-2xl p-8 relative ${
-                highlight ? "glow-border" : "card-base"
-              }`}
-              style={highlight ? { background: "rgba(99,102,241,0.08)" } : {}}
-            >
-              {highlight && (
-                <div
-                  className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
-                  style={{ background: "var(--accent)", color: "#fff" }}
-                >
-                  {p.mostPopular}
-                </div>
-              )}
-              {badge && (
-                <div
-                  className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
-                  style={{ background: "#10B981", color: "#fff" }}
-                >
-                  {badge}
-                </div>
-              )}
-
-              <div className="mb-6">
-                <div
-                  className="text-sm font-medium mb-3"
-                  style={{ color: "var(--accent)" }}
-                >
-                  {name}
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  {oldPrice && (
-                    <span className="text-lg line-through" style={{ color: "var(--muted)" }}>
-                      {oldPrice}
-                    </span>
-                  )}
-                  <span
-                    className="text-4xl font-bold"
-                    style={{ color: "var(--foreground)" }}
-                  >
-                    {price}
-                  </span>
-                  <span className="text-sm" style={{ color: "var(--muted)" }}>
-                    {period}
-                  </span>
-                </div>
-                <p
-                  className="text-sm leading-relaxed"
-                  style={{ color: "var(--muted)" }}
-                >
-                  {desc}
-                </p>
-              </div>
-
-              <a
-                href="#"
-                className={`${
-                  highlight ? "btn-primary" : "btn-ghost"
-                } w-full justify-center mb-8`}
+            <Reveal key={name} delay={i * 0.09}>
+              <div
+                className="rounded-2xl p-8 relative h-full flex flex-col"
+                style={
+                  highlight
+                    ? {
+                        background: BLUE,
+                        border: `1px solid ${BLUE}`,
+                        boxShadow: "0 20px 60px rgba(29,78,216,0.28)",
+                      }
+                    : {
+                        background: WHITE,
+                        border: "1px solid rgba(36,36,36,0.09)",
+                      }
+                }
               >
-                {cta}
-                <ChevronRight size={16} />
-              </a>
-
-              <ul className="space-y-3">
-                {features.map((f) => (
-                  <li
-                    key={f}
-                    className="flex items-center gap-3 text-sm"
-                    style={{ color: "var(--muted)" }}
+                {/* Popular badge */}
+                {highlight && (
+                  <div
+                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
+                    style={{ background: GRAPHITE, color: PEARL }}
                   >
-                    <Check
-                      size={15}
-                      style={{ color: "var(--accent)", flexShrink: 0 }}
-                    />
-                    {f}
-                  </li>
-                ))}
-              </ul>
+                    {p.mostPopular}
+                  </div>
+                )}
+                {/* Discount badge */}
+                {badge && (
+                  <div
+                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
+                    style={{ background: "#16A34A", color: WHITE }}
+                  >
+                    {badge}
+                  </div>
+                )}
+
+                {/* Plan header */}
+                <div className="mb-6">
+                  <p
+                    className="text-xs font-bold uppercase tracking-[0.10em] mb-3"
+                    style={{
+                      color: highlight ? "rgba(231,233,235,0.65)" : BLUE,
+                    }}
+                  >
+                    {name}
+                  </p>
+                  <div className="flex items-baseline gap-2 mb-2 flex-wrap">
+                    {oldPrice && (
+                      <span
+                        className="text-base line-through"
+                        style={{
+                          color: highlight
+                            ? "rgba(231,233,235,0.35)"
+                            : "rgba(36,36,36,0.3)",
+                        }}
+                      >
+                        {oldPrice}
+                      </span>
+                    )}
+                    <span
+                      className="text-4xl font-black"
+                      style={{
+                        color: highlight ? WHITE : GRAPHITE,
+                        letterSpacing: "-0.04em",
+                      }}
+                    >
+                      {price}
+                    </span>
+                    <span
+                      className="text-sm"
+                      style={{
+                        color: highlight
+                          ? "rgba(231,233,235,0.55)"
+                          : "rgba(36,36,36,0.4)",
+                      }}
+                    >
+                      {period}
+                    </span>
+                  </div>
+                  <p
+                    className="text-sm leading-relaxed"
+                    style={{
+                      color: highlight
+                        ? "rgba(231,233,235,0.65)"
+                        : "rgba(36,36,36,0.5)",
+                    }}
+                  >
+                    {desc}
+                  </p>
+                </div>
+
+                {/* CTA button */}
+                <a
+                  href="#"
+                  className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl text-sm font-semibold mb-8 transition-all hover:opacity-90"
+                  style={
+                    highlight
+                      ? { background: WHITE, color: BLUE }
+                      : { background: BLUE, color: WHITE }
+                  }
+                >
+                  {cta}
+                  <ChevronRight size={15} />
+                </a>
+
+                {/* Features list */}
+                <ul className="space-y-3 mt-auto">
+                  {features.map((f) => (
+                    <li
+                      key={f}
+                      className="flex items-start gap-3 text-sm"
+                      style={{
+                        color: highlight
+                          ? "rgba(231,233,235,0.75)"
+                          : "rgba(36,36,36,0.6)",
+                      }}
+                    >
+                      <Check
+                        size={14}
+                        style={{
+                          color: highlight ? "#93C5FD" : BLUE,
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
+                      />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -858,7 +1042,7 @@ function Pricing() {
   );
 }
 
-// ─── Final CTA ───────────────────────────────────────────────────────────────
+// ─── Final CTA ────────────────────────────────────────────────────────────────
 
 function FinalCta() {
   const { t } = useTranslations();
@@ -866,33 +1050,45 @@ function FinalCta() {
   return (
     <section
       className="py-28 px-6"
-      style={{ borderTop: "1px solid var(--border)" }}
+      style={{ background: DARK_BG }}
     >
-      <Reveal className="max-w-3xl mx-auto text-center">
+      <Reveal className="max-w-2xl mx-auto text-center">
         <motion.div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-8"
-          style={{ background: "var(--accent)" }}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-8"
+          style={{ background: BLUE }}
           animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         >
-          <QrCode size={32} color="#fff" />
+          <QrCode size={26} color={WHITE} />
         </motion.div>
-        <h2 className="text-4xl font-bold mb-5 text-gradient">{t.cta.title}</h2>
-        <p className="text-lg mb-10" style={{ color: "var(--muted)" }}>
+
+        <h2
+          className="text-4xl font-bold mb-5"
+          style={{ color: PEARL, letterSpacing: "-0.02em" }}
+        >
+          {t.cta.title}
+        </h2>
+        <p
+          className="text-lg mb-10"
+          style={{ color: "rgba(231,233,235,0.5)" }}
+        >
           {t.cta.subtitle}
         </p>
-        <div className="flex flex-wrap justify-center gap-4">
-          <a href="#pricing" className="btn-primary">
-            {t.cta.primary}
-            <ArrowRight size={16} />
-          </a>
-        </div>
+
+        <a
+          href="#pricing"
+          className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+          style={{ background: BLUE, color: WHITE }}
+        >
+          {t.cta.primary}
+          <ArrowRight size={16} />
+        </a>
       </Reveal>
     </section>
   );
 }
 
-// ─── Footer ──────────────────────────────────────────────────────────────────
+// ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
   const { t } = useTranslations();
@@ -907,37 +1103,50 @@ function Footer() {
 
   return (
     <footer
-      style={{
-        background: "var(--surface)",
-        borderTop: "1px solid var(--border)",
-      }}
       className="px-6 py-12"
+      style={{
+        background: DARK_BG,
+        borderTop: "1px solid rgba(231,233,235,0.07)",
+      }}
     >
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-2">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+        {/* Logo */}
+        <div className="flex items-center gap-2.5">
           <div
             className="flex items-center justify-center w-7 h-7 rounded-lg"
-            style={{ background: "var(--accent)" }}
+            style={{ background: BLUE }}
           >
-            <QrCode size={14} color="#fff" />
+            <QrCode size={13} color={WHITE} />
           </div>
-          <span className="font-bold text-base">
-            ScanServe<span style={{ color: "var(--accent)" }}>.qr</span>
+          <span
+            className="font-bold text-base"
+            style={{ color: PEARL }}
+          >
+            ScanServe<span style={{ color: BLUE_LIGHT }}>.qr</span>
           </span>
         </div>
 
+        {/* Links */}
         <div
           className="flex flex-wrap justify-center gap-6 text-sm"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "rgba(231,233,235,0.30)" }}
         >
           {links.map((link) => (
-            <a key={link} href="#" className="hover:text-foreground transition-colors">
+            <a
+              key={link}
+              href="#"
+              className="transition-colors hover:text-[rgba(231,233,235,0.75)]"
+            >
               {link}
             </a>
           ))}
         </div>
 
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
+        {/* Copyright */}
+        <p
+          className="text-sm"
+          style={{ color: "rgba(231,233,235,0.25)" }}
+        >
           {t.footer.copyright}
         </p>
       </div>
@@ -945,29 +1154,44 @@ function Footer() {
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
   useForceLightTheme();
   useTrackSections();
 
   return (
-    <>
-      <AuroraBackground />
-      <div className="relative" style={{ zIndex: 1 }}>
-        <Navbar />
-        <main>
-          <div id="hero" data-track><Hero /></div>
-          <div id="stats" data-track><Stats /></div>
-          <div id="problems" data-track><Problems /></div>
-          <div id="features" data-track><Features /></div>
-          <div id="how-it-works" data-track><HowItWorks /></div>
-          <div id="proof" data-track><Proof /></div>
-          <div id="pricing" data-track><Pricing /></div>
-          <div id="cta" data-track><FinalCta /></div>
-        </main>
-        <div id="footer" data-track><Footer /></div>
+    <div>
+      <Navbar />
+      <main>
+        <div id="hero" data-track>
+          <Hero />
+        </div>
+        <div id="stats" data-track>
+          <Stats />
+        </div>
+        <div id="features" data-track>
+          <Features />
+        </div>
+        <div id="how-it-works" data-track>
+          <HowItWorks />
+        </div>
+        <div id="problems" data-track>
+          <Problems />
+        </div>
+        <div id="proof" data-track>
+          <Proof />
+        </div>
+        <div id="pricing" data-track>
+          <Pricing />
+        </div>
+        <div id="cta" data-track>
+          <FinalCta />
+        </div>
+      </main>
+      <div id="footer" data-track>
+        <Footer />
       </div>
-    </>
+    </div>
   );
 }
