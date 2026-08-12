@@ -67,7 +67,7 @@ export default function AdminLogin() {
     }
 
     if (res.ok) {
-      router.replace(homeForRole(data.role ?? ""));
+      window.location.href = homeForRole(data.role ?? "");
     } else {
       setError(data.error ?? "Login failed.");
       setLoading(false);
@@ -91,7 +91,7 @@ export default function AdminLogin() {
 
     if (res.ok) {
       // must_change_password only applies to owner/manager/supervisor
-      router.replace("/admin/analytics");
+      window.location.href = "/admin/analytics";
     } else {
       setError(data.error ?? "Ошибка. Попробуйте ещё раз.");
       setChanging(false);

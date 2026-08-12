@@ -31,7 +31,7 @@ export default function MobileAdminHeader() {
 
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/login");
+    window.location.href = "/login";
   }
 
   return (

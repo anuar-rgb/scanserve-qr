@@ -179,7 +179,7 @@ export default function AdminSidebar() {
     if (result.ok) {
       toast.success("Смена завершена. До свидания!");
       await fetch("/api/admin/logout", { method: "POST" });
-      router.replace("/login");
+      window.location.href = "/login";
     } else {
       toast.error(result.error ?? "Неверный QR-код");
     }
@@ -189,7 +189,7 @@ export default function AdminSidebar() {
 
   async function signOut() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/login");
+    window.location.href = "/login";
   }
 
   const isCourier = role === "courier";

@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = verifySession(session.value);
+  const payload = verifySession(session.value);
+  const role = payload?.split(":")[0] ?? null;
   if (!role) {
     const resp = NextResponse.json({ error: "Invalid session" }, { status: 401 });
     resp.cookies.delete("admin_session");
