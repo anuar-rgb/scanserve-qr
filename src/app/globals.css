@@ -58,13 +58,13 @@
 
 /* Light mode defaults (used by landing/marketing pages) */
 :root {
-  --background: #F5F5F7;
-  --foreground: #09090b;
+  --background: #E7E9EB;
+  --foreground: #242424;
   --accent: #6c47ff;
   --accent-hover: #7d5bff;
   --accent-glow: rgba(108, 71, 255, 0.25);
-  --surface: #fafafa;
-  --surface-2: #f4f4f5;
+  --surface: #F0F2F4;
+  --surface-2: #E9EBEE;
   --border: rgba(0, 0, 0, 0.08);
   --muted: rgba(0, 0, 0, 0.5);
   --card:   oklch(1 0 0);
@@ -98,13 +98,13 @@
 
 /* Dark mode — applied when html.dark is set by next-themes */
 .dark {
-  --background: #08080f;
-  --foreground: #f0f0f8;
+  --background: #242424;
+  --foreground: #E7E9EB;
   --accent: #6c47ff;
   --accent-hover: #7d5bff;
   --accent-glow: rgba(108, 71, 255, 0.25);
-  --surface: #0f0f1a;
-  --surface-2: #161624;
+  --surface: #2D2D2D;
+  --surface-2: #333333;
   --border: rgba(255, 255, 255, 0.07);
   --muted: rgba(255, 255, 255, 0.4);
   --card:   oklch(0.205 0 0);

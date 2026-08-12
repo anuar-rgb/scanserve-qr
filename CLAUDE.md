@@ -67,9 +67,9 @@
 - **Hero slider height**: `SLIDER_H = "min(485px, 133vw)"` — ~485px on all phones. Defined as a constant in MenuTemplate.tsx and applied to both the main slider and the fallback. Do not change without updating both.
 
 ### Color Palette
-- **Light bg**: `#F5F5F7` (Apple-style soft gray)
-- **Light card**: `#FFFFFF` — flat, no shadow
-- **Dark bg**: `#111111`, **Dark card**: `#1E1E1E` — flat, no shadow
+- **Light bg**: `#E7E9EB` · **Light card**: `#FFFFFF` — flat, no shadow
+- **Dark bg**: `#242424` · **Dark card**: `#2E2E2E` — flat, no shadow
+- **Dark surface**: `#2D2D2D` · **Light surface**: `#F0F2F4`
 - Accent tones: Soft Amber `#F59E0B`, Slate blue `#0EA5E9`, Violet `#8B5CF6`, Emerald `#10B981`
 
 ### Shadows
