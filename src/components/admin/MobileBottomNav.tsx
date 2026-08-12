@@ -411,8 +411,8 @@ export default function MobileBottomNav() {
                 ))}
               </div>
 
-              {/* Checkout (staff only) */}
-              {isStaff && isCheckedIn && (
+              {/* Checkout (staff only, not waiter) */}
+              {isStaff && isCheckedIn && role !== "waiter" && (
                 <button
                   onClick={() => setCheckoutScanning(true)}
                   disabled={checkoutBusy}

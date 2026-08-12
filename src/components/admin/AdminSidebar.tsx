@@ -76,7 +76,7 @@ const NAV: NavSection[] = [
     noPOS: true,
     items: [
       { labelKey: "navHall",         icon: LayoutGrid, href: "/admin/hall"                              },
-      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits"                       },
+      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits", noWaiter: true          },
       { labelKey: "navOrderHistory", icon: History,    href: "/admin/order-history", noWaiter: true     },
       { labelKey: "navInvoices",     icon: FileText,   href: "/admin/invoices",      noWaiter: true     },
     ],
@@ -372,8 +372,8 @@ export default function AdminSidebar() {
           </div>
         )}
 
-        {/* Завершить работу — only for waiter / chef */}
-        {isStaff && isCheckedIn && (
+        {/* Завершить работу — only for non-waiter staff (chef, bartender, etc.) */}
+        {isStaff && isCheckedIn && role !== "waiter" && (
           <button
             onClick={() => setCheckoutScanning(true)}
             disabled={checkoutBusy}
