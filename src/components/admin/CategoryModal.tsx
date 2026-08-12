@@ -15,9 +15,15 @@ interface Props {
   onSaved: (category: DbCategory) => void;
 }
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MIME_TO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 async function uploadCategoryImage(file: File, prefix = ""): Promise<string> {
   if (!isConfigured) throw new Error("Database not configured");
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) throw new Error("Допустимые форматы: JPG, PNG, WebP");
+  if (file.size > MAX_IMAGE_BYTES) throw new Error("Файл слишком большой (максимум 5 MB)");
+  const ext = MIME_TO_EXT[file.type] ?? "jpg";
   const path = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { data, error } = await supabase.storage
     .from("category-images")

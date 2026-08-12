@@ -19,9 +19,15 @@ interface Props {
   onSaved: (product: DbProduct) => void;
 }
 
-async function uploadToStorage(file: File, bucket: string): Promise<string> {
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MIME_TO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+async function validateAndUpload(file: File, bucket: string): Promise<string> {
   if (!isConfigured) throw new Error("Database not configured");
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) throw new Error("Допустимые форматы: JPG, PNG, WebP");
+  if (file.size > MAX_IMAGE_BYTES) throw new Error("Файл слишком большой (максимум 5 MB)");
+  const ext = MIME_TO_EXT[file.type] ?? "jpg";
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { data, error } = await supabase.storage
     .from(bucket)
@@ -406,7 +412,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
     try {
       let imageUrl = product?.image_url ?? null;
       if (file) {
-        imageUrl = await uploadToStorage(file, "menu-images");
+        imageUrl = await validateAndUpload(file, "menu-images");
       }
 
       const payload = {
