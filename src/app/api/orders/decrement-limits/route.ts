@@ -11,6 +11,13 @@ function db() {
   );
 }
 
+// Idempotency guard: each orderId is processed at most once per server instance.
+// Cleared hourly to prevent unbounded memory growth.
+const processedOrders = new Set<string>();
+if (typeof setInterval !== "undefined") {
+  setInterval(() => processedOrders.clear(), 60 * 60 * 1000);
+}
+
 // POST /api/orders/decrement-limits
 // Body: { orderId: string }
 //
@@ -30,6 +37,12 @@ export async function POST(req: NextRequest) {
   if (!orderId) {
     return NextResponse.json({ error: "orderId обязателен" }, { status: 400 });
   }
+
+  // Idempotency: skip if this order's limits were already decremented
+  if (processedOrders.has(orderId)) {
+    return NextResponse.json({ ok: true, updated: 0 });
+  }
+  processedOrders.add(orderId);
 
   const supabase = db();
 

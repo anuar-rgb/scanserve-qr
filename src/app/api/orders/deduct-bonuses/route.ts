@@ -30,6 +30,11 @@ export async function POST(req: NextRequest) {
   };
   const { guestId, restaurantId, amount } = body;
 
+  // Per-guest rate limit: max 5 deductions per hour (normal guest does 1 per order)
+  if (guestId && !checkRateLimit(`deduct-bonuses:guest:${guestId}`, 5, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many bonus deductions" }, { status: 429 });
+  }
+
   if (!guestId || !restaurantId || !amount || Number(amount) <= 0) {
     return NextResponse.json(
       { error: "guestId, restaurantId и amount (> 0) обязательны" },
