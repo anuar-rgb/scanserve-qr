@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionRole } from "@/lib/session";
-import { log } from "@/lib/log";
+import { getSessionRole, getSessionRestaurantId } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -19,29 +18,58 @@ type RefundItem = {
   price: number;
 };
 
+type OrderItem = RefundItem & {
+  currency: string;
+  [key: string]: unknown;
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function calcEarnedBonuses(
+  supabase: ReturnType<typeof db>,
+  items: OrderItem[],
+): Promise<number> {
+  const ids = [...new Set(items.map((i) => i.product_id).filter(Boolean) as string[])];
+  if (!ids.length) return 0;
+
+  const { data: products } = await supabase
+    .from("products")
+    .select("id, bonus_percent")
+    .in("id", ids);
+
+  const pctMap: Record<string, number> = {};
+  for (const p of products ?? []) {
+    if (p.bonus_percent) pctMap[p.id] = Number(p.bonus_percent);
+  }
+
+  let total = 0;
+  for (const item of items) {
+    if (!item.product_id) continue;
+    const pct = pctMap[item.product_id] ?? 0;
+    if (pct > 0) total += Math.round(item.price * pct / 100) * item.qty;
+  }
+  return total;
+}
+
 // POST /api/admin/refund
-// Body: { orderId, restaurantId, refundType: 'full'|'partial', refundItems?: RefundItem[], reason?: string }
+// Body: { orderId, refundType: 'full'|'partial', refundItems?: RefundItem[] }
 export async function POST(req: NextRequest) {
-  if (!getSessionRole(req)) {
+  const role        = getSessionRole(req);
+  const sessionRid  = getSessionRestaurantId(req);
+  if (!role || !sessionRid) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({})) as {
     orderId?: string;
-    restaurantId?: string;
     refundType?: "full" | "partial";
     refundItems?: RefundItem[];
-    reason?: string;
   };
 
-  const { orderId, restaurantId, refundType, refundItems = [], reason } = body;
+  const { orderId, refundType, refundItems } = body;
 
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!orderId || !restaurantId || !UUID_RE.test(restaurantId)) {
+  if (!orderId || (refundType !== "full" && refundType !== "partial")) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
-  }
-  if (refundType !== "full" && refundType !== "partial") {
-    return NextResponse.json({ error: "refundType must be full or partial" }, { status: 400 });
   }
   if (refundType === "partial" && (!refundItems || refundItems.length === 0)) {
     return NextResponse.json({ error: "refundItems required for partial refund" }, { status: 400 });
@@ -49,126 +77,135 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  // Atomic claim: SET refund_status first while WHERE refund_status IS NULL.
-  // Only one concurrent admin click succeeds — the other sees 0 rows and gets 409.
-  // This eliminates the TOCTOU race where two requests both read refund_status=null
-  // and both proceed to update the guest balance.
-  const { data: claimed } = await supabase
+  // Fetch order — scoped to session restaurant to prevent IDOR
+  const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .update({ refund_status: refundType, refunded_at: new Date().toISOString() })
+    .select("id, restaurant_id, guest_id, bonuses_deducted, earned_bonuses, bonuses_accrued, total_price, items_json, refund_status, refund_bonuses_ret, refund_earned_rev, status")
     .eq("id", orderId)
-    .eq("restaurant_id", restaurantId)
-    .is("refund_status", null)
-    .select("id, guest_id, bonuses_deducted, earned_bonuses, bonuses_accrued, total_price, items_json");
+    .eq("restaurant_id", sessionRid)
+    .single();
 
-  if (!claimed || claimed.length === 0) {
-    const { data: exists } = await supabase
-      .from("orders")
-      .select("id, refund_status")
-      .eq("id", orderId)
-      .maybeSingle();
-    if (!exists) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    return NextResponse.json({ error: "already_refunded", refundStatus: exists.refund_status }, { status: 409 });
+  if (orderErr || !order) {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  }
+  if (order.refund_status) {
+    return NextResponse.json({ error: "already_refunded" }, { status: 409 });
   }
 
-  const order = claimed[0];
   const guestId         = order.guest_id as string | null;
   const bonusesDeducted = (order.bonuses_deducted as number | null) ?? 0;
   const earnedBonuses   = (order.earned_bonuses   as number | null) ?? 0;
   const bonusesAccrued  = (order.bonuses_accrued  as boolean | null) ?? false;
   const totalPrice      = (order.total_price       as number) ?? 0;
+  const currentItems    = Array.isArray(order.items_json) ? (order.items_json as OrderItem[]) : [];
 
   let returnBonuses = 0;
   let reverseEarned = 0;
-  let newItemsJson: unknown[] | null = null;
-  let newTotalPrice: number | null   = null;
+  let newItemsJson:     OrderItem[] | null = null;
+  let newTotalPrice:    number | null = null;
+  let newEarnedBonuses: number | null = null;
 
   if (refundType === "full") {
     returnBonuses = bonusesDeducted;
     reverseEarned = bonusesAccrued ? earnedBonuses : 0;
   } else {
-    const refundAmount = refundItems.reduce((s, it) => s + it.price * it.qty, 0);
+    // Partial: calculate refund amount from selected items
+    const refundAmount = (refundItems ?? []).reduce(
+      (sum, it) => sum + it.price * it.qty,
+      0,
+    );
 
     returnBonuses = totalPrice > 0
       ? Math.round((refundAmount / totalPrice) * bonusesDeducted)
       : 0;
 
+    // Per-item reversal of earned bonuses (only if already accrued)
     if (bonusesAccrued) {
-      const productIds = refundItems
-        .map((it) => it.product_id)
-        .filter((id): id is string => !!id && UUID_RE.test(id));
+      const productIds = [...new Set(
+        (refundItems ?? []).map((it) => it.product_id).filter(Boolean) as string[],
+      )];
 
+      let pctMap: Record<string, number> = {};
       if (productIds.length > 0) {
         const { data: products } = await supabase
           .from("products")
           .select("id, bonus_percent")
           .in("id", productIds);
-
-        const bonusMap: Record<string, number> = {};
         for (const p of products ?? []) {
-          if (p.bonus_percent && p.bonus_percent > 0) bonusMap[p.id] = Number(p.bonus_percent);
+          if (p.bonus_percent) pctMap[p.id] = Number(p.bonus_percent);
         }
-        for (const item of refundItems) {
-          if (!item.product_id || !bonusMap[item.product_id]) continue;
-          reverseEarned += Math.round(item.qty * item.price * bonusMap[item.product_id] / 100);
-        }
+      }
+
+      for (const item of refundItems ?? []) {
+        if (!item.product_id || !pctMap[item.product_id]) continue;
+        reverseEarned += Math.round(item.qty * item.price * pctMap[item.product_id] / 100);
       }
     }
 
-    const currentItems = Array.isArray(order.items_json)
-      ? order.items_json as Array<Record<string, unknown>>
-      : [];
+    // Remove returned items from items_json
     let remaining = [...currentItems];
-    for (const ri of refundItems) {
+    for (const ri of refundItems ?? []) {
       const idx = remaining.findIndex(
-        (it) => it.name === ri.name && Number(it.price) === ri.price &&
-                (ri.product_id ? it.product_id === ri.product_id : true),
+        (it) => it.name === ri.name && Number(it.price) === Number(ri.price),
       );
       if (idx === -1) continue;
       const curQty = Number(remaining[idx].qty ?? 1);
       if (curQty <= ri.qty) {
         remaining = remaining.filter((_, i) => i !== idx);
       } else {
-        remaining = remaining.map((it, i) => i === idx ? { ...it, qty: curQty - ri.qty } : it);
+        remaining = remaining.map((it, i) =>
+          i === idx ? { ...it, qty: curQty - ri.qty } : it,
+        );
       }
     }
-    newItemsJson  = remaining;
-    newTotalPrice = Math.max(0, totalPrice - refundAmount + returnBonuses);
+
+    newItemsJson     = remaining;
+    newTotalPrice    = Math.max(0, totalPrice - (refundItems ?? []).reduce((s, it) => s + it.price * it.qty, 0) + returnBonuses);
+    newEarnedBonuses = await calcEarnedBonuses(supabase, remaining);
   }
 
-  const netBonusChange = returnBonuses - reverseEarned;
+  // Only reverse balance if bonuses were actually accrued to the account
+  const reverseEarnedForBalance = (refundType === "partial" && !bonusesAccrued) ? 0 : reverseEarned;
+  const netBonusChange = returnBonuses - reverseEarnedForBalance;
 
+  // Update guest_balances
   if (guestId && UUID_RE.test(guestId) && netBonusChange !== 0) {
-    // Atomic balance adjustment — prevents lost updates vs concurrent refund or accrual
-    const { error: rpcErr } = await supabase.rpc("adjust_guest_balance", {
-      p_guest_id:      guestId,
-      p_restaurant_id: restaurantId,
-      p_delta:         netBonusChange,
-    });
+    const { data: balance } = await supabase
+      .from("guest_balances")
+      .select("bonus_amount")
+      .eq("guest_id", guestId)
+      .eq("restaurant_id", sessionRid)
+      .maybeSingle();
 
-    if (rpcErr) {
-      // Rollback the refund claim so the admin can retry
-      await supabase
-        .from("orders")
-        .update({ refund_status: null, refunded_at: null })
-        .eq("id", orderId);
-      log.error("refund:balance_failed", { error: rpcErr.message, orderId });
-      return NextResponse.json({ error: "balance_update_failed", detail: rpcErr.message }, { status: 500 });
+    const newBalance = ((balance?.bonus_amount ?? 0) as number) + netBonusChange;
+
+    const { error: balErr } = await supabase
+      .from("guest_balances")
+      .upsert(
+        { guest_id: guestId, restaurant_id: sessionRid, bonus_amount: newBalance },
+        { onConflict: "guest_id,restaurant_id" },
+      );
+
+    if (balErr) {
+      return NextResponse.json(
+        { error: "balance_update_failed", detail: balErr.message },
+        { status: 500 },
+      );
     }
 
     const txRows = [];
     if (returnBonuses > 0) {
       txRows.push({
-        guest_id: guestId, restaurant_id: restaurantId, order_id: orderId,
+        guest_id: guestId, restaurant_id: sessionRid, order_id: orderId,
         type: "refund_spent", amount: returnBonuses,
-        description: reason ? `Возврат (${refundType}): ${reason}` : `Возврат (${refundType})`,
+        description: `Возврат (${refundType === "full" ? "полный" : "частичный"})`,
       });
     }
-    if (reverseEarned > 0) {
+    if (reverseEarnedForBalance > 0) {
       txRows.push({
-        guest_id: guestId, restaurant_id: restaurantId, order_id: orderId,
-        type: "refund_earned", amount: -reverseEarned,
-        description: reason ? `Аннулирование кешбэка (${refundType}): ${reason}` : `Аннулирование кешбэка (${refundType})`,
+        guest_id: guestId, restaurant_id: sessionRid, order_id: orderId,
+        type: "refund_earned", amount: -reverseEarnedForBalance,
+        description: `Аннулирование кешбэка (${refundType === "full" ? "полный" : "частичный"})`,
       });
     }
     if (txRows.length > 0) {
@@ -176,35 +213,47 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Write bonus amounts (and partial-specific fields) — refund_status already set in claim step
-  const orderUpdate: Record<string, unknown> = {
-    refund_bonuses_ret: returnBonuses,
-    refund_earned_rev:  reverseEarned,
-  };
-  if (refundType === "partial" && newItemsJson !== null) {
-    orderUpdate.items_json       = newItemsJson;
-    orderUpdate.total_price      = newTotalPrice;
-    orderUpdate.earned_bonuses   = Math.max(0, earnedBonuses - reverseEarned);
-    orderUpdate.bonuses_deducted = Math.max(0, bonusesDeducted - returnBonuses);
+  // Build order update
+  const orderUpdate: Record<string, unknown> = {};
+
+  if (refundType === "full") {
+    orderUpdate.refund_status      = "full";
+    orderUpdate.refunded_at        = new Date().toISOString();
+    orderUpdate.refund_bonuses_ret = returnBonuses;
+    orderUpdate.refund_earned_rev  = reverseEarned;
+    if (bonusesAccrued && earnedBonuses > 0) {
+      orderUpdate.earned_bonuses = 0;
+    }
+  } else {
+    if (newItemsJson !== null) {
+      orderUpdate.items_json       = newItemsJson;
+      orderUpdate.total_price      = newTotalPrice;
+      orderUpdate.earned_bonuses   = newEarnedBonuses ?? 0;
+      orderUpdate.bonuses_deducted = Math.max(0, bonusesDeducted - returnBonuses);
+    }
+    // All items returned → treat as full
+    if (newItemsJson !== null && newItemsJson.length === 0) {
+      orderUpdate.refund_status = "full";
+      orderUpdate.refunded_at   = new Date().toISOString();
+    } else if (newItemsJson !== null) {
+      orderUpdate.refund_status = "partial";
+      orderUpdate.refunded_at   = new Date().toISOString();
+    }
+    orderUpdate.refund_bonuses_ret = (order.refund_bonuses_ret as number ?? 0) + returnBonuses;
+    orderUpdate.refund_earned_rev  = (order.refund_earned_rev  as number ?? 0) + reverseEarned;
   }
 
   const { error: updateErr } = await supabase
     .from("orders")
     .update(orderUpdate)
-    .eq("id", orderId)
-    .eq("restaurant_id", restaurantId);
+    .eq("id", orderId);
 
   if (updateErr) {
-    log.error("refund:order_update_failed", { error: updateErr.message, orderId });
-    return NextResponse.json({ error: "order_update_failed", detail: updateErr.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "order_update_failed", detail: updateErr.message },
+      { status: 500 },
+    );
   }
 
-  return NextResponse.json({
-    ok: true,
-    refundType,
-    returnBonuses,
-    reverseEarned,
-    netBonusChange,
-    guestHadBonuses: !!guestId,
-  });
+  return NextResponse.json({ ok: true, returnBonuses, reverseEarned, netBonusChange });
 }
