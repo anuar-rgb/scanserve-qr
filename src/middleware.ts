@@ -21,7 +21,7 @@ async function verifySession(signed: string): Promise<string | null> {
   const payload = signed.slice(0, dot);
   const sig     = signed.slice(dot + 1);
 
-  const s = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const s = process.env.SESSION_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!s) return null;
   const key = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(s), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],

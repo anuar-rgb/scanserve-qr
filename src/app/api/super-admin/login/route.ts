@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   response.cookies.set("super_admin_session", signSuperAdminSession(), {
     httpOnly: true,
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 8, // 8 hours — super-admin has full platform access
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });

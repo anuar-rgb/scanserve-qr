@@ -47,6 +47,8 @@ export function getSessionRestaurantId(req: NextRequest): string | null {
 // ── Super-admin session ───────────────────────────────────────────────────────
 
 const SA_PREFIX = "super_admin:";
+// Super-admin session lifetime: 8 hours. Must match maxAge in super-admin/login/route.ts.
+const SA_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 export function signSuperAdminSession(): string {
   const payload = SA_PREFIX + Date.now();
@@ -61,5 +63,9 @@ export function verifySuperAdminSession(signed: string): boolean {
   const sig     = signed.slice(dot + 1);
   if (!payload.startsWith(SA_PREFIX)) return false;
   const expected = createHmac("sha256", secret()).update(payload).digest("hex");
-  return sig === expected;
+  if (sig !== expected) return false;
+  // Validate embedded timestamp so replayed cookies expire server-side too
+  const ts = parseInt(payload.slice(SA_PREFIX.length), 10);
+  if (isNaN(ts) || Date.now() - ts > SA_MAX_AGE_MS) return false;
+  return true;
 }
