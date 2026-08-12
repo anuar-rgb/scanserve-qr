@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { log } from "@/lib/log";
 
 function db() {
   return createClient(
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr || !created) {
-      console.error("guests insert error:", insertErr);
+      log.error("guest:verify_otp:insert_failed", { error: insertErr?.message, code: insertErr?.code });
       return NextResponse.json({ error: "Ошибка при создании профиля" }, { status: 500 });
     }
     guest = created as typeof guest;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSessionRole } from "@/lib/session";
+import { log } from "@/lib/log";
 
 function db() {
   return createClient(
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
         .from("orders")
         .update({ refund_status: null, refunded_at: null })
         .eq("id", orderId);
-      console.error("[refund] adjust_guest_balance failed:", rpcErr.message);
+      log.error("refund:balance_failed", { error: rpcErr.message, orderId });
       return NextResponse.json({ error: "balance_update_failed", detail: rpcErr.message }, { status: 500 });
     }
 
@@ -194,7 +195,7 @@ export async function POST(req: NextRequest) {
     .eq("restaurant_id", restaurantId);
 
   if (updateErr) {
-    console.error("[refund] order update failed:", updateErr.message);
+    log.error("refund:order_update_failed", { error: updateErr.message, orderId });
     return NextResponse.json({ error: "order_update_failed", detail: updateErr.message }, { status: 500 });
   }
 

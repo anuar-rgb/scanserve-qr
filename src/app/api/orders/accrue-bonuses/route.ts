@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSessionRole } from "@/lib/session";
+import { log } from "@/lib/log";
 
 function db() {
   return createClient(
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (rpcErr) {
     // Roll back the flag so a retry can succeed
     await supabase.from("orders").update({ bonuses_accrued: false }).eq("id", orderId);
-    console.error("[accrue-bonuses] adjust_guest_balance failed:", rpcErr.message, "order=", orderId);
+    log.error("accrue_bonuses:rpc_failed", { error: rpcErr.message, orderId });
     return NextResponse.json({ error: "balance_update_failed", detail: rpcErr.message }, { status: 500 });
   }
 

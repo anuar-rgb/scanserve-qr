@@ -3,16 +3,19 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { signSession } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { log } from "@/lib/log";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000)) {
+    log.warn("admin:login:rate_limit", { ip });
     return NextResponse.json({ error: "Слишком много попыток. Подождите 15 минут." }, { status: 429 });
   }
 
   const { username, password } = await request.json();
 
   if (username && !checkRateLimit(`login:user:${username}`, 10, 15 * 60 * 1000)) {
+    log.warn("admin:login:rate_limit", { ip, username });
     return NextResponse.json({ error: "Слишком много попыток. Подождите 15 минут." }, { status: 429 });
   }
 
@@ -24,6 +27,7 @@ export async function POST(request: NextRequest) {
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceKey) {
+    log.error("admin:login:config_missing");
     return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
   }
 
@@ -37,6 +41,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error || !data || data.length === 0) {
+    log.warn("admin:login:failed", { ip, username, rpcError: error?.message });
     return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
   }
 
@@ -55,6 +60,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  log.info("admin:login:success", { ip, username, role: user.role });
   const response = NextResponse.json({ ok: true, role: user.role, displayName: user.display_name });
   const cookieOpts = {
     path: "/",

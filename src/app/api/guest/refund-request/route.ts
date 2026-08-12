@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { log } from "@/lib/log";
 
 function db() {
   return createClient(
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insertErr || !inserted) {
-    console.error("[refund-request] insert failed:", insertErr?.message);
+    log.error("guest:refund_request:insert_failed", { error: insertErr?.message, code: insertErr?.code, orderId });
     return NextResponse.json({ error: "insert_failed", detail: insertErr?.message }, { status: 500 });
   }
 
