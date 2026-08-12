@@ -56,22 +56,22 @@
 /* Class-based dark mode: dark: utilities activate when html has .dark class */
 @custom-variant dark (&:is(.dark, .dark *));
 
-/* Light mode defaults (used by landing/marketing pages) */
+/* Light mode defaults — admin/landing neutral palette */
 :root {
-  --background: #E7E9EB;
-  --foreground: #242424;
-  --accent: #1D4ED8;
-  --accent-hover: #1E40AF;
-  --accent-glow: rgba(29, 78, 216, 0.20);
-  --surface: #F0F2F4;
-  --surface-2: #E9EBEE;
-  --border: rgba(36, 36, 36, 0.10);
-  --muted: rgba(36, 36, 36, 0.55);
+  --background: #F5F5F7;
+  --foreground: #09090b;
+  --accent: #6c47ff;
+  --accent-hover: #7d5bff;
+  --accent-glow: rgba(108, 71, 255, 0.25);
+  --surface: #fafafa;
+  --surface-2: #f4f4f5;
+  --border: rgba(0, 0, 0, 0.08);
+  --muted: rgba(0, 0, 0, 0.5);
   --card:   oklch(1 0 0);
   --card-foreground:   oklch(0.145 0 0);
   --popover:   oklch(1 0 0);
   --popover-foreground:   oklch(0.145 0 0);
-  --primary: #1D4ED8;
+  --primary: #6c47ff;
   --primary-foreground: #ffffff;
   --secondary:   oklch(0.97 0 0);
   --secondary-foreground:   oklch(0.205 0 0);
@@ -79,7 +79,7 @@
   --accent-foreground:   oklch(0.205 0 0);
   --destructive:   oklch(0.577 0.245 27.325);
   --input:   oklch(0.922 0 0);
-  --ring: #1D4ED8;
+  --ring: #6c47ff;
   --chart-1:   oklch(0.87 0 0);
   --chart-2:   oklch(0.556 0 0);
   --chart-3:   oklch(0.439 0 0);
@@ -98,20 +98,20 @@
 
 /* Dark mode — applied when html.dark is set by next-themes */
 .dark {
-  --background: #242424;
-  --foreground: #E7E9EB;
-  --accent: #6366F1;
-  --accent-hover: #4F46E5;
-  --accent-glow: rgba(99, 102, 241, 0.25);
-  --surface: #2D2D2D;
-  --surface-2: #333333;
+  --background: #08080f;
+  --foreground: #f0f0f8;
+  --accent: #6c47ff;
+  --accent-hover: #7d5bff;
+  --accent-glow: rgba(108, 71, 255, 0.25);
+  --surface: #0f0f1a;
+  --surface-2: #161624;
   --border: rgba(255, 255, 255, 0.07);
   --muted: rgba(255, 255, 255, 0.4);
   --card:   oklch(0.205 0 0);
   --card-foreground:   oklch(0.985 0 0);
   --popover:   oklch(0.205 0 0);
   --popover-foreground:   oklch(0.985 0 0);
-  --primary: #4F46E5;
+  --primary: #7d5bff;
   --primary-foreground: #ffffff;
   --secondary:   oklch(0.269 0 0);
   --secondary-foreground:   oklch(0.985 0 0);
@@ -119,7 +119,7 @@
   --accent-foreground:   oklch(0.985 0 0);
   --destructive:   oklch(0.704 0.191 22.216);
   --input:   oklch(1 0 0 / 15%);
-  --ring: #4F46E5;
+  --ring: #7d5bff;
   --chart-1:   oklch(0.87 0 0);
   --chart-2:   oklch(0.556 0 0);
   --chart-3:   oklch(0.439 0 0);
