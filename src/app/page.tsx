@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   QrCode,
@@ -16,6 +16,8 @@ import {
   Clock,
   TrendingUp,
   Shield,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -23,25 +25,18 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 // ─── Design constants ─────────────────────────────────────────────────────────
 
 const BLUE = "#1D4ED8";
-const BLUE_HOVER = "#1E40AF";
 const BLUE_LIGHT = "#60A5FA";
 const GRAPHITE = "#242424";
 const PEARL = "#E7E9EB";
 const WHITE = "#FFFFFF";
 const DARK_BG = "#1A1A1A";
+const DARK_CARD = "#1E1E1E";
+const DARK_SURFACE = "#252525";
 
-// ─── Force light theme ────────────────────────────────────────────────────────
+// ─── Dark mode context ────────────────────────────────────────────────────────
 
-function useForceLightTheme() {
-  useEffect(() => {
-    const html = document.documentElement;
-    const hadDark = html.classList.contains("dark");
-    html.classList.remove("dark");
-    return () => {
-      if (hadDark) html.classList.add("dark");
-    };
-  }, []);
-}
+const DarkCtx = createContext({ isDark: false, toggle: () => {} });
+function useDark() { return useContext(DarkCtx); }
 
 // ─── Section analytics ────────────────────────────────────────────────────────
 
@@ -161,29 +156,24 @@ function SectionTitle({
 
 function Navbar() {
   const { t } = useTranslations();
+  const { isDark, toggle } = useDark();
 
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
       style={{
-        background: "rgba(231,233,235,0.92)",
+        background: isDark ? "rgba(20,20,20,0.92)" : "rgba(231,233,235,0.92)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
-        borderBottom: "1px solid rgba(36,36,36,0.09)",
+        borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.09)",
       }}
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5">
-        <div
-          className="flex items-center justify-center w-8 h-8 rounded-lg"
-          style={{ background: BLUE }}
-        >
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg" style={{ background: BLUE }}>
           <QrCode size={16} color={WHITE} />
         </div>
-        <span
-          className="font-bold text-lg"
-          style={{ color: GRAPHITE, letterSpacing: "-0.025em" }}
-        >
+        <span className="font-bold text-lg" style={{ color: isDark ? PEARL : GRAPHITE, letterSpacing: "-0.025em" }}>
           ScanServe<span style={{ color: BLUE }}>.qr</span>
         </span>
       </div>
@@ -198,8 +188,8 @@ function Navbar() {
           <a
             key={href}
             href={href}
-            className="text-sm font-medium transition-colors hover:text-[#242424]"
-            style={{ color: "rgba(36,36,36,0.55)" }}
+            className="text-sm font-medium transition-colors"
+            style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}
           >
             {label}
           </a>
@@ -208,6 +198,17 @@ function Navbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
+        <button
+          onClick={toggle}
+          aria-label={isDark ? "Светлая тема" : "Тёмная тема"}
+          className="flex items-center justify-center w-9 h-9 rounded-lg transition-all hover:opacity-70"
+          style={{
+            background: isDark ? "rgba(255,255,255,0.08)" : "rgba(36,36,36,0.07)",
+            color: isDark ? PEARL : GRAPHITE,
+          }}
+        >
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
         <LanguageSwitcher />
         <a
           href="#pricing"
@@ -383,11 +384,12 @@ function PhoneMockup() {
 
 function Hero() {
   const { t } = useTranslations();
+  const { isDark } = useDark();
 
   return (
     <section
       className="relative min-h-screen flex items-center pt-20 bg-grid overflow-hidden"
-      style={{ background: PEARL }}
+      style={{ background: isDark ? DARK_BG : PEARL }}
     >
       <div className="relative z-10 max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center py-24">
         {/* Left: text */}
@@ -413,7 +415,7 @@ function Hero() {
           <h1
             className="font-extrabold leading-[1.05] tracking-tight mb-6"
             style={{
-              color: GRAPHITE,
+              color: isDark ? PEARL : GRAPHITE,
               fontSize: "clamp(2.6rem, 5vw, 3.8rem)",
               letterSpacing: "-0.03em",
             }}
@@ -427,7 +429,7 @@ function Hero() {
 
           <p
             className="text-lg leading-relaxed mb-10"
-            style={{ color: "rgba(36,36,36,0.58)", maxWidth: 480 }}
+            style={{ color: isDark ? "rgba(231,233,235,0.58)" : "rgba(36,36,36,0.58)", maxWidth: 480 }}
           >
             {t.hero.subtitle}
           </p>
@@ -493,6 +495,7 @@ function Hero() {
 
 function Stats() {
   const { t } = useTranslations();
+  const { isDark } = useDark();
 
   const items = [
     { icon: <Users size={18} />, value: "2", label: t.stats.restaurants },
@@ -504,9 +507,9 @@ function Stats() {
   return (
     <section
       style={{
-        background: WHITE,
-        borderTop: "1px solid rgba(36,36,36,0.08)",
-        borderBottom: "1px solid rgba(36,36,36,0.08)",
+        background: isDark ? DARK_CARD : WHITE,
+        borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
+        borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
       }}
     >
       <div className="max-w-6xl mx-auto px-6 py-14 grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -514,17 +517,17 @@ function Stats() {
           <Reveal key={label} delay={i * 0.07} className="flex flex-col items-center text-center">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-              style={{ background: "rgba(29,78,216,0.08)", color: BLUE }}
+              style={{ background: "rgba(29,78,216,0.12)", color: BLUE }}
             >
               {icon}
             </div>
             <div
               className="text-3xl font-black mb-1"
-              style={{ color: GRAPHITE, letterSpacing: "-0.03em" }}
+              style={{ color: isDark ? PEARL : GRAPHITE, letterSpacing: "-0.03em" }}
             >
               {value}
             </div>
-            <div className="text-sm" style={{ color: "rgba(36,36,36,0.5)" }}>
+            <div className="text-sm" style={{ color: isDark ? "rgba(231,233,235,0.5)" : "rgba(36,36,36,0.5)" }}>
               {label}
             </div>
           </Reveal>
@@ -538,6 +541,7 @@ function Stats() {
 
 function Features() {
   const { t } = useTranslations();
+  const { isDark } = useDark();
 
   const items = [
     { icon: <QrCode size={20} />, title: t.features.qrTitle, desc: t.features.qrDesc },
@@ -549,12 +553,12 @@ function Features() {
   ];
 
   return (
-    <section id="features" className="py-28 px-6" style={{ background: PEARL }}>
+    <section id="features" className="py-28 px-6" style={{ background: isDark ? DARK_BG : PEARL }}>
       <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
           <Eyebrow>{t.features.badge}</Eyebrow>
-          <SectionTitle>{t.features.title}</SectionTitle>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: "rgba(36,36,36,0.55)" }}>
+          <SectionTitle dark={isDark}>{t.features.title}</SectionTitle>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
             {t.features.subtitle}
           </p>
         </Reveal>
@@ -566,25 +570,25 @@ function Features() {
               delay={(i % 3) * 0.08}
               className="group p-6 rounded-2xl transition-all duration-200"
               style={{
-                background: WHITE,
-                border: "1px solid rgba(36,36,36,0.08)",
+                background: isDark ? DARK_CARD : WHITE,
+                border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
               }}
             >
               <div
                 className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 transition-colors"
-                style={{ background: "rgba(29,78,216,0.08)", color: BLUE }}
+                style={{ background: "rgba(29,78,216,0.12)", color: BLUE }}
               >
                 {icon}
               </div>
               <h3
                 className="font-semibold text-base mb-2"
-                style={{ color: GRAPHITE }}
+                style={{ color: isDark ? PEARL : GRAPHITE }}
               >
                 {title}
               </h3>
               <p
                 className="text-sm leading-relaxed"
-                style={{ color: "rgba(36,36,36,0.55)" }}
+                style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}
               >
                 {desc}
               </p>
@@ -600,6 +604,7 @@ function Features() {
 
 function HowItWorks() {
   const { t } = useTranslations();
+  const { isDark } = useDark();
 
   const steps = [
     { step: "01", title: t.howItWorks.step1Title, desc: t.howItWorks.step1Desc },
@@ -611,13 +616,13 @@ function HowItWorks() {
     <section
       id="how-it-works"
       className="py-28 px-6"
-      style={{ background: WHITE, borderTop: "1px solid rgba(36,36,36,0.07)" }}
+      style={{ background: isDark ? DARK_CARD : WHITE, borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.07)" }}
     >
       <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
-          <Eyebrow>{t.howItWorks.badge}</Eyebrow>
-          <SectionTitle>{t.howItWorks.title}</SectionTitle>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: "rgba(36,36,36,0.55)" }}>
+          <Eyebrow dark={isDark}>{t.howItWorks.badge}</Eyebrow>
+          <SectionTitle dark={isDark}>{t.howItWorks.title}</SectionTitle>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
             {t.howItWorks.subtitle}
           </p>
         </Reveal>
@@ -628,38 +633,26 @@ function HowItWorks() {
               <div
                 className="p-8 rounded-2xl h-full"
                 style={{
-                  background: PEARL,
-                  border: "1px solid rgba(36,36,36,0.07)",
+                  background: isDark ? DARK_SURFACE : PEARL,
+                  border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.07)",
                 }}
               >
-                {/* Big ghost number */}
                 <div
                   className="text-7xl font-black leading-none mb-6"
-                  style={{
-                    color: "rgba(29,78,216,0.10)",
-                    letterSpacing: "-0.06em",
-                    userSelect: "none",
-                  }}
+                  style={{ color: "rgba(29,78,216,0.15)", letterSpacing: "-0.06em", userSelect: "none" }}
                 >
                   {step}
                 </div>
-                {/* Step number pill */}
                 <div
                   className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mb-4"
                   style={{ background: BLUE, color: WHITE }}
                 >
                   {parseInt(step)}
                 </div>
-                <h3
-                  className="font-bold text-xl mb-3"
-                  style={{ color: GRAPHITE }}
-                >
+                <h3 className="font-bold text-xl mb-3" style={{ color: isDark ? PEARL : GRAPHITE }}>
                   {title}
                 </h3>
-                <p
-                  className="text-sm leading-relaxed"
-                  style={{ color: "rgba(36,36,36,0.55)" }}
-                >
+                <p className="text-sm leading-relaxed" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
                   {desc}
                 </p>
               </div>
@@ -675,6 +668,7 @@ function HowItWorks() {
 
 function Problems() {
   const { t } = useTranslations();
+  const { isDark } = useDark();
   const p = t.problems;
 
   const items = [
@@ -686,21 +680,15 @@ function Problems() {
   return (
     <section
       className="py-28 px-6"
-      style={{ background: PEARL, borderTop: "1px solid rgba(36,36,36,0.07)" }}
+      style={{ background: isDark ? DARK_BG : PEARL, borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.07)" }}
     >
       <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
-          <p
-            className="text-xs font-bold uppercase tracking-[0.14em] mb-4"
-            style={{ color: "#DC2626" }}
-          >
+          <p className="text-xs font-bold uppercase tracking-[0.14em] mb-4" style={{ color: "#DC2626" }}>
             {p.badge}
           </p>
-          <SectionTitle>{p.title}</SectionTitle>
-          <p
-            className="text-lg max-w-xl mx-auto"
-            style={{ color: "rgba(36,36,36,0.55)" }}
-          >
+          <SectionTitle dark={isDark}>{p.title}</SectionTitle>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
             {p.subtitle}
           </p>
         </Reveal>
@@ -711,38 +699,21 @@ function Problems() {
               <div
                 className="p-6 rounded-2xl relative overflow-hidden h-full"
                 style={{
-                  background: WHITE,
-                  border: "1px solid rgba(36,36,36,0.08)",
+                  background: isDark ? DARK_CARD : WHITE,
+                  border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
                 }}
               >
-                {/* Red top accent line */}
-                <div
-                  className="absolute top-0 left-0 right-0 h-0.5"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, #DC2626 0%, transparent 80%)",
-                  }}
-                />
+                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, #DC2626 0%, transparent 80%)" }} />
                 <div className="text-3xl mb-4">{icon}</div>
-                <h3
-                  className="font-semibold text-base mb-2"
-                  style={{ color: GRAPHITE }}
-                >
+                <h3 className="font-semibold text-base mb-2" style={{ color: isDark ? PEARL : GRAPHITE }}>
                   {title}
                 </h3>
-                <p
-                  className="text-sm leading-relaxed mb-5"
-                  style={{ color: "rgba(36,36,36,0.55)" }}
-                >
+                <p className="text-sm leading-relaxed mb-5" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
                   {desc}
                 </p>
                 <span
                   className="inline-block text-xs font-bold uppercase px-3 py-1 rounded-md"
-                  style={{
-                    background: "rgba(220,38,38,0.07)",
-                    color: "#DC2626",
-                    letterSpacing: "0.06em",
-                  }}
+                  style={{ background: "rgba(220,38,38,0.10)", color: "#DC2626", letterSpacing: "0.06em" }}
                 >
                   {tag}
                 </span>
@@ -842,6 +813,7 @@ function Proof() {
 
 function Pricing() {
   const { t } = useTranslations();
+  const { isDark } = useDark();
   const p = t.pricing;
 
   const plans = [
@@ -890,14 +862,14 @@ function Pricing() {
   ];
 
   return (
-    <section id="pricing" className="py-28 px-6" style={{ background: PEARL }}>
+    <section id="pricing" className="py-28 px-6" style={{ background: isDark ? DARK_BG : PEARL }}>
       <div className="max-w-6xl mx-auto">
         <Reveal className="text-center mb-16">
-          <Eyebrow>{p.badge}</Eyebrow>
-          <SectionTitle>{p.title}</SectionTitle>
+          <Eyebrow dark={isDark}>{p.badge}</Eyebrow>
+          <SectionTitle dark={isDark}>{p.title}</SectionTitle>
           <p
             className="text-lg max-w-xl mx-auto"
-            style={{ color: "rgba(36,36,36,0.55)" }}
+            style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}
           >
             {p.subtitle}
           </p>
@@ -910,15 +882,8 @@ function Pricing() {
                 className="rounded-2xl p-8 relative h-full flex flex-col"
                 style={
                   highlight
-                    ? {
-                        background: BLUE,
-                        border: `1px solid ${BLUE}`,
-                        boxShadow: "0 20px 60px rgba(29,78,216,0.28)",
-                      }
-                    : {
-                        background: WHITE,
-                        border: "1px solid rgba(36,36,36,0.09)",
-                      }
+                    ? { background: BLUE, border: `1px solid ${BLUE}`, boxShadow: "0 20px 60px rgba(29,78,216,0.28)" }
+                    : { background: isDark ? DARK_CARD : WHITE, border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(36,36,36,0.09)" }
                 }
               >
                 {/* Popular badge */}
@@ -974,22 +939,14 @@ function Pricing() {
                     </span>
                     <span
                       className="text-sm"
-                      style={{
-                        color: highlight
-                          ? "rgba(231,233,235,0.55)"
-                          : "rgba(36,36,36,0.4)",
-                      }}
+                      style={{ color: highlight ? "rgba(231,233,235,0.55)" : isDark ? "rgba(231,233,235,0.4)" : "rgba(36,36,36,0.4)" }}
                     >
                       {period}
                     </span>
                   </div>
                   <p
                     className="text-sm leading-relaxed"
-                    style={{
-                      color: highlight
-                        ? "rgba(231,233,235,0.65)"
-                        : "rgba(36,36,36,0.5)",
-                    }}
+                    style={{ color: highlight ? "rgba(231,233,235,0.65)" : isDark ? "rgba(231,233,235,0.5)" : "rgba(36,36,36,0.5)" }}
                   >
                     {desc}
                   </p>
@@ -999,11 +956,7 @@ function Pricing() {
                 <a
                   href="#"
                   className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl text-sm font-semibold mb-8 transition-all hover:opacity-90"
-                  style={
-                    highlight
-                      ? { background: WHITE, color: BLUE }
-                      : { background: BLUE, color: WHITE }
-                  }
+                  style={highlight ? { background: WHITE, color: BLUE } : { background: BLUE, color: WHITE }}
                 >
                   {cta}
                   <ChevronRight size={15} />
@@ -1015,20 +968,9 @@ function Pricing() {
                     <li
                       key={f}
                       className="flex items-start gap-3 text-sm"
-                      style={{
-                        color: highlight
-                          ? "rgba(231,233,235,0.75)"
-                          : "rgba(36,36,36,0.6)",
-                      }}
+                      style={{ color: highlight ? "rgba(231,233,235,0.75)" : isDark ? "rgba(231,233,235,0.6)" : "rgba(36,36,36,0.6)" }}
                     >
-                      <Check
-                        size={14}
-                        style={{
-                          color: highlight ? "#93C5FD" : BLUE,
-                          flexShrink: 0,
-                          marginTop: 2,
-                        }}
-                      />
+                      <Check size={14} style={{ color: highlight ? "#93C5FD" : BLUE, flexShrink: 0, marginTop: 2 }} />
                       {f}
                     </li>
                   ))}
@@ -1157,11 +1099,26 @@ function Footer() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  useForceLightTheme();
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem("landing-theme");
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  function toggle() {
+    setIsDark((d) => {
+      const next = !d;
+      localStorage.setItem("landing-theme", next ? "dark" : "light");
+      return next;
+    });
+  }
+
   useTrackSections();
 
   return (
-    <div>
+    <DarkCtx.Provider value={{ isDark, toggle }}>
+    <div style={{ background: isDark ? DARK_BG : PEARL, minHeight: "100vh" }}>
       <Navbar />
       <main>
         <div id="hero" data-track>
@@ -1193,5 +1150,6 @@ export default function LandingPage() {
         <Footer />
       </div>
     </div>
+    </DarkCtx.Provider>
   );
 }
