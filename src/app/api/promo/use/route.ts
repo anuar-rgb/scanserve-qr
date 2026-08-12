@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     .from("promo_codes")
     .select("id, used_count")
     .eq("restaurant_id", restaurantId)
-    .ilike("code", code.trim())
+    .eq("code", code.trim().toUpperCase())
     .maybeSingle();
 
   if (promo) {
