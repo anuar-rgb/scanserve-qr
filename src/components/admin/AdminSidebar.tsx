@@ -29,7 +29,7 @@ type NavSection = {
   noPOS?: true;
   storekeeperAccess?: true;
   accountantAccess?: true;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; planFeature?: string; courierAccess?: true }[];
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; noCashier?: true; planFeature?: string; courierAccess?: true }[];
 };
 
 const NAV: NavSection[] = [
@@ -76,7 +76,7 @@ const NAV: NavSection[] = [
     noPOS: true,
     items: [
       { labelKey: "navHall",         icon: LayoutGrid, href: "/admin/hall"                              },
-      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits", noWaiter: true          },
+      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits", noWaiter: true, noCashier: true },
       { labelKey: "navOrderHistory", icon: History,    href: "/admin/order-history", noWaiter: true     },
       { labelKey: "navInvoices",     icon: FileText,   href: "/admin/invoices",      noWaiter: true     },
     ],
@@ -240,6 +240,7 @@ export default function AdminSidebar() {
             if (item.strictOwner && !isStrictOwner) return false;
             if (item.ownerOnly && !isOwner) return false;
             if (item.noWaiter && role === "waiter") return false;
+            if (item.noCashier && role === "cashier") return false;
             if (item.courierAccess) return isCourier || isOwner;
             return true;
           });
