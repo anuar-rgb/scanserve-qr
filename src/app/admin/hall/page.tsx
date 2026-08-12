@@ -634,28 +634,6 @@ export default function HallPage() {
       .catch(() => setActiveShift(null));
   }, []);
 
-  // Auto-checkin: when staff opens the terminal, silently record attendance
-  // if a shift is active — no manual button press required.
-  const autoCheckinFired = useRef(false);
-  useEffect(() => {
-    if (autoCheckinFired.current) return;
-    if (!userId || activeShift === undefined || activeShift === null) return;
-    const alreadyIn = shiftCheckins.some((c) => c.staff_user_id === userId);
-    if (alreadyIn) { autoCheckinFired.current = true; return; }
-    autoCheckinFired.current = true;
-    fetch("/api/admin/shift/auto-checkin", { method: "POST" })
-      .then((r) => r.json())
-      .then((d: { checkin?: { staff_user_id: string; checked_in_at: string } | null }) => {
-        if (d?.checkin) {
-          setShiftCheckins((prev) =>
-            prev.some((c) => c.staff_user_id === d.checkin!.staff_user_id)
-              ? prev
-              : [...prev, d.checkin!],
-          );
-        }
-      })
-      .catch(() => {});
-  }, [userId, activeShift, shiftCheckins]);
 
   // Keep refs in sync for the activation interval (avoids stale closures)
   useEffect(() => { restaurantRef.current = restaurant; }, [restaurant]);
@@ -959,24 +937,6 @@ export default function HallPage() {
       </div>
 
 
-      {/* ── Manager: no shift banner ─────────────────────────────────────────── */}
-      {!isWaiter && activeShift === null && (
-        <div className="mx-4 mt-3 shrink-0 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-center gap-3">
-          <Clock size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Смена не открыта</p>
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">Официанты не смогут начать работу</p>
-          </div>
-          <button
-            onClick={openShift}
-            disabled={openingShift}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-60 transition-colors shrink-0"
-          >
-            {openingShift ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-            Открыть смену
-          </button>
-        </div>
-      )}
 
       {/* ── Edit mode banner ────────────────────────────────────────────────── */}
       {!isWaiter && activeTab === "dine-in" && editMode && (
