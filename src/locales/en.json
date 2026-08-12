@@ -24,6 +24,35 @@
     "monthlyScans": "Staff roles",
     "uptimeSla": "Uptime SLA"
   },
+  "problems": {
+    "badge": "Why Now",
+    "title": "Sound familiar?",
+    "subtitle": "Each of these is money leaving your restaurant every day.",
+    "p1Title": "Menu changes cost money to reprint",
+    "p1Desc": "Updated a price or added a dish? Reprint everything. The laminated booklet doesn't reflect reality — guests order dishes that are no longer available.",
+    "p1Tag": "Trust damage",
+    "p2Title": "Wrong orders cost you guests",
+    "p2Desc": "Human error in order-taking — mistakes, re-asking, kitchen delays. A dissatisfied guest leaves and never comes back.",
+    "p2Tag": "Reputation risk",
+    "p3Title": "No data means no strategy",
+    "p3Desc": "Who are your regulars? Which dish is most profitable to promote? Without numbers — only intuition. Competitors already make data-driven decisions.",
+    "p3Tag": "Lost revenue"
+  },
+  "proof": {
+    "badge": "Live Results",
+    "title": "Running in Almaty restaurants right now",
+    "subtitle": "ScanServe QR was created by a restaurant owner — and first tested in their own venues. No theory — only practice.",
+    "stat1": "↓80%",
+    "stat1Label": "fewer order mistakes",
+    "stat2": "3×",
+    "stat2Label": "faster order placement",
+    "stat3": "+34%",
+    "stat3Label": "repeat visits with loyalty program",
+    "stat4": "5 min",
+    "stat4Label": "to launch menu after registration",
+    "quote": "\"Waiters used to ask guests to repeat their order three times. Now the guest specifies everything themselves — the kitchen gets an exact order. Dishes with cashback are ordered more willingly, average check went up. I regret not implementing this sooner.\"",
+    "quoteAuthor": "— Restaurant owner, Almaty"
+  },
   "features": {
     "badge": "Features",
     "title": "Everything to run your restaurant",

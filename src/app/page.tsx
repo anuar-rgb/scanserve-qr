@@ -409,6 +409,137 @@ function Stats() {
   );
 }
 
+// ─── Problems ────────────────────────────────────────────────────────────────
+
+function Problems() {
+  const { t } = useTranslations();
+  const p = t.problems;
+
+  const items = [
+    { icon: "📋", title: p.p1Title, desc: p.p1Desc, tag: p.p1Tag },
+    { icon: "🗣️", title: p.p2Title, desc: p.p2Desc, tag: p.p2Tag },
+    { icon: "📊", title: p.p3Title, desc: p.p3Desc, tag: p.p3Tag },
+  ];
+
+  return (
+    <section className="py-28 px-6">
+      <div className="max-w-7xl mx-auto">
+        <Reveal className="text-center mb-16">
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
+            style={{
+              background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              color: "#f87171",
+            }}
+          >
+            {p.badge}
+          </div>
+          <h2 className="text-4xl font-bold mb-4">{p.title}</h2>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: "var(--muted)" }}>
+            {p.subtitle}
+          </p>
+        </Reveal>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          {items.map(({ icon, title, desc, tag }, i) => (
+            <Reveal key={title} delay={i * 0.1} className="card-base p-6 relative overflow-hidden">
+              <div
+                className="absolute top-0 left-0 right-0 h-0.5"
+                style={{ background: "linear-gradient(90deg, rgba(239,68,68,0.6), transparent)" }}
+              />
+              <div className="text-3xl mb-4">{icon}</div>
+              <h3 className="font-semibold text-lg mb-2" style={{ color: "var(--foreground)" }}>
+                {title}
+              </h3>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
+                {desc}
+              </p>
+              <span
+                className="inline-block text-xs font-bold uppercase px-3 py-1 rounded"
+                style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", letterSpacing: "0.06em" }}
+              >
+                {tag}
+              </span>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Proof ───────────────────────────────────────────────────────────────────
+
+function Proof() {
+  const { t } = useTranslations();
+  const p = t.proof;
+
+  const stats = [
+    { val: p.stat1, label: p.stat1Label },
+    { val: p.stat2, label: p.stat2Label },
+    { val: p.stat3, label: p.stat3Label },
+    { val: p.stat4, label: p.stat4Label },
+  ];
+
+  return (
+    <section
+      className="py-28 px-6"
+      style={{
+        background: "var(--surface)",
+        borderTop: "1px solid var(--border)",
+        borderBottom: "1px solid var(--border)",
+      }}
+    >
+      <div className="max-w-7xl mx-auto">
+        <Reveal className="mb-12">
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
+            style={{
+              background: "rgba(108,71,255,0.1)",
+              border: "1px solid rgba(108,71,255,0.2)",
+              color: "#a78bfa",
+            }}
+          >
+            {p.badge}
+          </div>
+          <h2 className="text-4xl font-bold mb-4">{p.title}</h2>
+          <p className="text-lg max-w-2xl" style={{ color: "var(--muted)" }}>
+            {p.subtitle}
+          </p>
+        </Reveal>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          {stats.map(({ val, label }, i) => (
+            <Reveal key={label} delay={i * 0.08}>
+              <div className="text-3xl font-bold mb-1 text-gradient">{val}</div>
+              <div className="text-sm" style={{ color: "var(--muted)" }}>{label}</div>
+            </Reveal>
+          ))}
+        </div>
+
+        <Reveal>
+          <blockquote
+            className="rounded-2xl p-8"
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              borderLeft: "3px solid var(--accent)",
+            }}
+          >
+            <p className="text-lg italic leading-relaxed mb-4" style={{ color: "var(--foreground)" }}>
+              {p.quote}
+            </p>
+            <footer className="text-sm font-semibold" style={{ color: "var(--muted)" }}>
+              {p.quoteAuthor}
+            </footer>
+          </blockquote>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 // ─── Features ────────────────────────────────────────────────────────────────
 
 function Features() {
@@ -816,8 +947,10 @@ export default function LandingPage() {
         <main>
           <div id="hero" data-track><Hero /></div>
           <div id="stats" data-track><Stats /></div>
+          <div id="problems" data-track><Problems /></div>
           <div id="features" data-track><Features /></div>
           <div id="how-it-works" data-track><HowItWorks /></div>
+          <div id="proof" data-track><Proof /></div>
           <div id="pricing" data-track><Pricing /></div>
           <div id="cta" data-track><FinalCta /></div>
         </main>
