@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifySuperAdminSession } from "@/lib/session";
 
 function db() {
   return createClient(
@@ -36,8 +37,8 @@ export async function POST(req: NextRequest) {
 
 // GET — stats for super-admin (requires super_admin_session)
 export async function GET(req: NextRequest) {
-  const session = req.cookies.get("super_admin_session")?.value;
-  if (session !== "authenticated") {
+  const session = req.cookies.get("super_admin_session")?.value ?? "";
+  if (!verifySuperAdminSession(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
