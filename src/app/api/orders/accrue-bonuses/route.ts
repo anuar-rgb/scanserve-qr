@@ -15,7 +15,8 @@ function db() {
 // Body: { orderId, restaurantId }
 // Called after admin marks order as paid.
 // Credits orders.earned_bonuses (frozen at checkout) to guest_balances.
-// Idempotent: bonuses_accrued flag is set BEFORE balance update — prevents double-crediting even on concurrent calls.
+// Idempotent: atomically claims bonuses_accrued with WHERE bonuses_accrued = false —
+// prevents double-crediting even when two admin clicks arrive simultaneously.
 export async function POST(req: NextRequest) {
   if (!getSessionRole(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -31,74 +32,68 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  const { data: order, error } = await supabase
+  // Atomic claim: UPDATE WHERE bonuses_accrued = false atomically sets the flag AND
+  // returns order data. Only one concurrent request succeeds — the other sees 0 rows.
+  // This eliminates the TOCTOU race of the previous read → check → set pattern.
+  const { data: claimed } = await supabase
     .from("orders")
-    .select("id, guest_id, earned_bonuses, bonuses_accrued")
+    .update({ bonuses_accrued: true })
     .eq("id", orderId)
     .eq("restaurant_id", restaurantId)
-    .single();
+    .eq("bonuses_accrued", false)
+    .select("id, guest_id, earned_bonuses");
 
-  if (error || !order) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (!claimed || claimed.length === 0) {
+    // Either already accrued or order doesn't exist / wrong restaurant
+    const { data: exists } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!exists) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    return NextResponse.json({ ok: true, bonusesEarned: 0, alreadyAccrued: true });
   }
+
+  const order = claimed[0];
 
   if (!order.guest_id) {
     return NextResponse.json({ ok: true, bonusesEarned: 0, noGuest: true });
   }
 
-  // Already processed — stop immediately, never credit twice
-  if (order.bonuses_accrued) {
-    return NextResponse.json({ ok: true, bonusesEarned: 0, alreadyAccrued: true });
-  }
-
   const bonusesEarned = order.earned_bonuses ?? 0;
-
-  // Set flag first to block race (two admins clicking simultaneously)
-  await supabase
-    .from("orders")
-    .update({ bonuses_accrued: true })
-    .eq("id", orderId);
 
   if (bonusesEarned <= 0) {
     return NextResponse.json({ ok: true, bonusesEarned: 0 });
   }
 
-  // Add exactly earned_bonuses (frozen at order creation) to guest balance
-  const { data: balance } = await supabase
-    .from("guest_balances")
-    .select("bonus_amount")
-    .eq("guest_id", order.guest_id)
-    .eq("restaurant_id", restaurantId)
-    .maybeSingle();
+  // Atomic balance increment via PostgreSQL function — prevents lost updates when two
+  // accruals for different orders of the same guest run simultaneously (concurrent admin pays).
+  const { data: newBalanceResult, error: rpcErr } = await supabase.rpc("adjust_guest_balance", {
+    p_guest_id:      order.guest_id,
+    p_restaurant_id: restaurantId,
+    p_delta:         bonusesEarned,
+  });
 
-  const oldBalance = (balance?.bonus_amount ?? 0) as number;
-  const newBalance = oldBalance + bonusesEarned;
-
-  const { error: upsertErr } = await supabase
-    .from("guest_balances")
-    .upsert(
-      { guest_id: order.guest_id, restaurant_id: restaurantId, bonus_amount: newBalance },
-      { onConflict: "guest_id,restaurant_id" },
-    );
-
-  if (upsertErr) {
+  if (rpcErr) {
     // Roll back the flag so a retry can succeed
     await supabase.from("orders").update({ bonuses_accrued: false }).eq("id", orderId);
-    console.error("[accrue-bonuses] upsert failed:", upsertErr.message, "order=", orderId);
-    return NextResponse.json({ error: "balance_update_failed", detail: upsertErr.message }, { status: 500 });
+    console.error("[accrue-bonuses] adjust_guest_balance failed:", rpcErr.message, "order=", orderId);
+    return NextResponse.json({ error: "balance_update_failed", detail: rpcErr.message }, { status: 500 });
   }
 
-  // Log to bonus_transactions for full history (shows debt repayment when old balance was negative)
+  const newBalance = newBalanceResult as number;
+  const oldBalance = newBalance - bonusesEarned;
+
   const desc = oldBalance < 0
     ? `Кешбэк за заказ (включая погашение задолженности ${Math.abs(oldBalance)} б)`
     : "Кешбэк за заказ";
   await supabase.from("bonus_transactions").insert({
-    guest_id: order.guest_id,
+    guest_id:      order.guest_id,
     restaurant_id: restaurantId,
-    order_id: orderId,
-    type: "earned",
-    amount: bonusesEarned,
-    description: desc,
+    order_id:      orderId,
+    type:          "earned",
+    amount:        bonusesEarned,
+    description:   desc,
   });
 
   return NextResponse.json({ ok: true, bonusesEarned, oldBalance, newBalance });

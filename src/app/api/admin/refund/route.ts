@@ -48,45 +48,50 @@ export async function POST(req: NextRequest) {
 
   const supabase = db();
 
-  // Fetch order
-  const { data: order, error: orderErr } = await supabase
+  // Atomic claim: SET refund_status first while WHERE refund_status IS NULL.
+  // Only one concurrent admin click succeeds — the other sees 0 rows and gets 409.
+  // This eliminates the TOCTOU race where two requests both read refund_status=null
+  // and both proceed to update the guest balance.
+  const { data: claimed } = await supabase
     .from("orders")
-    .select("id, guest_id, bonuses_deducted, earned_bonuses, bonuses_accrued, total_price, items_json, refund_status")
+    .update({ refund_status: refundType, refunded_at: new Date().toISOString() })
     .eq("id", orderId)
     .eq("restaurant_id", restaurantId)
-    .single();
+    .is("refund_status", null)
+    .select("id, guest_id, bonuses_deducted, earned_bonuses, bonuses_accrued, total_price, items_json");
 
-  if (orderErr || !order) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  }
-  if (order.refund_status) {
-    return NextResponse.json({ error: "already_refunded", refundStatus: order.refund_status }, { status: 409 });
+  if (!claimed || claimed.length === 0) {
+    const { data: exists } = await supabase
+      .from("orders")
+      .select("id, refund_status")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!exists) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    return NextResponse.json({ error: "already_refunded", refundStatus: exists.refund_status }, { status: 409 });
   }
 
-  const guestId = order.guest_id as string | null;
+  const order = claimed[0];
+  const guestId         = order.guest_id as string | null;
   const bonusesDeducted = (order.bonuses_deducted as number | null) ?? 0;
   const earnedBonuses   = (order.earned_bonuses   as number | null) ?? 0;
   const bonusesAccrued  = (order.bonuses_accrued  as boolean | null) ?? false;
   const totalPrice      = (order.total_price       as number) ?? 0;
 
-  let returnBonuses = 0;   // bonuses returned to guest (were spent on this order)
-  let reverseEarned = 0;   // cashback to annul (was credited after payment)
+  let returnBonuses = 0;
+  let reverseEarned = 0;
   let newItemsJson: unknown[] | null = null;
-  let newTotalPrice: number | null = null;
+  let newTotalPrice: number | null   = null;
 
   if (refundType === "full") {
     returnBonuses = bonusesDeducted;
     reverseEarned = bonusesAccrued ? earnedBonuses : 0;
   } else {
-    // Partial: calculate refund amount
     const refundAmount = refundItems.reduce((s, it) => s + it.price * it.qty, 0);
 
-    // Spent bonuses: proportional to refund amount vs total
     returnBonuses = totalPrice > 0
       ? Math.round((refundAmount / totalPrice) * bonusesDeducted)
       : 0;
 
-    // Earned bonuses: per-item lookup (NOT proportional — only dishes that had bonus_percent)
     if (bonusesAccrued) {
       const productIds = refundItems
         .map((it) => it.product_id)
@@ -102,7 +107,6 @@ export async function POST(req: NextRequest) {
         for (const p of products ?? []) {
           if (p.bonus_percent && p.bonus_percent > 0) bonusMap[p.id] = Number(p.bonus_percent);
         }
-
         for (const item of refundItems) {
           if (!item.product_id || !bonusMap[item.product_id]) continue;
           reverseEarned += Math.round(item.qty * item.price * bonusMap[item.product_id] / 100);
@@ -110,56 +114,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update items_json: remove returned items
-    const currentItems = Array.isArray(order.items_json) ? order.items_json as Array<Record<string, unknown>> : [];
+    const currentItems = Array.isArray(order.items_json)
+      ? order.items_json as Array<Record<string, unknown>>
+      : [];
     let remaining = [...currentItems];
     for (const ri of refundItems) {
       const idx = remaining.findIndex(
-        (it) => it.name === ri.name && Number(it.price) === ri.price && (ri.product_id ? it.product_id === ri.product_id : true),
+        (it) => it.name === ri.name && Number(it.price) === ri.price &&
+                (ri.product_id ? it.product_id === ri.product_id : true),
       );
       if (idx === -1) continue;
-      const cur = remaining[idx];
-      const curQty = Number(cur.qty ?? 1);
+      const curQty = Number(remaining[idx].qty ?? 1);
       if (curQty <= ri.qty) {
         remaining = remaining.filter((_, i) => i !== idx);
       } else {
         remaining = remaining.map((it, i) => i === idx ? { ...it, qty: curQty - ri.qty } : it);
       }
     }
-    newItemsJson = remaining;
-    // Delta approach: preserves delivery fee, promo discount, bonus deduction baked into total_price.
+    newItemsJson  = remaining;
     newTotalPrice = Math.max(0, totalPrice - refundAmount + returnBonuses);
   }
 
   const netBonusChange = returnBonuses - reverseEarned;
 
-  // Update guest_balances if guest exists and net change is non-zero
   if (guestId && UUID_RE.test(guestId) && netBonusChange !== 0) {
-    const { data: balance } = await supabase
-      .from("guest_balances")
-      .select("bonus_amount")
-      .eq("guest_id", guestId)
-      .eq("restaurant_id", restaurantId)
-      .maybeSingle();
+    // Atomic balance adjustment — prevents lost updates vs concurrent refund or accrual
+    const { error: rpcErr } = await supabase.rpc("adjust_guest_balance", {
+      p_guest_id:      guestId,
+      p_restaurant_id: restaurantId,
+      p_delta:         netBonusChange,
+    });
 
-    const oldBalance = (balance?.bonus_amount ?? 0) as number;
-    // Allow negative balance (overdraft) — guest owes the restaurant.
-    // Debt is repaid automatically on next accrual (accrue-bonuses route).
-    const newBalance = oldBalance + netBonusChange;
-
-    const { error: balErr } = await supabase
-      .from("guest_balances")
-      .upsert(
-        { guest_id: guestId, restaurant_id: restaurantId, bonus_amount: newBalance },
-        { onConflict: "guest_id,restaurant_id" },
-      );
-
-    if (balErr) {
-      console.error("[refund] guest_balances upsert failed:", balErr.message);
-      return NextResponse.json({ error: "balance_update_failed", detail: balErr.message }, { status: 500 });
+    if (rpcErr) {
+      // Rollback the refund claim so the admin can retry
+      await supabase
+        .from("orders")
+        .update({ refund_status: null, refunded_at: null })
+        .eq("id", orderId);
+      console.error("[refund] adjust_guest_balance failed:", rpcErr.message);
+      return NextResponse.json({ error: "balance_update_failed", detail: rpcErr.message }, { status: 500 });
     }
 
-    // Log bonus transactions
     const txRows = [];
     if (returnBonuses > 0) {
       txRows.push({
@@ -180,10 +175,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Update order
+  // Write bonus amounts (and partial-specific fields) — refund_status already set in claim step
   const orderUpdate: Record<string, unknown> = {
-    refund_status:      refundType,
-    refunded_at:        new Date().toISOString(),
     refund_bonuses_ret: returnBonuses,
     refund_earned_rev:  reverseEarned,
   };

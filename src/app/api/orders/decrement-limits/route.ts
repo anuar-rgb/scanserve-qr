@@ -24,7 +24,8 @@ if (typeof setInterval !== "undefined") {
 // Called fire-and-forget after a guest places an order.
 // Fetches the order's items_json, then decrements remaining_qty for each product
 // that has a limit set (remaining_qty IS NOT NULL).
-// Uses GREATEST(0, remaining_qty - qty) — never goes below zero.
+// Uses the decrement_product_qty SQL function for atomic GREATEST(0, qty - n) —
+// prevents race conditions when two orders for the same limited product are placed simultaneously.
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!checkRateLimit(`decrement-limits:${ip}`, 30, 60 * 1000)) {
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
   type OrderItem = { product_id?: string; qty: number };
   const orderItems = (order.items_json ?? []) as OrderItem[];
 
-  // Aggregate qty by product_id (same dish can appear multiple times if it was ordered separately)
+  // Aggregate qty by product_id
   const qtyByProduct: Record<string, number> = {};
   for (const item of orderItems) {
     if (!item.product_id) continue;
@@ -72,10 +73,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, updated: 0 });
   }
 
-  // Fetch current remaining_qty for all products in one query — skip nulls (unlimited)
+  // Fetch only IDs of limited-stock products — remaining_qty is computed server-side
   const { data: products } = await supabase
     .from("products")
-    .select("id, remaining_qty")
+    .select("id")
     .in("id", productIds)
     .not("remaining_qty", "is", null);
 
@@ -83,19 +84,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, updated: 0 });
   }
 
-  // Decrement each product individually
+  // Atomic decrement via PostgreSQL function — no read, no TOCTOU race.
+  // decrement_product_qty does: UPDATE SET remaining_qty = GREATEST(0, remaining_qty - p_qty)
+  // Row-level locking inside the UPDATE serializes concurrent calls for the same product.
   let updated = 0;
-  for (const prod of products as { id: string; remaining_qty: number }[]) {
+  for (const prod of products as { id: string }[]) {
     const deduct = qtyByProduct[prod.id] ?? 0;
     if (deduct <= 0) continue;
-    const newQty = Math.max(0, prod.remaining_qty - deduct);
-    const { error } = await supabase
-      .from("products")
-      .update({
-        remaining_qty: newQty,
-        is_available: newQty > 0,
-      })
-      .eq("id", prod.id);
+    const { error } = await supabase.rpc("decrement_product_qty", {
+      p_product_id: prod.id,
+      p_qty:        deduct,
+    });
     if (!error) updated++;
   }
 

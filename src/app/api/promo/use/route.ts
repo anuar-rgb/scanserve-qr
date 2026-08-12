@@ -30,17 +30,38 @@ export async function POST(req: NextRequest) {
 
   const { data: promo } = await supabase
     .from("promo_codes")
-    .select("id, used_count")
+    .select("id, used_count, max_uses, is_active")
     .eq("restaurant_id", restaurantId)
     .eq("code", code.trim().toUpperCase())
     .maybeSingle();
 
-  if (promo) {
-    await supabase
-      .from("promo_codes")
-      .update({ used_count: (promo.used_count ?? 0) + 1 })
-      .eq("id", promo.id);
+  if (!promo || !promo.is_active) {
+    return NextResponse.json({ ok: true });
   }
+
+  const currentCount = promo.used_count ?? 0;
+
+  // Skip write if limit already reached
+  if (promo.max_uses !== null && currentCount >= promo.max_uses) {
+    return NextResponse.json({ ok: true });
+  }
+
+  // Atomic optimistic-lock increment:
+  // WHERE used_count = currentCount — prevents two simultaneous calls both
+  //   writing currentCount+1 from the same snapshot (one will find 0 rows and skip)
+  // WHERE used_count < max_uses — prevents exceeding the limit even if the
+  //   guard above was passed concurrently
+  let query = supabase
+    .from("promo_codes")
+    .update({ used_count: currentCount + 1 })
+    .eq("id", promo.id)
+    .eq("used_count", currentCount);
+
+  if (promo.max_uses !== null) {
+    query = query.lt("used_count", promo.max_uses);
+  }
+
+  await query;
 
   return NextResponse.json({ ok: true });
 }
