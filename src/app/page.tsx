@@ -65,7 +65,7 @@ function AuroraBackground() {
         className="absolute rounded-full"
         style={{
           width: 520, height: 520, top: "-8%", left: "-8%",
-          background: "radial-gradient(circle, rgba(108,71,255,0.22) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 70%)",
           filter: "blur(50px)",
         }}
         animate={{ x: [0, 60, 0], y: [0, 40, 0] }}
@@ -139,7 +139,7 @@ function Navbar() {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[rgba(245,245,247,0.78)] dark:bg-[rgba(8,8,15,0.85)]"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[rgba(231,233,235,0.82)] dark:bg-[rgba(36,36,36,0.88)]"
       style={{
         backdropFilter: "blur(20px)",
         borderBottom: "1px solid var(--border)",
@@ -190,7 +190,7 @@ function PhoneMockup() {
       <div
         className="absolute inset-0 rounded-[3rem]"
         style={{
-          background: "radial-gradient(circle, rgba(108,71,255,0.35) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)",
           filter: "blur(30px)",
         }}
       />
@@ -273,7 +273,7 @@ function Hero() {
           className="w-[600px] h-[600px] rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(108,71,255,0.15) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)",
             filter: "blur(60px)",
           }}
         />
@@ -291,9 +291,9 @@ function Hero() {
             transition={{ duration: 0.5, delay: 0.05 }}
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium mb-8"
             style={{
-              background: "rgba(108,71,255,0.12)",
-              border: "1px solid rgba(108,71,255,0.25)",
-              color: "#a78bfa",
+              background: "rgba(99,102,241,0.12)",
+              border: "1px solid rgba(99,102,241,0.25)",
+              color: "#a5b4fc",
             }}
           >
             <Star size={14} fill="currentColor" />
@@ -496,9 +496,9 @@ function Proof() {
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
-              background: "rgba(108,71,255,0.1)",
-              border: "1px solid rgba(108,71,255,0.2)",
-              color: "#a78bfa",
+              background: "rgba(99,102,241,0.1)",
+              border: "1px solid rgba(99,102,241,0.2)",
+              color: "#a5b4fc",
             }}
           >
             {p.badge}
@@ -522,7 +522,7 @@ function Proof() {
           <blockquote
             className="rounded-2xl p-8"
             style={{
-              background: "var(--bg)",
+              background: "var(--background)",
               border: "1px solid var(--border)",
               borderLeft: "3px solid var(--accent)",
             }}
@@ -561,9 +561,9 @@ function Features() {
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
-              background: "rgba(108,71,255,0.1)",
-              border: "1px solid rgba(108,71,255,0.2)",
-              color: "#a78bfa",
+              background: "rgba(99,102,241,0.1)",
+              border: "1px solid rgba(99,102,241,0.2)",
+              color: "#a5b4fc",
             }}
           >
             {t.features.badge}
@@ -583,7 +583,7 @@ function Features() {
               <div
                 className="w-11 h-11 rounded-xl flex items-center justify-center mb-5"
                 style={{
-                  background: "rgba(108,71,255,0.15)",
+                  background: "rgba(99,102,241,0.15)",
                   color: "var(--accent)",
                 }}
               >
@@ -634,9 +634,9 @@ function HowItWorks() {
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
-              background: "rgba(108,71,255,0.1)",
-              border: "1px solid rgba(108,71,255,0.2)",
-              color: "#a78bfa",
+              background: "rgba(99,102,241,0.1)",
+              border: "1px solid rgba(99,102,241,0.2)",
+              color: "#a5b4fc",
             }}
           >
             {t.howItWorks.badge}
@@ -655,14 +655,14 @@ function HowItWorks() {
             className="hidden md:block absolute top-10 left-[33%] right-[33%] h-px"
             style={{
               background:
-                "linear-gradient(90deg, transparent, rgba(108,71,255,0.4), transparent)",
+                "linear-gradient(90deg, transparent, rgba(99,102,241,0.4), transparent)",
             }}
           />
           {steps.map(({ step, title, desc }, i) => (
             <Reveal key={step} delay={i * 0.12} className="card-base p-8 text-center">
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 glow-border"
-                style={{ background: "rgba(108,71,255,0.1)" }}
+                style={{ background: "rgba(99,102,241,0.1)" }}
               >
                 <span
                   className="text-xl font-bold"
@@ -740,9 +740,9 @@ function Pricing() {
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-5"
             style={{
-              background: "rgba(108,71,255,0.1)",
-              border: "1px solid rgba(108,71,255,0.2)",
-              color: "#a78bfa",
+              background: "rgba(99,102,241,0.1)",
+              border: "1px solid rgba(99,102,241,0.2)",
+              color: "#a5b4fc",
             }}
           >
             {p.badge}
@@ -764,7 +764,7 @@ function Pricing() {
               className={`rounded-2xl p-8 relative ${
                 highlight ? "glow-border" : "card-base"
               }`}
-              style={highlight ? { background: "rgba(108,71,255,0.08)" } : {}}
+              style={highlight ? { background: "rgba(99,102,241,0.08)" } : {}}
             >
               {highlight && (
                 <div
@@ -920,7 +920,7 @@ function Footer() {
           style={{ color: "var(--muted)" }}
         >
           {links.map((link) => (
-            <a key={link} href="#" className="hover:text-white transition-colors">
+            <a key={link} href="#" className="hover:text-foreground transition-colors">
               {link}
             </a>
           ))}

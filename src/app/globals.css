@@ -60,9 +60,9 @@
 :root {
   --background: #E7E9EB;
   --foreground: #242424;
-  --accent: #6c47ff;
-  --accent-hover: #7d5bff;
-  --accent-glow: rgba(108, 71, 255, 0.25);
+  --accent: #6366F1;
+  --accent-hover: #4F46E5;
+  --accent-glow: rgba(99, 102, 241, 0.25);
   --surface: #F0F2F4;
   --surface-2: #E9EBEE;
   --border: rgba(0, 0, 0, 0.08);
@@ -71,7 +71,7 @@
   --card-foreground:   oklch(0.145 0 0);
   --popover:   oklch(1 0 0);
   --popover-foreground:   oklch(0.145 0 0);
-  --primary: #6c47ff;
+  --primary: #6366F1;
   --primary-foreground: #ffffff;
   --secondary:   oklch(0.97 0 0);
   --secondary-foreground:   oklch(0.205 0 0);
@@ -79,7 +79,7 @@
   --accent-foreground:   oklch(0.205 0 0);
   --destructive:   oklch(0.577 0.245 27.325);
   --input:   oklch(0.922 0 0);
-  --ring: #6c47ff;
+  --ring: #6366F1;
   --chart-1:   oklch(0.87 0 0);
   --chart-2:   oklch(0.556 0 0);
   --chart-3:   oklch(0.439 0 0);
@@ -100,9 +100,9 @@
 .dark {
   --background: #242424;
   --foreground: #E7E9EB;
-  --accent: #6c47ff;
-  --accent-hover: #7d5bff;
-  --accent-glow: rgba(108, 71, 255, 0.25);
+  --accent: #6366F1;
+  --accent-hover: #4F46E5;
+  --accent-glow: rgba(99, 102, 241, 0.25);
   --surface: #2D2D2D;
   --surface-2: #333333;
   --border: rgba(255, 255, 255, 0.07);
@@ -111,7 +111,7 @@
   --card-foreground:   oklch(0.985 0 0);
   --popover:   oklch(0.205 0 0);
   --popover-foreground:   oklch(0.985 0 0);
-  --primary: #7d5bff;
+  --primary: #4F46E5;
   --primary-foreground: #ffffff;
   --secondary:   oklch(0.269 0 0);
   --secondary-foreground:   oklch(0.985 0 0);
@@ -119,7 +119,7 @@
   --accent-foreground:   oklch(0.985 0 0);
   --destructive:   oklch(0.704 0.191 22.216);
   --input:   oklch(1 0 0 / 15%);
-  --ring: #7d5bff;
+  --ring: #4F46E5;
   --chart-1:   oklch(0.87 0 0);
   --chart-2:   oklch(0.556 0 0);
   --chart-3:   oklch(0.439 0 0);
@@ -159,16 +159,24 @@ body {
   background-size: 28px 28px;
 }
 
+/* Dark mode: light-to-indigo gradient for hero headings */
 .text-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 40%, #6c47ff 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 40%, #6366F1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+/* Light mode: charcoal-to-indigo for readability on #E7E9EB */
+:root:not(.dark) .text-gradient {
+  background: linear-gradient(135deg, #242424 0%, #4F46E5 60%, #6366F1 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .glow-border {
-  border: 1px solid rgba(108, 71, 255, 0.5);
-  box-shadow: 0 0 24px rgba(108, 71, 255, 0.2), inset 0 0 24px rgba(108, 71, 255, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 24px rgba(99, 102, 241, 0.2), inset 0 0 24px rgba(99, 102, 241, 0.05);
 }
 
 .card-base {
@@ -179,8 +187,8 @@ body {
 }
 
 .card-base:hover {
-  border-color: rgba(108, 71, 255, 0.35);
-  box-shadow: 0 8px 32px rgba(108, 71, 255, 0.12);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.12);
   transform: translateY(-2px);
 }
 
@@ -202,7 +210,7 @@ body {
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 4px 20px rgba(108, 71, 255, 0.45);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45);
   transform: translateY(-1px);
 }
 
@@ -222,8 +230,12 @@ body {
   text-decoration: none;
 }
 
+/* Light mode: darken slightly; dark mode: lighten slightly */
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.06);
+}
+.dark .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .nav-link {
