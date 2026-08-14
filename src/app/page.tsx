@@ -1244,11 +1244,13 @@ function LeadForm() {
     setLoading(true);
     setServerError(false);
     try {
-      await fetch("/api/landing/leads", {
+      const res = await fetch("/api/landing/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, plan: "trial-7" }),
       });
+      if (!res.ok) throw new Error("server");
+      setForm({ name: "", venue: "", phone: "+7 ", city: "", tables: "", comment: "" });
       setDone(true);
     } catch {
       setServerError(true);
@@ -1263,20 +1265,6 @@ function LeadForm() {
     background: isDark ? CARD_DARK2 : "#f8f6ff",
     color: fg(isDark), marginTop: 6, boxSizing: "border-box",
   };
-
-  if (done) {
-    return (
-      <div style={{ ...card(isDark), padding: 40, textAlign: "center" }}>
-        <div style={{ width: 56, height: 56, borderRadius: 999, background: G, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
-          <Check size={26} color={WHITE} />
-        </div>
-        <h3 style={{ marginTop: 20, fontSize: 20, fontWeight: 700, color: fg(isDark) }}>Заявка принята</h3>
-        <p style={{ marginTop: 12, fontSize: 14, lineHeight: 1.65, color: muted(isDark), maxWidth: 340, margin: "12px auto 0" }}>
-          Свяжемся в течение рабочего дня, поможем загрузить меню и включим 7 дней бесплатного доступа.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={onSubmit} noValidate style={{ ...card(isDark), padding: 28 }}>
@@ -1360,6 +1348,62 @@ function LeadForm() {
       <p style={{ marginTop: 12, textAlign: "center", fontSize: 11, color: muted(isDark) }}>
         Нажимая кнопку, вы соглашаетесь на обработку данных для связи по заявке.
       </p>
+
+      {done && (
+        <div
+          role="dialog" aria-modal="true" aria-label="Заявка принята"
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(5,4,9,0.80)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+          }}
+          onClick={() => setDone(false)}
+        >
+          <div
+            style={{
+              ...card(isDark), padding: "40px 36px", textAlign: "center",
+              maxWidth: 440, width: "100%", position: "relative",
+              boxShadow: "0 32px 80px -20px rgba(124,58,237,0.45)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setDone(false)}
+              aria-label="Закрыть"
+              style={{
+                position: "absolute", top: 14, right: 14, background: "none", border: "none",
+                cursor: "pointer", color: muted(isDark), fontSize: 18, lineHeight: 1,
+                padding: "4px 8px", borderRadius: 8,
+              }}
+            >✕</button>
+
+            <div style={{
+              width: 64, height: 64, borderRadius: 999, background: G,
+              display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto",
+            }}>
+              <Check size={30} color={WHITE} />
+            </div>
+
+            <h3 style={{ marginTop: 20, fontSize: 22, fontWeight: 700, color: fg(isDark) }}>
+              Заявка принята!
+            </h3>
+            <p style={{ marginTop: 12, fontSize: 14, lineHeight: 1.7, color: muted(isDark), maxWidth: 340, margin: "12px auto 0" }}>
+              Свяжемся в течение рабочего дня — поможем загрузить меню, настроить столы и включим 7 дней бесплатного доступа.
+            </p>
+
+            <button
+              onClick={() => setDone(false)}
+              style={{
+                marginTop: 24, padding: "13px 32px", borderRadius: 999,
+                background: G, color: WHITE, border: "none", cursor: "pointer",
+                fontSize: 14, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              Отлично, спасибо! <Check size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
