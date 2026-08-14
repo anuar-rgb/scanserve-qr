@@ -1,37 +1,55 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext, useContext, useEffect, useMemo, useRef, useState,
+} from "react";
 import { motion } from "framer-motion";
 import {
-  QrCode,
-  Zap,
-  BarChart3,
-  Globe2,
-  Smartphone,
-  Palette,
-  ArrowRight,
-  Check,
-  ChevronRight,
-  Users,
-  Clock,
-  TrendingUp,
-  Shield,
-  Moon,
-  Sun,
+  AlertCircle, ArrowRight, BarChart3, Banknote, Bike, Check,
+  Calculator as CalcIcon, Clock, CreditCard, FileCheck2, FileWarning, Gift, GraduationCap,
+  Info, Loader2, Mail, MapPin, MessageSquareWarning, Monitor, Moon,
+  Package, PhoneCall, PieChart, PlayCircle, Plug, Plus,
+  Printer, QrCode, ReceiptText, Rocket, Send, ShieldCheck,
+  Sparkles, Sun, Table2, Timer, TrendingUp, UserPlus, Users, UsersRound,
 } from "lucide-react";
-import { useTranslations } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-// ─── Design constants ─────────────────────────────────────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
 
-const BLUE = "#1D4ED8";
-const BLUE_LIGHT = "#60A5FA";
-const GRAPHITE = "#242424";
-const PEARL = "#E7E9EB";
-const WHITE = "#FFFFFF";
-const DARK_BG = "#1A1A1A";
-const DARK_CARD = "#1E1E1E";
-const DARK_SURFACE = "#252525";
+const BRAND    = "#7c3aed";
+const BRAND_2  = "#a855f7";
+const BG_DARK  = "#050409";
+const CARD_DARK  = "#0b0913";
+const CARD_DARK2 = "#100c1d";
+const BORDER_DARK  = "rgba(255,255,255,0.07)";
+const FG_DARK      = "#eae7f6";
+const FG_DARK_MUTED  = "#928aa8";
+const BG_LIGHT     = "#ffffff";
+const BORDER_LIGHT  = "rgba(18,16,26,0.09)";
+const FG_LIGHT      = "#12101a";
+const FG_LIGHT_MUTED = "#5c5570";
+const SUCCESS = "#16a34a";
+const DANGER  = "#dc2626";
+const WHITE   = "#ffffff";
+const G = "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function card(isDark: boolean): React.CSSProperties {
+  return {
+    background: isDark ? CARD_DARK : BG_LIGHT,
+    border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+    borderRadius: 24,
+  };
+}
+
+function muted(isDark: boolean): string {
+  return isDark ? FG_DARK_MUTED : FG_LIGHT_MUTED;
+}
+
+function fg(isDark: boolean): string {
+  return isDark ? FG_DARK : FG_LIGHT;
+}
 
 // ─── Dark mode context ────────────────────────────────────────────────────────
 
@@ -54,52 +72,33 @@ function useTrackSections() {
     fetch("/api/analytics/landing", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: sessionId.current,
-        section: "page_view",
-        device,
-        referrer,
-      }),
+      body: JSON.stringify({ sessionId: sessionId.current, section: "page_view", device, referrer }),
     }).catch(() => {});
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (
-            entry.isIntersecting &&
-            !tracked.current.has(entry.target.id)
-          ) {
+          if (entry.isIntersecting && !tracked.current.has(entry.target.id)) {
             tracked.current.add(entry.target.id);
             fetch("/api/analytics/landing", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                sessionId: sessionId.current,
-                section: entry.target.id,
-                device,
-                referrer,
-              }),
+              body: JSON.stringify({ sessionId: sessionId.current, section: entry.target.id, device, referrer }),
             }).catch(() => {});
           }
         }
       },
       { threshold: 0.3 }
     );
-
-    document
-      .querySelectorAll("[data-track]")
-      .forEach((el) => observer.observe(el));
+    document.querySelectorAll("[data-track]").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
 }
 
-// ─── Scroll-reveal wrapper ────────────────────────────────────────────────────
+// ─── Reveal animation ─────────────────────────────────────────────────────────
 
 function Reveal({
-  children,
-  delay = 0,
-  className,
-  style,
+  children, delay = 0, className, style,
 }: {
   children: React.ReactNode;
   delay?: number;
@@ -108,10 +107,10 @@ function Reveal({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 22 }}
+      initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.52, delay, ease: [0.21, 0.47, 0.32, 0.98] }}
+      transition={{ duration: 0.52, delay: delay / 1000, ease: [0.21, 0.47, 0.32, 0.98] }}
       className={className}
       style={style}
     >
@@ -120,261 +119,279 @@ function Reveal({
   );
 }
 
-// ─── Eyebrow label ────────────────────────────────────────────────────────────
+// ─── Pill badge ───────────────────────────────────────────────────────────────
 
-function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
+function Pill({ children }: { children: React.ReactNode }) {
   return (
-    <p
-      className="text-xs font-bold uppercase tracking-[0.14em] mb-4"
-      style={{ color: dark ? BLUE_LIGHT : BLUE }}
-    >
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      borderRadius: 999,
+      border: "1px solid rgba(124,58,237,0.28)",
+      background: "rgba(124,58,237,0.12)",
+      color: BRAND,
+      padding: "5px 13px",
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+    }}>
       {children}
-    </p>
-  );
-}
-
-// ─── Section heading ──────────────────────────────────────────────────────────
-
-function SectionTitle({
-  children,
-  dark = false,
-}: {
-  children: React.ReactNode;
-  dark?: boolean;
-}) {
-  return (
-    <h2
-      className="text-4xl font-bold mb-4"
-      style={{ color: dark ? PEARL : GRAPHITE, letterSpacing: "-0.02em" }}
-    >
-      {children}
-    </h2>
+    </div>
   );
 }
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
+const NAV_LINKS = [
+  { href: "#features",     label: "Возможности" },
+  { href: "#how",          label: "Как работает" },
+  { href: "#calculator",   label: "Калькулятор" },
+  { href: "#integrations", label: "Интеграции" },
+  { href: "#pricing",      label: "Тарифы" },
+  { href: "#faq",          label: "FAQ" },
+];
+
 function Navbar() {
-  const { t } = useTranslations();
   const { isDark, toggle } = useDark();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const headerBg = scrolled
+    ? isDark ? "rgba(5,4,9,0.90)" : "rgba(255,255,255,0.90)"
+    : "transparent";
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
       style={{
-        background: isDark ? "rgba(20,20,20,0.92)" : "rgba(231,233,235,0.92)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.09)",
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+        background: headerBg,
+        backdropFilter: scrolled ? "blur(16px)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(16px)" : "none",
+        borderBottom: scrolled
+          ? `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`
+          : "1px solid transparent",
+        transition: "background 0.3s, border-color 0.3s",
       }}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-2.5">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg" style={{ background: BLUE }}>
-          <QrCode size={16} color={WHITE} />
-        </div>
-        <span className="font-bold text-lg" style={{ color: isDark ? PEARL : GRAPHITE, letterSpacing: "-0.025em" }}>
-          ScanServe<span style={{ color: BLUE }}>.qr</span>
-        </span>
-      </div>
-
-      {/* Desktop nav */}
-      <nav className="hidden md:flex items-center gap-8">
-        {[
-          { href: "#features", label: t.nav.features },
-          { href: "#how-it-works", label: t.nav.howItWorks },
-          { href: "#pricing", label: t.nav.pricing },
-        ].map(({ href, label }) => (
-          <a
-            key={href}
-            href={href}
-            className="text-sm font-medium transition-colors"
-            style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={toggle}
-          aria-label={isDark ? "Светлая тема" : "Тёмная тема"}
-          className="flex items-center justify-center w-9 h-9 rounded-lg transition-all hover:opacity-70"
-          style={{
-            background: isDark ? "rgba(255,255,255,0.08)" : "rgba(36,36,36,0.07)",
-            color: isDark ? PEARL : GRAPHITE,
-          }}
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
-        <LanguageSwitcher />
-        <a
-          href="#pricing"
-          className="hidden sm:flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-lg transition-all hover:opacity-90"
-          style={{ background: BLUE, color: WHITE }}
-        >
-          {t.nav.getStarted}
-          <ArrowRight size={14} />
+      <div style={{
+        maxWidth: 1200, margin: "0 auto", padding: "0 20px",
+        height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+      }}>
+        {/* Logo */}
+        <a href="#hero" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, background: G,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <QrCode size={16} color={WHITE} />
+          </div>
+          <span style={{ fontWeight: 700, fontSize: 17, color: fg(isDark), letterSpacing: "-0.025em" }}>
+            ScanServe<span style={{ color: BRAND }}>.qr</span>
+          </span>
         </a>
+
+        {/* Desktop nav */}
+        <nav className="hidden lg:flex items-center gap-1">
+          {NAV_LINKS.map(({ href, label }) => (
+            <a key={href} href={href} style={{
+              color: isDark ? "rgba(234,231,246,0.55)" : "rgba(18,16,26,0.55)",
+              fontSize: 13, fontWeight: 500, padding: "6px 12px", borderRadius: 8,
+              textDecoration: "none", transition: "color 0.2s",
+            }}>
+              {label}
+            </a>
+          ))}
+        </nav>
+
+        {/* Actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={toggle}
+            aria-label={isDark ? "Светлая тема" : "Тёмная тема"}
+            style={{
+              width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: isDark ? "rgba(255,255,255,0.07)" : "rgba(18,16,26,0.07)",
+              color: fg(isDark),
+            }}
+          >
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          <div className="hidden sm:block">
+            <LanguageSwitcher />
+          </div>
+          <a
+            href="#trial"
+            className="hidden sm:inline-flex items-center gap-1.5"
+            style={{
+              background: G, color: WHITE, borderRadius: 999,
+              padding: "8px 18px", fontSize: 13, fontWeight: 600,
+              textDecoration: "none", border: "none",
+            }}
+          >
+            Попробовать <ArrowRight size={13} />
+          </a>
+          {/* Burger */}
+          <button
+            className="lg:hidden"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Меню"
+            style={{
+              width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: isDark ? "rgba(255,255,255,0.07)" : "rgba(18,16,26,0.07)",
+              color: fg(isDark),
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[0, 1, 2].map((i) => (
+                <span key={i} style={{
+                  width: 18, height: 2, borderRadius: 1,
+                  background: fg(isDark), display: "block",
+                  transform: menuOpen
+                    ? i === 1 ? "scaleX(0)" : i === 0 ? "translateY(6px) rotate(45deg)" : "translateY(-6px) rotate(-45deg)"
+                    : "none",
+                  transition: "transform 0.25s",
+                }} />
+              ))}
+            </div>
+          </button>
+        </div>
       </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div style={{
+          background: isDark ? "rgba(5,4,9,0.97)" : "rgba(255,255,255,0.97)",
+          backdropFilter: "blur(16px)",
+          borderTop: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+          padding: "12px 20px 20px",
+        }}>
+          {NAV_LINKS.map(({ href, label }) => (
+            <a key={href} href={href}
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: "block", padding: "12px 0",
+                borderBottom: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                color: isDark ? "rgba(234,231,246,0.7)" : "rgba(18,16,26,0.7)",
+                fontSize: 14, fontWeight: 500, textDecoration: "none",
+              }}
+            >
+              {label}
+            </a>
+          ))}
+          <a href="#trial" onClick={() => setMenuOpen(false)}
+            style={{
+              display: "block", textAlign: "center",
+              background: G, color: WHITE, borderRadius: 999,
+              padding: "12px 24px", marginTop: 16,
+              fontSize: 14, fontWeight: 600, textDecoration: "none",
+            }}
+          >
+            Попробовать бесплатно
+          </a>
+        </div>
+      )}
     </header>
   );
 }
 
-// ─── Phone Mockup ─────────────────────────────────────────────────────────────
+// ─── Hero phone mockup ────────────────────────────────────────────────────────
 
 function PhoneMockup() {
   return (
-    <div className="relative w-[260px] h-[520px] mx-auto select-none">
-      {/* Glow shadow */}
-      <div
-        className="absolute inset-0 rounded-[3rem]"
-        style={{
-          background: `radial-gradient(ellipse, rgba(29,78,216,0.18) 0%, transparent 70%)`,
-          filter: "blur(28px)",
-          transform: "translateY(16px) scale(0.9)",
-        }}
-      />
-      {/* Phone shell */}
-      <div
-        className="relative w-full h-full rounded-[2.5rem] overflow-hidden"
-        style={{
-          background: WHITE,
-          border: "1px solid rgba(36,36,36,0.12)",
-          boxShadow:
-            "0 24px 60px rgba(36,36,36,0.16), 0 4px 12px rgba(36,36,36,0.08)",
-          padding: "10px",
-        }}
-      >
-        {/* Notch */}
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 rounded-b-2xl z-10"
-          style={{ background: WHITE }}
-        />
-        {/* Screen */}
-        <div
-          className="w-full h-full rounded-[2rem] overflow-hidden"
-          style={{ background: "#F5F5F7" }}
-        >
-          {/* Hero banner */}
-          <img
-            src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80"
-            alt="Restaurant interior"
-            className="w-full h-44 object-cover"
-          />
-
-          {/* Mock menu UI */}
-          <div className="px-3.5 pt-3 space-y-2.5">
-            {/* Restaurant header */}
-            <div className="flex items-center gap-2">
-              <div
-                className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[9px] font-bold shrink-0"
-                style={{ background: BLUE }}
-              >
-                A
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-900 leading-tight">АС ТӨРІ</p>
-                <p className="text-[7px] text-gray-400">QR-меню ресторана</p>
-              </div>
-            </div>
-
-            {/* Category pills */}
-            <div className="flex gap-1 overflow-hidden">
-              {["Салаты", "Горячее", "Напитки"].map((c, i) => (
-                <span
-                  key={c}
-                  className="text-[7px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
-                  style={
-                    i === 0
-                      ? { background: BLUE, color: WHITE }
-                      : { background: "rgba(36,36,36,0.07)", color: "rgba(36,36,36,0.6)" }
-                  }
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-
-            {/* Dish cards */}
-            {[
-              { name: "Цезарь с курицей", price: "2 800 ₸" },
-              { name: "Стейк Рибай", price: "7 500 ₸" },
-            ].map((d) => (
-              <div
-                key={d.name}
-                className="flex items-center gap-2 p-2 rounded-xl"
-                style={{
-                  background: WHITE,
-                  border: "1px solid rgba(36,36,36,0.07)",
-                }}
-              >
-                <div
-                  className="w-8 h-8 rounded-lg shrink-0"
-                  style={{ background: "#E7E9EB" }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[9px] font-semibold text-gray-800 truncate">{d.name}</p>
-                  <p className="text-[8px] font-bold" style={{ color: BLUE }}>
-                    {d.price}
-                  </p>
-                </div>
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                  style={{ background: BLUE }}
-                >
-                  +
-                </div>
-              </div>
-            ))}
-
-            {/* Bottom nav mock */}
-            <div
-              className="flex justify-around pt-1.5"
-              style={{ borderTop: "1px solid rgba(36,36,36,0.08)" }}
-            >
-              {["🏠", "📋", "🛒"].map((e, i) => (
-                <span key={i} className="text-xs opacity-40">
-                  {e}
-                </span>
-              ))}
-            </div>
+    <div style={{
+      borderRadius: 44, padding: 10,
+      background: "linear-gradient(160deg, #4a3d69 0%, #17122a 45%, #2a2145 100%)",
+      boxShadow: "0 40px 80px -30px rgba(76,29,149,0.75), 0 0 0 1px rgba(255,255,255,0.08)",
+    }}>
+      <div style={{ position: "relative", overflow: "hidden", borderRadius: 34, background: "#0b0817", color: WHITE }}>
+        <div style={{
+          position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)",
+          height: 6, width: 64, borderRadius: 999, background: "rgba(255,255,255,0.22)", zIndex: 10,
+        }} />
+        {/* Status bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px 6px", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
+          <span>9:41</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <TrendingUp size={10} />
+            <span>••••</span>
           </div>
         </div>
-      </div>
-
-      {/* Live badge */}
-      <div
-        className="absolute -top-2 -right-2 flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold"
-        style={{
-          background: WHITE,
-          border: "1px solid rgba(36,36,36,0.09)",
-          color: "#16a34a",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        }}
-      >
-        <span
-          className="w-1.5 h-1.5 rounded-full inline-block"
-          style={{ background: "#22c55e" }}
-        />
-        Live
-      </div>
-
-      {/* Order badge */}
-      <div
-        className="absolute -bottom-2 -left-4 rounded-xl px-3 py-2 text-xs font-semibold"
-        style={{
-          background: WHITE,
-          border: "1px solid rgba(36,36,36,0.09)",
-          color: BLUE,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        }}
-      >
-        <span style={{ color: "rgba(36,36,36,0.5)" }}>Заказ #14</span>
-        {" · "}
-        <span style={{ color: "#16a34a", fontWeight: 700 }}>Принят ✓</span>
+        {/* Content */}
+        <div style={{ padding: "0 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Стол 7 · Зал</p>
+              <p style={{ fontSize: 14, fontWeight: 700 }}>АС ТӨРІ</p>
+            </div>
+            <div style={{
+              width: 32, height: 32, borderRadius: 999, background: BRAND,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <QrCode size={14} />
+            </div>
+          </div>
+          {/* Search */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(255,255,255,0.07)", borderRadius: 12, padding: "8px 12px",
+            fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 12,
+          }}>
+            🔍 Поиск по меню
+          </div>
+          {/* Cats */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            {["Все", "Горячее", "Напитки"].map((c, i) => (
+              <span key={c} style={{
+                borderRadius: 999, padding: "4px 10px", fontSize: 9, fontWeight: 600,
+                background: i === 0 ? BRAND : "rgba(255,255,255,0.07)",
+                color: i === 0 ? WHITE : "rgba(255,255,255,0.5)",
+              }}>{c}</span>
+            ))}
+          </div>
+          {/* Dishes */}
+          {[
+            { name: "Плов по-казахски", price: "3 200 ₸" },
+            { name: "Бургер с говядиной", price: "4 500 ₸" },
+            { name: "Латте 300 мл",       price: "1 690 ₸" },
+          ].map((d) => (
+            <div key={d.name} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: "8px", marginBottom: 6,
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(124,58,237,0.3)", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 10, fontWeight: 600, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</p>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#c4b5fd" }}>{d.price}</p>
+              </div>
+              <div style={{
+                background: "rgba(255,255,255,0.1)", borderRadius: 999, padding: "4px 8px",
+                fontSize: 10, fontWeight: 700,
+              }}>+</div>
+            </div>
+          ))}
+        </div>
+        {/* Bottom CTA */}
+        <div style={{
+          marginTop: 8, borderTop: "1px solid rgba(255,255,255,0.08)",
+          background: "#0f0b1e", padding: "12px 20px",
+        }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: G, borderRadius: 999, padding: "10px 16px",
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>Оформить заказ</span>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>9 390 ₸</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -383,155 +400,163 @@ function PhoneMockup() {
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 function Hero() {
-  const { t } = useTranslations();
   const { isDark } = useDark();
 
   return (
-    <section
-      className="relative min-h-screen flex items-center pt-20 bg-grid overflow-hidden"
-      style={{ background: isDark ? DARK_BG : PEARL }}
-    >
-      <div className="relative z-10 max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center py-24">
-        {/* Left: text */}
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, ease: [0.21, 0.47, 0.32, 0.98] }}
-        >
-          {/* Badge */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest mb-8"
-            style={{
-              background: "rgba(29,78,216,0.08)",
-              border: "1px solid rgba(29,78,216,0.18)",
-              color: BLUE,
-              letterSpacing: "0.09em",
-            }}
-          >
-            {t.hero.badge}
+    <section style={{
+      position: "relative", overflow: "hidden",
+      paddingTop: 120, paddingBottom: 80,
+      background: isDark ? BG_DARK : BG_LIGHT,
+    }}>
+      {/* Grid bg */}
+      <div style={{
+        position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none",
+        backgroundImage: `linear-gradient(to right, ${isDark ? "rgba(255,255,255,0.028)" : "rgba(18,16,26,0.05)"} 1px, transparent 1px), linear-gradient(to bottom, ${isDark ? "rgba(255,255,255,0.028)" : "rgba(18,16,26,0.05)"} 1px, transparent 1px)`,
+        backgroundSize: "64px 64px",
+        maskImage: "radial-gradient(115% 90% at 50% 20%, #000 30%, transparent 80%)",
+      }} />
+      {/* Glow */}
+      <div style={{
+        position: "absolute", top: -100, left: "50%", transform: "translateX(-50%)",
+        width: "70%", height: 500,
+        background: "radial-gradient(60% 100% at 50% 0%, rgba(124,58,237,0.18), transparent 70%)",
+        pointerEvents: "none", zIndex: 0,
+      }} />
+      <div style={{ position: "absolute", top: -80, left: -100, width: 420, height: 420, borderRadius: 999, filter: "blur(70px)", background: "rgba(124,58,237,0.24)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "absolute", top: 120, right: -140, width: 460, height: 460, borderRadius: 999, filter: "blur(70px)", background: "rgba(124,58,237,0.18)", pointerEvents: "none", zIndex: 0 }} />
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", position: "relative", zIndex: 1 }}>
+        {/* Text center */}
+        <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
+          <Reveal>
+            <Pill>Платформа для ресторанов Казахстана</Pill>
+          </Reveal>
+
+          <Reveal delay={80}>
+            <h1 style={{
+              marginTop: 24, fontSize: "clamp(2.2rem,6vw,4rem)", fontWeight: 800,
+              lineHeight: 1.05, letterSpacing: "-0.03em", color: fg(isDark),
+            }}>
+              Ресторан под контролем.{" "}
+              <span style={{
+                background: "linear-gradient(100deg, #12101a 10%, #a855f7 55%, #7c3aed 90%)",
+                WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+              }}>
+                Один QR — вместо хаоса
+              </span>
+            </h1>
+          </Reveal>
+
+          <Reveal delay={160}>
+            <p style={{
+              marginTop: 20, fontSize: 17, lineHeight: 1.65,
+              color: muted(isDark), maxWidth: 620, margin: "20px auto 0",
+            }}>
+              Облачная платформа «всё в одном»: QR-меню без приложения, POS-терминал,
+              аналитика, CRM, персонал и склад. Гость сканирует код и заказывает сам — без ошибок.
+            </p>
+          </Reveal>
+
+          <Reveal delay={240}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={{ marginTop: 32 }}>
+              <a href="#trial" style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                background: G, color: WHITE, borderRadius: 999,
+                padding: "14px 28px", fontSize: 15, fontWeight: 600,
+                textDecoration: "none",
+                boxShadow: "0 10px 30px -10px rgba(124,58,237,0.7)",
+              }}>
+                Попробовать бесплатно <ArrowRight size={15} />
+              </a>
+              <a href="#how" style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                color: fg(isDark), border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                borderRadius: 999, padding: "14px 28px", fontSize: 15, fontWeight: 600,
+                textDecoration: "none",
+                background: isDark ? "rgba(255,255,255,0.04)" : "rgba(18,16,26,0.03)",
+              }}>
+                Как это работает
+              </a>
+            </div>
+          </Reveal>
+
+          <Reveal delay={320}>
+            <div className="flex flex-wrap items-center justify-center gap-6" style={{ marginTop: 28 }}>
+              {[
+                { icon: <Rocket size={14} />, text: "Запуск за 1 день" },
+                { icon: <Timer size={14} />, text: "Обучение — 15 минут" },
+                { icon: <CreditCard size={14} />, text: "Без привязки карты" },
+              ].map(({ icon, text }) => (
+                <div key={text} style={{ display: "flex", alignItems: "center", gap: 6, color: muted(isDark), fontSize: 13 }}>
+                  <span style={{ color: BRAND }}>{icon}</span>
+                  {text}
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Mockup */}
+        <Reveal delay={200} style={{ marginTop: 56 }}>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{ width: 240, flexShrink: 0 }}>
+              <PhoneMockup />
+            </div>
           </div>
-
-          {/* Headline */}
-          <h1
-            className="font-extrabold leading-[1.05] tracking-tight mb-6"
-            style={{
-              color: isDark ? PEARL : GRAPHITE,
-              fontSize: "clamp(2.6rem, 5vw, 3.8rem)",
-              letterSpacing: "-0.03em",
-            }}
-          >
-            {t.hero.title1}
-            <br />
-            <span style={{ color: BLUE }}>{t.hero.title2}</span>
-            <br />
-            {t.hero.title3}
-          </h1>
-
-          <p
-            className="text-lg leading-relaxed mb-10"
-            style={{ color: isDark ? "rgba(231,233,235,0.58)" : "rgba(36,36,36,0.58)", maxWidth: 480 }}
-          >
-            {t.hero.subtitle}
-          </p>
-
-          {/* CTA row */}
-          <div className="flex flex-wrap gap-3 mb-12">
-            <a
-              href="#pricing"
-              className="flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: BLUE }}
-            >
-              {t.hero.ctaPrimary}
-              <ArrowRight size={15} />
-            </a>
-            <a
-              href="#features"
-              className="flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-black/5 active:scale-[0.98]"
-              style={{
-                color: GRAPHITE,
-                border: "1px solid rgba(36,36,36,0.22)",
-                background: "transparent",
-              }}
-            >
-              {t.hero.ctaSecondary}
-            </a>
-          </div>
-
-          {/* Trust signals */}
-          <div className="flex flex-wrap gap-5">
-            {[t.hero.trust1, t.hero.trust2, t.hero.trust3].map((label) => (
-              <div
-                key={label}
-                className="flex items-center gap-1.5 text-sm"
-                style={{ color: "rgba(36,36,36,0.5)" }}
-              >
-                <Check size={13} style={{ color: BLUE }} />
-                {label}
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Right: phone mockup */}
-        <motion.div
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.65, delay: 0.1, ease: [0.21, 0.47, 0.32, 0.98] }}
-          className="flex justify-center lg:justify-end"
-        >
-          <motion.div
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <PhoneMockup />
-          </motion.div>
-        </motion.div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
-// ─── Stats strip ──────────────────────────────────────────────────────────────
+// ─── Problems ─────────────────────────────────────────────────────────────────
 
-function Stats() {
-  const { t } = useTranslations();
+const PROBLEMS = [
+  {
+    Icon: FileWarning,
+    title: "Бумажное меню живёт своей жизнью",
+    text: "Позиция закончилась или изменилась цена — вы снова платите за перепечатку. Гость выбирает то, чего нет на кухне.",
+  },
+  {
+    Icon: MessageSquareWarning,
+    title: "Официанты ошибаются в заказах",
+    text: "Переспрашивают по три раза, путают модификаторы и столы. Итог — переделки, списания и недовольные гости.",
+  },
+  {
+    Icon: PieChart,
+    title: "Нет цифр и понимания гостей",
+    text: "Вы не знаете реальный средний чек, какие блюда тянут выручку и кто ваши постоянные гости. Решения принимаются на ощупь.",
+  },
+];
+
+function Problems() {
   const { isDark } = useDark();
-
-  const items = [
-    { icon: <Users size={18} />, value: "2", label: t.stats.restaurants },
-    { icon: <QrCode size={18} />, value: "12+", label: t.stats.activeMenus },
-    { icon: <TrendingUp size={18} />, value: "16", label: t.stats.monthlyScans },
-    { icon: <Clock size={18} />, value: "99.9%", label: t.stats.uptimeSla },
-  ];
-
   return (
-    <section
-      style={{
-        background: isDark ? DARK_CARD : WHITE,
-        borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
-        borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
-      }}
-    >
-      <div className="max-w-6xl mx-auto px-6 py-14 grid grid-cols-2 md:grid-cols-4 gap-8">
-        {items.map(({ icon, value, label }, i) => (
-          <Reveal key={label} delay={i * 0.07} className="flex flex-col items-center text-center">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-              style={{ background: "rgba(29,78,216,0.12)", color: BLUE }}
-            >
-              {icon}
-            </div>
-            <div
-              className="text-3xl font-black mb-1"
-              style={{ color: isDark ? PEARL : GRAPHITE, letterSpacing: "-0.03em" }}
-            >
-              {value}
-            </div>
-            <div className="text-sm" style={{ color: isDark ? "rgba(231,233,235,0.5)" : "rgba(36,36,36,0.5)" }}>
-              {label}
-            </div>
-          </Reveal>
-        ))}
+    <section id="problems" style={{ padding: "96px 20px", background: isDark ? BG_DARK : BG_LIGHT }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 48 }}>
+          <Pill>Знакомо?</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Три вещи, которые каждый день съедают прибыль
+          </h2>
+        </Reveal>
+        <div className="grid md:grid-cols-3 gap-5">
+          {PROBLEMS.map(({ Icon, title, text }, i) => (
+            <Reveal key={title} delay={i * 90}>
+              <div style={{ ...card(isDark), padding: 28, height: "100%" }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16,
+                  background: "rgba(124,58,237,0.14)", color: BRAND,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={22} />
+                </div>
+                <h3 style={{ marginTop: 20, fontSize: 16, fontWeight: 600, color: fg(isDark) }}>{title}</h3>
+                <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.65, color: muted(isDark) }}>{text}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -539,59 +564,44 @@ function Stats() {
 
 // ─── Features ─────────────────────────────────────────────────────────────────
 
+const FEATURES = [
+  { Icon: QrCode,      title: "QR-меню без приложения",   text: "Гость сканирует код на столе и сразу заказывает в браузере. Ничего скачивать не нужно." },
+  { Icon: Monitor,     title: "POS-терминал",              text: "Схема столов, перенос заказов, разделение счёта и чаевые — всё в одном экране." },
+  { Icon: Gift,        title: "Программа лояльности",      text: "Бонусы, промокоды и push-уведомления гостям — возвращают без затрат на рекламу." },
+  { Icon: BarChart3,   title: "Аналитика и Z-отчёты",     text: "Выручка, средний чек, популярные блюда и закрытие смены — в реальном времени." },
+  { Icon: Users,       title: "База гостей (CRM)",         text: "История заказов, предпочтения и сегментация — вы наконец знаете своих гостей." },
+  { Icon: UsersRound,  title: "16 ролей персонала",        text: "Официант, кассир, повар, курьер, управляющий и другие — у каждого свой доступ." },
+  { Icon: Package,     title: "Склад и каталог меню",     text: "Остатки, списания и себестоимость. Блюда с фото, модификаторами и стоп-листом." },
+];
+
 function Features() {
-  const { t } = useTranslations();
   const { isDark } = useDark();
-
-  const items = [
-    { icon: <QrCode size={20} />, title: t.features.qrTitle, desc: t.features.qrDesc },
-    { icon: <Zap size={20} />, title: t.features.realtimeTitle, desc: t.features.realtimeDesc },
-    { icon: <BarChart3 size={20} />, title: t.features.analyticsTitle, desc: t.features.analyticsDesc },
-    { icon: <Globe2 size={20} />, title: t.features.multilingualTitle, desc: t.features.multilingualDesc },
-    { icon: <Smartphone size={20} />, title: t.features.noappTitle, desc: t.features.noappDesc },
-    { icon: <Palette size={20} />, title: t.features.brandingTitle, desc: t.features.brandingDesc },
-  ];
-
   return (
-    <section id="features" className="py-28 px-6" style={{ background: isDark ? DARK_BG : PEARL }}>
-      <div className="max-w-6xl mx-auto">
-        <Reveal className="text-center mb-16">
-          <Eyebrow>{t.features.badge}</Eyebrow>
-          <SectionTitle dark={isDark}>{t.features.title}</SectionTitle>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
-            {t.features.subtitle}
+    <section id="features" style={{ padding: "96px 20px", background: isDark ? CARD_DARK2 : "#f8f6ff" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 48 }}>
+          <Pill>Возможности</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Всё, что нужно ресторану — в одной платформе
+          </h2>
+          <p style={{ marginTop: 12, fontSize: 16, color: muted(isDark), maxWidth: 560, margin: "12px auto 0" }}>
+            Без зоопарка сервисов: меню, касса, гости, персонал и склад работают в одном аккаунте.
           </p>
         </Reveal>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map(({ icon, title, desc }, i) => (
-            <Reveal
-              key={title}
-              delay={(i % 3) * 0.08}
-              className="group p-6 rounded-2xl transition-all duration-200"
-              style={{
-                background: isDark ? DARK_CARD : WHITE,
-                border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
-              }}
-            >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 transition-colors"
-                style={{ background: "rgba(29,78,216,0.12)", color: BLUE }}
-              >
-                {icon}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {FEATURES.map(({ Icon, title, text }, i) => (
+            <Reveal key={title} delay={i * 70}>
+              <div style={{ ...card(isDark), padding: 24, height: "100%" }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14,
+                  background: "rgba(124,58,237,0.14)", color: BRAND,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={20} />
+                </div>
+                <h3 style={{ marginTop: 16, fontWeight: 600, fontSize: 15, color: fg(isDark) }}>{title}</h3>
+                <p style={{ marginTop: 8, fontSize: 13, lineHeight: 1.65, color: muted(isDark) }}>{text}</p>
               </div>
-              <h3
-                className="font-semibold text-base mb-2"
-                style={{ color: isDark ? PEARL : GRAPHITE }}
-              >
-                {title}
-              </h3>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}
-              >
-                {desc}
-              </p>
             </Reveal>
           ))}
         </div>
@@ -602,59 +612,55 @@ function Features() {
 
 // ─── How It Works ─────────────────────────────────────────────────────────────
 
+const HOW_STEPS = [
+  {
+    Icon: UserPlus, num: "01", time: "10 минут", title: "Регистрация",
+    text: "Создаёте аккаунт, добавляете заведение и загружаете меню с фото. QR-коды для столов генерируются автоматически — остаётся распечатать.",
+  },
+  {
+    Icon: GraduationCap, num: "02", time: "15 минут", title: "Обучение команды",
+    text: "Интерфейс на русском и понятен с первого раза. Показываете официантам и кассиру — дальше они работают сами.",
+  },
+  {
+    Icon: PlayCircle, num: "03", time: "с 1-го дня", title: "Работа и рост",
+    text: "Гости заказывают через QR, касса принимает оплату, а вы смотрите аналитику и базу гостей в реальном времени с телефона.",
+  },
+];
+
 function HowItWorks() {
-  const { t } = useTranslations();
   const { isDark } = useDark();
-
-  const steps = [
-    { step: "01", title: t.howItWorks.step1Title, desc: t.howItWorks.step1Desc },
-    { step: "02", title: t.howItWorks.step2Title, desc: t.howItWorks.step2Desc },
-    { step: "03", title: t.howItWorks.step3Title, desc: t.howItWorks.step3Desc },
-  ];
-
   return (
-    <section
-      id="how-it-works"
-      className="py-28 px-6"
-      style={{ background: isDark ? DARK_CARD : WHITE, borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.07)" }}
-    >
-      <div className="max-w-6xl mx-auto">
-        <Reveal className="text-center mb-16">
-          <Eyebrow dark={isDark}>{t.howItWorks.badge}</Eyebrow>
-          <SectionTitle dark={isDark}>{t.howItWorks.title}</SectionTitle>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
-            {t.howItWorks.subtitle}
-          </p>
+    <section id="how" style={{ padding: "96px 20px", background: isDark ? BG_DARK : BG_LIGHT }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 48 }}>
+          <Pill>Как это работает</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Полный запуск — за один день
+          </h2>
         </Reveal>
-
         <div className="grid md:grid-cols-3 gap-5">
-          {steps.map(({ step, title, desc }, i) => (
-            <Reveal key={step} delay={i * 0.10}>
-              <div
-                className="p-8 rounded-2xl h-full"
-                style={{
-                  background: isDark ? DARK_SURFACE : PEARL,
-                  border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.07)",
-                }}
-              >
-                <div
-                  className="text-7xl font-black leading-none mb-6"
-                  style={{ color: "rgba(29,78,216,0.15)", letterSpacing: "-0.06em", userSelect: "none" }}
-                >
-                  {step}
+          {HOW_STEPS.map(({ Icon, num, time, title, text }, i) => (
+            <Reveal key={num} delay={i * 100}>
+              <div style={{ ...card(isDark), padding: 28, height: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 16, background: G, color: WHITE,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon size={22} />
+                  </div>
+                  <span style={{ fontSize: 28, fontWeight: 800, color: "rgba(124,58,237,0.22)", letterSpacing: "-0.05em" }}>
+                    {num}
+                  </span>
                 </div>
-                <div
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mb-4"
-                  style={{ background: BLUE, color: WHITE }}
-                >
-                  {parseInt(step)}
+                <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 8 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 600, color: fg(isDark) }}>{title}</h3>
+                  <span style={{
+                    borderRadius: 999, padding: "2px 8px", fontSize: 10, fontWeight: 700,
+                    background: "rgba(124,58,237,0.14)", color: BRAND,
+                  }}>{time}</span>
                 </div>
-                <h3 className="font-bold text-xl mb-3" style={{ color: isDark ? PEARL : GRAPHITE }}>
-                  {title}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
-                  {desc}
-                </p>
+                <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.65, color: muted(isDark) }}>{text}</p>
               </div>
             </Reveal>
           ))}
@@ -664,146 +670,331 @@ function HowItWorks() {
   );
 }
 
-// ─── Problems ─────────────────────────────────────────────────────────────────
+// ─── Calculator ───────────────────────────────────────────────────────────────
 
-function Problems() {
-  const { t } = useTranslations();
+const PLAN_COST = 15780;
+const ERROR_RATE = 0.04;
+const ERROR_FIX  = 0.8;
+const FOOD_COST  = 0.35;
+const TURN_GAIN  = 0.05;
+const MENU_PRINT = 2 * 2 * 1200;
+
+function fmtT(v: number) {
+  return Math.round(v).toLocaleString("ru-RU");
+}
+
+function RangeSlider({
+  label, value, min, max, step, suffix, onChange, isDark,
+}: {
+  label: string; value: number; min: number; max: number; step: number;
+  suffix: string; onChange: (v: number) => void; isDark: boolean;
+}) {
+  return (
+    <label style={{ display: "block" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: muted(isDark) }}>{label}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: BRAND }}>{fmtT(value)} {suffix}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: BRAND }}
+      />
+    </label>
+  );
+}
+
+function Calculator() {
   const { isDark } = useDark();
-  const p = t.problems;
+  const [tables,   setTables]   = useState(24);
+  const [avgCheck, setAvgCheck] = useState(6500);
+  const [turns,    setTurns]    = useState(3);
 
-  const items = [
-    { icon: "📋", title: p.p1Title, desc: p.p1Desc, tag: p.p1Tag },
-    { icon: "🗣️", title: p.p2Title, desc: p.p2Desc, tag: p.p2Tag },
-    { icon: "📊", title: p.p3Title, desc: p.p3Desc, tag: p.p3Tag },
-  ];
+  const r = useMemo(() => {
+    const revenue     = tables * turns * 30 * avgCheck;
+    const errorSaving = revenue * ERROR_RATE * FOOD_COST * ERROR_FIX;
+    const extraProfit = revenue * TURN_GAIN * (1 - FOOD_COST);
+    const printSaving = (tables * MENU_PRINT) / 12;
+    const total = errorSaving + extraProfit + printSaving;
+    return { revenue, errorSaving, extraProfit, printSaving, total, net: total - PLAN_COST, share: (PLAN_COST / revenue) * 100 };
+  }, [tables, avgCheck, turns]);
 
   return (
-    <section
-      className="py-28 px-6"
-      style={{ background: isDark ? DARK_BG : PEARL, borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.07)" }}
-    >
-      <div className="max-w-6xl mx-auto">
-        <Reveal className="text-center mb-16">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] mb-4" style={{ color: "#DC2626" }}>
-            {p.badge}
-          </p>
-          <SectionTitle dark={isDark}>{p.title}</SectionTitle>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
-            {p.subtitle}
+    <section id="calculator" style={{ padding: "96px 20px", background: isDark ? CARD_DARK2 : "#f8f6ff" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 48 }}>
+          <Pill><CalcIcon size={12} /> Калькулятор</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Сколько ваше заведение теряет каждый месяц
+          </h2>
+          <p style={{ marginTop: 12, fontSize: 16, color: muted(isDark), maxWidth: 520, margin: "12px auto 0" }}>
+            Подвиньте три ползунка — покажем консервативную оценку выгоды от перехода на ScanServe QR.
           </p>
         </Reveal>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          {items.map(({ icon, title, desc, tag }, i) => (
-            <Reveal key={title} delay={i * 0.09}>
-              <div
-                className="p-6 rounded-2xl relative overflow-hidden h-full"
-                style={{
-                  background: isDark ? DARK_CARD : WHITE,
-                  border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(36,36,36,0.08)",
-                }}
-              >
-                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, #DC2626 0%, transparent 80%)" }} />
-                <div className="text-3xl mb-4">{icon}</div>
-                <h3 className="font-semibold text-base mb-2" style={{ color: isDark ? PEARL : GRAPHITE }}>
-                  {title}
-                </h3>
-                <p className="text-sm leading-relaxed mb-5" style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}>
-                  {desc}
-                </p>
-                <span
-                  className="inline-block text-xs font-bold uppercase px-3 py-1 rounded-md"
-                  style={{ background: "rgba(220,38,38,0.10)", color: "#DC2626", letterSpacing: "0.06em" }}
-                >
-                  {tag}
-                </span>
+        <div className="grid lg:grid-cols-2 gap-5">
+          <Reveal>
+            <div style={{ ...card(isDark), padding: 32, display: "flex", flexDirection: "column", gap: 28, height: "100%" }}>
+              <RangeSlider label="Столов в зале" value={tables} min={4} max={80} step={1} suffix="шт" onChange={setTables} isDark={isDark} />
+              <RangeSlider label="Средний чек" value={avgCheck} min={1500} max={30000} step={500} suffix="₸" onChange={setAvgCheck} isDark={isDark} />
+              <RangeSlider label="Посадок на стол в день" value={turns} min={1} max={8} step={1} suffix="раз" onChange={setTurns} isDark={isDark} />
+              <div style={{
+                marginTop: "auto", borderRadius: 16, padding: 16,
+                background: isDark ? CARD_DARK2 : "#f8f6ff",
+                border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+              }}>
+                <p style={{ fontSize: 12, color: muted(isDark) }}>Выручка при таких параметрах</p>
+                <p style={{ marginTop: 4, fontSize: 22, fontWeight: 800, color: fg(isDark) }}>{fmtT(r.revenue)} ₸/мес</p>
               </div>
-            </Reveal>
-          ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={90}>
+            <div style={{
+              ...card(isDark),
+              padding: 32, height: "100%", display: "flex", flexDirection: "column",
+              background: isDark
+                ? `radial-gradient(80% 120% at 50% 0%, rgba(124,58,237,0.22), transparent 70%), ${CARD_DARK}`
+                : `radial-gradient(80% 120% at 50% 0%, rgba(124,58,237,0.1), transparent 70%), ${BG_LIGHT}`,
+              borderColor: "rgba(124,58,237,0.32)",
+              boxShadow: "0 34px 80px -40px rgba(124,58,237,0.45)",
+            }}>
+              <p style={{ fontSize: 12, color: muted(isDark) }}>Потенциальная выгода</p>
+              <div style={{ marginTop: 8, display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontSize: "clamp(2rem,4vw,3rem)", fontWeight: 800, letterSpacing: "-0.04em", color: fg(isDark) }}>
+                  {fmtT(r.total)}
+                </span>
+                <span style={{ fontSize: 22, fontWeight: 600, color: muted(isDark) }}>₸/мес</span>
+              </div>
+
+              <ul style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 0, flex: 1 }}>
+                {[
+                  { label: "Меньше списаний из-за ошибок в заказах", value: r.errorSaving },
+                  { label: "Прибыль с допродаж и ускорения оборота",  value: r.extraProfit },
+                  { label: "Экономия на печати бумажного меню",       value: r.printSaving },
+                ].map(({ label, value }) => (
+                  <li key={label} style={{
+                    display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
+                    borderBottom: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                    padding: "12px 0", fontSize: 13,
+                  }}>
+                    <span style={{ color: muted(isDark) }}>{label}</span>
+                    <span style={{ flexShrink: 0, fontWeight: 600, color: fg(isDark) }}>+{fmtT(value)} ₸</span>
+                  </li>
+                ))}
+                <li style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", fontSize: 13 }}>
+                  <span style={{ color: muted(isDark) }}>Тариф «Стандарт»</span>
+                  <span style={{ flexShrink: 0, fontWeight: 600, color: fg(isDark) }}>−{fmtT(PLAN_COST)} ₸</span>
+                </li>
+              </ul>
+
+              <div style={{
+                marginTop: 16, borderRadius: 16, padding: 16,
+                background: isDark ? CARD_DARK2 : "#f8f6ff",
+                border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12,
+              }}>
+                <div>
+                  <p style={{ fontSize: 11, color: muted(isDark) }}>Чистая выгода</p>
+                  <p style={{ marginTop: 2, fontSize: 16, fontWeight: 700, color: SUCCESS }}>
+                    +{fmtT(r.net)} ₸/мес
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: muted(isDark) }}>Подписка от выручки</p>
+                  <p style={{ marginTop: 2, fontSize: 16, fontWeight: 700, color: fg(isDark) }}>
+                    {r.share.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} %
+                  </p>
+                </div>
+              </div>
+
+              <a href="#trial" style={{
+                marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: G, color: WHITE, borderRadius: 999, padding: "14px 24px",
+                fontSize: 14, fontWeight: 600, textDecoration: "none",
+              }}>
+                Проверить на своём заведении <ArrowRight size={15} />
+              </a>
+
+              <p style={{ marginTop: 12, fontSize: 11, color: muted(isDark), display: "flex", gap: 6, lineHeight: 1.5 }}>
+                <Info size={12} style={{ flexShrink: 0, marginTop: 2 }} />
+                Оценочный расчёт. Не гарантия результата.
+              </p>
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>
   );
 }
 
-// ─── Proof (dark section) ─────────────────────────────────────────────────────
+// ─── Integrations ─────────────────────────────────────────────────────────────
 
-function Proof() {
-  const { t } = useTranslations();
-  const p = t.proof;
+const INTEGRATIONS = [
+  {
+    Icon: QrCode, title: "Kaspi QR и Kaspi Pay", featured: true,
+    text: "Гость сканирует QR на столе, открывает меню, собирает заказ и оплачивает через Kaspi — вместе с чаевыми и отзывом. Оплата сразу привязывается к счёту стола в POS.",
+    tags: ["Kaspi QR", "Kaspi Рестораны", "Чаевые", "Отзывы"],
+  },
+  {
+    Icon: ReceiptText, title: "Фискализация и ОФД", featured: false,
+    text: "Чек уходит в ОФД по требованиям РК: онлайн-ККМ, признаки товара из Национального каталога. Z-отчёт формируется автоматически в конце смены.",
+    tags: ["Онлайн-ККМ", "ОФД", "Нац. каталог", "Z-отчёт"],
+  },
+  {
+    Icon: Banknote, title: "Эквайринг и терминалы", featured: false,
+    text: "Работаем с картами и терминалами казахстанских банков. Наличные, карта, Kaspi и смешанная оплата — в одном счёте.",
+    tags: ["Halyk", "Kaspi", "Freedom", "Смешанная оплата"],
+  },
+  {
+    Icon: Bike, title: "Доставка и самовывоз", featured: false,
+    text: "Заказы из Wolt, Glovo, Yandex Eats и с вашего QR-сайта падают в одну очередь на кухню — без второго планшета.",
+    tags: ["Wolt", "Glovo", "Yandex Eats", "Свой сайт"],
+  },
+  {
+    Icon: Printer, title: "Кухня и оборудование", featured: false,
+    text: "Печать на кухню и бар, экран повара (KDS), фискальный принтер, сканер штрихкодов на складе, весы для фасовки.",
+    tags: ["KDS", "Принтеры", "Сканер", "Весы"],
+  },
+  {
+    Icon: Table2, title: "Учёт и выгрузки", featured: false,
+    text: "Выгрузка продаж, себестоимости и списаний в 1С и Excel. Открытое API и вебхуки — если нужна своя интеграция.",
+    tags: ["1С", "Excel", "API", "Вебхуки"],
+  },
+];
 
-  const stats = [
-    { val: p.stat1, label: p.stat1Label },
-    { val: p.stat2, label: p.stat2Label },
-    { val: p.stat3, label: p.stat3Label },
-    { val: p.stat4, label: p.stat4Label },
-  ];
-
+function Integrations() {
+  const { isDark } = useDark();
   return (
-    <section className="py-28 px-6" style={{ background: GRAPHITE }}>
-      <div className="max-w-6xl mx-auto">
-        <Reveal className="mb-14">
-          <Eyebrow dark>{p.badge}</Eyebrow>
-          <SectionTitle dark>{p.title}</SectionTitle>
-          <p
-            className="text-lg max-w-2xl"
-            style={{ color: "rgba(231,233,235,0.55)" }}
-          >
-            {p.subtitle}
+    <section id="integrations" style={{ padding: "96px 20px", background: isDark ? BG_DARK : BG_LIGHT }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 48 }}>
+          <Pill><Plug size={12} /> Интеграции</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Встраивается в то, чем вы уже пользуетесь
+          </h2>
+          <p style={{ marginTop: 12, fontSize: 16, color: muted(isDark), maxWidth: 540, margin: "12px auto 0" }}>
+            Оплаты, фискализация и доставка — по правилам Казахстана. Ничего не нужно менять в кассе и бухгалтерии.
           </p>
         </Reveal>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-14">
-          {stats.map(({ val, label }, i) => (
-            <Reveal key={label} delay={i * 0.07}>
-              <div
-                className="text-4xl font-black mb-1.5"
-                style={{
-                  color: BLUE_LIGHT,
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                {val}
-              </div>
-              <div
-                className="text-sm"
-                style={{ color: "rgba(231,233,235,0.45)" }}
-              >
-                {label}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {INTEGRATIONS.map(({ Icon, title, featured, text, tags }, i) => (
+            <Reveal key={title} delay={i * 70}>
+              <div style={{
+                ...card(isDark),
+                padding: 24, height: "100%", display: "flex", flexDirection: "column",
+                ...(featured ? {
+                  background: isDark
+                    ? `radial-gradient(90% 100% at 0% 0%, rgba(124,58,237,0.2), transparent 65%), ${CARD_DARK}`
+                    : `radial-gradient(90% 100% at 0% 0%, rgba(124,58,237,0.1), transparent 65%), ${BG_LIGHT}`,
+                  borderColor: "rgba(124,58,237,0.32)",
+                } : {}),
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14,
+                  border: `1px solid rgba(124,58,237,0.3)`,
+                  background: featured ? G : "rgba(124,58,237,0.12)",
+                  color: featured ? WHITE : BRAND,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={20} />
+                </div>
+                <h3 style={{ marginTop: 20, fontSize: 15, fontWeight: 600, color: fg(isDark) }}>{title}</h3>
+                <p style={{ marginTop: 10, flex: 1, fontSize: 13, lineHeight: 1.65, color: muted(isDark) }}>{text}</p>
+                <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {tags.map((tag) => (
+                    <span key={tag} style={{
+                      borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 500,
+                      background: isDark ? CARD_DARK2 : "#f8f6ff",
+                      border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                      color: muted(isDark),
+                    }}>{tag}</span>
+                  ))}
+                </div>
               </div>
             </Reveal>
           ))}
         </div>
 
-        {/* Testimonial */}
-        <Reveal>
-          <blockquote
-            className="rounded-2xl p-8"
-            style={{
-              background: "rgba(231,233,235,0.05)",
-              border: "1px solid rgba(231,233,235,0.10)",
-              borderLeft: `3px solid ${BLUE}`,
-            }}
-          >
-            <Shield
-              size={20}
-              style={{ color: BLUE_LIGHT, marginBottom: 16 }}
-            />
-            <p
-              className="text-lg italic leading-relaxed mb-5"
-              style={{ color: "rgba(231,233,235,0.85)" }}
-            >
-              {p.quote}
-            </p>
-            <footer
-              className="text-sm font-semibold"
-              style={{ color: "rgba(231,233,235,0.35)" }}
-            >
-              {p.quoteAuthor}
-            </footer>
-          </blockquote>
+        <Reveal delay={120} style={{ marginTop: 28, textAlign: "center" }}>
+          <p style={{ fontSize: 13, color: muted(isDark), display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <FileCheck2 size={14} style={{ color: SUCCESS }} />
+            Нужной интеграции нет в списке? Подключим за 3–5 рабочих дней — расскажите на созвоне.
+          </p>
         </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ─── Results ──────────────────────────────────────────────────────────────────
+
+function Results() {
+  const { isDark } = useDark();
+  return (
+    <section id="results" style={{ padding: "96px 20px", background: isDark ? CARD_DARK2 : "#f8f6ff" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Left */}
+          <div>
+            <Reveal>
+              <Pill>Результаты</Pill>
+            </Reveal>
+            <Reveal delay={80}>
+              <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+                Ресторан в Алматы убрал ошибки официантов за неделю
+              </h2>
+            </Reveal>
+            <Reveal delay={140}>
+              <div style={{
+                ...card(isDark), position: "relative", marginTop: 28, padding: 28,
+              }}>
+                <div style={{
+                  position: "absolute", top: -16, left: 28,
+                  width: 36, height: 36, borderRadius: 8,
+                  background: G, display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{ fontSize: 18, color: WHITE, fontWeight: 700 }}>"</span>
+                </div>
+                <p style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.6, color: fg(isDark) }}>
+                  «Официанты переспрашивали заказ по 3 раза. Теперь гость всё указывает сам»
+                </p>
+                <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 999, background: G,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, fontWeight: 700, color: WHITE,
+                  }}>АЛ</div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: fg(isDark) }}>Управляющий ресторана</p>
+                    <p style={{ fontSize: 12, color: muted(isDark) }}>Алматы · 120 посадочных мест</p>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+
+          {/* Right: metrics */}
+          <div className="grid sm:grid-cols-3 lg:grid-cols-1 gap-5">
+            {[
+              { val: "80%",    label: "меньше ошибок в заказах" },
+              { val: "×3",     label: "быстрее обслуживание гостей" },
+              { val: "1 день", label: "на полный запуск заведения" },
+            ].map(({ val, label }, i) => (
+              <Reveal key={val} delay={i * 100}>
+                <div style={{ ...card(isDark), padding: 24, display: "flex", alignItems: "center", gap: 20 }}>
+                  <p style={{
+                    fontSize: "clamp(2.2rem,4vw,2.8rem)", fontWeight: 800,
+                    background: G, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+                    flexShrink: 0,
+                  }}>{val}</p>
+                  <p style={{ fontSize: 14, lineHeight: 1.5, color: muted(isDark) }}>{label}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -811,170 +1002,210 @@ function Proof() {
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 
-function Pricing() {
-  const { t } = useTranslations();
-  const { isDark } = useDark();
-  const p = t.pricing;
+type Billing = "monthly" | "yearly";
 
-  const plans = [
-    {
-      name: p.starterName,
-      price: p.starterPrice,
-      oldPrice: null as string | null,
-      badge: null as string | null,
-      period: p.starterPeriod,
-      desc: p.starterDesc,
-      cta: p.starterCta,
-      highlight: false,
-      features: [
-        p.starterF1, p.starterF2, p.starterF3, p.starterF4, p.starterF5,
-        p.starterF6, p.starterF7, p.starterF8, p.starterF9,
-      ],
-    },
-    {
-      name: p.proName,
-      price: p.proPrice,
-      oldPrice: null as string | null,
-      badge: null as string | null,
-      period: p.proPeriod,
-      desc: p.proDesc,
-      cta: p.proCta,
-      highlight: true,
-      features: [
-        p.proF1, p.proF2, p.proF3, p.proF4, p.proF5,
-        p.proF6, p.proF7, p.proF8, p.proF9,
-      ],
-    },
-    {
-      name: p.entName,
-      price: p.entPrice,
-      oldPrice: "15 780 ₸",
-      badge: "-17%",
-      period: p.entPeriod,
-      desc: p.entDesc,
-      cta: p.entCta,
-      highlight: false,
-      features: [
-        p.entF1, p.entF2, p.entF3, p.entF4, p.entF5,
-        p.entF6, p.entF7, p.entF8, p.entF9,
-      ],
-    },
-  ];
+const PLANS = [
+  {
+    name: "Стартер", monthly: 5780, audience: "Малым кафе и кофейням", popular: false, custom: null,
+    features: ["QR-меню без приложения", "Каталог меню с фото", "Базовый POS: столы и счёт", "Отчёт по выручке за день", "До 3 сотрудников"],
+  },
+  {
+    name: "Стандарт", monthly: 15780, audience: "Полноценному ресторану", popular: true, custom: null,
+    features: ["Всё из тарифа «Стартер»", "POS: разделение счёта, чаевые", "Программа лояльности и push", "Аналитика и Z-отчёты", "База гостей (CRM)", "16 ролей персонала", "Склад и себестоимость"],
+  },
+  {
+    name: "Сеть", monthly: null, audience: "Сетям от 3 заведений", popular: false, custom: "по запросу",
+    features: ["Все возможности «Стандарта»", "Единая панель по всем точкам", "Сводные отчёты и сравнение точек", "Общая база гостей и лояльность", "Персональный менеджер", "Помощь с переносом меню"],
+  },
+];
+
+function Pricing() {
+  const { isDark } = useDark();
+  const [billing, setBilling] = useState<Billing>("monthly");
+  const yearly = billing === "yearly";
+  const saving = Math.round((PLANS[1].monthly! * 0.17) * 12);
 
   return (
-    <section id="pricing" className="py-28 px-6" style={{ background: isDark ? DARK_BG : PEARL }}>
-      <div className="max-w-6xl mx-auto">
-        <Reveal className="text-center mb-16">
-          <Eyebrow dark={isDark}>{p.badge}</Eyebrow>
-          <SectionTitle dark={isDark}>{p.title}</SectionTitle>
-          <p
-            className="text-lg max-w-xl mx-auto"
-            style={{ color: isDark ? "rgba(231,233,235,0.55)" : "rgba(36,36,36,0.55)" }}
-          >
-            {p.subtitle}
+    <section id="pricing" style={{ padding: "96px 20px", background: isDark ? BG_DARK : BG_LIGHT }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 40 }}>
+          <Pill>Тарифы</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Прозрачные цены в тенге
+          </h2>
+          <p style={{ marginTop: 12, fontSize: 16, color: muted(isDark) }}>
+            7 дней бесплатно, без привязки карты. Меняйте или отменяйте тариф в любой момент.
           </p>
+
+          {/* Billing toggle */}
+          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", borderRadius: 999,
+              border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+              background: isDark ? CARD_DARK2 : "#f8f6ff",
+              padding: 4,
+            }}>
+              {(["monthly", "yearly"] as Billing[]).map((key) => (
+                <button key={key} type="button" onClick={() => setBilling(key)}
+                  style={{
+                    borderRadius: 999, padding: "8px 20px", fontSize: 13, fontWeight: 600,
+                    border: "none", cursor: "pointer", transition: "all 0.2s",
+                    background: billing === key ? G : "transparent",
+                    color: billing === key ? WHITE : muted(isDark),
+                    boxShadow: billing === key ? "0 10px 28px -10px rgba(124,58,237,0.7)" : "none",
+                  }}
+                >
+                  {key === "monthly" ? "Помесячно" : "За год −17%"}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 500, color: SUCCESS, opacity: yearly ? 1 : 0, transition: "opacity 0.2s" }}>
+              Экономия {fmtT(saving)} ₸ в год на тарифе «Стандарт»
+            </p>
+          </div>
         </Reveal>
 
         <div className="grid md:grid-cols-3 gap-5 items-start">
-          {plans.map(({ name, price, oldPrice, badge, period, desc, cta, highlight, features }, i) => (
-            <Reveal key={name} delay={i * 0.09}>
-              <div
-                className="rounded-2xl p-8 relative h-full flex flex-col"
-                style={
-                  highlight
-                    ? { background: BLUE, border: `1px solid ${BLUE}`, boxShadow: "0 20px 60px rgba(29,78,216,0.28)" }
-                    : { background: isDark ? DARK_CARD : WHITE, border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(36,36,36,0.09)" }
-                }
-              >
-                {/* Popular badge */}
-                {highlight && (
-                  <div
-                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
-                    style={{ background: GRAPHITE, color: PEARL }}
-                  >
-                    {p.mostPopular}
-                  </div>
-                )}
-                {/* Discount badge */}
-                {badge && (
-                  <div
-                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold whitespace-nowrap"
-                    style={{ background: "#16A34A", color: WHITE }}
-                  >
-                    {badge}
-                  </div>
-                )}
+          {PLANS.map(({ name, monthly, audience, popular, custom, features }, i) => {
+            const price = monthly === null ? null : yearly ? Math.ceil(monthly * 0.83) : monthly;
+            return (
+              <Reveal key={name} delay={i * 90}>
+                <div style={{
+                  ...card(isDark),
+                  padding: 28, position: "relative", display: "flex", flexDirection: "column",
+                  ...(popular ? {
+                    borderColor: "rgba(124,58,237,0.55)",
+                    boxShadow: "0 30px 70px -30px rgba(124,58,237,0.65)",
+                    marginTop: -16,
+                  } : {}),
+                }}>
+                  {popular && (
+                    <span style={{
+                      position: "absolute", top: -12, left: 24,
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      background: G, color: WHITE, borderRadius: 999,
+                      padding: "4px 12px", fontSize: 11, fontWeight: 700,
+                    }}>
+                      <Sparkles size={12} /> Популярный
+                    </span>
+                  )}
 
-                {/* Plan header */}
-                <div className="mb-6">
-                  <p
-                    className="text-xs font-bold uppercase tracking-[0.10em] mb-3"
-                    style={{
-                      color: highlight ? "rgba(231,233,235,0.65)" : BLUE,
-                    }}
-                  >
-                    {name}
-                  </p>
-                  <div className="flex items-baseline gap-2 mb-2 flex-wrap">
-                    {oldPrice && (
-                      <span
-                        className="text-base line-through"
-                        style={{
-                          color: highlight
-                            ? "rgba(231,233,235,0.35)"
-                            : "rgba(36,36,36,0.3)",
-                        }}
-                      >
-                        {oldPrice}
-                      </span>
+                  <h3 style={{ fontSize: 17, fontWeight: 600, color: fg(isDark) }}>{name}</h3>
+                  <p style={{ marginTop: 4, fontSize: 13, color: muted(isDark) }}>{audience}</p>
+
+                  <div style={{ marginTop: 20, display: "flex", alignItems: "baseline", gap: 6 }}>
+                    {price === null ? (
+                      <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.04em", color: fg(isDark) }}>{custom}</span>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.04em", color: fg(isDark) }}>{fmtT(price)}</span>
+                        <span style={{ fontSize: 22, fontWeight: 600, color: muted(isDark) }}>₸</span>
+                      </>
                     )}
-                    <span
-                      className="text-4xl font-black"
-                      style={{
-                        color: highlight ? WHITE : GRAPHITE,
-                        letterSpacing: "-0.04em",
-                      }}
-                    >
-                      {price}
-                    </span>
-                    <span
-                      className="text-sm"
-                      style={{ color: highlight ? "rgba(231,233,235,0.55)" : isDark ? "rgba(231,233,235,0.4)" : "rgba(36,36,36,0.4)" }}
-                    >
-                      {period}
-                    </span>
                   </div>
-                  <p
-                    className="text-sm leading-relaxed"
-                    style={{ color: highlight ? "rgba(231,233,235,0.65)" : isDark ? "rgba(231,233,235,0.5)" : "rgba(36,36,36,0.5)" }}
-                  >
-                    {desc}
+                  <p style={{ marginTop: 4, fontSize: 12, color: muted(isDark), minHeight: 36 }}>
+                    {price === null ? "Считаем по числу точек и столов" : yearly ? "в месяц при оплате за год" : "в месяц"}
+                    {price !== null && yearly && monthly && (
+                      <span> · вместо <s>{fmtT(monthly)}</s> ₸</span>
+                    )}
                   </p>
+
+                  <ul style={{ marginTop: 24, flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                    {features.map((f) => (
+                      <li key={f} style={{ display: "flex", gap: 10, fontSize: 13 }}>
+                        <Check size={14} style={{ color: popular ? BRAND : SUCCESS, flexShrink: 0, marginTop: 2 }} />
+                        <span style={{ color: muted(isDark) }}>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <a href="#trial" style={{
+                    marginTop: 24, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    borderRadius: 999, padding: "12px 20px", fontSize: 14, fontWeight: 600,
+                    textDecoration: "none",
+                    ...(popular
+                      ? { background: G, color: WHITE, boxShadow: "0 10px 28px -10px rgba(124,58,237,0.7)" }
+                      : { border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`, color: fg(isDark), background: "transparent" }),
+                  }}>
+                    {price === null ? "Обсудить сеть" : "Попробовать 7 дней"}
+                  </a>
                 </div>
+              </Reveal>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-                {/* CTA button */}
-                <a
-                  href="#"
-                  className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl text-sm font-semibold mb-8 transition-all hover:opacity-90"
-                  style={highlight ? { background: WHITE, color: BLUE } : { background: BLUE, color: WHITE }}
+// ─── FAQ ──────────────────────────────────────────────────────────────────────
+
+const FAQ_ITEMS = [
+  {
+    q: "Нужно ли гостю скачивать приложение?",
+    a: "Нет. Гость сканирует QR-код на столе камерой телефона и сразу открывает меню в браузере. Ничего устанавливать и регистрироваться не нужно.",
+  },
+  {
+    q: "Сколько времени занимает запуск?",
+    a: "Один день. Регистрация и загрузка меню — около 10 минут, QR-коды генерируются автоматически, обучение команды занимает 15 минут.",
+  },
+  {
+    q: "Нужно ли покупать оборудование?",
+    a: "Нет. POS работает в браузере на любом планшете, ноутбуке или телефоне. Если у вас уже есть касса и принтер — продолжаете работать на них.",
+  },
+  {
+    q: "Что входит в бесплатный период?",
+    a: "7 дней полного доступа к функциям тарифа «Стандарт» без привязки карты. Если не подойдёт — просто не продлеваете, никаких списаний.",
+  },
+  {
+    q: "Мы работаем в нескольких заведениях — это поддерживается?",
+    a: "Да. Вы управляете сетью из одного аккаунта: отдельное меню и персонал для каждого заведения, сводная аналитика по всем точкам.",
+  },
+];
+
+function Faq() {
+  const { isDark } = useDark();
+  const [open, setOpen] = useState<number | null>(null);
+
+  return (
+    <section id="faq" style={{ padding: "96px 20px", background: isDark ? CARD_DARK2 : "#f8f6ff" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 40 }}>
+          <Pill>FAQ</Pill>
+          <h2 style={{ marginTop: 16, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 700, color: fg(isDark), letterSpacing: "-0.02em" }}>
+            Частые вопросы
+          </h2>
+        </Reveal>
+
+        <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
+          {FAQ_ITEMS.map(({ q, a }, i) => (
+            <Reveal key={q} delay={i * 60}>
+              <div style={{ ...card(isDark), overflow: "hidden" }}>
+                <button
+                  type="button"
+                  onClick={() => setOpen(open === i ? null : i)}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 16, padding: "20px 24px", background: "none", border: "none", cursor: "pointer",
+                    textAlign: "left", fontSize: 14, fontWeight: 600, color: fg(isDark),
+                  }}
                 >
-                  {cta}
-                  <ChevronRight size={15} />
-                </a>
-
-                {/* Features list */}
-                <ul className="space-y-3 mt-auto">
-                  {features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-start gap-3 text-sm"
-                      style={{ color: highlight ? "rgba(231,233,235,0.75)" : isDark ? "rgba(231,233,235,0.6)" : "rgba(36,36,36,0.6)" }}
-                    >
-                      <Check size={14} style={{ color: highlight ? "#93C5FD" : BLUE, flexShrink: 0, marginTop: 2 }} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                  {q}
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 999, flexShrink: 0,
+                    border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                    display: "flex", alignItems: "center", justifyContent: "center", color: BRAND,
+                    transform: open === i ? "rotate(45deg)" : "none", transition: "transform 0.3s",
+                  }}>
+                    <Plus size={14} />
+                  </div>
+                </button>
+                {open === i && (
+                  <p style={{ padding: "0 24px 20px", fontSize: 13, lineHeight: 1.7, color: muted(isDark) }}>
+                    {a}
+                  </p>
+                )}
               </div>
             </Reveal>
           ))}
@@ -984,48 +1215,218 @@ function Pricing() {
   );
 }
 
-// ─── Final CTA ────────────────────────────────────────────────────────────────
+// ─── Lead Form + CTA ──────────────────────────────────────────────────────────
 
-function FinalCta() {
-  const { t } = useTranslations();
+const CITIES = ["Алматы", "Астана", "Шымкент", "Караганда", "Актобе", "Другой город"];
+const TABLE_RANGES = ["до 10 столов", "10–25 столов", "25–50 столов", "более 50 столов"];
+
+function LeadForm() {
+  const { isDark } = useDark();
+  const [form, setForm] = useState({ name: "", venue: "", phone: "+7 ", city: "", tables: "", comment: "" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [serverError, setServerError] = useState(false);
+
+  function validate() {
+    const e: Record<string, string> = {};
+    if (!form.name.trim() || form.name.trim().length < 2) e.name = "Укажите имя";
+    if (!form.venue.trim()) e.venue = "Укажите заведение";
+    if (!form.phone.trim() || form.phone.replace(/\D/g, "").length < 10) e.phone = "Формат: +7 700 000 00 00";
+    return e;
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    setLoading(true);
+    setServerError(false);
+    try {
+      await fetch("/api/landing/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, plan: "trial-7" }),
+      });
+      setDone(true);
+    } catch {
+      setServerError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const fieldStyle: React.CSSProperties = {
+    width: "100%", borderRadius: 14, padding: "12px 16px", fontSize: 14, outline: "none",
+    border: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+    background: isDark ? CARD_DARK2 : "#f8f6ff",
+    color: fg(isDark), marginTop: 6, boxSizing: "border-box",
+  };
+
+  if (done) {
+    return (
+      <div style={{ ...card(isDark), padding: 40, textAlign: "center" }}>
+        <div style={{ width: 56, height: 56, borderRadius: 999, background: G, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+          <Check size={26} color={WHITE} />
+        </div>
+        <h3 style={{ marginTop: 20, fontSize: 20, fontWeight: 700, color: fg(isDark) }}>Заявка принята</h3>
+        <p style={{ marginTop: 12, fontSize: 14, lineHeight: 1.65, color: muted(isDark), maxWidth: 340, margin: "12px auto 0" }}>
+          Свяжемся в течение рабочего дня, поможем загрузить меню и включим 7 дней бесплатного доступа.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <section
-      className="py-28 px-6"
-      style={{ background: DARK_BG }}
-    >
-      <Reveal className="max-w-2xl mx-auto text-center">
-        <motion.div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-8"
-          style={{ background: BLUE }}
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <QrCode size={26} color={WHITE} />
-        </motion.div>
+    <form onSubmit={onSubmit} noValidate style={{ ...card(isDark), padding: 28 }}>
+      <h3 style={{ fontSize: 19, fontWeight: 700, color: fg(isDark) }}>Заявка на 7 дней бесплатно</h3>
+      <p style={{ marginTop: 6, fontSize: 13, color: muted(isDark) }}>
+        Заполните три поля — остальное по желанию. Без привязки карты.
+      </p>
 
-        <h2
-          className="text-4xl font-bold mb-5"
-          style={{ color: PEARL, letterSpacing: "-0.02em" }}
-        >
-          {t.cta.title}
-        </h2>
-        <p
-          className="text-lg mb-10"
-          style={{ color: "rgba(231,233,235,0.5)" }}
-        >
-          {t.cta.subtitle}
+      <div className="grid sm:grid-cols-2 gap-4" style={{ marginTop: 20 }}>
+        <label>
+          <span style={{ fontSize: 13, fontWeight: 500, color: fg(isDark) }}>Ваше имя *</span>
+          <input
+            value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Ануарбек" autoComplete="name"
+            style={{ ...fieldStyle, ...(errors.name ? { borderColor: DANGER } : {}) }}
+          />
+          {errors.name && <span style={{ fontSize: 12, color: DANGER, marginTop: 4, display: "block" }}>{errors.name}</span>}
+        </label>
+
+        <label>
+          <span style={{ fontSize: 13, fontWeight: 500, color: fg(isDark) }}>Заведение *</span>
+          <input
+            value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })}
+            placeholder="Kaffa Almaty" autoComplete="organization"
+            style={{ ...fieldStyle, ...(errors.venue ? { borderColor: DANGER } : {}) }}
+          />
+          {errors.venue && <span style={{ fontSize: 12, color: DANGER, marginTop: 4, display: "block" }}>{errors.venue}</span>}
+        </label>
+
+        <label>
+          <span style={{ fontSize: 13, fontWeight: 500, color: fg(isDark) }}>Телефон или WhatsApp *</span>
+          <input
+            value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="+7 700 000 00 00" inputMode="tel" autoComplete="tel"
+            style={{ ...fieldStyle, ...(errors.phone ? { borderColor: DANGER } : {}) }}
+          />
+          {errors.phone && <span style={{ fontSize: 12, color: DANGER, marginTop: 4, display: "block" }}>{errors.phone}</span>}
+        </label>
+
+        <label>
+          <span style={{ fontSize: 13, fontWeight: 500, color: fg(isDark) }}>Город</span>
+          <select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} style={fieldStyle}>
+            <option value="">Не указывать</option>
+            {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+
+        <label className="sm:col-span-2">
+          <span style={{ fontSize: 13, fontWeight: 500, color: fg(isDark) }}>Размер заведения</span>
+          <select value={form.tables} onChange={(e) => setForm({ ...form, tables: e.target.value })} style={fieldStyle}>
+            <option value="">Не указывать</option>
+            {TABLE_RANGES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </label>
+
+        <label className="sm:col-span-2">
+          <span style={{ fontSize: 13, fontWeight: 500, color: fg(isDark) }}>Комментарий</span>
+          <textarea
+            value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })}
+            rows={3} placeholder="Например: работаем на Kaspi QR, нужен перенос меню"
+            style={{ ...fieldStyle, resize: "none" }}
+          />
+        </label>
+      </div>
+
+      {serverError && (
+        <p style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: DANGER }}>
+          <AlertCircle size={14} /> Не удалось отправить заявку. Попробуйте ещё раз.
         </p>
+      )}
 
-        <a
-          href="#pricing"
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-          style={{ background: BLUE, color: WHITE }}
-        >
-          {t.cta.primary}
-          <ArrowRight size={16} />
-        </a>
-      </Reveal>
+      <button type="submit" disabled={loading} style={{
+        marginTop: 20, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        background: G, color: WHITE, borderRadius: 999, padding: "14px 24px",
+        fontSize: 14, fontWeight: 600, border: "none", cursor: loading ? "not-allowed" : "pointer",
+        opacity: loading ? 0.7 : 1,
+      }}>
+        {loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Отправляем…</> : <>Получить доступ на 7 дней <ArrowRight size={15} /></>}
+      </button>
+
+      <p style={{ marginTop: 12, textAlign: "center", fontSize: 11, color: muted(isDark) }}>
+        Нажимая кнопку, вы соглашаетесь на обработку данных для связи по заявке.
+      </p>
+    </form>
+  );
+}
+
+function Cta() {
+  const { isDark } = useDark();
+
+  return (
+    <section id="trial" style={{ padding: "80px 20px", background: isDark ? BG_DARK : BG_LIGHT }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal>
+          <div style={{
+            borderRadius: 28, padding: "48px 32px",
+            border: "1px solid rgba(124,58,237,0.30)",
+            background: isDark
+              ? `radial-gradient(70% 120% at 0% 0%, rgba(124,58,237,0.26), transparent 70%), ${CARD_DARK}`
+              : `radial-gradient(70% 120% at 0% 0%, rgba(124,58,237,0.1), transparent 70%), ${BG_LIGHT}`,
+            boxShadow: "0 40px 90px -40px rgba(124,58,237,0.50)",
+          }}>
+            <div className="grid lg:grid-cols-2 gap-10 items-center">
+              <div>
+                <Pill>Пробный период</Pill>
+                <h2 style={{ marginTop: 16, fontSize: "clamp(1.7rem,3.6vw,2.5rem)", fontWeight: 800, lineHeight: 1.2, color: fg(isDark) }}>
+                  Попробуйте ScanServe QR в своём заведении
+                </h2>
+                <p style={{ marginTop: 16, fontSize: 15, color: muted(isDark), maxWidth: 440, lineHeight: 1.65 }}>
+                  Оставьте заявку — подключим QR-меню и POS, поможем перенести меню и покажем первые цифры по выручке уже на второй день.
+                </p>
+
+                <ul style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    "7 дней бесплатно, без привязки карты",
+                    "Загрузим меню и настроим столы за вас",
+                    "Обучение команды — онлайн, 40 минут",
+                    "Отмена в один клик, данные останутся вашими",
+                  ].map((p) => (
+                    <li key={p} style={{ display: "flex", gap: 10, fontSize: 14, color: muted(isDark) }}>
+                      <Check size={15} style={{ color: SUCCESS, flexShrink: 0, marginTop: 2 }} />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+
+                <ul style={{
+                  marginTop: 24, paddingTop: 20,
+                  borderTop: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+                  display: "flex", flexDirection: "column", gap: 10,
+                }}>
+                  {[
+                    { Icon: Clock,       label: "Ответим в течение рабочего дня" },
+                    { Icon: PhoneCall,   label: "Звонок или WhatsApp — как удобно" },
+                    { Icon: ShieldCheck, label: "Данные только для связи по заявке" },
+                  ].map(({ Icon, label }) => (
+                    <li key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: muted(isDark) }}>
+                      <Icon size={14} style={{ color: BRAND, flexShrink: 0 }} />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <LeadForm />
+            </div>
+          </div>
+        </Reveal>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </section>
   );
 }
@@ -1033,64 +1434,95 @@ function FinalCta() {
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
-  const { t } = useTranslations();
-
-  const links = [
-    t.footer.privacy,
-    t.footer.terms,
-    t.footer.contact,
-    t.footer.status,
-    t.footer.docs,
-  ];
+  const { isDark } = useDark();
 
   return (
-    <footer
-      className="px-6 py-12"
-      style={{
-        background: DARK_BG,
-        borderTop: "1px solid rgba(231,233,235,0.07)",
-      }}
-    >
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex items-center justify-center w-7 h-7 rounded-lg"
-            style={{ background: BLUE }}
-          >
-            <QrCode size={13} color={WHITE} />
+    <footer style={{
+      borderTop: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+      background: isDark ? BG_DARK : BG_LIGHT,
+      padding: "56px 20px",
+    }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div className="grid md:grid-cols-4 gap-10">
+          {/* Brand */}
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: G, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <QrCode size={13} color={WHITE} />
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 15, color: fg(isDark) }}>
+                ScanServe<span style={{ color: BRAND }}>.qr</span>
+              </span>
+            </div>
+            <p style={{ marginTop: 12, fontSize: 13, lineHeight: 1.65, color: muted(isDark), maxWidth: 220 }}>
+              Облачная платформа управления рестораном: QR-меню, POS, аналитика, CRM, персонал и склад.
+            </p>
           </div>
-          <span
-            className="font-bold text-base"
-            style={{ color: PEARL }}
-          >
-            ScanServe<span style={{ color: BLUE_LIGHT }}>.qr</span>
-          </span>
+
+          {/* Product */}
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: fg(isDark) }}>Продукт</p>
+            <ul style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { href: "#features",     label: "Возможности" },
+                { href: "#how",          label: "Как это работает" },
+                { href: "#pricing",      label: "Тарифы" },
+                { href: "#faq",          label: "FAQ" },
+              ].map(({ href, label }) => (
+                <li key={href}>
+                  <a href={href} style={{ fontSize: 13, color: muted(isDark), textDecoration: "none" }}>{label}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: fg(isDark) }}>Компания</p>
+            <ul style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { href: "#results",  label: "Кейсы" },
+                { href: "#problems", label: "Кому подходит" },
+                { href: "#trial",    label: "Пробный период" },
+              ].map(({ href, label }) => (
+                <li key={href}>
+                  <a href={href} style={{ fontSize: 13, color: muted(isDark), textDecoration: "none" }}>{label}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Contacts */}
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: fg(isDark) }}>Контакты</p>
+            <ul style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+              {[
+                { Icon: Mail,   href: "mailto:hello@scanserve.kz", label: "hello@scanserve.kz" },
+                { Icon: Send,   href: "https://t.me/scanserve",    label: "Telegram-поддержка" },
+                { Icon: MapPin, href: undefined,                   label: "Алматы, Казахстан" },
+              ].map(({ Icon, href, label }) => (
+                <li key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon size={13} style={{ color: BRAND, flexShrink: 0 }} />
+                  {href
+                    ? <a href={href} style={{ fontSize: 13, color: muted(isDark), textDecoration: "none" }}>{label}</a>
+                    : <span style={{ fontSize: 13, color: muted(isDark) }}>{label}</span>
+                  }
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        {/* Links */}
-        <div
-          className="flex flex-wrap justify-center gap-6 text-sm"
-          style={{ color: "rgba(231,233,235,0.30)" }}
-        >
-          {links.map((link) => (
-            <a
-              key={link}
-              href="#"
-              className="transition-colors hover:text-[rgba(231,233,235,0.75)]"
-            >
-              {link}
-            </a>
-          ))}
+        <div style={{
+          marginTop: 40, paddingTop: 20,
+          borderTop: `1px solid ${isDark ? BORDER_DARK : BORDER_LIGHT}`,
+          display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 16,
+        }}>
+          <p style={{ fontSize: 12, color: muted(isDark) }}>
+            © {new Date().getFullYear()} ScanServe QR. Все права защищены.
+          </p>
+          <p style={{ fontSize: 12, color: muted(isDark) }}>Сделано для рынка Казахстана.</p>
         </div>
-
-        {/* Copyright */}
-        <p
-          className="text-sm"
-          style={{ color: "rgba(231,233,235,0.25)" }}
-        >
-          {t.footer.copyright}
-        </p>
       </div>
     </footer>
   );
@@ -1118,38 +1550,22 @@ export default function LandingPage() {
 
   return (
     <DarkCtx.Provider value={{ isDark, toggle }}>
-    <div style={{ background: isDark ? DARK_BG : PEARL, minHeight: "100vh" }}>
-      <Navbar />
-      <main>
-        <div id="hero" data-track>
-          <Hero />
-        </div>
-        <div id="stats" data-track>
-          <Stats />
-        </div>
-        <div id="features" data-track>
-          <Features />
-        </div>
-        <div id="how-it-works" data-track>
-          <HowItWorks />
-        </div>
-        <div id="problems" data-track>
-          <Problems />
-        </div>
-        <div id="proof" data-track>
-          <Proof />
-        </div>
-        <div id="pricing" data-track>
-          <Pricing />
-        </div>
-        <div id="cta" data-track>
-          <FinalCta />
-        </div>
-      </main>
-      <div id="footer" data-track>
-        <Footer />
+      <div style={{ background: isDark ? BG_DARK : BG_LIGHT, minHeight: "100vh" }}>
+        <Navbar />
+        <main>
+          <div id="hero"         data-track><Hero /></div>
+          <div id="problems"     data-track><Problems /></div>
+          <div id="features"     data-track><Features /></div>
+          <div id="how"          data-track><HowItWorks /></div>
+          <div id="calculator"   data-track><Calculator /></div>
+          <div id="integrations" data-track><Integrations /></div>
+          <div id="results"      data-track><Results /></div>
+          <div id="pricing"      data-track><Pricing /></div>
+          <div id="faq"          data-track><Faq /></div>
+          <div id="trial"        data-track><Cta /></div>
+        </main>
+        <div id="footer" data-track><Footer /></div>
       </div>
-    </div>
     </DarkCtx.Provider>
   );
 }
