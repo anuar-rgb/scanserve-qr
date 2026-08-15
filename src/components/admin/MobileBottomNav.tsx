@@ -10,6 +10,7 @@ import {
   QrCode, BookOpen, Settings, Users, CreditCard, FilePen,
   Boxes, MessageSquare, PrinterIcon, LogOut, Sun, Moon,
   CalendarDays, Truck, ChefHat, History, Clock, FileText,
+  Shuffle, Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -75,6 +76,8 @@ const DRAWER_NAV: DrawerSection[] = [
     titleKey: "sectionPOS",
     cashierSection: true,
     items: [
+      { labelKey: "navRotation",    icon: Shuffle, href: "/admin/hall?tab=rotation"    },
+      { labelKey: "navCashReport",  icon: Wallet,  href: "/admin/hall?tab=cash-report" },
       { labelKey: "navOrderHistory", icon: History, href: "/admin/order-history" },
     ],
   },
