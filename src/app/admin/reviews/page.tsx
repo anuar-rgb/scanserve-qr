@@ -38,7 +38,7 @@ export default function ReviewsPage() {
         if (!error && data) setReviews(data);
         setLoading(false);
       });
-  }, []);
+  }, [restaurantId]);
 
   const totalReviews = reviews.length;
   const avgRating = totalReviews > 0

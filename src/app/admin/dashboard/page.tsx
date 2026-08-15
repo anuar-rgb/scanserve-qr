@@ -49,7 +49,7 @@ export default function CatalogPage() {
     setProducts((prodsRes.data as DbProduct[]) ?? []);
     setSelectedCatId((prev) => prev ?? cats[0]?.id ?? null);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

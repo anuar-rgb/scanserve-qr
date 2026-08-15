@@ -53,7 +53,7 @@ export default function PaymentBanksPage() {
       .order("order_index");
     if (data) setBanks(data as DbPaymentBank[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

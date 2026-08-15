@@ -75,7 +75,7 @@ function PromoCodesTab() {
       .order("created_at", { ascending: false });
     setCodes((data ?? []) as DbPromoCode[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -396,7 +396,7 @@ function HappyHoursTab() {
     setItems((hh ?? []) as DbHappyHour[]);
     setCategories((cats ?? []) as DbCategory[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -569,7 +569,7 @@ function BonusTab() {
       .order("bonus_percent", { ascending: false });
     setProducts((data as BonusProduct[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

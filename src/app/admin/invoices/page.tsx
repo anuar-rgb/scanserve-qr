@@ -108,7 +108,7 @@ export default function InvoicesPage() {
       .order("created_at", { ascending: false });
     setInvoices((data ?? []) as InvoiceWithItems[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(period); }, [load, period]);
 

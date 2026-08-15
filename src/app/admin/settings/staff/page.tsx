@@ -68,8 +68,9 @@ const ROLE_COLOR: Record<StaffRole, string> = {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function StaffPage() {
-  const viewerRole = useRole();
-  const isManager  = viewerRole === "manager" || viewerRole === "supervisor";
+  const viewerRole  = useRole();
+  const isManager   = viewerRole === "manager" || viewerRole === "supervisor";
+  const restaurantId = useBranchRestaurantId() ?? "";
 
   const [activeTab, setActiveTab] = useState<"all" | "active_today">("all");
 
@@ -93,7 +94,7 @@ export default function StaffPage() {
       setStaff(json.staff ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   const loadActiveStaff = useCallback(async () => {
     setLoadingActive(true);
@@ -141,7 +142,7 @@ export default function StaffPage() {
       setActiveStaff([]);
     }
     setLoadingActive(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -66,6 +66,11 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   function setSelectedId(id: string | "all") {
     setSelectedIdState(id);
     sessionStorage.setItem(STORAGE_KEY, id);
+    // Keep cookie in sync so API routes (which read admin_restaurant_id cookie) also see the new branch
+    const cookieRid = (id === "all" || !id) ? primaryRestaurantId : id;
+    if (cookieRid && typeof document !== "undefined") {
+      document.cookie = `admin_restaurant_id=${encodeURIComponent(cookieRid)}; path=/; SameSite=Lax`;
+    }
   }
 
   const isMultiBranch = branches.length > 1;

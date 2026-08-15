@@ -172,7 +172,7 @@ function HeroSliderSection() {
       .from("hero_slides").select("*").eq("restaurant_id", restaurantId).order("order_index");
     if (data) setSlides(data as DbHeroSlide[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -782,7 +782,7 @@ function BannersSection() {
       .from("banners").select("*").eq("restaurant_id", restaurantId).order("order_index");
     if (data) setBanners(data as DbBanner[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1076,7 +1076,7 @@ function InfoShowcaseSection() {
       .order("order_index");
     if (data) setCards(data as DbInfoShowcase[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1327,7 +1327,7 @@ function RecommendationsSection() {
       .order("name->ru");
     if (data) setProducts(data as DbProduct[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

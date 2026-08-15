@@ -64,7 +64,7 @@ export default function SettingsPage() {
       setServiceChargePercent(r.service_charge_percent ?? 10);
     }
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

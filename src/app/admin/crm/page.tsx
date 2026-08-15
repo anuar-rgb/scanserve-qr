@@ -135,7 +135,7 @@ export default function CrmPage() {
       setTotal(json.total ?? 0);
     }
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 

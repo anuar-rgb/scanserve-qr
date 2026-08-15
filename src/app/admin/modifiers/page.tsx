@@ -286,7 +286,7 @@ export default function ModifiersPage() {
     setCategories((catsRes.data as DbCategory[]) ?? []);
     setProducts((prodsRes.data as DbProduct[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
