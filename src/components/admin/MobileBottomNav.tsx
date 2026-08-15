@@ -145,7 +145,6 @@ const DRAWER_NAV: DrawerSection[] = [
     titleKey: "sectionQR",
     ownerOnly: true,
     items: [
-      { labelKey: "navIntegration", icon: QrCode,   href: "/admin/qr",       ownerOnly: true },
       { labelKey: "navTraining",    icon: BookOpen, href: "/admin/training", ownerOnly: true },
     ],
   },

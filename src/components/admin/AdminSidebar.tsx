@@ -99,7 +99,6 @@ const NAV: NavSection[] = [
     titleKey: "sectionQR",
     ownerOnly: true,
     items: [
-      { labelKey: "navIntegration", icon: QrCode,   href: "/admin/qr",       ownerOnly: true },
       { labelKey: "navTraining",    icon: BookOpen, href: "/admin/training", ownerOnly: true },
     ],
   },
