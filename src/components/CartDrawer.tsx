@@ -47,6 +47,7 @@ interface PlacedOrder {
   earnedBonuses?: number;
   promoCode?: string;
   promoDiscount?: number;
+  serviceChargeAmount?: number;
 }
 
 export interface StoredOrder {
@@ -290,6 +291,7 @@ function buildWhatsAppUrl(
     commentsLabel:        { en: "Comments",                    ru: "Пожелания",                            kz: "Ескертулер"                           },
     tipsLabel:            { en: "Tips",                        ru: "Чаевые",                               kz: "Чаевые"                               },
     bonusesUsedLabel:     { en: "Bonuses used",                ru: "Списано бонусов",                      kz: "Пайдаланылған бонустар"               },
+    serviceChargeLabel:   { en: "Service charge",             ru: "Обслуживание",                         kz: "Қызмет ақысы"                         },
   };
 
   const m = (key: string): string => MSG[key]?.[lang] ?? MSG[key]?.en ?? key;
@@ -358,6 +360,7 @@ function buildWhatsAppUrl(
       (i) => [`• ${i.name} x${i.qty} — ${(i.price * i.qty).toLocaleString("ru-RU")} ${i.currency}`, ...(i.note ? [`  ✎ ${i.note}`] : [])],
     ),
     ...(order.deliveryFee ? [`• 🚚 ${m("deliveryFeeLabel")}: ${order.deliveryFee.toLocaleString("ru-RU")} ${order.currency}`] : []),
+    ...(order.serviceChargeAmount ? [`• 🔧 ${m("serviceChargeLabel")}: +${order.serviceChargeAmount.toLocaleString("ru-RU")} ${order.currency}`] : []),
     ...((tipsAmount && tipsAmount > 0) ? [`• 💝 ${m("tipsLabel")}: ${tipsAmount.toLocaleString("ru-RU")} ${order.currency}`] : []),
     ...((order.bonusesDeducted && order.bonusesDeducted > 0) ? [`• 🌟 ${m("bonusesUsedLabel")}: -${order.bonusesDeducted.toLocaleString("ru-RU")} ₸`] : []),
     `---`,
@@ -412,6 +415,8 @@ export interface CartDrawerProps {
   deliveryFee?: number;
   is2gisEnabled?: boolean;
   twoGisApiKey?: string;
+  serviceChargeEnabled?: boolean;
+  serviceChargePercent?: number;
   /** true = came via QR (in-restaurant), false = external link (from home), undefined = unknown */
   isInRestaurant?: boolean;
   /** true = demo page — skip all DB writes and WhatsApp redirect */
@@ -439,6 +444,8 @@ export function CartDrawer({
   deliveryFee: deliveryFeeProp,
   is2gisEnabled,
   twoGisApiKey,
+  serviceChargeEnabled = false,
+  serviceChargePercent = 0,
   isInRestaurant,
   isDemo = false,
 }: CartDrawerProps) {
@@ -596,11 +603,14 @@ export function CartDrawer({
   const items        = Object.values(cart);
   const total        = items.reduce((s, { dish, qty, selectedModifiers }) => s + effPrice(dish, selectedModifiers, happyHours) * qty, 0);
   const deliveryFee  = orderType === "delivery" ? (deliveryFeeProp ?? DELIVERY_FEE) : 0;
-  // Bonuses can cover food + delivery but not tips (tips go to staff in cash)
+  const serviceChargeAmount = serviceChargeEnabled && serviceChargePercent > 0
+    ? Math.round(total * serviceChargePercent / 100)
+    : 0;
+  // Bonuses can cover food + delivery + service charge but not tips (tips go to staff in cash)
   // Clamp to 0 — prevents negative bonusAmount from inflating grandTotal
-  const maxBonuses   = guestSession ? Math.max(0, Math.min(guestSession.bonusAmount, total + deliveryFee)) : 0;
+  const maxBonuses   = guestSession ? Math.max(0, Math.min(guestSession.bonusAmount, total + deliveryFee + serviceChargeAmount)) : 0;
   const bonusesApplied = useBonuses ? maxBonuses : 0;
-  const grandTotal   = Math.max(0, total + deliveryFee + tipsAmount - bonusesApplied - promoDiscount);
+  const grandTotal   = Math.max(0, total + deliveryFee + serviceChargeAmount + tipsAmount - bonusesApplied - promoDiscount);
   const totalBonusesEarned = items.reduce((s, { dish, qty, selectedModifiers }) => {
     if (!dish.bonusPercent || dish.bonusPercent <= 0) return s;
     return s + Math.round(effPrice(dish, selectedModifiers, happyHours) * dish.bonusPercent / 100) * qty;
@@ -813,6 +823,7 @@ export function CartDrawer({
       total: grandTotal,
       currency,
       deliveryFee: deliveryFee || undefined,
+      serviceChargeAmount: serviceChargeAmount || undefined,
       savings: totalSavings || undefined,
       tipsAmount: tipsAmount || undefined,
       bonusesDeducted: bonusesApplied > 0 ? bonusesApplied : undefined,
@@ -1232,6 +1243,16 @@ export function CartDrawer({
 
             {!isEmpty && (
               <div style={{ padding: SP.md, borderTop: `1px solid ${border}`, flexShrink: 0 }}>
+                {serviceChargeEnabled && serviceChargePercent > 0 && (
+                  <div style={{ marginBottom: SP.sm, padding: "8px 10px", borderRadius: 10, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", fontSize: 12, color: "#F59E0B", textAlign: "center" }}>
+                    ⚠️{" "}
+                    {lang === "kz"
+                      ? `Тапсырыс сомасына ${serviceChargePercent}% қызмет ақысы қосылады`
+                      : lang === "ru"
+                      ? `К сумме заказа добавляется ${serviceChargePercent}% за обслуживание`
+                      : `A ${serviceChargePercent}% service charge will be added to your order`}
+                  </div>
+                )}
                 {totalSavings > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                     <span style={{ fontSize: 13, color: isDark ? "#6DB86D" : "#2E7D32" }}>🎉 {tn("savings", lang)}</span>
@@ -2383,6 +2404,12 @@ export function CartDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
                     <span style={{ color: muted }}>🚚 {tn("deliveryFee", lang)}</span>
                     <span style={{ fontWeight: 600 }}>{deliveryFee.toLocaleString()} {currency}</span>
+                  </div>
+                )}
+                {serviceChargeAmount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5, color: "#F59E0B" }}>
+                    <span>🔧 {lang === "kz" ? "Қызмет ақысы" : lang === "ru" ? "Обслуживание" : "Service charge"} ({serviceChargePercent}%)</span>
+                    <span style={{ fontWeight: 700 }}>+{serviceChargeAmount.toLocaleString()} {currency}</span>
                   </div>
                 )}
                 {totalSavings > 0 && (

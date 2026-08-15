@@ -144,6 +144,8 @@ export interface RestaurantInfo {
   deliveryFee?: number;
   is2gisEnabled?: boolean;
   twoGisApiKey?: string;
+  serviceChargeEnabled?: boolean;
+  serviceChargePercent?: number;
 }
 
 export interface HeroBanner {
@@ -3461,6 +3463,8 @@ export function MenuTemplate({
         deliveryFee={restaurant.deliveryFee}
         is2gisEnabled={restaurant.is2gisEnabled}
         twoGisApiKey={restaurant.twoGisApiKey}
+        serviceChargeEnabled={restaurant.serviceChargeEnabled}
+        serviceChargePercent={restaurant.serviceChargePercent}
         isInRestaurant={isInRestaurant}
         isDemo={restaurantId === "demo"}
       />

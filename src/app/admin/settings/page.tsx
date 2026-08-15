@@ -30,6 +30,8 @@ export default function SettingsPage() {
   const [address, setAddress]       = useState("");
   const [workingHours, setWorkingHours] = useState("");
   const [deliveryFee, setDeliveryFee]   = useState<number>(600);
+  const [serviceChargeEnabled, setServiceChargeEnabled] = useState(false);
+  const [serviceChargePercent, setServiceChargePercent] = useState(10);
 
   const [logoFile, setLogoFile]     = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -57,6 +59,8 @@ export default function SettingsPage() {
       setAddress(r.address ?? "");
       setWorkingHours(r.working_hours ?? "");
       setDeliveryFee(r.delivery_fee ?? 600);
+      setServiceChargeEnabled(r.service_charge_enabled ?? false);
+      setServiceChargePercent(r.service_charge_percent ?? 10);
     }
     setLoading(false);
   }, []);
@@ -90,6 +94,8 @@ export default function SettingsPage() {
         address: string | null;
         working_hours: string | null;
         delivery_fee: number;
+        service_charge_enabled: boolean;
+        service_charge_percent: number;
         logo?: string | null;
       } = {
         name: name.trim(),
@@ -100,6 +106,8 @@ export default function SettingsPage() {
         address: address.trim() || null,
         working_hours: workingHours.trim() || null,
         delivery_fee: Number.isFinite(deliveryFee) && deliveryFee >= 0 ? deliveryFee : 600,
+        service_charge_enabled: serviceChargeEnabled,
+        service_charge_percent: Number.isFinite(serviceChargePercent) && serviceChargePercent >= 0 ? Math.round(serviceChargePercent) : 0,
       };
 
       if (logoFile) {
@@ -302,6 +310,54 @@ export default function SettingsPage() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Введите 0, если доставка бесплатная. Значение по умолчанию — 600 ₸.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Service charge */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Процент за обслуживание</CardTitle>
+                <CardDescription>Если включено, к итоговой сумме заказа гостя будет добавлен указанный процент. Гость увидит предупреждение в корзине.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-5 space-y-5">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={serviceChargeEnabled}
+                    onClick={() => setServiceChargeEnabled((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                      serviceChargeEnabled ? "bg-violet-600" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                        serviceChargeEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <Label className="cursor-pointer select-none" onClick={() => setServiceChargeEnabled((v) => !v)}>
+                    {serviceChargeEnabled ? "Включён" : "Выключен"}
+                  </Label>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="service-charge-pct">Размер сбора (%)</Label>
+                  <Input
+                    id="service-charge-pct"
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={serviceChargePercent}
+                    onChange={(e) => setServiceChargePercent(Math.max(0, Math.min(50, Number(e.target.value))))}
+                    placeholder="10"
+                    className="max-w-[120px]"
+                    disabled={!serviceChargeEnabled}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Например, 10 означает +10% к сумме блюд. Максимум 50%.
                   </p>
                 </div>
               </CardContent>

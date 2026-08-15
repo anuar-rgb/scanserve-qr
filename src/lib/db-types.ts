@@ -19,6 +19,8 @@ export interface DbRestaurant {
   delivery_fee: number | null;
   is_2gis_enabled: boolean | null;
   custom_2gis_api_key: string | null;
+  service_charge_enabled: boolean | null;
+  service_charge_percent: number | null;
 }
 
 export interface DbCategory {

@@ -106,6 +106,8 @@ export default async function TenantMenuPage({
           deliveryFee: dbRestaurant.delivery_fee ?? 600,
           is2gisEnabled: dbRestaurant.is_2gis_enabled ?? false,
           twoGisApiKey: dbRestaurant.custom_2gis_api_key ?? undefined,
+          serviceChargeEnabled: dbRestaurant.service_charge_enabled ?? false,
+          serviceChargePercent: dbRestaurant.service_charge_percent ?? 0,
         }}
         categories={categories}
         banners={banners}
