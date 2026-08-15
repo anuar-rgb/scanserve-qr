@@ -73,10 +73,11 @@ export async function GET(request: NextRequest) {
   const CASH_KEYS  = new Set(["cash", "наличные", "наличка"]);
   const KASPI_KEYS = new Set(["kaspi", "каспи", "qr", "qr-kaspi"]);
   const HALYK_KEYS = new Set(["halyk", "halyk bank", "халык", "халык банк"]);
-  const CARD_KEYS  = new Set(["card", "карта", "карты", "bank"]);
+  const CARD_KEYS  = new Set(["card", "карта", "карты", "bank", "terminal"]);
 
   for (const order of rows) {
-    const total = order.paid_amount ?? order.total_price ?? 0;
+    // paid_amount defaults to 0 in DB; use || so 0 falls through to total_price
+    const total = order.paid_amount || order.total_price || 0;
     revenue += total;
 
     if (order.payment_details && typeof order.payment_details === "object") {
