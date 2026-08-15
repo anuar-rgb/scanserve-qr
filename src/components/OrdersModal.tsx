@@ -207,7 +207,7 @@ export function OrdersModal({
       const guestId = session?.id;
 
       if (!guestId || !restaurantId) {
-        toast.error("Необходима авторизация");
+        toast.error(lang === "kz" ? "Авторизация қажет" : lang === "ru" ? "Необходима авторизация" : "Authorization required");
         return;
       }
 
@@ -232,7 +232,7 @@ export function OrdersModal({
         } else if (data.error === "refund_window_expired") {
           toast.error(t.refundExpired);
         } else {
-          toast.error(data.error ?? "Ошибка отправки запроса");
+          toast.error(data.error ?? (lang === "kz" ? "Сұраным жіберу қатесі" : lang === "ru" ? "Ошибка отправки запроса" : "Failed to send request"));
         }
         return;
       }
@@ -241,7 +241,7 @@ export function OrdersModal({
       if (!order.isActive) onPartialRefund(order.id, itemIndex, qty);
       setPartialConfirmed(true);
     } catch {
-      toast.error("Ошибка сети");
+      toast.error(lang === "kz" ? "Желі қатесі" : lang === "ru" ? "Ошибка сети" : "Network error");
     }
   };
 
@@ -305,22 +305,22 @@ export function OrdersModal({
       const raw = typeof window !== "undefined" ? localStorage.getItem("menu-guest-session") : null;
       const session = raw ? JSON.parse(raw) as { id?: string } : null;
       const guestId = session?.id;
-      if (!guestId || !restaurantId) { toast.error("Необходима авторизация"); return; }
+      if (!guestId || !restaurantId) { toast.error(lang === "kz" ? "Авторизация қажет" : lang === "ru" ? "Необходима авторизация" : "Authorization required"); return; }
 
       const res = await fetch("/api/guest/refund-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, restaurantId, guestId, itemName: "ПОЛНЫЙ ВОЗВРАТ", itemPrice: order.total, itemQty: 1, refundType: "full" }),
+        body: JSON.stringify({ orderId: order.id, restaurantId, guestId, itemName: "FULL_REFUND", itemPrice: order.total, itemQty: 1, refundType: "full" }),
       });
       const data = await res.json().catch(() => ({})) as { error?: string };
       if (!res.ok) {
         if (data.error === "already_requested") setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
-        toast.error(data.error === "already_requested" ? (lang === "ru" ? "Запрос уже отправлен" : "Request already sent") : (data.error ?? "Ошибка"));
+        toast.error(data.error === "already_requested" ? (lang === "kz" ? "Өтінім жіберілген" : lang === "ru" ? "Запрос уже отправлен" : "Request already sent") : (data.error ?? (lang === "kz" ? "Қате" : lang === "ru" ? "Ошибка" : "Error")));
         return;
       }
       setSentFullRequests(prev => { const n = new Set(prev); n.add(order.id); return n; });
       toast.success(lang === "ru" ? "Запрос на отмену отправлен" : lang === "kz" ? "Болдырмау сұранысы жіберілді" : "Cancellation request sent");
-    } catch { toast.error("Ошибка сети"); }
+    } catch { toast.error(lang === "kz" ? "Желі қатесі" : lang === "ru" ? "Ошибка сети" : "Network error"); }
     finally { setFullCancelLoadingId(null); }
   };
 
@@ -697,7 +697,7 @@ export function OrdersModal({
                         })}
                         {(order.bonusesDeducted ?? 0) > 0 && (
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 4, color: "#10B981" }}>
-                            <span>🌟 Бонусы</span>
+                            <span>🌟 {lang === "kz" ? "Бонустар" : lang === "ru" ? "Бонусы" : "Bonuses"}</span>
                             <span style={{ fontWeight: 600 }}>−{order.bonusesDeducted!.toLocaleString()} {order.currency}</span>
                           </div>
                         )}
@@ -714,7 +714,7 @@ export function OrdersModal({
                         {(order.earnedBonuses ?? 0) > 0 && (
                           <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12, fontWeight: 600, color: "#10B981" }}>
                             <span>⭐</span>
-                            <span>+{order.earnedBonuses!.toLocaleString()} бонусов</span>
+                            <span>+{order.earnedBonuses!.toLocaleString()} {lang === "kz" ? "бонус" : lang === "ru" ? "бонусов" : "bonuses"}</span>
                           </div>
                         )}
                       </div>
@@ -726,7 +726,7 @@ export function OrdersModal({
                             ✓ {t.requested}
                           </span>
                         ) : fullCancelLoadingId === order.id ? (
-                          <span style={{ fontSize: 11, color: muted }}>⏳ {lang === "ru" ? "Отправка..." : "Sending..."}</span>
+                          <span style={{ fontSize: 11, color: muted }}>⏳ {lang === "kz" ? "Жіберуде..." : lang === "ru" ? "Отправка..." : "Sending..."}</span>
                         ) : isExpired ? (
                           <span style={{ fontSize: 11, color: muted }}>{t.refundExpired}</span>
                         ) : (

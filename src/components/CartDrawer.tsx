@@ -237,6 +237,8 @@ const T: Record<string, Record<Lang, string>> = {
   dineInSuccess:        { en: "Order Received!",                         ru: "Ваш заказ принят!",                           kz: "Тапсырысыңыз қабылданды!"              },
   dineInSuccessSub:     { en: "Our staff will attend to you shortly.",   ru: "Официант скоро подойдет.",                    kz: "Даяшы жақын арада келеді."             },
   sendOrder:            { en: "Place Order",                             ru: "Отправить заказ",                             kz: "Тапсырыс беру"                         },
+  promoInvalid:         { en: "Promo code is invalid",                   ru: "Промокод недействителен",                     kz: "Промокод жарамды емес"                  },
+  promoNetworkError:    { en: "Failed to validate promo code",           ru: "Ошибка проверки промокода",                   kz: "Промокодты тексеру қатесі"              },
 };
 
 const tn = (key: string, lang: Lang): string => T[key]?.[lang] ?? T[key]?.en ?? key;
@@ -512,13 +514,13 @@ export function CartDrawer({
         setPromoLabel(d.label ?? "");
         setPromoError("");
       } else {
-        setPromoError(d.message ?? "Промокод недействителен");
+        setPromoError(d.message ?? tn("promoInvalid", lang));
         setPromoCode(null);
         setPromoDiscount(0);
         setPromoLabel("");
       }
     } catch {
-      setPromoError("Ошибка проверки промокода");
+      setPromoError(tn("promoNetworkError", lang));
     }
     setPromoLoading(false);
   }

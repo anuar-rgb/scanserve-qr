@@ -769,7 +769,7 @@ function PopularDishesSection({
                       display: "flex", alignItems: "center", justifyContent: "center",
                       cursor: "pointer", flexShrink: 0,
                     }}
-                    aria-label="Добавить"
+                    aria-label={lang === "kz" ? "Себетке қосу" : lang === "ru" ? "Добавить" : "Add"}
                   >+</button>
                 </div>
               </div>
@@ -893,7 +893,7 @@ function TryThisSection({
                       display: "flex", alignItems: "center", justifyContent: "center",
                       cursor: "pointer", flexShrink: 0,
                     }}
-                    aria-label="Добавить"
+                    aria-label={lang === "kz" ? "Себетке қосу" : lang === "ru" ? "Добавить" : "Add"}
                   >+</button>
                 </div>
               </div>
@@ -1749,7 +1749,9 @@ function customBadgeColors(color?: string): { bg: string; fg: string } {
   return { bg: "var(--text-color)", fg: "var(--bg-color)" };
 }
 
-function portionWord(n: number): string {
+function portionWord(n: number, lang: Lang): string {
+  if (lang === "en") return n === 1 ? "serving" : "servings";
+  if (lang === "kz") return "дана";
   const m10 = n % 10, m100 = n % 100;
   if (m10 === 1 && m100 !== 11) return "порция";
   if ([2, 3, 4].includes(m10) && ![12, 13, 14].includes(m100)) return "порции";
@@ -2713,7 +2715,7 @@ export function MenuTemplate({
       const current = cart[cartKey]?.qty ?? 0;
       const limit = dish.remainingQty ?? null;
       if (limit !== null && current >= limit) {
-        toast.error(`Осталось только ${limit} ${portionWord(limit)}`);
+        toast.error(`${lang === "kz" ? "Қалғаны:" : lang === "ru" ? "Осталось только" : "Only"} ${limit} ${portionWord(limit, lang)}`);
         return;
       }
     }
@@ -2734,7 +2736,7 @@ export function MenuTemplate({
       if (entry) {
         const limit = entry.dish.remainingQty ?? null;
         if (limit !== null && entry.qty >= limit) {
-          toast.error(`Осталось только ${limit} ${portionWord(limit)}`);
+          toast.error(`${lang === "kz" ? "Қалғаны:" : lang === "ru" ? "Осталось только" : "Only"} ${limit} ${portionWord(limit, lang)}`);
           return;
         }
       }

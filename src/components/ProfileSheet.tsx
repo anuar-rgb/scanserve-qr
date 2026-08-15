@@ -44,6 +44,69 @@ const DEMO_SESSION: GuestSession = {
   bonusAmount: 340,
 };
 
+// ── Translations ────────────────────────────────────────────────────────────
+
+const PT: Record<string, Record<string, string>> = {
+  myProfile:          { en: "My Profile",                         ru: "Мой профиль",                              kz: "Менің профилім" },
+  enterCode:          { en: "Enter Code",                         ru: "Введите код",                              kz: "Кодты енгізіңіз" },
+  signInUp:           { en: "Sign In / Sign Up",                  ru: "Войти / Зарегистрироваться",               kz: "Кіру / Тіркелу" },
+  demoError:          { en: "This is a demo — registration is disabled", ru: "Это демо — регистрация недоступна", kz: "Бұл демо — тіркелу мүмкін емес" },
+  invalidEmail:       { en: "Please enter a valid email",         ru: "Введите корректный Email",                 kz: "Дұрыс Email енгізіңіз" },
+  enterName:          { en: "Please enter your name",             ru: "Введите имя",                              kz: "Атыңызды енгізіңіз" },
+  enterPhone:         { en: "Please enter your phone number",     ru: "Введите номер телефона",                   kz: "Телефон нөмірін енгізіңіз" },
+  noConnection:       { en: "No connection. Please try again.",   ru: "Нет соединения. Попробуйте ещё раз.",      kz: "Байланыс жоқ. Қайталап көріңіз." },
+  enterOtpCode:       { en: "Please enter the 6-digit code from email", ru: "Введите 6-значный код из письма",    kz: "Хаттан 6 таңбалы кодты енгізіңіз" },
+  invalidCode:        { en: "Invalid code or it has expired",     ru: "Неверный код или срок действия истёк",     kz: "Код қате немесе мерзімі өтті" },
+  genericError:       { en: "Error",                              ru: "Ошибка",                                   kz: "Қате" },
+  signIn:             { en: "Sign In",                            ru: "Вход",                                     kz: "Кіру" },
+  signUp:             { en: "Sign Up",                            ru: "Регистрация",                              kz: "Тіркелу" },
+  yourName:           { en: "Your name",                          ru: "Ваше имя",                                 kz: "Атыңыз" },
+  namePlaceholder:    { en: "Name",                               ru: "Имя",                                      kz: "Аты" },
+  phoneNumber:        { en: "Phone number",                       ru: "Номер телефона",                           kz: "Телефон нөмірі" },
+  yourEmail:          { en: "Your Email",                         ru: "Ваш Email",                                kz: "Email-іңіз" },
+  sending:            { en: "Sending…",                           ru: "Отправляем…",                              kz: "Жіберуде…" },
+  getCode:            { en: "Get Code",                           ru: "Получить код",                             kz: "Код алу" },
+  signUpGetCode:      { en: "Sign Up & Get Code",                 ru: "Зарегистрироваться и получить код",        kz: "Тіркелу және код алу" },
+  noAccountYet:       { en: "No account yet?",                    ru: "Ещё нет аккаунта?",                        kz: "Аккаунт жоқ па?" },
+  haveAccount:        { en: "Already have an account?",           ru: "Уже есть аккаунт?",                        kz: "Аккаунтыңыз бар ма?" },
+  signUpLink:         { en: "Sign up",                            ru: "Зарегистрироваться",                       kz: "Тіркелу" },
+  signInLink:         { en: "Sign in",                            ru: "Войти",                                    kz: "Кіру" },
+  back:               { en: "Back",                               ru: "Назад",                                    kz: "Артқа" },
+  codeSentPrefix:     { en: "Code sent to",                       ru: "Код отправлен на",                         kz: "Код жіберілді:" },
+  checkSpam:          { en: "Check your inbox (and spam folder).",ru: "Проверьте почту (и папку «Спам»).",        kz: "Поштаңызды тексеріңіз («Спам» қалтасын да)." },
+  codeFromEmail:      { en: "Code from email",                    ru: "Код из письма",                            kz: "Хаттан код" },
+  verifying:          { en: "Verifying…",                         ru: "Проверяем…",                               kz: "Тексеруде…" },
+  confirm:            { en: "Confirm",                            ru: "Подтвердить",                              kz: "Растау" },
+  resendIn:           { en: "Resend in",                          ru: "Отправить снова через",                    kz: "Қайта жіберу:" },
+  resend:             { en: "Resend code",                        ru: "Отправить снова",                          kz: "Кодты қайта жіберу" },
+  hi:                 { en: "Hi",                                 ru: "Привет",                                   kz: "Сәлем" },
+  bonusPoints:        { en: "Bonus Points",                       ru: "Бонусные баллы",                           kz: "Бонустық ұпайлар" },
+  atThisVenue:        { en: "at this venue",                      ru: "в этом заведении",                         kz: "осы мекемеде" },
+  notificationsOn:    { en: "Order notifications enabled",        ru: "Уведомления о заказах включены",           kz: "Тапсырыс хабарламалары қосылды" },
+  notificationsOff:   { en: "Notifications blocked",             ru: "Уведомления отключены",                    kz: "Хабарламалар өшірілді" },
+  notifDeniedHint:    { en: "You previously denied. To enable — allow manually in browser settings:", ru: "Вы ранее отказали. Чтобы включить — разрешите вручную в настройках браузера:", kz: "Сіз бұрын бас тарттыңыз. Қосу үшін — браузер параметрлерінде рұқсат беріңіз:" },
+  notifStep1:         { en: "Tap the 🔒 icon in the address bar", ru: "Нажмите на значок 🔒 в адресной строке",  kz: "Мекенжай жолындағы 🔒 белгішесін түртіңіз" },
+  notifStep2:         { en: "Select \"Site settings\"",          ru: "Выберите «Настройки сайта»",               kz: "«Сайт параметрлері» тармағын таңдаңыз" },
+  notifStep3:         { en: "Set \"Notifications\" to \"Allow\"", ru: "В строке «Уведомления» выберите «Разрешить»", kz: "«Хабарламалар» жолынан «Рұқсат ету» таңдаңыз" },
+  notifStep4:         { en: "Reload the page",                    ru: "Перезагрузите страницу",                   kz: "Бетті жаңартыңыз" },
+  enableNotif:        { en: "Enable order notifications",         ru: "Включить уведомления о заказах",           kz: "Тапсырыс хабарламаларын қосу" },
+  enablingNotif:      { en: "Enabling…",                          ru: "Подключаем…",                              kz: "Қосуда…" },
+  orderHistory:       { en: "Order History",                      ru: "История заказов",                          kz: "Тапсырыс тарихы" },
+  all:                { en: "All",                                ru: "Все",                                       kz: "Барлығы" },
+  noOrders:           { en: "No orders yet",                      ru: "Заказов пока нет",                         kz: "Тапсырыстар жоқ" },
+  items:              { en: "items",                              ru: "позиций",                                   kz: "тауар" },
+  table:              { en: "Table",                              ru: "Стол",                                      kz: "Үстел" },
+  refund:             { en: "Refund",                             ru: "Возврат",                                   kz: "Қайтару" },
+  showAll:            { en: "Show all",                           ru: "Показать все",                              kz: "Барлығын көрсету" },
+  ordersWord:         { en: "orders",                             ru: "заказа",                                    kz: "тапсырыс" },
+  bonuses:            { en: "bonuses",                            ru: "бонусов",                                   kz: "бонус" },
+  signOut:            { en: "Sign out",                           ru: "Выйти из аккаунта",                         kz: "Шығу" },
+};
+
+function pt(key: string, lang: Lang): string {
+  return PT[key]?.[lang] ?? PT[key]?.en ?? key;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(ts: number) {
@@ -189,16 +252,16 @@ export function ProfileSheet({
   // ── Step 1: Send OTP ─────────────────────────────────────────────────────
   async function handleSendOtp() {
     if (isDemo) {
-      setError(lang === "en" ? "This is a demo — registration is disabled" : "Это демо — регистрация недоступна");
+      setError(pt("demoError", lang));
       return;
     }
     const trimEmail = email.trim().toLowerCase();
     if (!trimEmail || !trimEmail.includes("@")) {
-      setError("Введите корректный Email"); return;
+      setError(pt("invalidEmail", lang)); return;
     }
     if (tab === "register") {
-      if (!name.trim())  { setError("Введите имя"); return; }
-      if (!phone.trim()) { setError("Введите номер телефона"); return; }
+      if (!name.trim())  { setError(pt("enterName", lang)); return; }
+      if (!phone.trim()) { setError(pt("enterPhone", lang)); return; }
     }
 
     setLoading(true); setError(null);
@@ -212,14 +275,14 @@ export function ProfileSheet({
       setIsRegister(tab === "register");
       setStep("otp");
       startResendTimer();
-    } catch { setError("Нет соединения. Попробуйте ещё раз."); }
+    } catch { setError(pt("noConnection", lang)); }
     finally   { setLoading(false); }
   }
 
   // ── Step 2: Verify OTP code ──────────────────────────────────────────────
   async function handleVerifyOtp() {
     const code = otp.trim();
-    if (code.length < 6) { setError("Введите 6-значный код из письма"); return; }
+    if (code.length < 6) { setError(pt("enterOtpCode", lang)); return; }
 
     setLoading(true); setError(null);
     try {
@@ -230,7 +293,7 @@ export function ProfileSheet({
         type: "email",
       });
       if (verifyErr || !data.session) {
-        setError("Неверный код или срок действия истёк"); return;
+        setError(pt("invalidCode", lang)); return;
       }
 
       const accessToken = data.session.access_token;
@@ -246,7 +309,7 @@ export function ProfileSheet({
         }),
       });
       const d = await res.json() as { error?: string; id: string; name: string | null; phone: string | null; email: string; bonusAmount: number };
-      if (!res.ok) { setError(d.error ?? "Ошибка"); return; }
+      if (!res.ok) { setError(d.error ?? pt("genericError", lang)); return; }
 
       // Sign out from Supabase Auth (we manage our own session)
       await sb.auth.signOut();
@@ -262,7 +325,7 @@ export function ProfileSheet({
       setStep("form"); setOtp(""); setEmail(""); setName(""); setPhone("");
 
       linkPushToGuest(d.id);
-    } catch { setError("Нет соединения. Попробуйте ещё раз."); }
+    } catch { setError(pt("noConnection", lang)); }
     finally   { setLoading(false); }
   }
 
@@ -279,8 +342,6 @@ export function ProfileSheet({
     if (timerRef.current) clearInterval(timerRef.current);
     setResendTimer(0);
   }
-
-  const isRu = lang === "ru" || lang === "kz";
 
   return (
     <>
@@ -326,10 +387,10 @@ export function ProfileSheet({
         }}>
           <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: textPri }}>
             {session
-              ? (isRu ? "Мой профиль" : "My Profile")
+              ? pt("myProfile", lang)
               : step === "otp"
-                ? (isRu ? "Введите код" : "Enter Code")
-                : (isRu ? "Войти / Зарегистрироваться" : "Sign In / Sign Up")}
+                ? pt("enterCode", lang)
+                : pt("signInUp", lang)}
           </p>
           <button
             onClick={onClose}
@@ -355,7 +416,7 @@ export function ProfileSheet({
               border={border}
               textPri={textPri}
               textMut={textMut}
-              isRu={isRu}
+              lang={lang}
               isDemo={isDemo}
               onLogout={handleLogout}
               onOpenOrders={() => { onClose(); onOpenOrders(); }}
@@ -374,7 +435,7 @@ export function ProfileSheet({
               border={border}
               textPri={textPri}
               textMut={textMut}
-              isRu={isRu}
+              lang={lang}
               onVerify={handleVerifyOtp}
               onBack={handleBack}
               onResend={async () => {
@@ -399,7 +460,7 @@ export function ProfileSheet({
               border={border}
               textPri={textPri}
               textMut={textMut}
-              isRu={isRu}
+              lang={lang}
               onSend={handleSendOtp}
             />
           )}
@@ -445,7 +506,7 @@ function AuthView({
   phone, setPhone,
   loading, error,
   inputStyle,
-  isDark, surface, border, textPri, textMut, isRu,
+  isDark, surface, textPri, textMut, lang,
   onSend,
 }: {
   tab: "login" | "register"; setTab: (t: "login" | "register") => void;
@@ -454,7 +515,7 @@ function AuthView({
   phone: string; setPhone: (v: string) => void;
   loading: boolean; error: string | null;
   inputStyle: (extra?: React.CSSProperties) => React.CSSProperties;
-  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
+  isDark: boolean; surface: string; border?: string; textPri: string; textMut: string; lang: Lang;
   onSend: () => void;
 }) {
   return (
@@ -481,9 +542,7 @@ function AuthView({
               fontFamily: "inherit",
             }}
           >
-            {t === "login"
-              ? (isRu ? "Вход" : "Sign In")
-              : (isRu ? "Регистрация" : "Sign Up")}
+            {t === "login" ? pt("signIn", lang) : pt("signUp", lang)}
           </button>
         ))}
       </div>
@@ -493,13 +552,13 @@ function AuthView({
         {tab === "register" && (
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-              {isRu ? "Ваше имя" : "Your name"}
+              {pt("yourName", lang)}
             </label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder={isRu ? "Имя" : "Name"}
+              placeholder={pt("namePlaceholder", lang)}
               style={inputStyle()}
               autoComplete="name"
             />
@@ -510,7 +569,7 @@ function AuthView({
         {tab === "register" && (
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-              {isRu ? "Номер телефона" : "Phone number"}
+              {pt("phoneNumber", lang)}
             </label>
             <input
               type="tel"
@@ -536,7 +595,7 @@ function AuthView({
         {/* Email — always */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-            {isRu ? "Ваш Email" : "Your Email"}
+            {pt("yourEmail", lang)}
           </label>
           <input
             type="email"
@@ -576,17 +635,15 @@ function AuthView({
           }}
         >
           {loading
-            ? (isRu ? "Отправляем…" : "Sending…")
+            ? pt("sending", lang)
             : tab === "login"
-              ? (isRu ? "Получить код" : "Get Code")
-              : (isRu ? "Зарегистрироваться и получить код" : "Sign Up & Get Code")}
+              ? pt("getCode", lang)
+              : pt("signUpGetCode", lang)}
         </button>
       </div>
 
       <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: textMut }}>
-        {tab === "login"
-          ? (isRu ? "Ещё нет аккаунта?" : "No account yet?")
-          : (isRu ? "Уже есть аккаунт?" : "Already have an account?")}{" "}
+        {tab === "login" ? pt("noAccountYet", lang) : pt("haveAccount", lang)}{" "}
         <button
           onClick={() => setTab(tab === "login" ? "register" : "login")}
           style={{
@@ -595,9 +652,7 @@ function AuthView({
             cursor: "pointer", padding: 0, fontFamily: "inherit",
           }}
         >
-          {tab === "login"
-            ? (isRu ? "Зарегистрироваться" : "Sign up")
-            : (isRu ? "Войти" : "Sign in")}
+          {tab === "login" ? pt("signUpLink", lang) : pt("signInLink", lang)}
         </button>
       </p>
     </div>
@@ -611,7 +666,7 @@ function OtpView({
   loading, error,
   resendTimer,
   inputStyle,
-  isDark, surface: _surface, border, textPri, textMut, isRu,
+  isDark, surface: _surface, border: _border, textPri: _textPri, textMut, lang,
   onVerify, onBack, onResend,
 }: {
   email: string;
@@ -619,7 +674,7 @@ function OtpView({
   loading: boolean; error: string | null;
   resendTimer: number;
   inputStyle: (extra?: React.CSSProperties) => React.CSSProperties;
-  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
+  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; lang: Lang;
   onVerify: () => void;
   onBack: () => void;
   onResend: () => void;
@@ -637,7 +692,7 @@ function OtpView({
         }}
       >
         <ArrowLeft size={14} />
-        {isRu ? "Назад" : "Back"}
+        {pt("back", lang)}
       </button>
 
       {/* Info */}
@@ -648,16 +703,14 @@ function OtpView({
       }}>
         <p style={{ margin: 0, fontSize: 13, color: isDark ? "#86EFAC" : "#15803D", lineHeight: 1.5 }}>
           <Mail size={13} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
-          {isRu
-            ? `Код отправлен на ${email}. Проверьте почту (и папку «Спам»).`
-            : `Code sent to ${email}. Check your inbox (and spam folder).`}
+          {pt("codeSentPrefix", lang)} {email}. {pt("checkSpam", lang)}
         </p>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: textMut, display: "block", marginBottom: 6 }}>
-            {isRu ? "Код из письма" : "Code from email"}
+            {pt("codeFromEmail", lang)}
           </label>
           <input
             type="text"
@@ -697,9 +750,7 @@ function OtpView({
             fontFamily: "inherit", transition: "opacity 0.15s",
           }}
         >
-          {loading
-            ? (isRu ? "Проверяем…" : "Verifying…")
-            : (isRu ? "Подтвердить" : "Confirm")}
+          {loading ? pt("verifying", lang) : pt("confirm", lang)}
         </button>
 
         {/* Resend */}
@@ -707,7 +758,7 @@ function OtpView({
           {resendTimer > 0 ? (
             <p style={{ fontSize: 13, color: textMut, margin: 0 }}>
               <RefreshCw size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
-              {isRu ? `Отправить снова через ${resendTimer}с` : `Resend in ${resendTimer}s`}
+              {pt("resendIn", lang)} {resendTimer}с
             </p>
           ) : (
             <button
@@ -718,7 +769,7 @@ function OtpView({
                 cursor: "pointer", padding: 0, fontFamily: "inherit",
               }}
             >
-              {isRu ? "Отправить снова" : "Resend code"}
+              {pt("resend", lang)}
             </button>
           )}
         </div>
@@ -731,13 +782,13 @@ function OtpView({
 
 function LoggedInView({
   session, orders,
-  isDark, surface, border, textPri, textMut, isRu,
+  isDark, surface, border, textPri: _textPri, textMut, lang,
   isDemo,
   onLogout, onOpenOrders,
 }: {
   session: GuestSession;
   orders: StoredOrder[];
-  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; isRu: boolean;
+  isDark: boolean; surface: string; border: string; textPri: string; textMut: string; lang: Lang;
   isDemo?: boolean;
   onLogout: () => void;
   onOpenOrders: () => void;
@@ -789,8 +840,8 @@ function LoggedInView({
           <span style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>{initials}</span>
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: textPri, lineHeight: 1.2 }}>
-            {isRu ? `Привет, ${session.name || ""}!` : `Hi, ${session.name || ""}!`}
+          <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--text-color)", lineHeight: 1.2 }}>
+            {pt("hi", lang)}, {session.name || ""}!
           </p>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: textMut, display: "flex", alignItems: "center", gap: 5 }}>
             <Mail size={12} />
@@ -820,13 +871,13 @@ function LoggedInView({
         </div>
         <div>
           <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: isDark ? "#A78BFA" : "#6D28D9", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {isRu ? "Бонусные баллы" : "Bonus Points"}
+            {pt("bonusPoints", lang)}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 28, fontWeight: 900, color: isDark ? "#DDD6FE" : "#4C1D95", lineHeight: 1 }}>
             {session.bonusAmount.toLocaleString("ru-RU")}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: isDark ? "#A78BFA" : "#7C3AED" }}>
-            {isRu ? "в этом заведении" : "at this venue"}
+            {pt("atThisVenue", lang)}
           </p>
         </div>
         <ShieldCheck size={18} color={isDark ? "#A78BFA" : "#7C3AED"} style={{ marginLeft: "auto" }} />
@@ -843,7 +894,7 @@ function LoggedInView({
           }}>
             <CheckCircle2 size={18} color="#10B981" />
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDark ? "#6EE7B7" : "#065F46" }}>
-              {isRu ? "Уведомления о заказах включены" : "Order notifications enabled"}
+              {pt("notificationsOn", lang)}
             </p>
           </div>
         ) : pushPerm === "denied" ? (
@@ -855,19 +906,14 @@ function LoggedInView({
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <BellOff size={16} color={isDark ? "#FCD34D" : "#D97706"} />
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isDark ? "#FCD34D" : "#92400E" }}>
-                {isRu ? "Уведомления отключены" : "Notifications blocked"}
+                {pt("notificationsOff", lang)}
               </p>
             </div>
             <p style={{ margin: "0 0 8px", fontSize: 12, color: isDark ? "#FDE68A" : "#78350F", lineHeight: 1.5 }}>
-              {isRu
-                ? "Вы ранее отказали. Чтобы включить — разрешите вручную в настройках браузера:"
-                : "You previously denied. To enable — allow manually in browser settings:"}
+              {pt("notifDeniedHint", lang)}
             </p>
             <ol style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
-              {(isRu
-                ? ["Нажмите на значок 🔒 в адресной строке", "Выберите «Настройки сайта»", "В строке «Уведомления» выберите «Разрешить»", "Перезагрузите страницу"]
-                : ["Tap the 🔒 icon in the address bar", "Select \"Site settings\"", "Set \"Notifications\" to \"Allow\"", "Reload the page"]
-              ).map((step, i) => (
+              {[pt("notifStep1", lang), pt("notifStep2", lang), pt("notifStep3", lang), pt("notifStep4", lang)].map((step, i) => (
                 <li key={i} style={{ fontSize: 12, color: isDark ? "#FDE68A" : "#78350F", lineHeight: 1.4 }}>
                   {step}
                 </li>
@@ -891,9 +937,7 @@ function LoggedInView({
             }}
           >
             <Bell size={15} />
-            {pushLoading
-              ? (isRu ? "Подключаем…" : "Enabling…")
-              : (isRu ? "Включить уведомления о заказах" : "Enable order notifications")}
+            {pushLoading ? pt("enablingNotif", lang) : pt("enableNotif", lang)}
           </button>
         )
       )}
@@ -901,8 +945,8 @@ function LoggedInView({
       {/* Order history */}
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: textPri }}>
-            {isRu ? "История заказов" : "Order History"}
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: textMut }}>
+            {pt("orderHistory", lang)}
           </p>
           {orders.length > 0 && (
             <button
@@ -914,7 +958,7 @@ function LoggedInView({
                 cursor: "pointer", padding: 0, fontFamily: "inherit",
               }}
             >
-              {isRu ? "Все" : "All"} <ChevronRight size={14} />
+              {pt("all", lang)} <ChevronRight size={14} />
             </button>
           )}
         </div>
@@ -927,7 +971,7 @@ function LoggedInView({
           }}>
             <Receipt size={28} color={textMut} style={{ margin: "0 auto 8px", display: "block" }} />
             <p style={{ margin: 0, fontSize: 13, color: textMut }}>
-              {isRu ? "Заказов пока нет" : "No orders yet"}
+              {pt("noOrders", lang)}
             </p>
           </div>
         ) : (
@@ -943,26 +987,26 @@ function LoggedInView({
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: textPri }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: textMut }}>
                     {fmtDate(order.timestamp)}
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: 12, color: textMut }}>
-                    {order.items.length} {isRu ? "позиций" : "items"}
-                    {order.tableNumber ? ` · ${isRu ? "Стол" : "Table"} ${order.tableNumber}` : ""}
+                    {order.items.length} {pt("items", lang)}
+                    {order.tableNumber ? ` · ${pt("table", lang)} ${order.tableNumber}` : ""}
                   </p>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: textPri }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: textMut }}>
                     {fmtCurrency(order.total, order.currency)}
                   </p>
                   {(order.earnedBonuses ?? 0) > 0 && (
                     <p style={{ margin: "2px 0 0", fontSize: 11, color: "#10B981", fontWeight: 600 }}>
-                      +{order.earnedBonuses} {isRu ? "бонусов" : "bonuses"}
+                      +{order.earnedBonuses} {pt("bonuses", lang)}
                     </p>
                   )}
                   {order.status === "refund-requested" && (
                     <p style={{ margin: "2px 0 0", fontSize: 11, color: "#F59E0B", fontWeight: 600 }}>
-                      {isRu ? "Возврат" : "Refund"}
+                      {pt("refund", lang)}
                     </p>
                   )}
                 </div>
@@ -980,7 +1024,7 @@ function LoggedInView({
                   cursor: "pointer", fontFamily: "inherit",
                 }}
               >
-                {isRu ? `Показать все ${orders.length} заказа` : `Show all ${orders.length} orders`}
+                {pt("showAll", lang)} {orders.length} {pt("ordersWord", lang)}
               </button>
             )}
           </div>
@@ -1002,7 +1046,7 @@ function LoggedInView({
         }}
       >
         <LogOut size={15} />
-        {isRu ? "Выйти из аккаунта" : "Sign out"}
+        {pt("signOut", lang)}
       </button>
     </div>
   );

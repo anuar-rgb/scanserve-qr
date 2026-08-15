@@ -293,7 +293,7 @@ export function ProductDetailModal({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
                 {!!dish.bonusPercent && dish.bonusPercent > 0 ? (
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#10B981" }}>
-                    ⭐ +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} {lang === "en" ? "bonuses" : "бонусов"}
+                    ⭐ +{Math.round((discountedPrice ?? dish.price) * dish.bonusPercent / 100)} {lang === "en" ? "bonuses" : lang === "kz" ? "бонус" : "бонусов"}
                   </p>
                 ) : <span />}
                 {onToggleLike && (
@@ -406,7 +406,7 @@ export function ProductDetailModal({
                     color: "var(--text-muted)", textTransform: "uppercase",
                     letterSpacing: "0.06em", fontFamily: "'Montserrat', system-ui, sans-serif",
                   }}>
-                    {lang === "kz" ? "Рецептура" : lang === "ru" ? "Рецептура" : "Recipe"}
+                    {lang === "kz" ? "Рецепт" : lang === "ru" ? "Рецептура" : "Recipe"}
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {recipe.map((r, i) => (
