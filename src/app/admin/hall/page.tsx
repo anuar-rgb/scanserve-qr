@@ -453,7 +453,7 @@ function HallContent() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!isConfigured) { setLoading(false); return; }
+    if (!isConfigured || !restaurantId) { setLoading(false); return; }
     const [tablesRes, ordersRes] = await Promise.all([
       supabase
         .from(DB_TABLES.restaurantTables)
