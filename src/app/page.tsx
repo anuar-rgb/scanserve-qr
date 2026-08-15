@@ -397,6 +397,112 @@ function PhoneMockup() {
   );
 }
 
+// ─── Hero POS mockup ──────────────────────────────────────────────────────────
+
+function PosMockup() {
+  const tables = [
+    { name: "Стол 1", status: "free",     amount: null,       selected: false },
+    { name: "Стол 2", status: "occupied", amount: "12 400 ₸", selected: false },
+    { name: "Стол 3", status: "payment",  amount: null,       selected: false },
+    { name: "Стол 4", status: "free",     amount: null,       selected: false },
+    { name: "Стол 5", status: "occupied", amount: "6 900 ₸",  selected: false },
+    { name: "Стол 6", status: "free",     amount: null,       selected: false },
+    { name: "Стол 7", status: "occupied", amount: "24 150 ₸", selected: true  },
+    { name: "Стол 8", status: "free",     amount: null,       selected: false },
+    { name: "Стол 9", status: "payment",  amount: null,       selected: false },
+  ];
+  const orderItems = [
+    { name: "Плов по-казахски ×2", price: "6 400 ₸" },
+    { name: "Бургер ×1",           price: "4 500 ₸" },
+    { name: "Латте ×3",            price: "5 070 ₸" },
+    { name: "Салат Шопский",       price: "2 980 ₸" },
+  ];
+
+  function tableStyle(status: string, sel: boolean): React.CSSProperties {
+    const base: React.CSSProperties = { borderRadius: 14, padding: "10px 12px", border: "1px solid" };
+    if (sel)              return { ...base, background: "rgba(124,58,237,0.28)", borderColor: "rgba(124,58,237,0.55)" };
+    if (status === "payment")  return { ...base, background: "rgba(22,163,74,0.14)",  borderColor: "rgba(22,163,74,0.32)" };
+    if (status === "occupied") return { ...base, background: "rgba(124,58,237,0.10)", borderColor: "rgba(255,255,255,0.07)" };
+    return { ...base, background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.06)" };
+  }
+
+  return (
+    <div style={{
+      borderRadius: 20, padding: 6,
+      background: "linear-gradient(160deg, #4a3d69 0%, #17122a 45%, #2a2145 100%)",
+      boxShadow: "0 48px 90px -28px rgba(76,29,149,0.65), 0 0 0 1px rgba(255,255,255,0.07)",
+    }}>
+      <div style={{ borderRadius: 16, overflow: "hidden", background: "#0f0d1c", color: WHITE }}>
+
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "#13102a",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(124,58,237,0.28)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Monitor size={13} color={BRAND} />
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>POS</span>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>· Смена №128</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "4px 10px", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.65)" }}>
+            <UsersRound size={11} /> Айгуль · Официант
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ display: "flex" }}>
+          {/* Table grid */}
+          <div style={{ flex: 1, padding: 12, minWidth: 0 }}>
+            <p style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.28)", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>Основной зал</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
+              {tables.map((t) => (
+                <div key={t.name} style={tableStyle(t.status, t.selected)}>
+                  <p style={{ fontSize: 9, fontWeight: 700, marginBottom: 1, color: t.status === "payment" ? "#4ade80" : WHITE }}>{t.name}</p>
+                  <p style={{ fontSize: 8, color: t.status === "free" ? "rgba(255,255,255,0.32)" : t.status === "payment" ? "#4ade80" : "rgba(255,255,255,0.48)" }}>
+                    {t.status === "free" ? "Свободен" : t.status === "payment" ? "Оплата" : "Занят"}
+                  </p>
+                  <p style={{ fontSize: 9, fontWeight: 700, marginTop: 3, color: t.selected ? "#c4b5fd" : "rgba(255,255,255,0.55)" }}>
+                    {t.amount ?? "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right panel */}
+          <div style={{ width: 195, borderLeft: "1px solid rgba(255,255,255,0.07)", padding: "12px 13px", display: "flex", flexDirection: "column" }}>
+            <p style={{ fontSize: 9, fontWeight: 700, marginBottom: 8 }}>Счёт · Стол 7</p>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+              {orderItems.map((item) => (
+                <div key={item.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                  <span style={{ fontSize: 8, fontWeight: 600, flexShrink: 0 }}>{item.price}</span>
+                </div>
+              ))}
+              <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "3px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.38)" }}>Чаевые 10%</span>
+                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.38)" }}>1 895 ₸</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>Итого</span>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>20 845 ₸</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 5, marginTop: 10 }}>
+              <div style={{ flex: 1, padding: "6px 4px", borderRadius: 8, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.65)", fontSize: 8, fontWeight: 600, textAlign: "center" }}>Разделить</div>
+              <div style={{ flex: 1, padding: "6px 4px", borderRadius: 8, background: BRAND, color: WHITE, fontSize: 8, fontWeight: 600, textAlign: "center" }}>Оплатить</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 function Hero() {
@@ -496,10 +602,17 @@ function Hero() {
           </Reveal>
         </div>
 
-        {/* Mockup */}
+        {/* Mockup — POS tablet + phone */}
         <Reveal delay={200} style={{ marginTop: 56 }}>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <div style={{ width: 240, flexShrink: 0 }}>
+          <div style={{ position: "relative", maxWidth: 820, margin: "0 auto" }}>
+            {/* POS tablet mockup */}
+            <PosMockup />
+            {/* Phone mockup overlapping bottom-right */}
+            <div className="hidden md:block" style={{
+              position: "absolute", bottom: -28, right: -28,
+              width: 190, zIndex: 2,
+              filter: "drop-shadow(0 24px 40px rgba(76,29,149,0.55))",
+            }}>
               <PhoneMockup />
             </div>
           </div>
