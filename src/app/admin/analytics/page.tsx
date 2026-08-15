@@ -9,7 +9,7 @@ import {
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { LS, DbShift } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -368,6 +368,7 @@ function openPrintWindow(shift: ShiftRow, data: ZReportData) {
 
 export default function AnalyticsPage() {
   const { t } = useTranslations();
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [period, setPeriod]           = useState<Period>("week");
   const [loading, setLoading]         = useState(true);
   const [orders, setOrders]           = useState<OrderRow[]>([]);
@@ -423,32 +424,32 @@ export default function AnalyticsPage() {
     const [curRes, prevRes, revRes, promoRes, bonusRes, invRes, voidRes] = await Promise.all([
       supabase.from("orders")
         .select("total_price, status, type, created_at, items_json, tips_amount, earned_bonuses, bonuses_deducted, promo_discount, promo_code")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("orders")
         .select("total_price, tips_amount, status")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .neq("status", "cancelled")
         .gte("created_at", prevFrom).lt("created_at", from),
       supabase.from("reviews")
-        .select("rating").eq("restaurant_id", RESTAURANT_ID),
+        .select("rating").eq("restaurant_id", restaurantId),
       supabase.from("products")
         .select("id, name, price, discount_label")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .eq("is_promo", true).eq("is_archived", false).order("name->ru"),
       supabase.from("products")
         .select("id, name, price, bonus_percent")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .eq("is_archived", false)
         .gt("bonus_percent", 0)
         .order("bonus_percent", { ascending: false }),
       supabase.from("invoices")
         .select("supplier_name, total_amount, created_at")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .gte("created_at", from).lte("created_at", now),
       supabase.from("order_voids")
         .select("id, item_name, item_price, quantity, reason, voided_by_name, table_number, created_at")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .gte("created_at", from).lte("created_at", now)
         .order("created_at", { ascending: false }),
     ]);
@@ -463,7 +464,7 @@ export default function AnalyticsPage() {
     setInvoiceRows((invRes.data ?? []) as InvoiceRow[]);
     setVoidRows((voidRes.data ?? []) as VoidRow[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   // ── shifts load ──
   const loadShifts = useCallback(async () => {
@@ -471,27 +472,27 @@ export default function AnalyticsPage() {
     const { data } = await supabase
       .from("shifts")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("opened_at", { ascending: false })
       .limit(30);
     const all = (data ?? []) as ShiftRow[];
     setActiveShift(all.find(s => s.status === "open") ?? null);
     setPastShifts(all.filter(s => s.status === "closed"));
-  }, []);
+  }, [restaurantId]);
 
   const loadShiftOrders = useCallback(async (shift: ShiftRow): Promise<ShiftOrderRow[]> => {
     if (!isConfigured) return [];
     let q = supabase
       .from("orders")
       .select("id, total_price, status, type, created_at, payment_method, payment_details, paid_amount, prepayment_method, opened_by, tips_amount, table_number")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .gte("created_at", shift.opened_at);
     if (shift.closed_at) q = q.lte("created_at", shift.closed_at);
     const { data } = await q.order("created_at");
     const rows = (data ?? []) as ShiftOrderRow[];
     setShiftOrders(rows);
     return rows;
-  }, []);
+  }, [restaurantId]);
 
   const loadWaiterPerf = useCallback(async (p: Period) => {
     if (!isConfigured) return;
@@ -502,7 +503,7 @@ export default function AnalyticsPage() {
     const { data: shiftsData } = await supabase
       .from("shifts")
       .select("id")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .gte("opened_at", from)
       .lte("opened_at", now);
 
@@ -515,7 +516,7 @@ export default function AnalyticsPage() {
         .in("shift_id", shiftIds),
       supabase.from("staff_users")
         .select("id, display_name, username")
-        .eq("restaurant_id", RESTAURANT_ID),
+        .eq("restaurant_id", restaurantId),
     ]);
 
     const staffMap = new Map<string, string>();
@@ -538,7 +539,7 @@ export default function AnalyticsPage() {
     }
     setWaiterPerf([...agg.values()].sort((a, b) => b.revenueTotal - a.revenueTotal));
     setWaiterPerfLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   // ── live waiter stats (current shift) ──
   const loadLiveWaiterStats = useCallback(async (shift: ShiftRow) => {
@@ -549,7 +550,7 @@ export default function AnalyticsPage() {
       const { data: staffData } = await supabase
         .from("staff_users")
         .select("id, display_name, username")
-        .eq("restaurant_id", RESTAURANT_ID);
+        .eq("restaurant_id", restaurantId);
       for (const s of (staffData ?? []) as { id: string; display_name: string | null; username: string }[]) {
         liveStaffMapRef.current.set(s.id, s.display_name || s.username);
       }
@@ -558,7 +559,7 @@ export default function AnalyticsPage() {
     let q = supabase
       .from("orders")
       .select("total_price, opened_by, payment_method, payment_details, paid_amount")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("status", "completed")
       .not("opened_by", "is", null)
       .gte("created_at", shift.opened_at);
@@ -605,7 +606,7 @@ export default function AnalyticsPage() {
 
     setLiveWaiterStats([...agg.values()].sort((a, b) => b.revenueTotal - a.revenueTotal));
     setLiveWaiterLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   // ── food cost load ──
   const loadFoodCost = useCallback(async (p: Period) => {
@@ -619,7 +620,7 @@ export default function AnalyticsPage() {
     const { data: ordData } = await supabase
       .from("orders")
       .select("id, total_price, items_json, created_at")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("status", "completed")
       .gte("created_at", from).lte("created_at", now)
       .order("created_at");
@@ -744,7 +745,7 @@ export default function AnalyticsPage() {
 
     setFoodCost({ totalCost: totalCostFc, netProfit, foodCostPct, daily, dishes });
     setFcLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(period); loadWaiterPerf(period); loadFoodCost(period); }, [load, loadWaiterPerf, loadFoodCost, period]);
   useEffect(() => { loadShifts(); }, [loadShifts]);
@@ -757,10 +758,10 @@ export default function AnalyticsPage() {
     loadLiveWaiterStats(activeShift);
 
     const channel = supabase
-      .channel(`live-waiter-${RESTAURANT_ID}`)
+      .channel(`live-waiter-${restaurantId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurantId}` },
         (payload) => {
           if ((payload.new as { status: string }).status === "completed") {
             loadLiveWaiterStats(activeShift);
@@ -779,7 +780,7 @@ export default function AnalyticsPage() {
     setOpeningShift(true);
     const { data, error } = await supabase
       .from("shifts")
-      .insert({ restaurant_id: RESTAURANT_ID, status: "open" })
+      .insert({ restaurant_id: restaurantId, status: "open" })
       .select()
       .single();
     if (!error && data) setActiveShift(data as ShiftRow);
@@ -794,7 +795,7 @@ export default function AnalyticsPage() {
     const { data: staffData } = await supabase
       .from("staff_users")
       .select("id, display_name, username, commission_pct")
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
 
     const staffMap = new Map<string, string>();
     const commMap = new Map<string, number>();
@@ -937,7 +938,7 @@ export default function AnalyticsPage() {
     const { error } = await supabase
       .from("products")
       .update({ bonus_percent: val })
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     setBulkSaving(false);
     if (error) {
       alert("Ошибка: " + error.message);
@@ -947,7 +948,7 @@ export default function AnalyticsPage() {
     const { data } = await supabase
       .from("products")
       .select("id, name, price, bonus_percent")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("is_archived", false)
       .gt("bonus_percent", 0)
       .order("bonus_percent", { ascending: false });

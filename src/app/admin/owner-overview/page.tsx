@@ -1,20 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { TrendingUp, TrendingDown, RefreshCw, Loader2, ShoppingBag, Receipt, DollarSign } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, RefreshCw, Loader2, ShoppingBag,
+  Receipt, DollarSign, Building2,
+} from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID } from "@/constants";
 import { Button } from "@/components/ui/button";
+import { useBranch, useBranchRestaurantId, useIsAllBranches } from "@/lib/branch-context";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
 type Period = "today" | "week" | "month" | "all";
 
-interface OrderRow  { total_price: number; created_at: string; }
-interface InvoiceRow { supplier_name: string; total_amount: number; created_at: string; }
+interface OrderRow  { total_price: number; created_at: string; restaurant_id: string; }
+interface InvoiceRow { supplier_name: string; total_amount: number; created_at: string; restaurant_id: string; }
 
 interface DayBar { label: string; revenue: number; expenses: number; }
 interface SupplierRow { name: string; total: number; pct: number; }
+interface BranchRow { id: string; name: string; revenue: number; orders: number; }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +67,13 @@ function buildDayBars(orders: OrderRow[], invoices: InvoiceRow[], p: Period): Da
   const bars: DayBar[] = Array.from({ length: dayCount }, (_, i) => {
     const d = new Date(todayMs);
     d.setDate(d.getDate() - (dayCount - 1 - i));
-    return { label: p === "week" ? ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][d.getDay()] : String(d.getDate()), revenue: 0, expenses: 0 };
+    return {
+      label: p === "week"
+        ? ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][d.getDay()]
+        : String(d.getDate()),
+      revenue: 0,
+      expenses: 0,
+    };
   });
   for (const o of orders) {
     const oMs = new Date(new Date(o.created_at).setHours(0, 0, 0, 0));
@@ -89,6 +99,23 @@ function buildSuppliers(invoices: InvoiceRow[]): SupplierRow[] {
     .sort((a, b) => b.total - a.total);
 }
 
+function buildBranchRows(
+  orders: OrderRow[],
+  branches: { id: string; name: string }[],
+): BranchRow[] {
+  return branches
+    .map((b) => {
+      const bOrders = orders.filter((o) => o.restaurant_id === b.id);
+      return {
+        id: b.id,
+        name: b.name,
+        revenue: bOrders.reduce((s, o) => s + (o.total_price ?? 0), 0),
+        orders: bOrders.length,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function OwnerOverviewPage() {
@@ -97,29 +124,51 @@ export default function OwnerOverviewPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
 
+  const { branches } = useBranch();
+  const restaurantId  = useBranchRestaurantId();
+  const isAll         = useIsAllBranches();
+
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
     const from = fromDate(period);
 
-    const ordersQ = supabase
-      .from("orders")
-      .select("total_price, created_at")
-      .eq("restaurant_id", RESTAURANT_ID)
-      .eq("status", "completed");
-    if (from) ordersQ.gte("created_at", from.toISOString());
+    // Build queries depending on single branch vs. all branches
+    const buildOrdersQ = () => {
+      let q = supabase
+        .from("orders")
+        .select("total_price, created_at, restaurant_id")
+        .eq("status", "completed");
+      if (isAll && branches.length > 0) {
+        q = q.in("restaurant_id", branches.map((b) => b.id));
+      } else if (restaurantId) {
+        q = q.eq("restaurant_id", restaurantId);
+      }
+      if (from) q = q.gte("created_at", from.toISOString());
+      return q;
+    };
 
-    const invoicesQ = supabase
-      .from("invoices")
-      .select("supplier_name, total_amount, created_at")
-      .eq("restaurant_id", RESTAURANT_ID);
-    if (from) invoicesQ.gte("created_at", from.toISOString());
+    const buildInvoicesQ = () => {
+      let q = supabase
+        .from("invoices")
+        .select("supplier_name, total_amount, created_at, restaurant_id");
+      if (isAll && branches.length > 0) {
+        q = q.in("restaurant_id", branches.map((b) => b.id));
+      } else if (restaurantId) {
+        q = q.eq("restaurant_id", restaurantId);
+      }
+      if (from) q = q.gte("created_at", from.toISOString());
+      return q;
+    };
 
-    const [{ data: ord }, { data: inv }] = await Promise.all([ordersQ, invoicesQ]);
+    const [{ data: ord }, { data: inv }] = await Promise.all([
+      buildOrdersQ(),
+      buildInvoicesQ(),
+    ]);
     setOrders((ord ?? []) as OrderRow[]);
     setInvoices((inv ?? []) as InvoiceRow[]);
     setLoading(false);
-  }, [period]);
+  }, [period, restaurantId, isAll, branches]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -128,17 +177,24 @@ export default function OwnerOverviewPage() {
   const profit   = revenue - expenses;
   const foodCost = revenue > 0 ? (expenses / revenue) * 100 : 0;
 
-  const bars      = buildDayBars(orders, invoices, period);
-  const suppliers = buildSuppliers(invoices);
-  const barMax    = Math.max(...bars.map((b) => Math.max(b.revenue, b.expenses)), 1);
+  const bars        = buildDayBars(orders, invoices, period);
+  const suppliers   = buildSuppliers(invoices);
+  const branchRows  = isAll ? buildBranchRows(orders, branches) : [];
+  const barMax      = Math.max(...bars.map((b) => Math.max(b.revenue, b.expenses)), 1);
+  const branchMax   = Math.max(...branchRows.map((b) => b.revenue), 1);
+
+  const pageTitle = isAll ? "Обзор по сети" : "Обзор прибыли";
+  const pageSubtitle = isAll
+    ? `Сводная аналитика по ${branches.length} филиалам`
+    : "Выручка, расходы и чистая прибыль ресторана";
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <header className="px-8 py-5 border-b border-border shrink-0 flex items-center gap-4">
         <div className="flex-1">
-          <h1 className="text-lg font-semibold">Обзор прибыли</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Выручка, расходы и чистая прибыль ресторана</p>
+          <h1 className="text-lg font-semibold">{pageTitle}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{pageSubtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           {(["today", "week", "month", "all"] as Period[]).map((p) => (
@@ -197,6 +253,36 @@ export default function OwnerOverviewPage() {
             color={foodCost < 30 ? "emerald" : foodCost < 40 ? "amber" : "red"}
           />
         </div>
+
+        {/* Branch breakdown (only in "all branches" mode) */}
+        {isAll && branchRows.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 size={15} className="text-violet-500" />
+              <p className="text-sm font-semibold">Выручка по филиалам</p>
+            </div>
+            <div className="space-y-3">
+              {branchRows.map((b) => (
+                <div key={b.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm truncate flex-1">{b.name}</span>
+                    <span className="text-xs text-muted-foreground ml-4">{b.orders} зак.</span>
+                    <span className="text-sm font-medium tabular-nums ml-4">{fmt(b.revenue)} ₸</span>
+                    <span className="text-xs text-muted-foreground ml-3 w-10 text-right">
+                      {revenue > 0 ? fmtPct((b.revenue / revenue) * 100) : "0%"}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-violet-500/70"
+                      style={{ width: `${(b.revenue / branchMax) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Bar chart */}
         {bars.length > 0 && (

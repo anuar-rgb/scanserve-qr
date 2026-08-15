@@ -12,6 +12,7 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
 import { useIsOwner, useIsStrictOwner, useRole, usePlanId } from "@/lib/role-context";
 import { WaiterCallBell } from "./WaiterCallBell";
+import { BranchSelector } from "./BranchSelector";
 import { toast } from "sonner";
 
 type AdminKey = keyof Dict["admin"];
@@ -182,6 +183,9 @@ export default function AdminSidebar() {
             </p>
           </div>
           {expanded && role !== "chef" && <WaiterCallBell />}
+        </div>
+        <div className="mt-1">
+          <BranchSelector expanded={expanded} />
         </div>
       </div>
 

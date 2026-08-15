@@ -21,6 +21,7 @@ export interface DbRestaurant {
   custom_2gis_api_key: string | null;
   service_charge_enabled: boolean | null;
   service_charge_percent: number | null;
+  owner_id: string | null;
 }
 
 export interface DbCategory {

@@ -11,7 +11,7 @@ import type { DbOrder } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 import { toast } from "sonner";
 import { capFirst } from "@/lib/utils";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 type OrderItem = {
   name: string; qty: number; price: number; currency: string;
@@ -96,6 +96,7 @@ const PAGE_SIZE = 48;
 
 export default function OrderHistoryPage() {
   const { t } = useTranslations();
+  const restaurantId = useBranchRestaurantId() ?? "";
   const today = toLocalDateStr(new Date());
 
   const [selectedDate, setSelectedDate]   = useState(today);
@@ -121,7 +122,7 @@ export default function OrderHistoryPage() {
       supabase
         .from("orders")
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
         .gte("created_at", startISO)
         .lt("created_at", endISO)
@@ -129,7 +130,7 @@ export default function OrderHistoryPage() {
       supabase
         .from("orders")
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .eq("order_type", "preorder")
         .in("status", ["completed", "cancelled"])
         .eq("preorder_date", date)
@@ -144,7 +145,7 @@ export default function OrderHistoryPage() {
 
     setOrders([...nonPreorderCompleted, ...preorders]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(selectedDate); }, [load, selectedDate]);
 
@@ -495,6 +496,7 @@ function CompactCard({
 // ── OrderDrawer ───────────────────────────────────────────────────────────────
 
 function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder | null; onClose: () => void; onRefresh?: () => void; readOnly?: boolean }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [notifying, setNotifying] = useState(false);
   const [notifyDone, setNotifyDone] = useState(false);
   const [refundMode, setRefundMode] = useState<"full" | "partial">("full");
@@ -587,7 +589,7 @@ function OrderDrawer({ order, onClose, onRefresh, readOnly }: { order: DbOrder |
     const res = await fetch("/api/admin/refund", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: order!.id, restaurantId: RESTAURANT_ID, refundType: refundMode, refundItems }),
+      body: JSON.stringify({ orderId: order!.id, restaurantId: restaurantId, refundType: refundMode, refundItems }),
     });
     setRefundSaving(false);
     if (!res.ok) {

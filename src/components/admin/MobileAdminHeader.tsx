@@ -6,6 +6,7 @@ import { LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRole, useDisplayName } from "@/lib/role-context";
 import { WaiterCallBell } from "./WaiterCallBell";
+import { BranchSelector } from "./BranchSelector";
 
 const R_NAME = process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "ScanServe";
 
@@ -58,6 +59,7 @@ export default function MobileAdminHeader() {
           )}
         </div>
         {role !== "courier" && role !== "chef" && <WaiterCallBell />}
+        {role === "owner" && <BranchSelector expanded />}
 
         <button
           onClick={() => mounted && setTheme(isDark ? "light" : "dark")}
