@@ -609,8 +609,8 @@ function Hero() {
             <PosMockup />
             {/* Phone mockup overlapping bottom-right */}
             <div className="hidden md:block" style={{
-              position: "absolute", bottom: -28, right: -28,
-              width: 190, zIndex: 2,
+              position: "absolute", bottom: -36, right: -36,
+              width: 260, zIndex: 2,
               filter: "drop-shadow(0 24px 40px rgba(76,29,149,0.55))",
             }}>
               <PhoneMockup />
