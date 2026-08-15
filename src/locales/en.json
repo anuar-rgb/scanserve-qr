@@ -310,6 +310,8 @@
     "sectionFinance": "Finance",
     "sectionPOS": "POS Terminal",
     "navHall": "Hall Plan",
+    "navRotation": "Rotation",
+    "navCashReport": "Cash Report",
     "descHall": "Interactive table map with live order status.",
     "hallTitle": "Hall Plan",
     "hallDesc": "Interactive table map with live order status",

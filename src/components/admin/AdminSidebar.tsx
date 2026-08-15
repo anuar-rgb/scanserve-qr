@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   BarChart2, Star, Tag, Package, Monitor,
-  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, MessageSquare, PrinterIcon, FilePen, Boxes, CalendarDays, Lock, ChefHat, History,
+  QrCode, BookOpen, Settings, LogOut, Sun, Moon, ShoppingBag, LayoutGrid, CreditCard, FileText, TrendingUp, Users, MessageSquare, PrinterIcon, FilePen, Boxes, CalendarDays, Lock, ChefHat, History, Shuffle, Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations, type Dict } from "@/lib/i18n";
@@ -25,7 +25,7 @@ type NavSection = {
   noPOS?: true;
   storekeeperAccess?: true;
   accountantAccess?: true;
-  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; noCashier?: true; planFeature?: string; courierAccess?: true }[];
+  items: { labelKey: AdminKey; icon: LucideIcon; href: string; ownerOnly?: true; strictOwner?: true; noWaiter?: true; noCashier?: true; noChef?: true; cashierOnly?: true; planFeature?: string; courierAccess?: true }[];
 };
 
 const NAV: NavSection[] = [
@@ -71,10 +71,12 @@ const NAV: NavSection[] = [
     titleKey: "sectionPOS",
     noPOS: true,
     items: [
-      { labelKey: "navHall",         icon: LayoutGrid, href: "/admin/hall"                              },
-      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits", noWaiter: true, noCashier: true },
-      { labelKey: "navOrderHistory", icon: History,    href: "/admin/order-history", noWaiter: true     },
-      { labelKey: "navInvoices",     icon: FileText,   href: "/admin/invoices",      noWaiter: true     },
+      { labelKey: "navHall",         icon: LayoutGrid, href: "/admin/hall"                                              },
+      { labelKey: "navRotation",    icon: Shuffle,    href: "/admin/hall?tab=rotation",    noWaiter: true, noChef: true },
+      { labelKey: "navCashReport",  icon: Wallet,     href: "/admin/hall?tab=cash-report", cashierOnly: true           },
+      { labelKey: "navDishLimits",   icon: ChefHat,    href: "/admin/dish-limits",          noWaiter: true, noCashier: true },
+      { labelKey: "navOrderHistory", icon: History,    href: "/admin/order-history",        noWaiter: true              },
+      { labelKey: "navInvoices",     icon: FileText,   href: "/admin/invoices",             noWaiter: true              },
     ],
   },
   {
@@ -197,6 +199,8 @@ export default function AdminSidebar() {
             if (item.ownerOnly && !isOwner) return false;
             if (item.noWaiter && role === "waiter") return false;
             if (item.noCashier && role === "cashier") return false;
+            if (item.noChef && role === "chef") return false;
+            if (item.cashierOnly && role !== "cashier") return false;
             if (item.courierAccess) return isCourier || isOwner;
             return true;
           });

@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2, Plus, Clock, Calendar, X, Copy, Edit2, Users,
   Check, ChevronLeft, ChevronRight, Printer, ShoppingCart, Settings, Trash2, Lock,
@@ -370,7 +371,11 @@ type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation" |
 
 export default function HallPage() {
   const restaurantId = useBranchRestaurantId() ?? "";
-  return <HallContent key={restaurantId} />;
+  return (
+    <Suspense>
+      <HallContent key={restaurantId} />
+    </Suspense>
+  );
 }
 
 function HallContent() {
@@ -383,7 +388,11 @@ function HallContent() {
   const [selected, setSelected]     = useState<string | null>(null);
   const [addOpen, setAddOpen]       = useState(false);
   const [editTable, setEditTable]   = useState<DbRestaurantTable | null>(null);
-  const [activeTab, setActiveTab]   = useState<ActiveTab>("dine-in");
+  const searchParams                = useSearchParams();
+  const [activeTab, setActiveTab]   = useState<ActiveTab>(() => {
+    const t = searchParams.get("tab");
+    return (t === "rotation" || t === "cash-report") ? t : "dine-in";
+  });
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
   const role                        = useRole();
@@ -404,8 +413,6 @@ function HallContent() {
   const [activeShift,   setActiveShift]   = useState<{ id: string; opened_at: string } | null | undefined>(undefined);
   const [shiftCheckins, setShiftCheckins] = useState<{ staff_user_id: string; checked_in_at: string }[]>([]);
   const [openingShift,  setOpeningShift]  = useState(false);
-  const [showMoreMenu,  setShowMoreMenu]  = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -414,16 +421,6 @@ function HallContent() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => {
-    if (!showMoreMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setShowMoreMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showMoreMenu]);
 
   const [preorders, setPreorders]             = useState<DbOrder[]>([]);
   const [calLoading, setCalLoading]           = useState(false);
@@ -951,58 +948,6 @@ function HallContent() {
           </button>
         ))}
 
-        {/* Ещё — вторичные вкладки (Ротация, Касса) */}
-        {(() => {
-          const extraItems = [
-            (!isWaiter && !isChef) && { id: "rotation" as ActiveTab,    icon: Shuffle, label: "Ротация" },
-            isCashier              && { id: "cash-report" as ActiveTab, icon: Wallet,  label: "Касса"   },
-          ].filter(Boolean) as Array<{ id: ActiveTab; icon: React.ElementType; label: string }>;
-          if (extraItems.length === 0) return null;
-          const isExtraActive = extraItems.some((t) => t.id === activeTab);
-          const activeExtraLabel = extraItems.find((t) => t.id === activeTab)?.label;
-          return (
-            <div ref={moreMenuRef} className="relative flex flex-1 items-stretch">
-              <button
-                onClick={() => setShowMoreMenu((v) => !v)}
-                className={`relative font-medium transition-colors border-b-2 -mb-px flex flex-col w-full items-center justify-center gap-1.5 rounded-none py-3.5 px-2 ${
-                  isExtraActive
-                    ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-violet-50/60 dark:bg-violet-900/10"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                }`}
-              >
-                <ChevronDown
-                  size={22}
-                  style={{ transition: "transform 0.2s", transform: showMoreMenu ? "rotate(180deg)" : "rotate(0deg)" }}
-                />
-                <span className="text-[10px] font-semibold leading-tight text-center">
-                  {isExtraActive ? activeExtraLabel : "Ещё"}
-                </span>
-              </button>
-              {showMoreMenu && (
-                <div className="absolute top-full right-0 z-50 mt-1 min-w-[148px] bg-background border border-border rounded-xl shadow-lg overflow-hidden">
-                  {extraItems.map(({ id, icon: Icon, label }) => (
-                    <button
-                      key={id}
-                      onClick={() => {
-                        setActiveTab(id);
-                        setEditMode(false);
-                        setShowMoreMenu(false);
-                      }}
-                      className={`flex items-center gap-2.5 w-full px-4 py-3 text-sm font-medium transition-colors ${
-                        activeTab === id
-                          ? "bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400"
-                          : "hover:bg-accent text-foreground"
-                      }`}
-                    >
-                      <Icon size={16} />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
       </div>
 
 
