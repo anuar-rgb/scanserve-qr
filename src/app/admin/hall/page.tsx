@@ -1495,6 +1495,7 @@ function CashReportTab({ shift }: { shift: { id: string; opened_at: string } | n
     revenue: number;
     cash: number;
     kaspi: number;
+    halyk: number;
     card: number;
     ordersCount: number;
     openedAt: string;
@@ -1594,8 +1595,9 @@ function CashReportTab({ shift }: { shift: { id: string; opened_at: string } | n
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Разбивка по оплате</p>
         {([
           { label: "Наличные",  amount: data?.cash  ?? 0, Icon: Banknote,   color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30" },
-          { label: "Kaspi / QR",amount: data?.kaspi ?? 0, Icon: Smartphone, color: "text-orange-500 dark:text-orange-400",   bg: "bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800/30"     },
-          { label: "Карта",     amount: data?.card  ?? 0, Icon: CreditCard, color: "text-blue-500 dark:text-blue-400",       bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30"             },
+          { label: "Kaspi / QR",  amount: data?.kaspi ?? 0, Icon: Smartphone, color: "text-orange-500 dark:text-orange-400",  bg: "bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800/30" },
+          { label: "Халык Банк", amount: data?.halyk ?? 0, Icon: Landmark,   color: "text-green-600 dark:text-green-400",    bg: "bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800/30"     },
+          { label: "Карта",      amount: data?.card  ?? 0, Icon: CreditCard, color: "text-blue-500 dark:text-blue-400",      bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30"         },
         ] as const).map(({ label, amount, Icon, color, bg }) => (
           <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${bg}`}>
             <div className={`w-8 h-8 rounded-lg bg-white dark:bg-background flex items-center justify-center shrink-0 ${color}`}>

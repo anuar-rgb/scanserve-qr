@@ -67,31 +67,34 @@ export async function GET(request: NextRequest) {
   let revenue = 0;
   let cash = 0;
   let kaspi = 0;
+  let halyk = 0;
   let card = 0;
 
   const CASH_KEYS  = new Set(["cash", "наличные", "наличка"]);
   const KASPI_KEYS = new Set(["kaspi", "каспи", "qr", "qr-kaspi"]);
-  const CARD_KEYS  = new Set(["card", "карта", "карты", "halyk", "halyk bank", "bank"]);
+  const HALYK_KEYS = new Set(["halyk", "halyk bank", "халык", "халык банк"]);
+  const CARD_KEYS  = new Set(["card", "карта", "карты", "bank"]);
 
   for (const order of rows) {
     const total = order.paid_amount ?? order.total_price ?? 0;
     revenue += total;
 
     if (order.payment_details && typeof order.payment_details === "object") {
-      // payment_details: { method: amount, ... }
       for (const [method, amount] of Object.entries(order.payment_details)) {
         const key = method.toLowerCase();
-        if (CASH_KEYS.has(key))       cash  += amount;
-        else if (KASPI_KEYS.has(key)) kaspi += amount;
-        else if (CARD_KEYS.has(key))  card  += amount;
-        else                          kaspi += amount; // unknown → count as kaspi/QR
+        if (CASH_KEYS.has(key))        cash  += amount;
+        else if (KASPI_KEYS.has(key))  kaspi += amount;
+        else if (HALYK_KEYS.has(key))  halyk += amount;
+        else if (CARD_KEYS.has(key))   card  += amount;
+        else                           kaspi += amount;
       }
     } else {
       const method = (order.payment_method ?? "").toLowerCase();
-      if (CASH_KEYS.has(method))       cash  += total;
-      else if (KASPI_KEYS.has(method)) kaspi += total;
-      else if (CARD_KEYS.has(method))  card  += total;
-      else                             kaspi += total;
+      if (CASH_KEYS.has(method))        cash  += total;
+      else if (KASPI_KEYS.has(method))  kaspi += total;
+      else if (HALYK_KEYS.has(method))  halyk += total;
+      else if (CARD_KEYS.has(method))   card  += total;
+      else                              kaspi += total;
     }
   }
 
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest) {
     revenue,
     cash,
     kaspi,
+    halyk,
     card,
     ordersCount: rows.length,
     openedAt: shift.opened_at,
