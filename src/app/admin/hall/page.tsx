@@ -393,6 +393,10 @@ function HallContent() {
     const t = searchParams.get("tab");
     return (t === "rotation" || t === "cash-report") ? t : "dine-in";
   });
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "rotation" || t === "cash-report") setActiveTab(t);
+  }, [searchParams]);
   const [tableCreatingOrder, setTableCreatingOrder] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
   const role                        = useRole();
