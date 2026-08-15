@@ -11,7 +11,7 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbRestaurant, DbHeroSlide, SlideTag, DbBanner, DbProduct, DbInfoShowcase } from "@/lib/db-types";
 import { uploadImage, uploadMedia } from "@/services/storage";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,6 +143,7 @@ export default function StorefrontPage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function HeroSliderSection() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -168,7 +169,7 @@ function HeroSliderSection() {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
     const { data } = await supabase
-      .from("hero_slides").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index");
+      .from("hero_slides").select("*").eq("restaurant_id", restaurantId).order("order_index");
     if (data) setSlides(data as DbHeroSlide[]);
     setLoading(false);
   }, []);
@@ -273,7 +274,7 @@ function HeroSliderSection() {
 
       const cleanTags = form.tags.filter(tg => tg.text.trim());
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         type, url,
         title: form.title.trim() || null,
         description: form.description.trim() || null,
@@ -760,6 +761,7 @@ function SliderPhoneMockup({
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function BannersSection() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -777,7 +779,7 @@ function BannersSection() {
     if (!isConfigured) { setLoading(false); return; }
     setLoading(true);
     const { data } = await supabase
-      .from("banners").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index");
+      .from("banners").select("*").eq("restaurant_id", restaurantId).order("order_index");
     if (data) setBanners(data as DbBanner[]);
     setLoading(false);
   }, []);
@@ -822,7 +824,7 @@ function BannersSection() {
       let imageUrl: string | null = null;
       if (form.imageFile) imageUrl = await uploadImage(form.imageFile, "banners", "banner");
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         title: { en: form.title, ru: form.title, kz: form.title },
         link_url: form.link_url || null,
         is_active: form.is_active,
@@ -1053,6 +1055,7 @@ function BannerPhoneMockup({ title, imagePreview }: { title: string; imagePrevie
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function InfoShowcaseSection() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
 
   const [cards, setCards]         = useState<DbInfoShowcase[]>([]);
@@ -1069,7 +1072,7 @@ function InfoShowcaseSection() {
     const { data } = await supabase
       .from("info_showcases")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("order_index");
     if (data) setCards(data as DbInfoShowcase[]);
     setLoading(false);
@@ -1105,7 +1108,7 @@ function InfoShowcaseSection() {
     setSaving(true);
     try {
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         title: { en: form.title, ru: form.title, kz: form.title },
         emoji: form.emoji || "✨",
         description: form.description.trim() || null,
@@ -1306,6 +1309,7 @@ function InfoShowcaseSection() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function RecommendationsSection() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -1318,7 +1322,7 @@ function RecommendationsSection() {
     const { data } = await supabase
       .from("products")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("is_archived", false)
       .order("name->ru");
     if (data) setProducts(data as DbProduct[]);

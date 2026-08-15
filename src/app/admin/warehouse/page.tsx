@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X, Loader2, Boxes, Search, AlertTriangle, History } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { DB_TABLES } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import type { DbIngredient, DbStockMovement } from "@/lib/db-types";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ interface ModalProps {
 }
 
 function IngredientModal({ ingredient, onClose, onSaved }: ModalProps) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const isEdit = !!ingredient;
   const [name, setName]               = useState(ingredient?.name ?? "");
   const [unit, setUnit]               = useState<DbIngredient["unit"]>(ingredient?.unit ?? "kg");
@@ -53,7 +55,7 @@ function IngredientModal({ ingredient, onClose, onSaved }: ModalProps) {
     setError(null);
 
     const payload = {
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       name: name.trim(),
       unit,
       current_stock: stockNum,
@@ -192,6 +194,7 @@ function IngredientModal({ ingredient, onClose, onSaved }: ModalProps) {
 const UNIT_LABELS_RU: Record<string, string> = { kg: "кг", liter: "л", pcs: "шт" };
 
 export default function WarehousePage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [ingredients, setIngredients] = useState<DbIngredient[]>([]);
   const [movements,   setMovements]   = useState<DbStockMovement[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -205,7 +208,7 @@ export default function WarehousePage() {
     const { data, error } = await supabase
       .from(DB_TABLES.ingredients)
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("name");
     if (error) { toast.error("Ошибка загрузки"); return; }
     setIngredients((data ?? []) as DbIngredient[]);
@@ -217,7 +220,7 @@ export default function WarehousePage() {
     const { data } = await supabase
       .from(DB_TABLES.stockMovements)
       .select("*, ingredients(name, unit)")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
       .limit(50);
     setMovements((data ?? []) as DbStockMovement[]);

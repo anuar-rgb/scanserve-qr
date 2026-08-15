@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRole } from "@/lib/role-context";
 import { supabase } from "@/lib/supabase";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

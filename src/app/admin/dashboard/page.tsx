@@ -9,16 +9,16 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbProduct } from "@/lib/db-types";
 import { useTranslations, getName } from "@/lib/i18n";
 import { useIsStrictOwner } from "@/lib/role-context";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import ProductModal from "@/components/admin/ProductModal";
 import CategoryModal from "@/components/admin/CategoryModal";
-
-const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
 
 type ProductModalState = { mode: "create" | "edit"; product?: DbProduct } | null;
 type CategoryModalState = { mode: "create" | "edit"; category?: DbCategory } | null;
 type DeleteState = { type: "product" | "category"; id: string; label: string } | null;
 
 export default function CatalogPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t, lang } = useTranslations();
   const isStrictOwner = useIsStrictOwner();
 
@@ -41,8 +41,8 @@ export default function CatalogPage() {
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     const [catsRes, prodsRes] = await Promise.all([
-      supabase.from("categories").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
-      supabase.from("products").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
+      supabase.from("categories").select("*").eq("restaurant_id", restaurantId).order("order_index"),
+      supabase.from("products").select("*").eq("restaurant_id", restaurantId).order("order_index"),
     ]);
     const cats = (catsRes.data as DbCategory[]) ?? [];
     setCategories(cats);

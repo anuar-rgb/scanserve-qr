@@ -7,7 +7,7 @@ import {
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory } from "@/lib/db-types";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +50,7 @@ const EMPTY_FORM: PrinterForm = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function PrintersPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [printers, setPrinters]     = useState<PrinterRow[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -67,12 +68,12 @@ export default function PrintersPage() {
       supabase
         .from("printer_settings")
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .order("order_index"),
       supabase
         .from("categories")
         .select("id, name, parent_id")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .is("parent_id", null)
         .order("order_index"),
     ]);
@@ -115,7 +116,7 @@ export default function PrintersPage() {
 
     setSaving(true);
     const payload = {
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       printer_name:  form.printer_name.trim(),
       ip_address:    form.ip_address.trim(),
       port,
@@ -161,7 +162,7 @@ export default function PrintersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type:        "test",
-          restaurantId: RESTAURANT_ID,
+          restaurantId: restaurantId,
           printerId:   printer.id,
         }),
       });

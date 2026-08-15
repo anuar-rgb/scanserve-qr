@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, Loader2, X, Check, Tag, Utensils } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, DbModifier, DbProduct } from "@/lib/db-types";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +26,7 @@ function ModifierModal({
   onClose: () => void;
   onSaved: (m: DbModifier) => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   if (!state) return null;
   const s = state;
   const m = s.modifier;
@@ -83,7 +84,7 @@ function ModifierModal({
     setError(null);
 
     const payload = {
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       name: name.trim(),
       price: priceNum,
       is_active: true,
@@ -266,6 +267,7 @@ function ModifierModal({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ModifiersPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [modifiers, setModifiers]   = useState<DbModifier[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [products, setProducts]     = useState<DbProduct[]>([]);
@@ -276,9 +278,9 @@ export default function ModifiersPage() {
   const load = useCallback(async () => {
     if (!isConfigured) { setLoading(false); return; }
     const [modsRes, catsRes, prodsRes] = await Promise.all([
-      supabase.from("modifiers").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
-      supabase.from("categories").select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
-      supabase.from("products").select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
+      supabase.from("modifiers").select("*").eq("restaurant_id", restaurantId).order("order_index"),
+      supabase.from("categories").select("*").eq("restaurant_id", restaurantId).order("order_index"),
+      supabase.from("products").select("*").eq("restaurant_id", restaurantId).eq("is_archived", false).order("order_index"),
     ]);
     setModifiers((modsRes.data as DbModifier[]) ?? []);
     setCategories((catsRes.data as DbCategory[]) ?? []);

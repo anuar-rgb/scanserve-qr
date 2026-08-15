@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbInvoice, DbInvoiceItem } from "@/lib/db-types";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,6 +75,7 @@ const EMPTY_LINE = (): LineItem => ({
 // ─── main component ───────────────────────────────────────────────────────────
 
 export default function InvoicesPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const [period, setPeriod]           = useState<Period>("week");
   const [loading, setLoading]         = useState(true);
@@ -101,7 +102,7 @@ export default function InvoicesPage() {
     const { data } = await supabase
       .from("invoices")
       .select("*, invoice_items(*)")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .gte("created_at", from)
       .lte("created_at", now)
       .order("created_at", { ascending: false });
@@ -183,7 +184,7 @@ export default function InvoicesPage() {
       const { data: inv, error: hErr } = await supabase
         .from("invoices")
         .insert({
-          restaurant_id: RESTAURANT_ID,
+          restaurant_id: restaurantId,
           invoice_number: invoiceNumber.trim() || null,
           supplier_name: supplierName.trim(),
           total_amount: totalAmount,

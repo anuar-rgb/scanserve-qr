@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Edit2, Loader2, X, Check, Copy, Tag, Clock, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import type { DbPromoCode, DbHappyHour, DbCategory, LS } from "@/lib/db-types";
 
 function toLocalInput(iso: string): string {
@@ -49,6 +49,7 @@ export default function PromotionsPage() {
 }
 
 function PromoCodesTab() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [codes, setCodes] = useState<DbPromoCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -70,7 +71,7 @@ function PromoCodesTab() {
     const { data } = await supabase
       .from("promo_codes")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false });
     setCodes((data ?? []) as DbPromoCode[]);
     setLoading(false);
@@ -107,7 +108,7 @@ function PromoCodesTab() {
 
     setSaving(true);
     const payload = {
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       code: code.trim().toUpperCase(),
       discount_type: discountType,
       discount_value: val,
@@ -369,6 +370,7 @@ function PromoCodesTab() {
 // ── Happy Hours Tab ──────────────────────────────────────────────────────────
 
 function HappyHoursTab() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [items, setItems] = useState<DbHappyHour[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,8 +390,8 @@ function HappyHoursTab() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     const [{ data: hh }, { data: cats }] = await Promise.all([
-      supabase.from("happy_hours").select("*").eq("restaurant_id", RESTAURANT_ID).order("created_at", { ascending: false }),
-      supabase.from("categories").select("id, name, order_index").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
+      supabase.from("happy_hours").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }),
+      supabase.from("categories").select("id, name, order_index").eq("restaurant_id", restaurantId).order("order_index"),
     ]);
     setItems((hh ?? []) as DbHappyHour[]);
     setCategories((cats ?? []) as DbCategory[]);
@@ -419,7 +421,7 @@ function HappyHoursTab() {
     if (days.size === 0) { toast.error("Выберите день"); return; }
     setSaving(true);
     const payload = {
-      restaurant_id: RESTAURANT_ID, name: name.trim(), discount_percent: pct,
+      restaurant_id: restaurantId, name: name.trim(), discount_percent: pct,
       category_ids: [...selectedCats], start_time: startTime, end_time: endTime,
       days_of_week: [...days].sort(), is_active: isActive,
     };
@@ -550,6 +552,7 @@ function HappyHoursTab() {
 type BonusProduct = { id: string; name: LS; price: number; bonus_percent: number };
 
 function BonusTab() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [products, setProducts] = useState<BonusProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [bulkValue, setBulkValue] = useState("");
@@ -560,7 +563,7 @@ function BonusTab() {
     const { data } = await supabase
       .from("products")
       .select("id, name, price, bonus_percent")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("is_archived", false)
       .gt("bonus_percent", 0)
       .order("bonus_percent", { ascending: false });
@@ -578,7 +581,7 @@ function BonusTab() {
     const { error } = await supabase
       .from("products")
       .update({ bonus_percent: val })
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("is_archived", false);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }

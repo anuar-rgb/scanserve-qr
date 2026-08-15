@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
-import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { DB_TABLES } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { capFirst } from "@/lib/utils";
 import { useUserId } from "@/lib/role-context";
 
@@ -17,6 +18,7 @@ type OrderItem     = {
 };
 
 export default function MyOrdersPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const userId              = useUserId();
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ export default function MyOrdersPage() {
     const { data } = await supabase
       .from(DB_TABLES.orders)
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("opened_by", userId)
       .in("status", ["completed", "cancelled"])
       .gte("created_at", todayStart.toISOString())

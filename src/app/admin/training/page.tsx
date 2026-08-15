@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { DB_TABLES } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { uploadImage } from "@/services/storage";
 import { useIsOwner } from "@/lib/role-context";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ function fmtDate(iso: string) {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function TrainingPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const isOwner = useIsOwner();
 
   const [articles, setArticles]     = useState<TrainingArticle[]>([]);
@@ -67,7 +69,7 @@ export default function TrainingPage() {
     const { data } = await supabase
       .from(DB_TABLES.trainingArticles)
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("order_index", { ascending: true })
       .order("created_at", { ascending: true });
     setArticles((data ?? []) as TrainingArticle[]);
@@ -135,7 +137,7 @@ export default function TrainingPage() {
     if (!draft.title.trim()) { toast.error("Введите заголовок"); return; }
     setSaving(true);
     const payload = {
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       title: draft.title.trim(),
       content: draft.content.trim(),
       links: draft.links.filter((l) => l.url.trim()),

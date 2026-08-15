@@ -8,7 +8,7 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbHeroSlide, SlideTag } from "@/lib/db-types";
 import { uploadMedia } from "@/services/storage";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +76,7 @@ const EMPTY_FORM: SlideForm = {
 };
 
 export default function HeroSliderPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -103,11 +104,11 @@ export default function HeroSliderPage() {
     const { data } = await supabase
       .from("hero_slides")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("order_index");
     if (data) setSlides(data as DbHeroSlide[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -225,7 +226,7 @@ export default function HeroSliderPage() {
       const cleanTags = form.tags.filter(t => t.text.trim());
 
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         type,
         url,
         title: form.title.trim() || null,

@@ -5,7 +5,7 @@ import { MapPin, Phone, Clock, Package, CheckCircle2, Truck, Navigation, Chevron
 import { useRole } from "@/lib/role-context";
 import type { DbOrder } from "@/lib/db-types";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 type DeliveryStatus = "new" | "ready" | "accepted" | "in_transit" | "delivered";
 
@@ -279,6 +279,7 @@ function DeliveryOrderCard({
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function DeliveryPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const role = useRole();
 
   // Active orders state
@@ -376,7 +377,7 @@ export default function DeliveryPage() {
       .channel("delivery-orders-realtime")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurantId}` },
         (payload) => {
           const order = payload.new as DeliveryOrder;
           if (order.type !== "delivery") return;
@@ -388,7 +389,7 @@ export default function DeliveryPage() {
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurantId}` },
         (payload) => {
           const updated = payload.new as DeliveryOrder;
           if (updated.type !== "delivery") return;
@@ -397,7 +398,7 @@ export default function DeliveryPage() {
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [playBell]);
+  }, [playBell, restaurantId]);
 
   async function updateStatus(orderId: string, deliveryStatus: DeliveryStatus) {
     setBusy(orderId);

@@ -8,7 +8,7 @@ import type { DbRestaurant } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 import { useIsOwner } from "@/lib/role-context";
 import { uploadImage } from "@/services/storage";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
 
 export default function SettingsPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const isOwner = useIsOwner();
   const logoRef = useRef<HTMLInputElement>(null);
@@ -46,7 +47,7 @@ export default function SettingsPage() {
     const { data } = await supabase
       .from("restaurants")
       .select("*")
-      .eq("id", RESTAURANT_ID)
+      .eq("id", restaurantId)
       .single();
     if (data) {
       const r = data as DbRestaurant;

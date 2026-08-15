@@ -7,7 +7,7 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbBanner } from "@/lib/db-types";
 import { uploadImage } from "@/services/storage";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,7 @@ const EMPTY_FORM: BannerForm = {
 };
 
 export default function BannersPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -57,11 +58,11 @@ export default function BannersPage() {
     const { data } = await supabase
       .from("banners")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("order_index");
     if (data) setBanners(data as DbBanner[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -114,7 +115,7 @@ export default function BannersPage() {
       }
 
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         title: { en: form.title, ru: form.title, kz: form.title },
         link_url: form.link_url || null,
         is_active: form.is_active,

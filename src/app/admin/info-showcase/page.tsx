@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbInfoShowcase } from "@/lib/db-types";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ const EMPTY_FORM: ShowcaseForm = {
 };
 
 export default function InfoShowcasePage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
 
   const [cards, setCards]       = useState<DbInfoShowcase[]>([]);
@@ -48,11 +49,11 @@ export default function InfoShowcasePage() {
     const { data } = await supabase
       .from("info_showcases")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("order_index");
     if (data) setCards(data as DbInfoShowcase[]);
     setLoading(false);
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -84,7 +85,7 @@ export default function InfoShowcasePage() {
     setSaving(true);
     try {
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         title: { en: form.title, ru: form.title, kz: form.title },
         emoji: form.emoji || "✨",
         description: form.description.trim() || null,

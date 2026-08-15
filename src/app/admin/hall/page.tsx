@@ -10,10 +10,11 @@ import {
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder, DbRestaurant, DbRestaurantTable, DbCategory, DbProduct, DbModifier } from "@/lib/db-types";
-import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { DB_TABLES } from "@/constants";
 import { capFirst } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserId, useRole, useDisplayName } from "@/lib/role-context";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { useWaiterCalls } from "@/lib/waiter-call-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -368,6 +369,12 @@ function parseOpeningTime(wh: string | null): number | null {
 type ActiveTab = "dine-in" | "takeaway" | "delivery" | "preorder" | "rotation" | "cash-report";
 
 export default function HallPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
+  return <HallContent key={restaurantId} />;
+}
+
+function HallContent() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [tables, setTables]         = useState<DbRestaurantTable[]>([]);
   const [orders, setOrders]         = useState<DbOrder[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -435,9 +442,9 @@ export default function HallPage() {
   }, []);
 
   const loadRequests = useCallback(async () => {
-    if (!RESTAURANT_ID) return;
+    if (!restaurantId) return;
     // Use the admin API (service role key) so RLS on refund_requests never blocks reads.
-    const res = await fetch(`/api/admin/refund-requests?restaurantId=${encodeURIComponent(RESTAURANT_ID)}`);
+    const res = await fetch(`/api/admin/refund-requests?restaurantId=${encodeURIComponent(restaurantId)}`);
     if (!res.ok) return;
     const data: RefundRequest[] = await res.json().catch(() => []);
     const grouped: Record<string, RefundRequest[]> = {};
@@ -454,13 +461,13 @@ export default function HallPage() {
       supabase
         .from(DB_TABLES.restaurantTables)
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .eq("is_active", true)
         .order("label"),
       supabase
         .from(DB_TABLES.orders)
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
     ]);
@@ -500,11 +507,11 @@ export default function HallPage() {
     if (!isConfigured) return;
 
     const channel = supabase
-      .channel(`hall-pos-${RESTAURANT_ID}`)
+      .channel(`hall-pos-${restaurantId}`)
       // INSERT: immediately update local state from payload — no round-trip needed
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        { event: "INSERT", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${restaurantId}` },
         (payload) => {
           const newOrder = payload.new as DbOrder;
           if (newOrder.status !== "pending" || knownOrderIds.current.has(newOrder.id)) return;
@@ -522,7 +529,7 @@ export default function HallPage() {
       // UPDATE: completed orders are removed from state instantly; other changes trigger full re-fetch
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        { event: "UPDATE", schema: "public", table: DB_TABLES.orders, filter: `restaurant_id=eq.${restaurantId}` },
         (payload) => {
           const updated = payload.new as DbOrder;
           if (updated.status === "completed" || updated.status === "cancelled") {
@@ -538,7 +545,7 @@ export default function HallPage() {
       )
       .on("postgres_changes", { event: "DELETE", schema: "public", table: DB_TABLES.orders }, () => load())
       .on("postgres_changes", { event: "*",      schema: "public", table: DB_TABLES.restaurantTables }, () => load())
-      .on("postgres_changes", { event: "*",      schema: "public", table: "refund_requests", filter: `restaurant_id=eq.${RESTAURANT_ID}` }, (payload) => {
+      .on("postgres_changes", { event: "*",      schema: "public", table: "refund_requests", filter: `restaurant_id=eq.${restaurantId}` }, (payload) => {
         void loadRequests();
         if ((payload as { eventType?: string }).eventType === "INSERT") {
           toast("Запрос гостя на возврат", { icon: "⚠️", duration: 5000 });
@@ -564,7 +571,7 @@ export default function HallPage() {
     const { data } = await supabase
       .from("orders")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("order_type", "preorder")
       .neq("status", "completed")
       .neq("status", "cancelled")
@@ -588,7 +595,7 @@ export default function HallPage() {
       .channel(`hall-preorders-${calYear}-${calMonth}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${RESTAURANT_ID}` },
+        { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurantId}` },
         (payload) => {
           const rec = (payload.new ?? payload.old) as DbOrder;
           if (rec.order_type !== "preorder") return;
@@ -617,7 +624,7 @@ export default function HallPage() {
   // Fetch restaurant once on mount (needed for working_hours / opening time)
   useEffect(() => {
     if (!isConfigured) return;
-    supabase.from(DB_TABLES.restaurants).select("*").eq("id", RESTAURANT_ID).single()
+    supabase.from(DB_TABLES.restaurants).select("*").eq("id", restaurantId).single()
       .then(({ data }) => { if (data) setRestaurant(data as DbRestaurant); });
   }, []);
 
@@ -722,7 +729,7 @@ export default function HallPage() {
       .from(DB_TABLES.restaurantTables)
       .delete()
       .eq("id", tws.table.id)
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .select("id");
     if (error) {
       console.error("[deleteTable] error:", error);
@@ -1385,6 +1392,7 @@ function RotationTab({
   tablesWithStatus: TableWithStatus[];
   onRefresh: () => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const waiters = activeWaiters.length > 0 ? activeWaiters : allStaffUsers;
   const [selectedId, setSelectedId] = useState<string | null>(() => waiters[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
@@ -1400,7 +1408,7 @@ function RotationTab({
       .from(DB_TABLES.restaurantTables)
       .update({ assigned_waiter_id: isOwned ? null : selectedId })
       .eq("id", table.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     setSaving(false);
     if (error) { toast.error("Ошибка: " + error.message); return; }
     onRefresh();
@@ -1412,7 +1420,7 @@ function RotationTab({
     const { error } = await supabase
       .from(DB_TABLES.restaurantTables)
       .update({ assigned_waiter_id: null })
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .eq("assigned_waiter_id", waiterId);
     setSaving(false);
     if (error) { toast.error("Ошибка: " + error.message); return; }
@@ -2149,6 +2157,7 @@ function AssignTableWaiterModal({
   onDone: () => void;
   onClose: () => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [saving, setSaving] = useState(false);
 
   async function assign(waiterId: string | null) {
@@ -2157,7 +2166,7 @@ function AssignTableWaiterModal({
       .from(DB_TABLES.restaurantTables)
       .update({ assigned_waiter_id: waiterId })
       .eq("id", table.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     setSaving(false);
     if (error) { toast.error("Ошибка: " + error.message); return; }
     toast.success(waiterId ? "Официант привязан к столу" : "Привязка снята");
@@ -2524,6 +2533,7 @@ function OrderSlotPanel({
   restaurantName?: string;
   pendingRequests?: RefundRequest[];
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const role_      = useRole();
   const isWaiter   = role_ === "waiter";
   const isChef     = role_ === "chef";
@@ -2628,7 +2638,7 @@ function OrderSlotPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          restaurantId: RESTAURANT_ID,
+          restaurantId: restaurantId,
           address: order.delivery_address ?? "",
           orderId: order.id,
         }),
@@ -2699,7 +2709,7 @@ function OrderSlotPanel({
       .from(DB_TABLES.orders)
       .update({ items_json: updated })
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .select("id");
     setSavingNote(false);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
@@ -2731,12 +2741,12 @@ function OrderSlotPanel({
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
     const newBonuses = await calcSplitBonuses(updated as SplitLine[]);
     if (updated.length === 0) {
-      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: [], total_price: 0, earned_bonuses: null, status: "completed", closed_at: new Date().toISOString() }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: [], total_price: 0, earned_bonuses: null, status: "completed", closed_at: new Date().toISOString() }).eq("id", order.id).eq("restaurant_id", restaurantId);
       if (error) { toast.error(`Ошибка: ${error.message}`); return; }
       toast.success("Все блюда удалены — заказ закрыт");
       onOrderClosed(order.id);
     } else {
-      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal, earned_bonuses: newBonuses > 0 ? newBonuses : null }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal, earned_bonuses: newBonuses > 0 ? newBonuses : null }).eq("id", order.id).eq("restaurant_id", restaurantId);
       if (error) { toast.error(`Ошибка: ${error.message}`); return; }
       toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
     }
@@ -2751,7 +2761,7 @@ function OrderSlotPanel({
       .from(DB_TABLES.orders)
       .update({ opened_by: newWaiterId })
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     setReassigning(false);
     if (error) { toast.error("Ошибка при переназначении"); return; }
     toast.success("Официант переназначен");
@@ -2859,7 +2869,7 @@ function OrderSlotPanel({
               )}
               {!isChef && !isWaiter && (
               <button
-                onClick={() => handleKitchenPrint(order, { tableLabel: typeLabel, restaurantId: RESTAURANT_ID })}
+                onClick={() => handleKitchenPrint(order, { tableLabel: typeLabel, restaurantId: restaurantId })}
                 className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 title="Кухонный бегунок"
               >
@@ -3294,7 +3304,7 @@ function OrderSlotPanel({
       {!isWaiter && showRefundModal && (
         <RefundModal
           order={order}
-          restaurantId={RESTAURANT_ID}
+          restaurantId={restaurantId}
           onClose={() => setShowRefundModal(false)}
           onDone={() => { setShowRefundModal(false); onRefresh(); onClose(); }}
         />
@@ -3493,6 +3503,7 @@ function PaymentModal({
   onDone: () => void;
   onClose: () => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [mixed, setMixed]               = useState(false);
   const [singleMethod, setSingleMethod] = useState<PaymentMethodId | null>(null);
   const [amounts, setAmounts]           = useState<AmountsMap>(EMPTY_AMOUNTS);
@@ -3547,7 +3558,7 @@ function PaymentModal({
       .from(DB_TABLES.orders)
       .update(updatePayload)
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .select("id");
     setSaving(false);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
@@ -3558,7 +3569,7 @@ function PaymentModal({
     fetch("/api/orders/accrue-bonuses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: order.id, restaurantId: RESTAURANT_ID }),
+      body: JSON.stringify({ orderId: order.id, restaurantId: restaurantId }),
     }).then(async (r) => {
       if (!r.ok) {
         const d = await r.json().catch(() => ({})) as { error?: string; detail?: string };
@@ -4040,6 +4051,7 @@ function SplitBillModal({
   onRefresh: () => void;
   onOrderClosed: (orderId: string) => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const rawItems = Array.isArray(order.items_json) ? order.items_json as OrderItem[] : [];
   const initialItems: SplitLine[] = rawItems.map(it => ({
     name: it.name, price: it.price, qty: it.qty, currency: it.currency,
@@ -4092,7 +4104,7 @@ function SplitBillModal({
       const guestBonuses = await calcSplitBonuses(guest.items);
 
       const { error: insertErr } = await supabase.from(DB_TABLES.orders).insert({
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         table_number:  subTable,
         type:          order.type || "dine-in",
         order_type:    order.order_type,
@@ -4117,11 +4129,11 @@ function SplitBillModal({
       const mainBonuses = await calcSplitBonuses(mainItems);
       await supabase.from(DB_TABLES.orders)
         .update({ items_json: mainItems, total_price: mainTotal, earned_bonuses: mainBonuses > 0 ? mainBonuses : null })
-        .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+        .eq("id", order.id).eq("restaurant_id", restaurantId);
     } else {
       await supabase.from(DB_TABLES.orders)
         .update({ status: "completed", items_json: [], total_price: 0, earned_bonuses: null, closed_at: new Date().toISOString() })
-        .eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+        .eq("id", order.id).eq("restaurant_id", restaurantId);
       onOrderClosed(order.id);
     }
 
@@ -4328,6 +4340,7 @@ function TablePanel({
   onEnterOrderMode?: () => void;
   onExitOrderMode?: () => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const role        = useRole();
   const isWaiter    = role === "waiter";
   const isChef      = role === "chef";
@@ -4431,7 +4444,7 @@ function TablePanel({
       .from(DB_TABLES.orders)
       .update({ table_number: targetLabel })
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     if (error) { toast.error(`Ошибка переноса: ${error.message}`); return; }
     toast.success(`Заказ перенесён: стол ${table.label} → стол ${targetLabel}`);
     setChangingTable(false);
@@ -4454,7 +4467,7 @@ function TablePanel({
       .from(DB_TABLES.orders)
       .update({ items_json: updated })
       .eq("id", activeOrder.id)
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .select("id");
     setSavingNote(false);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
@@ -4487,12 +4500,12 @@ function TablePanel({
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
     const newBonuses = await calcSplitBonuses(updated as SplitLine[]);
     if (updated.length === 0) {
-      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: [], total_price: 0, earned_bonuses: null, status: "completed", closed_at: new Date().toISOString() }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: [], total_price: 0, earned_bonuses: null, status: "completed", closed_at: new Date().toISOString() }).eq("id", activeOrder.id).eq("restaurant_id", restaurantId);
       if (error) { toast.error(`Ошибка: ${error.message}`); return; }
       toast.success("Все блюда удалены — заказ закрыт");
       onOrderClosed(activeOrder.id);
     } else {
-      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal, earned_bonuses: newBonuses > 0 ? newBonuses : null }).eq("id", activeOrder.id).eq("restaurant_id", RESTAURANT_ID);
+      const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal, earned_bonuses: newBonuses > 0 ? newBonuses : null }).eq("id", activeOrder.id).eq("restaurant_id", restaurantId);
       if (error) { toast.error(`Ошибка: ${error.message}`); return; }
       toast.success(`Удалено: ${capFirst(item.name)}${qty > 1 ? ` ×${qty}` : ""}`);
     }
@@ -4508,7 +4521,7 @@ function TablePanel({
       .from(DB_TABLES.orders)
       .update({ opened_by: newWaiterId })
       .eq("id", activeOrder.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     setReassigning(false);
     if (error) { toast.error("Ошибка при переназначении"); return; }
     toast.success("Официант переназначен");
@@ -4522,14 +4535,14 @@ function TablePanel({
       .from(DB_TABLES.restaurantTables)
       .update({ assigned_waiter_id: userId })
       .eq("id", table.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     if (error) { toast.error("Ошибка при захвате стола"); setClaiming(false); return; }
     if (activeOrder && userId) {
       await supabase
         .from(DB_TABLES.orders)
         .update({ opened_by: userId })
         .eq("id", activeOrder.id)
-        .eq("restaurant_id", RESTAURANT_ID);
+        .eq("restaurant_id", restaurantId);
     }
     toast.success("Стол теперь ваш");
     setClaiming(false);
@@ -4741,7 +4754,7 @@ function TablePanel({
                 )}
                 {!isChef && !isWaiter && (
                 <button
-                  onClick={() => handleKitchenPrint(activeOrder, { tableLabel: `Стол ${table.label}`, restaurantId: RESTAURANT_ID })}
+                  onClick={() => handleKitchenPrint(activeOrder, { tableLabel: `Стол ${table.label}`, restaurantId: restaurantId })}
                   className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border hover:bg-accent text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                   title="Кухонный бегунок"
                 >
@@ -5181,7 +5194,7 @@ function TablePanel({
       {!isWaiter && showRefundModal && order && (
         <RefundModal
           order={order}
-          restaurantId={RESTAURANT_ID}
+          restaurantId={restaurantId}
           onClose={() => setShowRefundModal(false)}
           onDone={() => { setShowRefundModal(false); onRefresh(); }}
         />
@@ -5283,6 +5296,7 @@ function PosMenuBrowser({
   confirmLabel: string;
   onConfirm: (items: OrderItem[]) => Promise<void>;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [categories, setCategories]      = useState<DbCategory[]>([]);
   const [products, setProducts]          = useState<DbProduct[]>([]);
   const [dbModifiers, setDbModifiers]    = useState<DbModifier[]>([]);
@@ -5310,9 +5324,9 @@ function PosMenuBrowser({
   useEffect(() => {
     async function fetchCatalog() {
       const [catsRes, prodsRes, modsRes] = await Promise.all([
-        supabase.from(DB_TABLES.categories).select("*").eq("restaurant_id", RESTAURANT_ID).order("order_index"),
-        supabase.from(DB_TABLES.products).select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_archived", false).order("order_index"),
-        supabase.from("modifiers").select("*").eq("restaurant_id", RESTAURANT_ID).eq("is_active", true).order("order_index"),
+        supabase.from(DB_TABLES.categories).select("*").eq("restaurant_id", restaurantId).order("order_index"),
+        supabase.from(DB_TABLES.products).select("*").eq("restaurant_id", restaurantId).eq("is_archived", false).order("order_index"),
+        supabase.from("modifiers").select("*").eq("restaurant_id", restaurantId).eq("is_active", true).order("order_index"),
       ]);
       setCategories((catsRes.data as DbCategory[]) ?? []);
       setProducts((prodsRes.data as DbProduct[]) ?? []);
@@ -5979,6 +5993,7 @@ function OrderPanel({
   onBack: () => void;
   onDone: () => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [customerName, setCustomerName] = useState("");
   const currentUserId = useUserId();
 
@@ -6005,7 +6020,7 @@ function OrderPanel({
       ? (tableLabel ?? table?.label ?? null)
       : (customerName.trim() || null);
     const { error } = await supabase.from(DB_TABLES.orders).insert({
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       status: "pending",
       type: orderType,
       table_number: tableNumber,
@@ -6021,7 +6036,7 @@ function OrderPanel({
         .from(DB_TABLES.restaurantTables)
         .update({ assigned_waiter_id: currentUserId })
         .eq("id", table.id)
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("restaurant_id", restaurantId)
         .is("assigned_waiter_id", null);
     }
     const dest =
@@ -6363,6 +6378,7 @@ function TableFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [label, setLabel]   = useState(table?.label ?? "");
   const [seats, setSeats]   = useState(String(table?.seats ?? 4));
   const [saving, setSaving] = useState(false);
@@ -6380,11 +6396,11 @@ function TableFormModal({
           .from(DB_TABLES.restaurantTables)
           .update({ label: label.trim(), seats: Number(seats) || 4 })
           .eq("id", table.id)
-          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("restaurant_id", restaurantId)
           .select("id")
       : await supabase
           .from(DB_TABLES.restaurantTables)
-          .insert({ restaurant_id: RESTAURANT_ID, label: label.trim(), seats: Number(seats) || 4 })
+          .insert({ restaurant_id: restaurantId, label: label.trim(), seats: Number(seats) || 4 })
           .select("id");
     setSaving(false);
     if (error) {
@@ -6657,6 +6673,7 @@ function PreorderDayCard({
   order: DbOrder;
   isActiveToday?: boolean;
 }) {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [expanded, setExpanded]               = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [showMenuPicker, setShowMenuPicker]   = useState(false);
@@ -6698,7 +6715,7 @@ function PreorderDayCard({
       .from(DB_TABLES.orders)
       .update({ status: "cancelled" })
       .eq("id", order.id)
-      .eq("restaurant_id", RESTAURANT_ID);
+      .eq("restaurant_id", restaurantId);
     setCancelling(false);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
     toast.success("Предзаказ отменён");
@@ -6713,7 +6730,7 @@ function PreorderDayCard({
       ? items.map((it, i) => i === idx ? { ...it, qty: it.qty - 1 } : it)
       : items.filter((_, i) => i !== idx);
     const newTotal = updated.reduce((s, it) => s + it.price * it.qty, 0);
-    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", RESTAURANT_ID);
+    const { error } = await supabase.from(DB_TABLES.orders).update({ items_json: updated, total_price: newTotal }).eq("id", order.id).eq("restaurant_id", restaurantId);
     setRemovingIdx(null);
     if (error) { toast.error(`Ошибка: ${error.message}`); return; }
   }

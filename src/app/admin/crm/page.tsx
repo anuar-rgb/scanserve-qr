@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useIsOwner, useIsStrictOwner } from "@/lib/role-context";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +43,7 @@ function fmtDate(iso: string) {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function CrmPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const isOwner = useIsOwner();
   const isStrictOwner = useIsStrictOwner();
 
@@ -77,7 +78,7 @@ export default function CrmPage() {
       next.set(phone, { guestId: null, bonusAmount: null, loading: true, editing: false, editValue: "", saving: false });
       return next;
     });
-    const res = await fetch(`/api/crm/guest-bonus?phone=${encodeURIComponent(phone)}&restaurantId=${RESTAURANT_ID}`);
+    const res = await fetch(`/api/crm/guest-bonus?phone=${encodeURIComponent(phone)}&restaurantId=${restaurantId}`);
     if (res.ok) {
       const json = await res.json() as { guestId: string | null; bonusAmount: number | null };
       setBonusMap((m) => {
@@ -106,7 +107,7 @@ export default function CrmPage() {
     const res = await fetch("/api/crm/guest-bonus", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guestId: entry.guestId, restaurantId: RESTAURANT_ID, newAmount }),
+      body: JSON.stringify({ guestId: entry.guestId, restaurantId: restaurantId, newAmount }),
     });
     if (res.ok) {
       setBonusMap((m) => { const next = new Map(m); next.set(phone, { ...entry, bonusAmount: newAmount, editValue: String(newAmount), editing: false, saving: false }); return next; });

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useTranslations } from "@/lib/i18n";
 import type { DbPaymentBank } from "@/lib/db-types";
-import { RESTAURANT_ID } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ const EMPTY_FORM: BankForm = {
 };
 
 export default function PaymentBanksPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
 
   const [banks, setBanks]         = useState<DbPaymentBank[]>([]);
@@ -48,7 +49,7 @@ export default function PaymentBanksPage() {
     const { data } = await supabase
       .from("payment_banks")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("order_index");
     if (data) setBanks(data as DbPaymentBank[]);
     setLoading(false);
@@ -88,7 +89,7 @@ export default function PaymentBanksPage() {
     setSaving(true);
     try {
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         bank_name: form.bank_name.trim(),
         phone: form.phone.trim(),
         recipient_name: form.recipient_name.trim() || null,

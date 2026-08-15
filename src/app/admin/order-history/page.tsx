@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbOrder } from "@/lib/db-types";
-import { RESTAURANT_ID, DB_TABLES } from "@/constants";
+import { DB_TABLES } from "@/constants";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 import { capFirst } from "@/lib/utils";
 
 type HistoryFilter = "all" | "dine-in" | "takeaway" | "delivery" | "preorder";
@@ -25,6 +26,7 @@ const FILTER_TABS: Array<{ id: HistoryFilter; label: string; icon: React.Element
 ];
 
 export default function OrderHistoryPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [orders, setOrders]     = useState<DbOrder[]>([]);
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState<HistoryFilter>("all");
@@ -37,7 +39,7 @@ export default function OrderHistoryPage() {
     const { data } = await supabase
       .from(DB_TABLES.orders)
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .in("status", ["completed", "cancelled"])
       .gte("created_at", todayStart.toISOString())
       .order("created_at", { ascending: false });

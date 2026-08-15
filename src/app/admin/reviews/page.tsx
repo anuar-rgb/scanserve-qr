@@ -5,8 +5,7 @@ import { Star } from "lucide-react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbReview } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
-
-const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 function StarRow({ rating }: { rating: number }) {
   return (
@@ -23,6 +22,7 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 export default function ReviewsPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const { t } = useTranslations();
   const [reviews, setReviews] = useState<DbReview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,7 @@ export default function ReviewsPage() {
     supabase
       .from("reviews")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
       .then(({ data, error }: { data: DbReview[] | null; error: unknown }) => {
         if (!error && data) setReviews(data);
