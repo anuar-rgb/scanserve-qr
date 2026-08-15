@@ -28,11 +28,20 @@ const BranchContext = createContext<BranchCtx>({
 
 const STORAGE_KEY = "scanserve_branch";
 
+function readCookieRestaurantId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)admin_restaurant_id=([^;]*)/);
+    return m?.[1] ? decodeURIComponent(m[1]) : null;
+  } catch { return null; }
+}
+
 export function BranchProvider({ children }: { children: ReactNode }) {
   const role = useRole();
   const primaryRestaurantId = useRestaurantId();
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedId, setSelectedIdState] = useState<string | "all">("");
+  // Initialize selectedId from cookie immediately (same source as old RESTAURANT_ID constant)
+  const [selectedId, setSelectedIdState] = useState<string | "all">(() => readCookieRestaurantId() ?? "");
 
   useEffect(() => {
     if (role !== "owner" || !primaryRestaurantId) return;
