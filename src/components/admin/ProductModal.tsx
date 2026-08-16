@@ -306,8 +306,6 @@ export default function ProductModal({ mode, product, categories, defaultCategor
   const [isPopular, setIsPopular] = useState(product?.is_popular ?? false);
   const [isSpicy, setIsSpicy]     = useState(product?.is_spicy ?? false);
   const [isAvail, setIsAvail]     = useState(product?.is_available ?? true);
-  const [isPromo, setIsPromo]     = useState(product?.is_promo ?? false);
-  const [discountPct, setDiscountPct] = useState(product?.is_promo ? (product?.discount_label ?? "") : "");
   const [allergens, setAllergens] = useState<string[]>(product?.allergens ?? []);
   const [bonusPercent, setBonusPercent] = useState(product?.bonus_percent != null ? String(product.bonus_percent) : "");
 
@@ -432,8 +430,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
         is_popular: isPopular,
         is_spicy: isSpicy,
         is_available: isAvail,
-        is_promo: isPromo,
-        discount_label: isPromo && discountPct.trim() ? discountPct.trim() : null,
+        is_promo: product?.is_promo ?? false,
+        discount_label: product?.discount_label ?? null,
         is_archived: product?.is_archived ?? false,
         order_index: product?.order_index ?? 9999,
         allergens,
@@ -859,39 +857,6 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                 </button>
               </div>
 
-              {/* Promo / discount */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Акция</p>
-                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                      Зачёркнутая цена и бейдж скидки на карточке
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsPromo(!isPromo)}
-                    className={`w-11 h-6 rounded-full flex items-center px-0.5 transition-all duration-200 ${
-                      isPromo ? "bg-red-500 justify-end" : "bg-zinc-300 dark:bg-zinc-600 justify-start"
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
-                  </button>
-                </div>
-                {isPromo && (
-                  <Field label="Процент скидки (%)">
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={discountPct}
-                      onChange={(e) => setDiscountPct(e.target.value)}
-                      placeholder="15"
-                      className={inputCls}
-                    />
-                  </Field>
-                )}
-              </div>
 
             </div>
 
@@ -911,8 +876,8 @@ export default function ProductModal({ mode, product, categories, defaultCategor
                   isNew={isNew}
                   isPopular={isPopular}
                   isSpicy={isSpicy}
-                  isPromo={isPromo}
-                  discountPct={discountPct}
+                  isPromo={product?.is_promo ?? false}
+                  discountPct={product?.discount_label ?? ""}
                 />
               </PhoneMockup>
               <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">

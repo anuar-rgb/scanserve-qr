@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Edit2, Loader2, X, Check, Copy, Tag, Clock, Star } from "lucide-react";
+import { Plus, Trash2, Edit2, Loader2, X, Check, Copy, Tag, Clock, Star, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useBranchRestaurantId } from "@/lib/branch-context";
@@ -17,10 +17,10 @@ function toLocalInput(iso: string): string {
 const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
 export default function PromotionsPage() {
-  const [tab, setTab] = useState<"promo" | "happy" | "bonus">("promo");
+  const [tab, setTab] = useState<"promo" | "happy" | "bonus" | "akcia">("promo");
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 border-b border-border flex-wrap">
         <button
           onClick={() => setTab("promo")}
           className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === "promo" ? "border-violet-600 text-violet-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
@@ -42,8 +42,15 @@ export default function PromotionsPage() {
           <Star size={14} className="inline mr-1.5 -mt-0.5" />
           Бонусы
         </button>
+        <button
+          onClick={() => setTab("akcia")}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === "akcia" ? "border-violet-600 text-violet-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          <Percent size={14} className="inline mr-1.5 -mt-0.5" />
+          Акции
+        </button>
       </div>
-      {tab === "promo" ? <PromoCodesTab /> : tab === "happy" ? <HappyHoursTab /> : <BonusTab />}
+      {tab === "promo" ? <PromoCodesTab /> : tab === "happy" ? <HappyHoursTab /> : tab === "bonus" ? <BonusTab /> : <PromoProductsTab />}
     </div>
   );
 }
@@ -637,6 +644,163 @@ function BonusTab() {
                       <p className="text-[11px] text-muted-foreground leading-none">+{amt.toLocaleString()} ₸</p>
                       <p className="text-sm font-semibold leading-tight">{p.price.toLocaleString()} ₸</p>
                     </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Promo Products Tab ───────────────────────────────────────────────────────
+
+type PromoProduct = { id: string; name: LS; price: number; is_promo: boolean; discount_label: string | null };
+
+function PromoProductsTab() {
+  const restaurantId = useBranchRestaurantId() ?? "";
+  const [products, setProducts] = useState<PromoProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPct, setEditPct] = useState("");
+
+  const load = useCallback(async () => {
+    if (!isConfigured) return;
+    const { data } = await supabase
+      .from("products")
+      .select("id, name, price, is_promo, discount_label")
+      .eq("restaurant_id", restaurantId)
+      .eq("is_archived", false)
+      .order("name->ru");
+    setProducts((data as PromoProduct[]) ?? []);
+    setLoading(false);
+  }, [restaurantId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function togglePromo(p: PromoProduct) {
+    const next = !p.is_promo;
+    setSaving(p.id);
+    await supabase.from("products").update({ is_promo: next, discount_label: next ? (p.discount_label ?? null) : null }).eq("id", p.id);
+    setSaving(null);
+    load();
+  }
+
+  async function saveLabel(id: string) {
+    setSaving(id);
+    await supabase.from("products").update({ discount_label: editPct.trim() || null }).eq("id", id);
+    setSaving(null);
+    setEditingId(null);
+    load();
+  }
+
+  const promoCount = products.filter(p => p.is_promo).length;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold">Акционные блюда</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Зачёркнутая цена и бейдж скидки на карточке блюда
+        </p>
+      </div>
+
+      <div className="rounded-xl border bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Percent size={15} className="text-red-500" />
+          <div>
+            <h2 className="text-sm font-semibold">Все блюда</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {promoCount > 0 ? `${promoCount} блюд на акции` : "Нет акционных блюд"}
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="animate-spin text-muted-foreground" size={20} />
+          </div>
+        ) : products.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Нет блюд в каталоге</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {products.map(p => {
+              const pname = p.name?.ru ?? p.name?.en ?? "—";
+              const pct = parseInt(p.discount_label ?? "", 10);
+              const discounted = p.is_promo && !isNaN(pct) && pct > 0
+                ? Math.round(p.price * (1 - pct / 100))
+                : null;
+              return (
+                <div key={p.id} className="flex items-center gap-3 py-3">
+                  <button
+                    type="button"
+                    onClick={() => togglePromo(p)}
+                    disabled={saving === p.id}
+                    className={`w-10 h-5 rounded-full flex items-center px-0.5 transition-all duration-200 shrink-0 ${
+                      p.is_promo ? "bg-red-500 justify-end" : "bg-zinc-300 dark:bg-zinc-600 justify-start"
+                    } disabled:opacity-40`}
+                  >
+                    {saving === p.id
+                      ? <Loader2 size={12} className="animate-spin text-white mx-auto" />
+                      : <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                    }
+                  </button>
+
+                  <span className="text-sm flex-1 truncate">{pname}</span>
+
+                  {p.is_promo && (
+                    editingId === p.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={editPct}
+                          onChange={e => setEditPct(e.target.value)}
+                          placeholder="15"
+                          autoFocus
+                          className="w-16 px-2 py-1 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                        <button
+                          onClick={() => saveLabel(p.id)}
+                          disabled={saving === p.id}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setEditingId(p.id); setEditPct(p.discount_label ?? ""); }}
+                        className="flex items-center gap-1.5 shrink-0 group"
+                      >
+                        <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full group-hover:bg-red-500/20 transition-colors">
+                          {p.discount_label ? `−${p.discount_label}%` : "Скидка не указана"}
+                        </span>
+                        {discounted !== null && (
+                          <span className="text-[11px] text-muted-foreground">
+                            {discounted.toLocaleString()} ₸
+                          </span>
+                        )}
+                        <Edit2 size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                    )
+                  )}
+
+                  <div className="text-right shrink-0 ml-auto">
+                    <p className={`text-sm font-semibold leading-tight ${p.is_promo ? "line-through text-muted-foreground" : ""}`}>
+                      {p.price.toLocaleString()} ₸
+                    </p>
                   </div>
                 </div>
               );
