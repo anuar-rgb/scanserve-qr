@@ -666,6 +666,7 @@ function PromoProductsTab() {
   const [saving, setSaving] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPct, setEditPct] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
@@ -698,6 +699,14 @@ function PromoProductsTab() {
   }
 
   const promoCount = products.filter(p => p.is_promo).length;
+  const filteredProducts = search.trim()
+    ? products.filter(p => {
+        const q = search.toLowerCase();
+        return (p.name?.ru ?? "").toLowerCase().includes(q) ||
+               (p.name?.en ?? "").toLowerCase().includes(q) ||
+               (p.name?.kz ?? "").toLowerCase().includes(q);
+      })
+    : products;
 
   return (
     <div className="space-y-6">
@@ -709,7 +718,7 @@ function PromoProductsTab() {
       </div>
 
       <div className="rounded-xl border bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-3">
           <Percent size={15} className="text-red-500" />
           <div>
             <h2 className="text-sm font-semibold">Все блюда</h2>
@@ -718,6 +727,13 @@ function PromoProductsTab() {
             </p>
           </div>
         </div>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Поиск блюд..."
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+        />
 
         {loading ? (
           <div className="flex justify-center py-8">
@@ -725,9 +741,11 @@ function PromoProductsTab() {
           </div>
         ) : products.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">Нет блюд в каталоге</p>
+        ) : filteredProducts.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Ничего не найдено</p>
         ) : (
           <div className="divide-y divide-border">
-            {products.map(p => {
+            {filteredProducts.map(p => {
               const pname = p.name?.ru ?? p.name?.en ?? "—";
               const pct = parseInt(p.discount_label ?? "", 10);
               const discounted = p.is_promo && !isNaN(pct) && pct > 0
