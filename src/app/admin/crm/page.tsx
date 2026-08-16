@@ -127,8 +127,9 @@ export default function CrmPage() {
   }
 
   const load = useCallback(async () => {
+    if (!restaurantId) return;
     setLoading(true);
-    const res = await fetch("/api/crm/clients?limit=200");
+    const res = await fetch(`/api/crm/clients?limit=200&restaurantId=${encodeURIComponent(restaurantId)}`);
     if (res.ok) {
       const json = await res.json();
       setClients(json.clients ?? []);
@@ -158,7 +159,7 @@ export default function CrmPage() {
     const res = await fetch("/api/crm/send-push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title.trim(), body: body.trim() }),
+      body: JSON.stringify({ title: title.trim(), body: body.trim(), restaurantId }),
     });
     if (res.ok) {
       const json = await res.json();

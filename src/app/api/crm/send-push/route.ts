@@ -25,7 +25,11 @@ export async function POST(request: NextRequest) {
 
   const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey   = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const restaurantId = request.cookies.get("admin_restaurant_id")?.value ?? process.env.NEXT_PUBLIC_RESTAURANT_ID;
+  // Prefer body.restaurantId (branch-aware, sent explicitly by client) over cookie fallback
+  const restaurantId =
+    (body.restaurantId as string | undefined) ??
+    request.cookies.get("admin_restaurant_id")?.value ??
+    process.env.NEXT_PUBLIC_RESTAURANT_ID;
 
   if (!supabaseUrl || !serviceKey || !restaurantId) {
     return NextResponse.json({ error: "Server config error" }, { status: 500 });

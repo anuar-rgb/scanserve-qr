@@ -25,11 +25,13 @@ export async function GET(request: NextRequest) {
   const url    = new URL(request.url);
   const limit  = Math.min(Number(url.searchParams.get("limit") ?? 200), 500);
   const offset = Number(url.searchParams.get("offset") ?? 0);
+  // Prefer explicitly-passed restaurantId (branch-aware) over cookie
+  const rid = url.searchParams.get("restaurantId") ?? restaurantId;
 
   const { data: rows, error, count } = await supabase
     .from("crm_clients")
     .select("id,phone,name,push_subscription,created_at,last_visit,guest_id", { count: "exact" })
-    .eq("restaurant_id", restaurantId)
+    .eq("restaurant_id", rid)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
