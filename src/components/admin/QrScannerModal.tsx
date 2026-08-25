@@ -4,15 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { X, Camera, AlertCircle } from "lucide-react";
 
 interface Props {
+  expectedRestaurantId: string;
   title?: string;
   hint?: string;
   onScan: (token: string) => void;
   onClose?: () => void;
 }
 
-const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID!;
-
-export default function QrScannerModal({ title, hint, onScan, onClose }: Props) {
+export default function QrScannerModal({ expectedRestaurantId, title, hint, onScan, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -83,7 +82,7 @@ export default function QrScannerModal({ title, hint, onScan, onClose }: Props) 
     if (handledRef.current) return;
     try {
       const parsed = JSON.parse(raw) as { r?: string; t?: string; v?: string };
-      if (parsed.v !== "checkin" || parsed.r !== RESTAURANT_ID || !parsed.t) {
+      if (parsed.v !== "checkin" || parsed.r !== expectedRestaurantId || !parsed.t) {
         setError("Неверный QR-код заведения");
         return;
       }

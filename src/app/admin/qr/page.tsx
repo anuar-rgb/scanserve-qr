@@ -6,10 +6,10 @@ import { Download, RefreshCw, QrCode } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-
-const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID!;
+import { useBranchRestaurantId } from "@/lib/branch-context";
 
 export default function QrPage() {
+  const restaurantId = useBranchRestaurantId() ?? "";
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function QrPage() {
   }
 
   const qrData = token
-    ? JSON.stringify({ r: RESTAURANT_ID, t: token, v: "checkin" })
+    ? JSON.stringify({ r: restaurantId, t: token, v: "checkin" })
     : null;
 
   function handlePrint() {

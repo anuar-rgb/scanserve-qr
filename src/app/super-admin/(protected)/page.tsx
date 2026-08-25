@@ -731,8 +731,8 @@ export default function SuperAdminRestaurantsPage() {
                                 <label className="block text-xs text-zinc-500 mb-1">Тариф</label>
                                 <select value={infoEdit.plan_id} onChange={(e) => setInfoEdit({ ...infoEdit, plan_id: e.target.value })}
                                   className={INPUT_CLS}>
-                                  <option value="starter">Стартовый — 5 780 ₸</option>
-                                  <option value="standard">Стандарт — 15 780 ₸</option>
+                                  <option value="starter">Стартовый — 15 780 ₸</option>
+                                  <option value="standard">Стандарт — 30 780 ₸</option>
                                   <option value="annual">Годовой — 157 170 ₸/год</option>
                                 </select>
                               </div>

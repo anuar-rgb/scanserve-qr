@@ -785,7 +785,7 @@ function HowItWorks() {
 
 // ─── Calculator ───────────────────────────────────────────────────────────────
 
-const PLAN_COST = 15780;
+const PLAN_COST = 30780;
 const ERROR_RATE = 0.04;
 const ERROR_FIX  = 0.8;
 const FOOD_COST  = 0.35;
@@ -1119,11 +1119,11 @@ type Billing = "monthly" | "yearly";
 
 const PLANS = [
   {
-    name: "Стартер", monthly: 5780, audience: "Малым кафе и кофейням", popular: false, custom: null,
+    name: "Стартер", monthly: 15780, audience: "Малым кафе и кофейням", popular: false, custom: null,
     features: ["QR-меню без приложения", "Каталог меню с фото", "Базовый POS: столы и счёт", "Отчёт по выручке за день", "До 3 сотрудников"],
   },
   {
-    name: "Стандарт", monthly: 15780, audience: "Полноценному ресторану", popular: true, custom: null,
+    name: "Стандарт", monthly: 30780, audience: "Полноценному ресторану", popular: true, custom: null,
     features: ["Всё из тарифа «Стартер»", "POS: разделение счёта, чаевые", "Программа лояльности и push", "Аналитика и Z-отчёты", "База гостей (CRM)", "6 ролей персонала", "Склад и себестоимость"],
   },
   {
