@@ -419,8 +419,8 @@ export default function SettingsPage() {
                 </Card>
               );
             })()}
-            {/* Test data reset — owner / manager / supervisor */}
-            {isOwner && (
+            {/* Test data reset — only for Ас Төрі restaurant */}
+            {isOwner && restaurantId === "6bc6f9af-b494-4d23-ba53-32d4d47bb08d" && (
               <Card className="border-red-200 dark:border-red-900/40">
                 <CardHeader>
                   <div className="flex items-center gap-2">

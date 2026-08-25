@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { getSessionRole } from "@/lib/session";
 import { RESTAURANT_ID } from "@/constants";
 
+const AS_TORI_ID = "6bc6f9af-b494-4d23-ba53-32d4d47bb08d";
+
 function db() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,6 +22,13 @@ export async function POST(req: NextRequest) {
   const ALLOWED = new Set(["owner", "manager", "supervisor"]);
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!ALLOWED.has(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Только для ресторана Ас Төрі — для тестирования
+  const callerRid =
+    req.cookies.get("admin_restaurant_id")?.value ?? RESTAURANT_ID;
+  if (callerRid !== AS_TORI_ID) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const supabase = db();
   const rid = RESTAURANT_ID;
