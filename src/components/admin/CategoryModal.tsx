@@ -6,11 +6,10 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import type { DbCategory, LS } from "@/lib/db-types";
 import { useTranslations } from "@/lib/i18n";
 
-const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
-
 interface Props {
   mode: "create" | "edit";
   category?: DbCategory;
+  restaurantId: string;
   onClose: () => void;
   onSaved: (category: DbCategory) => void;
 }
@@ -33,7 +32,7 @@ async function uploadCategoryImage(file: File, prefix = ""): Promise<string> {
   return publicUrl;
 }
 
-export default function CategoryModal({ mode, category, onClose, onSaved }: Props) {
+export default function CategoryModal({ mode, category, restaurantId, onClose, onSaved }: Props) {
   const { t } = useTranslations();
   const fileInputRef              = useRef<HTMLInputElement>(null);
   const bgFileInputRef            = useRef<HTMLInputElement>(null);
@@ -98,7 +97,7 @@ export default function CategoryModal({ mode, category, onClose, onSaved }: Prop
     setError(null);
 
     const payload = {
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: restaurantId,
       name: { en: name.trim(), ru: name.trim(), kz: name.trim() } satisfies LS,
       icon: null,
       image_url: imageUrl.trim() || null,

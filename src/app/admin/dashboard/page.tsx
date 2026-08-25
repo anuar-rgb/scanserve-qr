@@ -456,6 +456,7 @@ export default function CatalogPage() {
           product={productModal.product}
           categories={categories}
           defaultCategoryId={selectedCatId ?? undefined}
+          restaurantId={restaurantId}
           onClose={() => setProductModal(null)}
           onSaved={onProductSaved}
         />
@@ -466,6 +467,7 @@ export default function CatalogPage() {
         <CategoryModal
           mode={categoryModal.mode}
           category={categoryModal.category}
+          restaurantId={restaurantId}
           onClose={() => setCategoryModal(null)}
           onSaved={onCategorySaved}
         />

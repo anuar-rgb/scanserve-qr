@@ -8,13 +8,12 @@ import { useTranslations } from "@/lib/i18n";
 import { useIsStrictOwner } from "@/lib/role-context";
 import { ImageCropModal } from "./ImageCropModal";
 
-const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? "";
-
 interface Props {
   mode: "create" | "edit";
   product?: DbProduct;
   categories: DbCategory[];
   defaultCategoryId?: string;
+  restaurantId: string;
   onClose: () => void;
   onSaved: (product: DbProduct) => void;
 }
@@ -289,7 +288,7 @@ function ProductCardPreview({
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-export default function ProductModal({ mode, product, categories, defaultCategoryId, onClose, onSaved }: Props) {
+export default function ProductModal({ mode, product, categories, defaultCategoryId, restaurantId, onClose, onSaved }: Props) {
   const { t } = useTranslations();
   const isStrictOwner = useIsStrictOwner();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -322,7 +321,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
     const { data: ingData } = await supabase
       .from("ingredients")
       .select("*")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("restaurant_id", restaurantId)
       .order("name");
     setDbIngredients((ingData ?? []) as DbIngredient[]);
 
@@ -414,7 +413,7 @@ export default function ProductModal({ mode, product, categories, defaultCategor
       }
 
       const payload = {
-        restaurant_id: RESTAURANT_ID,
+        restaurant_id: restaurantId,
         category_id: catId,
         name: { en: name.trim(), ru: name.trim(), kz: name.trim() },
         description: desc.trim()
