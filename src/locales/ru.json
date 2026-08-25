@@ -185,7 +185,7 @@
     "catalogTitle": "Каталог",
     "categories": "категорий",
     "available": "доступно",
-    "noCategories": "Нет категорий. Запустите скрипт в Supabase SQL Editor.",
+    "noCategories": "Нет категорий. Нажмите «+ Добавить категорию».",
     "noProducts": "Нет товаров в категории",
     "items": "товаров",
     "loadingCatalog": "Загрузка каталога…",

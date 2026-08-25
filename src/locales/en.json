@@ -185,7 +185,7 @@
     "catalogTitle": "Catalog",
     "categories": "categories",
     "available": "available",
-    "noCategories": "No categories. Run the seed script in Supabase SQL Editor.",
+    "noCategories": "No categories yet. Click «+ Add category».",
     "noProducts": "No products in this category",
     "items": "items",
     "loadingCatalog": "Loading catalog…",

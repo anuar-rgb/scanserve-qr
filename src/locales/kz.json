@@ -185,7 +185,7 @@
     "catalogTitle": "Catalog",
     "categories": "categories",
     "available": "available",
-    "noCategories": "No categories. Run the seed script in Supabase SQL Editor.",
+    "noCategories": "Категориялар жоқ. «+ Категория қосу» басыңыз.",
     "noProducts": "No products in this category",
     "items": "items",
     "loadingCatalog": "Loading catalog…",
