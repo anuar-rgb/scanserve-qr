@@ -39,7 +39,7 @@ export interface ProfileSheetProps {
 const DEMO_SESSION: GuestSession = {
   id: "demo-guest-id",
   name: "Мади Бекенов",
-  phone: "+7 (705) 555-77-88",
+  phone: "+7 (700) 000-00-00",
   email: "demo@scanserve.qr",
   bonusAmount: 340,
 };
