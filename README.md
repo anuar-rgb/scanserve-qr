@@ -1,150 +1,99 @@
-# ScanServe QR — Digital Restaurant Menu Platform
+# ScanServe.qr — Restaurant Platform for Kazakhstan
 
-A multi-tenant SaaS platform for QR-code restaurant menus. Restaurants get a
-branded, mobile-first digital menu that guests access by scanning a QR code —
-no app download required.
+Multi-tenant SaaS for restaurants: a guest scans the QR code on the table and orders from a branded mobile menu — no app to install. Behind the menu is a full back office: POS terminal with a live floor plan, staff shifts, CRM with push notifications, analytics, supplier invoices, network receipt printing and e-signatures.
 
-**Production:** https://scanserve-qr-production.up.railway.app  
-**Stack:** Next.js 16 · Supabase · Tailwind CSS v4 · TypeScript · Railway
+**Live demo menu (no sign-up):** https://scanserve-qr-production-2cff.up.railway.app/demo  
+**Landing page:** https://scanserve-qr-production-2cff.up.railway.app  
+**In production:** «Ас Төрі» restaurant — https://scanserve-qr-production-2cff.up.railway.app/as-tori
+
+<p>
+  <img src="docs/screenshots/ss-home.jpg" alt="Landing page" width="62%">
+  <img src="docs/screenshots/ss-demo-mobile.jpg" alt="Guest menu on a phone" width="30%">
+</p>
+
+**Stack:** Next.js 16 (App Router) · TypeScript · Supabase (PostgreSQL, Realtime, Storage) · Tailwind CSS v4 · shadcn/ui · Web Push · Railway
+
+**Scale:** ~53k lines of TypeScript · 45 pages · 76 API routes · 71 SQL migrations · 680+ commits · UI in Kazakh, Russian and English
 
 ---
 
-## Quick start
+## Features
+
+### Guest menu
+- Branded menu per restaurant (`/[tenantSlug]`), light/dark theme, KZ / RU / EN
+- Story-style hero slider, promo banners, chef's picks, popular dishes, likes
+- Cart with dine-in / takeaway / delivery, pre-orders by date and time, dish modifiers and per-item notes
+- Mixed payments, bank transfer details (Kaspi and others) with one-tap copy
+- PDF receipt with Cyrillic, WhatsApp order hand-off, partial and full refunds
+- Guest accounts with phone verification, order history, bonuses / cashback
+- Call-a-waiter button
+
+### Back office (`/admin`)
+- **POS terminal** — live floor plan, table panel, pre-orders, waiter view; updates instantly via Supabase Realtime
+- **Catalog & storefront** — dishes, categories, modifiers, stop-list / dish limits, banners, hero slider, recommendations, promotions
+- **Staff** — role-based access, shifts, QR check-in with signed tokens, attendance
+- **Analytics** — revenue, top dishes, order history, reviews; owner dashboard
+- **Finance** — supplier invoices, warehouse, refunds, billing
+- **CRM** — guest base, bonuses, Web Push campaigns (VAPID)
+- **Printing** — ESC/POS receipts to LAN thermal printers
+- **Documents** — e-signature on a phone via canvas, link-based access, signer IP recorded
+
+### Super-admin
+- Cross-restaurant view: restaurants, guest orders and transactions, advertising placements
+
+---
+
+## Architecture notes
+
+- **All mutations go through API routes.** The browser never writes to Supabase directly; the service-role key lives only on the server.
+- **Realtime** — `postgres_changes` subscriptions on `orders` and `restaurant_tables`, with polling fallback on the owner dashboard.
+- **Two styling systems on purpose** — the guest menu uses inline styles + CSS variables so each tenant can be themed at runtime; the admin uses Tailwind + shadcn/ui for speed.
+- **Mobile-first details** — `100dvh` for mobile browser chrome, pointer events for the signature canvas, scroll-snap sliders, no horizontal scroll anywhere.
+- **Performance** — heavy admin modules are code-split with `next/dynamic`; dashboards fetch in parallel; optimistic UI for closing tables and marking orders paid.
+
+```
+src/
+├── app/
+│   ├── [tenantSlug]/   Guest menu for any restaurant
+│   ├── demo/           Public interactive demo
+│   ├── admin/          Back office (one folder per module)
+│   ├── super-admin/    Cross-tenant management
+│   ├── shared/sign/    Mobile e-signature page
+│   └── api/            Route handlers: admin, guest, crm, orders, print, …
+├── components/         MenuTemplate (guest), admin/* (back office)
+├── lib/                Supabase clients, i18n, DB types
+├── locales/            en / ru / kz
+└── services/           Storage abstraction
+supabase/               SQL migrations (run in Supabase SQL Editor)
+docs/PROJECT_HISTORY.md Detailed module-by-module history (RU)
+```
+
+---
+
+## Running locally
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in Supabase credentials
-npm run dev                  # http://localhost:3000
+npm run dev          # http://localhost:3000
+npx tsc --noEmit     # type check — required before every commit
 ```
 
-### Required env vars
+Create `.env.local`:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_RESTAURANT_ID=
+NEXT_PUBLIC_APP_URL=
+QR_CHECKIN_SECRET=
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_EMAIL=
 ```
 
----
-
-## Architecture
-
-### Routing
-
-| Route | Description |
-|-------|-------------|
-| `/` | Marketing landing page |
-| `/as-tori` | Primary tenant menu (production) |
-| `/as-tori/qr` | Printable QR code page |
-| `/[tenantSlug]` | Generic multi-tenant menu |
-| `/admin` | Admin panel (protected) |
-| `/admin/storefront` | Flag products as promo / recommended / new |
-| `/admin/banners` | Manage promotional image banners |
-| `/admin/branding` | Logo + cover image upload |
-| `/admin/catalog` | Product & category CRUD |
-
-### Styling split (important)
-
-| Layer | System | Reason |
-|-------|--------|--------|
-| Admin panel | Tailwind CSS classes | Rapid development, dark mode via `dark:` |
-| Guest menu (`MenuTemplate` + sub-components) | Inline `style` objects | Runtime-themeable via CSS vars, zero Tailwind dependency |
-| Landing page | Tailwind + `globals.css` utility classes | — |
-
-### Key directories
-
-```
-src/
-├── app/                  Next.js App Router pages
-│   ├── admin/            Admin panel (each section = subfolder)
-│   └── [tenantSlug]/     Dynamic tenant menu
-├── components/
-│   ├── admin/            Admin-only UI components
-│   └── MenuTemplate.tsx  Guest menu (self-contained, inline styles only)
-├── constants/            Magic strings: bucket names, table names, IDs
-├── services/
-│   └── storage.ts        Supabase Storage upload abstraction
-├── lib/                  Supabase client, i18n, db-types
-├── locales/              en / ru / kz translation JSON
-└── data/
-    └── as-tori.ts        Static restaurant info for the primary tenant
-```
-
----
-
-## Database schema (Supabase)
-
-| Table | Purpose |
-|-------|---------|
-| `restaurants` | Tenant registry — `slug`, `name`, `logo`, `cover_url` |
-| `categories` | Menu categories per restaurant |
-| `products` | Menu items — `is_promo`, `is_recommended`, `is_new`, `is_archived` |
-| `banners` | Promotional image banners shown on the home screen |
-| `orders` | Guest orders (order history) |
-
-All tables have **RLS enabled**. Policies use `true` condition since the app
-runs under the anon key — scope every query by `restaurant_id` in application code.
-
-### Run migrations
-
-Before deploying new features, run the corresponding SQL in **Supabase → SQL Editor**:
-
-| File | What it does |
-|------|-------------|
-| `supabase/storefront-migration.sql` | Adds `is_promo`/`is_recommended` to products; creates `banners` table |
-| `supabase/storage-policies.sql` | Creates `branding`, `banners`, `menu-images` buckets with RLS |
-
----
-
-## Technical roadmap
-
-### Phase 1 — Core (complete)
-- [x] Multi-tenant QR menu with real-time DB data
-- [x] Admin panel: branding, catalog, banners, storefront flags
-- [x] i18n: EN / RU / KZ
-- [x] Dark mode
-- [x] Cart + WhatsApp order flow
-
-### Phase 2 — Ordering & Analytics
-- [ ] **Orders table UI** — admin sees incoming orders in real time (Supabase Realtime)
-- [ ] **Analytics dashboard** — real scan counts, top dishes, revenue from orders
-- [ ] **Table QR assignment** — each QR encodes a table number; orders arrive tagged
-- [ ] **Order status flow** — pending → preparing → ready → served
-
-### Phase 3 — Growth
-- [ ] **Auth overhaul** — move from cookie session to Supabase Auth (per-restaurant login)
-- [ ] **Onboarding wizard** — new tenant signup → slug → first menu in < 3 min
-- [ ] **Custom domain support** — CNAME per tenant via Railway wildcard
-- [ ] **Subscription billing** — Stripe integration for Pro/Enterprise tiers
-- [ ] **Waiter app** — lightweight PWA for staff to receive and update orders
-
-### Phase 4 — Platform
-- [ ] **Public API** — REST endpoints for POS integration
-- [ ] **Webhook system** — push order events to third-party systems
-- [ ] **White-label** — tenant-level brand overrides (font, radius, accent color)
-- [ ] **shadcn/ui migration** — replace hand-rolled admin components after `npx shadcn@latest init`
-
----
-
-## shadcn/ui
-
-Not yet installed. To initialize when ready:
-
-```bash
-npx shadcn@latest init
-# TypeScript · App Router · src/ dir · import alias @/*
-```
-
-After init, replace admin UI primitives (Button, Input, Dialog, Switch) with
-shadcn components. See Phase 4 roadmap above.
-
----
+Database: apply the SQL files from `supabase/` in the Supabase SQL Editor.
 
 ## Deployment
 
-Railway auto-deploys on every push to `master`.
-
-```bash
-npx tsc --noEmit        # must pass — never commit with TS errors
-git push origin master  # triggers Railway deploy
-```
+Railway builds and deploys every push to `master`.
